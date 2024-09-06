@@ -1,0 +1,7 @@
+[project]
+name = "pysqlite"
+version = "0.1.0"
+description = "Interact with SQLite databases using Python and Pydantic"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["pydantic>=2.9.0"]
