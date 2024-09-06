@@ -1,24 +1,51 @@
 import sqlite3
 from pydantic import BaseModel
 
-# Pydantic model for licenses
-class LicenseModel(BaseModel):
+# Custom Base Model for all database models
+class BaseDBModel(BaseModel):
+    """Custom base model for database models."""
+
+    model_config = {
+        "create_id": True,         # Default to creating an auto-increment id
+        "primary_key": "id",       # Default primary key
+        "table_name": None         # Default to None, will be set dynamically if not provided
+    }
+
+    @classmethod
+    def get_table_name(cls):
+        """Get the table name from the model's config or default to the class name."""
+        return cls.model_config.get("table_name", cls.__name__.lower())
+
+    @classmethod
+    def get_primary_key(cls):
+        """Get the primary key from the model's config or default to 'id'."""
+        return cls.model_config.get("primary_key", "id")
+
+    @classmethod
+    def should_create_id(cls):
+        """Check whether to create an auto-increment id."""
+        return cls.model_config.get("create_id", True)
+
+
+# License model inheriting from the custom base model
+class LicenseModel(BaseDBModel):
     slug: str
     name: str
     content: str
 
-    # Pydantic v2 uses 'model_config' instead of 'Config'
     model_config = {
-        "table_name": "licenses",  # Specify the table name here
-        "primary_key": "slug",     # Specify the primary key field if no id field is used
-        "create_id": True          # Whether to create an auto-increment id field
+        "table_name": "licenses",
+        "primary_key": "slug",     # Use 'slug' as primary key
+        "create_id": False         # No auto-increment id for this table
     }
 
+
+# QueryBuilder class for chained filtering and fetching
 class QueryBuilder:
     def __init__(self, db, model_class):
         self.db = db
         self.model_class = model_class
-        self.table_name = db._get_table_name(model_class)
+        self.table_name = model_class.get_table_name()  # Use model_class method
         self.filters = []
 
     def filter(self, **conditions):
@@ -73,7 +100,7 @@ class QueryBuilder:
 
     def fetch_last(self):
         """Fetch the last result of the query (based on the primary key)."""
-        primary_key = self.db._get_primary_key(self.model_class)
+        primary_key = self.model_class.get_primary_key()
         result = self._execute_query(limit=1, order_by=f"{primary_key} DESC")
         if not result:
             return None
@@ -99,6 +126,8 @@ class QueryBuilder:
         return self.count() > 0
 
 
+
+# LicenseDB class to manage database interactions
 class LicenseDB:
     def __init__(self, db_filename, auto_commit=False):
         self.db_filename = db_filename
@@ -111,28 +140,14 @@ class LicenseDB:
             self.conn = sqlite3.connect(self.db_filename)
         return self.conn
 
-    def _get_table_name(self, model_class):
-        """Get the table name from the model or default to class name."""
-        return model_class.model_config.get('table_name', model_class.__name__.lower())
-
-    def _get_primary_key(self, model_class):
-        """Get the primary key from the model's config or raise an error if not defined."""
-        return model_class.model_config.get('primary_key', 'id')  # Default to 'id' if not specified
-
-    def _should_create_id(self, model_class):
-        """Check if the table should include an auto-increment id field."""
-        return model_class.model_config.get('create_id', True)  # Default to True
-
     def create_table(self, model_class):
         """Create a table based on the Pydantic model."""
-        table_name = self._get_table_name(model_class)
-        primary_key = self._get_primary_key(model_class)
-        create_id = self._should_create_id(model_class)
+        table_name = model_class.get_table_name()
+        primary_key = model_class.get_primary_key()
+        create_id = model_class.should_create_id()
 
-        # Extract field names and types from the Pydantic model to create the SQL query
         fields = ", ".join(f"{field_name} TEXT" for field_name in model_class.__fields__.keys())
 
-        # Add auto-increment id field if needed
         if create_id:
             create_table_sql = f'''
                 CREATE TABLE IF NOT EXISTS {table_name} (
@@ -141,7 +156,6 @@ class LicenseDB:
                 )
             '''
         else:
-            # Use the specified primary key if create_id is False
             create_table_sql = f'''
                 CREATE TABLE IF NOT EXISTS {table_name} (
                     {fields},
@@ -162,22 +176,19 @@ class LicenseDB:
     def insert(self, model_instance):
         """Insert a new record into the table defined by the Pydantic model."""
         model_class = type(model_instance)
-        table_name = self._get_table_name(model_class)
-        create_id = self._should_create_id(model_class)
+        table_name = model_class.get_table_name()
+        create_id = model_class.should_create_id()
 
-        # Dynamically extract field names and values from the Pydantic model instance
         fields = ", ".join(model_class.__fields__.keys())
         placeholders = ", ".join(["?"] * len(model_class.__fields__))
         values = tuple(getattr(model_instance, field) for field in model_class.__fields__)
 
-        # If there's an auto-increment id, skip specifying the id field
         if create_id:
             insert_sql = f'''
                 INSERT OR REPLACE INTO {table_name} ({fields})
                 VALUES ({placeholders})
             '''
         else:
-            # Include the primary key explicitly if create_id is False
             insert_sql = f'''
                 INSERT OR REPLACE INTO {table_name} ({fields})
                 VALUES ({placeholders})
@@ -190,10 +201,9 @@ class LicenseDB:
 
     def get(self, model_class, primary_key_value):
         """Retrieve a record by its primary key and return a Pydantic model instance."""
-        table_name = self._get_table_name(model_class)
-        primary_key = self._get_primary_key(model_class)
+        table_name = model_class.get_table_name()
+        primary_key = model_class.get_primary_key()
 
-        # Select only the fields defined in the Pydantic model, excluding the auto-increment id
         fields = ", ".join(model_class.__fields__.keys())
 
         select_sql = f'''
@@ -206,19 +216,16 @@ class LicenseDB:
             result = cursor.fetchone()
 
         if result:
-            # Dynamically map the result to the Pydantic model fields
-            result_dict = {field: result[idx] for idx, field in enumerate(model_class.__fields__)}
+            result_dict = {field: result[idx] for idx, field in enumerate(model_class.__fields__.keys())}
             return model_class(**result_dict)
         return None
-
 
     def update(self, model_instance):
         """Update an existing record using the Pydantic model."""
         model_class = type(model_instance)
-        table_name = self._get_table_name(model_class)
-        primary_key = self._get_primary_key(model_class)
+        table_name = model_class.get_table_name()
+        primary_key = model_class.get_primary_key()
 
-        # Dynamically build the update SQL with the model fields
         fields = ", ".join(f"{field} = ?" for field in model_class.__fields__ if field != primary_key)
         values = tuple(getattr(model_instance, field) for field in model_class.__fields__ if field != primary_key)
         primary_key_value = getattr(model_instance, primary_key)
@@ -234,8 +241,8 @@ class LicenseDB:
 
     def delete(self, model_class, primary_key_value):
         """Delete a record by its primary key."""
-        table_name = self._get_table_name(model_class)
-        primary_key = self._get_primary_key(model_class)
+        table_name = model_class.get_table_name()
+        primary_key = model_class.get_primary_key()
 
         delete_sql = f'''
             DELETE FROM {table_name} WHERE {primary_key} = ?
@@ -247,30 +254,42 @@ class LicenseDB:
             self._maybe_commit(conn)
 
     def select(self, model_class):
-        """Select the model (table) for querying."""
+        """Start a query for the given model."""
         return QueryBuilder(self, model_class)
-
 
     # --- Context manager methods ---
     def __enter__(self):
         """Enter the runtime context for the 'with' statement."""
-        self._connect()  # Ensure the connection is opened
+        self._connect()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         """Exit the runtime context and close the connection."""
         if self.conn:
-            if not self.auto_commit:  # Commit only if auto_commit is off
+            if not self.auto_commit:
                 self.conn.commit()
             self.conn.close()
             self.conn = None
 
 
-# Example usage:
+# Example usage
 db = LicenseDB('lice.db', auto_commit=True)
 with db:
     db.create_table(LicenseModel)  # Create the licenses table
     license = LicenseModel(slug='mit', name='MIT License', content='This is the MIT license content.')
+    license2= LicenseModel(slug='gpl', name='GPL License', content='This is the GPL license content.')
     db.insert(license)
+    db.insert(license2)
+
+    # Example queries
+    licenses = db.select(LicenseModel).filter(name='MIT License').fetch_all()
+    print(licenses)
+
+    all_licenses = db.select(LicenseModel).fetch_all()
+    print(all_licenses)
+
     fetched_license = db.get(LicenseModel, 'mit')
     print(fetched_license)
+
+    count = db.select(LicenseModel).count()
+    print("Total licenses:", count)
