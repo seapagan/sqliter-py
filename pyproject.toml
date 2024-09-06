@@ -1,7 +1,64 @@
 [project]
-name = "pysqlite"
+name = "sqliter-py"
 version = "0.1.0"
 description = "Interact with SQLite databases using Python and Pydantic"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.9"
 dependencies = ["pydantic>=2.9.0"]
+
+[tool.uv]
+dev-dependencies = ["mypy>=1.11.2", "ruff>=0.6.4"]
+
+[tool.ruff]
+line-length = 80
+lint.select = ["ALL"] # we are being very strict!
+lint.ignore = [
+  "ANN101",
+  "ANN102",
+  "PGH003",
+  "FBT002",
+  "FBT003",
+  "B006",
+] # These rules are too strict even for us 😝
+lint.extend-ignore = [
+  "COM812",
+  "ISC001",
+] # these are ignored for ruff formatting
+
+src = ["lice2"]
+target-version = "py39" # minimum python version supported
+
+[tool.ruff.format]
+indent-style = "space"
+quote-style = "double"
+
+[tool.ruff.lint.pep8-naming]
+classmethod-decorators = ["pydantic.validator", "pydantic.root_validator"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.extend-per-file-ignores]
+"lice2/tests/**/*.py" = [
+  "S101",   # we can (and MUST!) use 'assert' in test files.
+  "ANN001", # annotations for fixtures are sometimes a pain for test files
+  "ARG00",  # test fixtures often are not directly used
+]
+
+
+[tool.ruff.lint.isort]
+known-first-party = ["lice2"]
+
+[tool.ruff.lint.pyupgrade]
+keep-runtime-typing = true
+
+[tool.mypy]
+python_version = "3.9"
+
+[[tool.mypy.overrides]]
+module = "pyperclip"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+disable_error_code = ["method-assign", "no-untyped-def", "attr-defined"]
+module = "tests.*"
