@@ -1,30 +1,33 @@
 import sqlite3
 from pydantic import BaseModel
+from typing import Optional
 
 # Custom Base Model for all database models
 class BaseDBModel(BaseModel):
     """Custom base model for database models."""
 
-    model_config = {
-        "create_id": True,         # Default to creating an auto-increment id
-        "primary_key": "id",       # Default primary key
-        "table_name": None         # Default to None, will be set dynamically if not provided
-    }
+    class Meta:
+            create_id: bool = True  # Whether to create an auto-increment ID
+            primary_key: str = "id"  # Default primary key field
+            table_name: Optional[str] = None  # Table name, defaults to class name if not set
 
     @classmethod
     def get_table_name(cls):
-        """Get the table name from the model's config or default to the class name."""
-        return cls.model_config.get("table_name", cls.__name__.lower())
+        """Get the table name from the Meta class or default to the class name."""
+        table_name = getattr(cls.Meta, 'table_name', None)
+        if table_name is not None:
+            return table_name
+        return cls.__name__.lower()  # Default to class name in lowercase
 
     @classmethod
     def get_primary_key(cls):
-        """Get the primary key from the model's config or default to 'id'."""
-        return cls.model_config.get("primary_key", "id")
+        """Get the primary key from the Meta class or default to 'id'."""
+        return getattr(cls.Meta, 'primary_key', 'id')
 
     @classmethod
     def should_create_id(cls):
-        """Check whether to create an auto-increment id."""
-        return cls.model_config.get("create_id", True)
+        """Check whether the model should create an auto-increment ID."""
+        return getattr(cls.Meta, 'create_id', True)
 
 
 # License model inheriting from the custom base model
@@ -33,12 +36,10 @@ class LicenseModel(BaseDBModel):
     name: str
     content: str
 
-    model_config = {
-        "table_name": "licenses",
-        "primary_key": "slug",     # Use 'slug' as primary key
-        "create_id": False         # No auto-increment id for this table
-    }
-
+    class Meta:
+        create_id: bool = False  # Disable auto-increment ID
+        primary_key: str = "slug"  # Use 'slug' as the primary key
+        table_name: str = "licenses"  # Explicitly define the table name
 
 # QueryBuilder class for chained filtering and fetching
 class QueryBuilder:
