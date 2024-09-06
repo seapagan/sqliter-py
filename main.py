@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -84,7 +85,7 @@ class QueryBuilder:
         order_by: Optional[str] = None,
         *,
         fetch_one: bool = False,
-    ) -> list:
+    ) -> list[tuple[Any, ...]] | Optional[tuple[Any, ...]]:
         """Helper function to execute the query with filters."""
         fields = ", ".join(self.model_class.model_fields)
         where_clause = " AND ".join(
@@ -114,6 +115,10 @@ class QueryBuilder:
     def fetch_all(self) -> list[BaseDBModel]:
         """Fetch all results matching the filters."""
         results = self._execute_query()
+
+        if results is None:
+            return []
+
         return [
             self.model_class(
                 **{
@@ -176,7 +181,9 @@ class QueryBuilder:
         with self.db.connect() as conn:
             cursor = conn.cursor()
             cursor.execute(sql, values)
-            return cursor.fetchone()[0]
+            result = cursor.fetchone()
+
+        return int(result[0]) if result else 0
 
     def exists(self) -> bool:
         """Return True if any record matches the filters."""
@@ -365,15 +372,20 @@ with db:
     db.insert(license1)
     db.insert(license2)
 
+    # set up logging
+    logging.basicConfig(
+        level=logging.INFO, format="%(levelname)s:  %(message)s"
+    )
+
     # Example queries
     licenses = db.select(LicenseModel).filter(name="MIT License").fetch_all()
-    print(licenses)
+    logging.info(licenses)
 
     all_licenses = db.select(LicenseModel).fetch_all()
-    print(all_licenses)
+    logging.info(all_licenses)
 
     fetched_license = db.get(LicenseModel, "mit")
-    print(fetched_license)
+    logging.info(fetched_license)
 
     count = db.select(LicenseModel).count()
-    print("Total licenses:", count)
+    logging.info("Total licenses: %s", count)
