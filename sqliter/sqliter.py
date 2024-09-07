@@ -9,7 +9,7 @@ from typing_extensions import Self
 
 from sqliter.query.query import QueryBuilder
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from types import TracebackType
 
     from sqliter.model.model import BaseDBModel

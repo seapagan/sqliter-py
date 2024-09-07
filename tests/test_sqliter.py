@@ -1,7 +1,5 @@
 """Test suite for the 'sqliter' library."""
 
-import sqlite3
-
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 
@@ -32,12 +30,65 @@ def test_create_table(db_mock) -> None:
         assert tables[0][0] == "test_table"
 
 
+def test_create_table_with_auto_increment(db_mock) -> None:
+    """Test table creation with auto-incrementing primary key."""
+
+    class AutoIncrementModel(BaseDBModel):
+        name: str
+
+        class Meta:
+            create_id: bool = True  # Enable auto-increment ID
+            primary_key: str = "id"  # Default primary key is 'id'
+            table_name: str = "auto_increment_table"
+
+    # Create the table
+    db_mock.create_table(AutoIncrementModel)
+
+    # Verify that the table was created with an auto-incrementing primary key
+    with db_mock.connect() as conn:
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(auto_increment_table);")
+        table_info = cursor.fetchall()
+
+    # Check that the first column is 'id' and it's an auto-incrementing integer
+    assert table_info[0][1] == "id"  # Column name
+    assert table_info[0][2] == "INTEGER"  # Column type
+    assert table_info[0][5] == 1  # Primary key flag
+
+
+def test_create_table_with_custom_primary_key(db_mock) -> None:
+    """Test table creation with a custom primary key."""
+
+    class CustomPKModel(BaseDBModel):
+        code: str
+        description: str
+
+        class Meta:
+            create_id: bool = False  # Disable auto-increment ID
+            primary_key: str = "code"  # Use 'code' as the primary key
+            table_name: str = "custom_pk_table"
+
+    # Create the table
+    db_mock.create_table(CustomPKModel)
+
+    # Verify that the table was created with 'code' as the primary key
+    with db_mock.connect() as conn:
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(custom_pk_table);")
+        table_info = cursor.fetchall()
+
+    # Check that the primary key is the 'code' column
+    primary_key_column = next(col for col in table_info if col[1] == "code")
+    assert primary_key_column[1] == "code"  # Column name
+    assert primary_key_column[5] == 1  # Primary key flag
+
+
 def test_insert_license(db_mock) -> None:
     """Test inserting a license into the database."""
-    license = ExampleModel(
+    test_model = ExampleModel(
         slug="mit", name="MIT License", content="MIT License Content"
     )
-    db_mock.insert(license)
+    db_mock.insert(test_model)
 
     with db_mock.connect() as conn:
         cursor = conn.cursor()
@@ -50,10 +101,10 @@ def test_insert_license(db_mock) -> None:
 
 def test_fetch_license(db_mock) -> None:
     """Test fetching a license by primary key."""
-    license = ExampleModel(
+    test_model = ExampleModel(
         slug="gpl", name="GPL License", content="GPL License Content"
     )
-    db_mock.insert(license)
+    db_mock.insert(test_model)
 
     fetched_license = db_mock.get(ExampleModel, "gpl")
     assert fetched_license is not None
@@ -64,14 +115,14 @@ def test_fetch_license(db_mock) -> None:
 
 def test_update_license(db_mock) -> None:
     """Test updating an existing license."""
-    license = ExampleModel(
+    test_model = ExampleModel(
         slug="mit", name="MIT License", content="MIT License Content"
     )
-    db_mock.insert(license)
+    db_mock.insert(test_model)
 
     # Update license content
-    license.content = "Updated MIT License Content"
-    db_mock.update(license)
+    test_model.content = "Updated MIT License Content"
+    db_mock.update(test_model)
 
     # Fetch and check if updated
     fetched_license = db_mock.get(ExampleModel, "mit")
@@ -80,10 +131,10 @@ def test_update_license(db_mock) -> None:
 
 def test_delete_license(db_mock) -> None:
     """Test deleting a license."""
-    license = ExampleModel(
+    test_model = ExampleModel(
         slug="mit", name="MIT License", content="MIT License Content"
     )
-    db_mock.insert(license)
+    db_mock.insert(test_model)
 
     # Delete the record
     db_mock.delete(ExampleModel, "mit")
@@ -154,7 +205,7 @@ def test_count_records(db_mock) -> None:
     db_mock.insert(license2)
 
     count = db_mock.select(ExampleModel).count()
-    assert count == 2
+    assert count == 2  # noqa: PLR2004
 
 
 def test_exists_record(db_mock) -> None:
