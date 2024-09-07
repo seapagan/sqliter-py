@@ -55,7 +55,20 @@ dev-dependencies = [
   "pytest-cov>=5.0.0",
   "pytest-watcher>=0.4.3",
   "pytest-clarity>=1.0.1",
+  "poethepoet>=0.28.0",
 ]
+
+[tool.poe.tasks]
+mypy.cmd = "mypy . --strict"
+mypy.help = "Run mypy checks"
+format.help = "Format code with Ruff"
+format.cmd = "ruff format ."
+ruff.help = "Run Ruff checks"
+ruff.cmd = "ruff check ."
+test.help = "Run tests using Pytest"
+test.cmd = "pytest"
+"test:watch".cmd = "ptw . --now --clear"
+"test:watch".help = "Run tests using Pytest in watch mode"
 
 [tool.ruff]
 line-length = 80
