@@ -83,6 +83,69 @@ def test_create_table_with_custom_primary_key(db_mock) -> None:
     assert primary_key_column[5] == 1  # Primary key flag
 
 
+def test_create_table_with_custom_auto_increment_pk(db_mock) -> None:
+    """Test table creation with a custom auto-incrementing primary key."""
+
+    class CustomAutoIncrementPKModel(BaseDBModel):
+        name: str
+
+        class Meta:
+            create_id: bool = True  # Enable auto-increment ID
+            primary_key: str = "custom_id"  # Use 'custom_id' as the primary key
+            table_name: str = "custom_auto_increment_pk_table"
+
+    # Create the table
+    db_mock.create_table(CustomAutoIncrementPKModel)
+
+    # Check the table schema using PRAGMA
+    with db_mock.connect() as conn:
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(custom_auto_increment_pk_table);")
+        table_info = cursor.fetchall()
+
+    # Check that the 'custom_id' column is INTEGER and a primary key
+    primary_key_column = next(
+        col for col in table_info if col[1] == "custom_id"
+    )
+    assert primary_key_column[1] == "custom_id"  # Column name
+    assert primary_key_column[2] == "INTEGER"  # Column type
+    assert primary_key_column[5] == 1  # Primary key flag
+
+    # Insert rows to verify that the custom primary key auto-increments
+    model_instance1 = CustomAutoIncrementPKModel(name="First Entry")
+    model_instance2 = CustomAutoIncrementPKModel(name="Second Entry")
+
+    db_mock.insert(model_instance1)
+    db_mock.insert(model_instance2)
+
+    # Fetch the inserted rows and check the 'custom_id' values
+    with db_mock.connect() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT custom_id, name FROM custom_auto_increment_pk_table;"
+        )
+        results = cursor.fetchall()
+
+    # Check that the custom_id column auto-incremented
+    assert results[0][0] == 1
+    assert results[1][0] == 2  # noqa: PLR2004
+    assert results[0][1] == "First Entry"
+    assert results[1][1] == "Second Entry"
+
+
+def test_default_table_name(db_mock) -> None:
+    """Test that the table name defaults to the class name in lowercase."""
+
+    class DefaultNameModel(BaseDBModel):
+        name: str
+
+        class Meta:
+            table_name = None  # Explicitly set to None to test the default
+
+    # Verify that get_table_name defaults to class name in lowercase
+    assert DefaultNameModel.get_table_name() == "defaultnamemodel"
+
+
 def test_insert_license(db_mock) -> None:
     """Test inserting a license into the database."""
     test_model = ExampleModel(

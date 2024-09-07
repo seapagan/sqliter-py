@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from typing_extensions import Self
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from sqliter import SqliterDB
     from sqliter.model import BaseDBModel
 
@@ -65,7 +65,7 @@ class QueryBuilder:
         """Fetch all results matching the filters."""
         results = self._execute_query()
 
-        if results is None:
+        if not results:
             return []
 
         return [
