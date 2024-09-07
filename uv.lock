@@ -186,7 +186,7 @@ wheels = [
 [[package]]
 name = "sqliter-py"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "pydantic", marker = "python_full_version >= '3.12'" },
 ]
