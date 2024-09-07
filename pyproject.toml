@@ -43,7 +43,19 @@ packages = ["sqliter"]
 packages = ["sqliter"]
 
 [tool.uv]
-dev-dependencies = ["mypy>=1.11.2", "ruff>=0.6.4"]
+dev-dependencies = [
+  "mock>=5.1.0",
+  "mypy>=1.11.2",
+  "pytest>=8.3.2",
+  "pytest-mock>=3.14.0",
+  "ruff>=0.6.4",
+  "pytest-sugar>=1.0.0",
+  "pytest-reverse>=1.7.0",
+  "pytest-randomly>=3.15.0",
+  "pytest-cov>=5.0.0",
+  "pytest-watcher>=0.4.3",
+  "pytest-clarity>=1.0.1",
+]
 
 [tool.ruff]
 line-length = 80
@@ -75,7 +87,7 @@ classmethod-decorators = ["pydantic.validator", "pydantic.root_validator"]
 convention = "google"
 
 [tool.ruff.lint.extend-per-file-ignores]
-"lice2/tests/**/*.py" = [
+"tests/**/*.py" = [
   "S101",   # we can (and MUST!) use 'assert' in test files.
   "ANN001", # annotations for fixtures are sometimes a pain for test files
   "ARG00",  # test fixtures often are not directly used
@@ -97,3 +109,12 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 disable_error_code = ["method-assign", "no-untyped-def", "attr-defined"]
 module = "tests.*"
+
+[tool.pytest.ini_options]
+addopts = ["--cov", "--cov-report", "term-missing", "--cov-report", "html"]
+filterwarnings = []
+mock_use_standalone_module = true
+
+[tool.coverage.run]
+source = ["sqliter"]
+omit = ["*/tests/*"]
