@@ -173,7 +173,6 @@ class SqliterDB:
     ) -> None:
         """Exit the runtime context and close the connection."""
         if self.conn:
-            if not self.auto_commit:
-                self.conn.commit()
+            self._maybe_commit(self.conn)
             self.conn.close()
             self.conn = None
