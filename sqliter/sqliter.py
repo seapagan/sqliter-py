@@ -43,7 +43,7 @@ class SqliterDB:
         if create_id:
             create_table_sql = f"""
                 CREATE TABLE IF NOT EXISTS {table_name} (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    {primary_key} INTEGER PRIMARY KEY AUTOINCREMENT,
                     {fields}
                 )
             """
