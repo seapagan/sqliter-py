@@ -103,9 +103,8 @@ class QueryBuilder:
         )
 
     def fetch_last(self) -> BaseDBModel | None:
-        """Fetch the last result of the query (based on the primary key)."""
-        primary_key = self.model_class.get_primary_key()
-        result = self._execute_query(limit=1, order_by=f"{primary_key} DESC")
+        """Fetch the last result of the query (based on the insertion order)."""
+        result = self._execute_query(limit=1, order_by="rowid DESC")
         if not result:
             return None
         return self.model_class(
