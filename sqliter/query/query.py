@@ -37,9 +37,15 @@ class QueryBuilder:
     ) -> list[tuple[Any, ...]] | Optional[tuple[Any, ...]]:
         """Helper function to execute the query with filters."""
         fields = ", ".join(self.model_class.model_fields)
+
+        # Build the WHERE clause with special handling for None (NULL in SQL)
         where_clause = " AND ".join(
-            [f"{field} = ?" for field, _ in self.filters]
+            [
+                f"{field} IS NULL" if value is None else f"{field} = ?"
+                for field, value in self.filters
+            ]
         )
+
         sql = f"SELECT {fields} FROM {self.table_name}"  # noqa: S608
 
         if self.filters:
@@ -54,7 +60,8 @@ class QueryBuilder:
         if offset is not None:
             sql += f" OFFSET {offset}"
 
-        values = [value for _, value in self.filters]
+        # Only include non-None values in the values list
+        values = [value for _, value in self.filters if value is not None]
 
         with self.db.connect() as conn:
             cursor = conn.cursor()
