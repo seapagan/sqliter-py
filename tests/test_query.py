@@ -2,6 +2,8 @@
 
 from typing import Optional
 
+import pytest
+from sqliter.exceptions import InvalidOffsetError
 from sqliter.model import BaseDBModel
 
 
@@ -366,3 +368,166 @@ def test_filter_with_none_condition(db_mock) -> None:
     assert len(results) == 1
     assert results[0].name == "Jane Doe"
     assert results[0].age is None
+
+
+def test_limit(db_mock) -> None:
+    """Test that the limit method works as expected."""
+
+    # Define a simple model for the test
+    class LimitTestModel(BaseDBModel):
+        name: str
+
+        class Meta:
+            table_name: str = "limit_test_table"
+
+    # Create the table and insert records
+    db_mock.create_table(LimitTestModel)
+    db_mock.insert(LimitTestModel(name="John Doe"))
+    db_mock.insert(LimitTestModel(name="Jane Doe"))
+    db_mock.insert(LimitTestModel(name="Jim Doe"))
+
+    # Perform a query with a limit
+    results = db_mock.select(LimitTestModel).limit(2).fetch_all()
+
+    # Assert that the limit works and only returns 2 records
+    assert len(results) == 2
+    assert results[0].name == "John Doe"
+    assert results[1].name == "Jane Doe"
+
+
+def test_offset(db_mock) -> None:
+    """Test that the offset method works as expected."""
+
+    # Define a simple model for the test
+    class OffsetTestModel(BaseDBModel):
+        name: str
+
+        class Meta:
+            table_name: str = "offset_test_table"
+
+    # Create the table and insert records
+    db_mock.create_table(OffsetTestModel)
+    db_mock.insert(OffsetTestModel(name="John Doe"))
+    db_mock.insert(OffsetTestModel(name="Jane Doe"))
+    db_mock.insert(OffsetTestModel(name="Jim Doe"))
+
+    # Perform a query with an offset
+    results = db_mock.select(OffsetTestModel).offset(1).fetch_all()
+
+    # Assert that the offset works and skips the first record
+    assert len(results) == 2
+    assert results[0].name == "Jane Doe"
+    assert results[1].name == "Jim Doe"
+
+
+def test_order(db_mock) -> None:
+    """Test that the order method works as expected."""
+
+    # Define a simple model for the test
+    class OrderTestModel(BaseDBModel):
+        name: str
+
+        class Meta:
+            table_name: str = "order_test_table"
+
+    # Create the table and insert records
+    db_mock.create_table(OrderTestModel)
+    db_mock.insert(OrderTestModel(name="John Doe"))
+    db_mock.insert(OrderTestModel(name="Jane Doe"))
+    db_mock.insert(OrderTestModel(name="Jim Doe"))
+
+    # Perform a query with ordering by name DESC
+    results = db_mock.select(OrderTestModel).order("name DESC").fetch_all()
+
+    print([result.name for result in results])
+
+    # Assert that the ordering works in descending order
+    assert len(results) == 3
+    assert results[0].name == "John Doe"
+    assert results[1].name == "Jim Doe"
+    assert results[2].name == "Jane Doe"
+
+
+def test_limit_offset_order_combined(db_mock) -> None:
+    """Test that limit, offset, and order can work together."""
+
+    # Define a simple model for the test
+    class CombinedTestModel(BaseDBModel):
+        name: str
+
+        class Meta:
+            table_name: str = "combined_test_table"
+
+    # Create the table and insert records
+    db_mock.create_table(CombinedTestModel)
+    db_mock.insert(CombinedTestModel(name="John Doe"))
+    db_mock.insert(CombinedTestModel(name="Jane Doe"))
+    db_mock.insert(CombinedTestModel(name="Jim Doe"))
+    db_mock.insert(CombinedTestModel(name="Jake Doe"))
+
+    # Perform a query with ordering by name DESC, offset 1, limit 2
+    results = (
+        db_mock.select(CombinedTestModel)
+        .order("name ASC")
+        .offset(1)
+        .limit(2)
+        .fetch_all()
+    )
+
+    # Assert that ordering, offset, and limit work together
+    assert len(results) == 2
+    assert results[0].name == "Jane Doe"
+    assert results[1].name == "Jim Doe"
+
+
+def test_limit_edge_cases(db_mock) -> None:
+    """Test limit with edge cases like zero and negative values."""
+
+    # Define a simple model for the test
+    class EdgeCaseTestModel(BaseDBModel):
+        name: str
+
+        class Meta:
+            table_name: str = "edge_case_test_table"
+
+    # Create the table and insert records
+    db_mock.create_table(EdgeCaseTestModel)
+    db_mock.insert(EdgeCaseTestModel(name="John Doe"))
+    db_mock.insert(EdgeCaseTestModel(name="Jane Doe"))
+
+    # Limit with zero should return no results
+    results = db_mock.select(EdgeCaseTestModel).limit(0).fetch_all()
+    assert len(results) == 0
+
+    # Negative limit should be treated as no limit (all results)
+    results = db_mock.select(EdgeCaseTestModel).limit(-1).fetch_all()
+    assert len(results) == 2
+
+
+def test_offset_edge_cases(db_mock) -> None:
+    """Test offset with edge cases like zero and negative values."""
+
+    # Define a simple model for the test
+    class EdgeCaseOffsetModel(BaseDBModel):
+        name: str
+
+        class Meta:
+            table_name: str = "edge_case_offset_test_table"
+
+    # Create the table and insert records
+    db_mock.create_table(EdgeCaseOffsetModel)
+    db_mock.insert(EdgeCaseOffsetModel(name="John Doe"))
+    db_mock.insert(EdgeCaseOffsetModel(name="Jane Doe"))
+
+    # Offset with zero should raise InvalidOffsetError
+    with pytest.raises(InvalidOffsetError):
+        db_mock.select(EdgeCaseOffsetModel).offset(0).fetch_all()
+
+    # Negative offset should raise InvalidOffsetError
+    with pytest.raises(InvalidOffsetError):
+        db_mock.select(EdgeCaseOffsetModel).offset(-1).fetch_all()
+
+    # Valid offset should work normally
+    results = db_mock.select(EdgeCaseOffsetModel).offset(1).fetch_all()
+    assert len(results) == 1
+    assert results[0].name == "Jane Doe"
