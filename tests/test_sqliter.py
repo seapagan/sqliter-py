@@ -128,7 +128,7 @@ def test_create_table_with_custom_auto_increment_pk(db_mock) -> None:
 
     # Check that the custom_id column auto-incremented
     assert results[0][0] == 1
-    assert results[1][0] == 2  # noqa: PLR2004
+    assert results[1][0] == 2
     assert results[0][1] == "First Entry"
     assert results[1][1] == "Second Entry"
 
@@ -268,7 +268,7 @@ def test_count_records(db_mock) -> None:
     db_mock.insert(license2)
 
     count = db_mock.select(ExampleModel).count()
-    assert count == 2  # noqa: PLR2004
+    assert count == 2
 
 
 def test_exists_record(db_mock) -> None:

@@ -234,7 +234,7 @@ def test_filter_single_condition(db_mock) -> None:
     # Assert that the filter works and returns the correct record
     assert len(results) == 1
     assert results[0].name == "John Doe"
-    assert results[0].age == 30  # noqa: PLR2004
+    assert results[0].age == 30
 
 
 def test_filter_multiple_conditions(db_mock) -> None:
@@ -264,7 +264,7 @@ def test_filter_multiple_conditions(db_mock) -> None:
     # Assert that the filter works and returns the correct record
     assert len(results) == 1
     assert results[0].name == "John Doe"
-    assert results[0].age == 30  # noqa: PLR2004
+    assert results[0].age == 30
 
 
 def test_filter_no_matching_results(db_mock) -> None:
@@ -315,7 +315,7 @@ def test_filter_numeric_condition(db_mock) -> None:
     # Assert that the filter works and returns the correct record
     assert len(results) == 1
     assert results[0].name == "John Smith"
-    assert results[0].age == 40  # noqa: PLR2004
+    assert results[0].age == 40
 
 
 def test_filter_multiple_results(db_mock) -> None:
@@ -439,8 +439,6 @@ def test_order(db_mock) -> None:
     # Perform a query with ordering by name DESC
     results = db_mock.select(OrderTestModel).order("name DESC").fetch_all()
 
-    print([result.name for result in results])
-
     # Assert that the ordering works in descending order
     assert len(results) == 3
     assert results[0].name == "John Doe"
@@ -520,12 +518,14 @@ def test_offset_edge_cases(db_mock) -> None:
     db_mock.insert(EdgeCaseOffsetModel(name="Jane Doe"))
 
     # Offset with zero should raise InvalidOffsetError
-    with pytest.raises(InvalidOffsetError):
+    with pytest.raises(InvalidOffsetError) as exc:
         db_mock.select(EdgeCaseOffsetModel).offset(0).fetch_all()
+    assert "Invalid offset value: 0" in str(exc.value)
 
     # Negative offset should raise InvalidOffsetError
-    with pytest.raises(InvalidOffsetError):
+    with pytest.raises(InvalidOffsetError) as exc:
         db_mock.select(EdgeCaseOffsetModel).offset(-1).fetch_all()
+    assert "Invalid offset value: -1" in str(exc.value)
 
     # Valid offset should work normally
     results = db_mock.select(EdgeCaseOffsetModel).offset(1).fetch_all()

@@ -33,6 +33,7 @@ class QueryBuilder:
         return self
 
     def limit(self, limit_value: int) -> Self:
+        """Limit the number of results returned by the query."""
         self._limit = limit_value
         return self
 
@@ -47,6 +48,7 @@ class QueryBuilder:
         return self
 
     def order(self, order_by_field: str) -> Self:
+        """Order the results by a specific field and optionally direction."""
         self._order_by = order_by_field
         return self
 
@@ -82,8 +84,6 @@ class QueryBuilder:
 
         # Only include non-None values in the values list
         values = [value for _, value in self.filters if value is not None]
-
-        print(sql)
 
         with self.db.connect() as conn:
             cursor = conn.cursor()
