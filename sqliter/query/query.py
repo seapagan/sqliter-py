@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from typing_extensions import Self
 
+from sqliter.exceptions import InvalidOffsetError
+
 if TYPE_CHECKING:  # pragma: no cover
     from sqliter import SqliterDB
     from sqliter.model import BaseDBModel
@@ -20,6 +22,9 @@ class QueryBuilder:
         self.model_class = model_class
         self.table_name = model_class.get_table_name()  # Use model_class method
         self.filters: list[tuple[str, Any]] = []
+        self._limit: Optional[int] = None
+        self._offset: Optional[int] = None
+        self._order_by: Optional[str] = None
 
     def filter(self, **conditions: str | float | None) -> Self:
         """Add filter conditions to the query."""
@@ -27,11 +32,28 @@ class QueryBuilder:
             self.filters.append((field, value))
         return self
 
+    def limit(self, limit_value: int) -> Self:
+        """Limit the number of results returned by the query."""
+        self._limit = limit_value
+        return self
+
+    def offset(self, offset_value: int) -> Self:
+        """Set an offset value for the query."""
+        if offset_value <= 0:
+            raise InvalidOffsetError(offset_value)
+        self._offset = offset_value
+
+        if self._limit is None:
+            self._limit = -1
+        return self
+
+    def order(self, order_by_field: str) -> Self:
+        """Order the results by a specific field and optionally direction."""
+        self._order_by = order_by_field
+        return self
+
     def _execute_query(
         self,
-        limit: Optional[int] = None,
-        offset: Optional[int] = None,
-        order_by: Optional[str] = None,
         *,
         fetch_one: bool = False,
     ) -> list[tuple[Any, ...]] | Optional[tuple[Any, ...]]:
@@ -51,14 +73,14 @@ class QueryBuilder:
         if self.filters:
             sql += f" WHERE {where_clause}"
 
-        if order_by:
-            sql += f" ORDER BY {order_by}"
+        if self._order_by:
+            sql += f" ORDER BY {self._order_by}"
 
-        if limit is not None:
-            sql += f" LIMIT {limit}"
+        if self._limit is not None:
+            sql += f" LIMIT {self._limit}"
 
-        if offset is not None:
-            sql += f" OFFSET {offset}"
+        if self._offset is not None:
+            sql += f" OFFSET {self._offset}"
 
         # Only include non-None values in the values list
         values = [value for _, value in self.filters if value is not None]
@@ -99,7 +121,8 @@ class QueryBuilder:
 
     def fetch_first(self) -> BaseDBModel | None:
         """Fetch the first result of the query."""
-        result = self._execute_query(limit=1)
+        self._limit = 1
+        result = self._execute_query()
         if not result:
             return None
         return self.model_class(
@@ -111,7 +134,9 @@ class QueryBuilder:
 
     def fetch_last(self) -> BaseDBModel | None:
         """Fetch the last result of the query (based on the insertion order)."""
-        result = self._execute_query(limit=1, order_by="rowid DESC")
+        self._limit = 1
+        self._order_by = "rowid DESC"
+        result = self._execute_query()
         if not result:
             return None
         return self.model_class(

@@ -98,9 +98,10 @@ convention = "google"
 
 [tool.ruff.lint.extend-per-file-ignores]
 "tests/**/*.py" = [
-  "S101",   # we can (and MUST!) use 'assert' in test files.
-  "ANN001", # annotations for fixtures are sometimes a pain for test files
-  "ARG00",  # test fixtures often are not directly used
+  "S101",    # we can (and MUST!) use 'assert' in test files.
+  "ANN001",  # annotations for fixtures are sometimes a pain for test files
+  "ARG00",   # test fixtures often are not directly used
+  "PLR2004", # magic numbers are often used in test files
 ]
 
 [tool.ruff.lint.isort]
