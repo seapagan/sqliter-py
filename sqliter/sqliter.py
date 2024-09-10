@@ -9,7 +9,7 @@ from typing_extensions import Self
 
 from sqliter.query.query import QueryBuilder
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from types import TracebackType
 
     from sqliter.model.model import BaseDBModel
@@ -43,7 +43,7 @@ class SqliterDB:
         if create_id:
             create_table_sql = f"""
                 CREATE TABLE IF NOT EXISTS {table_name} (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    {primary_key} INTEGER PRIMARY KEY AUTOINCREMENT,
                     {fields}
                 )
             """

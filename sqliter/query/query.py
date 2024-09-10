@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from typing_extensions import Self
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from sqliter import SqliterDB
     from sqliter.model import BaseDBModel
 
@@ -37,9 +37,15 @@ class QueryBuilder:
     ) -> list[tuple[Any, ...]] | Optional[tuple[Any, ...]]:
         """Helper function to execute the query with filters."""
         fields = ", ".join(self.model_class.model_fields)
+
+        # Build the WHERE clause with special handling for None (NULL in SQL)
         where_clause = " AND ".join(
-            [f"{field} = ?" for field, _ in self.filters]
+            [
+                f"{field} IS NULL" if value is None else f"{field} = ?"
+                for field, value in self.filters
+            ]
         )
+
         sql = f"SELECT {fields} FROM {self.table_name}"  # noqa: S608
 
         if self.filters:
@@ -54,7 +60,8 @@ class QueryBuilder:
         if offset is not None:
             sql += f" OFFSET {offset}"
 
-        values = [value for _, value in self.filters]
+        # Only include non-None values in the values list
+        values = [value for _, value in self.filters if value is not None]
 
         with self.db.connect() as conn:
             cursor = conn.cursor()
@@ -65,7 +72,7 @@ class QueryBuilder:
         """Fetch all results matching the filters."""
         results = self._execute_query()
 
-        if results is None:
+        if not results:
             return []
 
         return [
@@ -103,9 +110,8 @@ class QueryBuilder:
         )
 
     def fetch_last(self) -> BaseDBModel | None:
-        """Fetch the last result of the query (based on the primary key)."""
-        primary_key = self.model_class.get_primary_key()
-        result = self._execute_query(limit=1, order_by=f"{primary_key} DESC")
+        """Fetch the last result of the query (based on the insertion order)."""
+        result = self._execute_query(limit=1, order_by="rowid DESC")
         if not result:
             return None
         return self.model_class(
