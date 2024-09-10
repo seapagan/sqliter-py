@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Optional
 
 from typing_extensions import Self
 
-from sqliter.exceptions import DatabaseConnectionError
+from sqliter.exceptions import DatabaseConnectionError, TableCreationError
 from sqliter.query.query import QueryBuilder
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -59,10 +59,13 @@ class SqliterDB:
                 )
             """
 
-        with self.connect() as conn:
-            cursor = conn.cursor()
-            cursor.execute(create_table_sql)
-            conn.commit()
+        try:
+            with self.connect() as conn:
+                cursor = conn.cursor()
+                cursor.execute(create_table_sql)
+                conn.commit()
+        except sqlite3.Error as exc:
+            raise TableCreationError(table_name) from exc
 
     def _maybe_commit(self, conn: sqlite3.Connection) -> None:
         """Commit changes if auto_commit is True."""

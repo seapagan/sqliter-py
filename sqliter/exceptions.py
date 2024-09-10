@@ -31,3 +31,9 @@ class InvalidOffsetError(SqliterError):
     message_template = (
         "Invalid offset value: '{}'. Offset must be a positive integer."
     )
+
+
+class TableCreationError(SqliterError):
+    """Raised when a table cannot be created in the database."""
+
+    message_template = "Failed to create the table: '{}'"
