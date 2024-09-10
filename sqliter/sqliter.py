@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Optional
 
 from typing_extensions import Self
 
+from sqliter.exceptions import DatabaseConnectionError
 from sqliter.query.query import QueryBuilder
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -27,7 +28,10 @@ class SqliterDB:
     def connect(self) -> sqlite3.Connection:
         """Create or return a connection to the SQLite database."""
         if not self.conn:
-            self.conn = sqlite3.connect(self.db_filename)
+            try:
+                self.conn = sqlite3.connect(self.db_filename)
+            except sqlite3.Error as e:
+                raise DatabaseConnectionError(self.db_filename) from e
         return self.conn
 
     def create_table(self, model_class: type[BaseDBModel]) -> None:

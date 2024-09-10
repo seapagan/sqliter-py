@@ -14,3 +14,12 @@ class InvalidOffsetError(SqliterError):
             f"Invalid offset value: {offset_value}. "
             "Offset must be a positive integer."
         )
+
+
+# In sqliter/exceptions.py
+class DatabaseConnectionError(SqliterError):
+    """Raised when the SQLite database connection fails."""
+
+    def __init__(self, db_filename: str) -> None:
+        """Pass a custom error message to the base Exception."""
+        super().__init__(f"Failed to connect to the database: {db_filename}")
