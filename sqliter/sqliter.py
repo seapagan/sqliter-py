@@ -30,8 +30,8 @@ class SqliterDB:
         if not self.conn:
             try:
                 self.conn = sqlite3.connect(self.db_filename)
-            except sqlite3.Error as e:
-                raise DatabaseConnectionError(self.db_filename) from e
+            except sqlite3.Error as exc:
+                raise DatabaseConnectionError(self.db_filename) from exc
         return self.conn
 
     def create_table(self, model_class: type[BaseDBModel]) -> None:

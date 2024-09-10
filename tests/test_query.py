@@ -520,12 +520,12 @@ def test_offset_edge_cases(db_mock) -> None:
     # Offset with zero should raise InvalidOffsetError
     with pytest.raises(InvalidOffsetError) as exc:
         db_mock.select(EdgeCaseOffsetModel).offset(0).fetch_all()
-    assert "Invalid offset value: 0" in str(exc.value)
+    assert "Invalid offset value: '0'" in str(exc.value)
 
     # Negative offset should raise InvalidOffsetError
     with pytest.raises(InvalidOffsetError) as exc:
         db_mock.select(EdgeCaseOffsetModel).offset(-1).fetch_all()
-    assert "Invalid offset value: -1" in str(exc.value)
+    assert "Invalid offset value: '-1'" in str(exc.value)
 
     # Valid offset should work normally
     results = db_mock.select(EdgeCaseOffsetModel).offset(1).fetch_all()

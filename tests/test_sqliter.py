@@ -37,7 +37,7 @@ def test_database_connection_error(mocker) -> None:
         db.connect()
 
     # Verify the exception message contains the database file name
-    assert "Failed to connect to the database: fake_db.db" in str(
+    assert "Failed to connect to the database: 'fake_db.db'" in str(
         exc_info.value
     )
 
