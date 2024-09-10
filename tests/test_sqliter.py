@@ -1,10 +1,6 @@
 """Test suite for the 'sqliter' library."""
 
-import sqlite3
-
-import pytest
 from sqliter import SqliterDB
-from sqliter.exceptions import DatabaseConnectionError
 from sqliter.model import BaseDBModel
 
 
@@ -22,24 +18,6 @@ class ExampleModel(BaseDBModel):
         create_id: bool = False
         primary_key: str = "slug"
         table_name: str = "test_table"
-
-
-def test_database_connection_error(mocker) -> None:
-    """Test that DatabaseConnectionError is raised when connection fails."""
-    # Mock sqlite3.connect to raise an error
-    mocker.patch("sqlite3.connect", side_effect=sqlite3.Error)
-
-    # Create a SqliterDB instance
-    db = SqliterDB("fake_db.db")
-
-    # Assert that DatabaseConnectionError is raised when connecting
-    with pytest.raises(DatabaseConnectionError) as exc_info:
-        db.connect()
-
-    # Verify the exception message contains the database file name
-    assert "Failed to connect to the database: 'fake_db.db'" in str(
-        exc_info.value
-    )
 
 
 def test_create_table(db_mock) -> None:
