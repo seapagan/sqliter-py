@@ -37,3 +37,21 @@ class TableCreationError(SqliterError):
     """Raised when a table cannot be created in the database."""
 
     message_template = "Failed to create the table: '{}'"
+
+
+class RecordInsertionError(SqliterError):
+    """Raised when an error occurs during record insertion."""
+
+    message_template = "Failed to insert record into table: '{}'"
+
+
+class RecordUpdateError(SqliterError):
+    """Raised when an error occurs during record update."""
+
+    message_template = "Failed to update record in table: '{}'"
+
+
+class RecordNotFoundError(SqliterError):
+    """Raised when a record with the specified primary key is not found."""
+
+    message_template = "No record found for key '{}'"

@@ -7,7 +7,13 @@ from typing import TYPE_CHECKING, Optional
 
 from typing_extensions import Self
 
-from sqliter.exceptions import DatabaseConnectionError, TableCreationError
+from sqliter.exceptions import (
+    DatabaseConnectionError,
+    RecordInsertionError,
+    RecordNotFoundError,
+    RecordUpdateError,
+    TableCreationError,
+)
 from sqliter.query.query import QueryBuilder
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -84,14 +90,17 @@ class SqliterDB:
         )
 
         insert_sql = f"""
-        INSERT OR REPLACE INTO {table_name} ({fields})
+        INSERT INTO {table_name} ({fields})
         VALUES ({placeholders})
     """  # noqa: S608
 
-        with self.connect() as conn:
-            cursor = conn.cursor()
-            cursor.execute(insert_sql, values)
-            self._maybe_commit(conn)
+        try:
+            with self.connect() as conn:
+                cursor = conn.cursor()
+                cursor.execute(insert_sql, values)
+                self._maybe_commit(conn)
+        except sqlite3.Error as exc:
+            raise RecordInsertionError(table_name) from exc
 
     def get(
         self, model_class: type[BaseDBModel], primary_key_value: str
@@ -138,13 +147,24 @@ class SqliterDB:
         primary_key_value = getattr(model_instance, primary_key)
 
         update_sql = f"""
-            UPDATE {table_name} SET {fields} WHERE {primary_key} = ?
+            UPDATE {table_name}
+            SET {fields}
+            WHERE {primary_key} = ?
         """  # noqa: S608
 
-        with self.connect() as conn:
-            cursor = conn.cursor()
-            cursor.execute(update_sql, (*values, primary_key_value))
-            self._maybe_commit(conn)
+        try:
+            with self.connect() as conn:
+                cursor = conn.cursor()
+                cursor.execute(update_sql, (*values, primary_key_value))
+
+                # Check if any rows were updated
+                if cursor.rowcount == 0:
+                    raise RecordNotFoundError(primary_key_value)
+
+                self._maybe_commit(conn)
+
+        except sqlite3.Error as exc:
+            raise RecordUpdateError(table_name) from exc
 
     def delete(
         self, model_class: type[BaseDBModel], primary_key_value: str

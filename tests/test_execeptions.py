@@ -41,3 +41,30 @@ def test_database_connection_error(mocker) -> None:
     assert "Failed to connect to the database: 'fake_db.db'" in str(
         exc_info.value
     )
+
+
+import pytest
+from sqliter.exceptions import RecordInsertionError
+from sqliter.sqliter import SqliterDB
+
+from tests.test_sqliter import ExampleModel
+
+
+def test_insert_duplicate_primary_key(db_mock) -> None:
+    """Test that RecordInsertionError is raised when inserting duplicate primary key."""
+    # Create a model instance with a unique primary key
+    example_model = ExampleModel(
+        slug="test", name="Test License", content="Test Content"
+    )
+
+    # Insert the record for the first time, should succeed
+    db_mock.insert(example_model)
+
+    # Try inserting the same record again, which should raise a RecordInsertionError
+    with pytest.raises(RecordInsertionError) as exc_info:
+        db_mock.insert(example_model)
+
+    # Verify that the exception message contains the table name
+    assert "Failed to insert record into table: 'test_table'" in str(
+        exc_info.value
+    )

@@ -1,23 +1,13 @@
 """Test suite for the 'sqliter' library."""
 
+import pytest
 from sqliter import SqliterDB
+from sqliter.exceptions import RecordNotFoundError
 from sqliter.model import BaseDBModel
 
+from tests.conftest import ExampleModel
 
 # License model for testing
-class ExampleModel(BaseDBModel):
-    """Define a model to use in the tests."""
-
-    slug: str
-    name: str
-    content: str
-
-    class Meta:
-        """Configuration for the model."""
-
-        create_id: bool = False
-        primary_key: str = "slug"
-        table_name: str = "test_table"
 
 
 def test_create_table(db_mock) -> None:
@@ -326,3 +316,38 @@ def test_transaction_manual_commit(mocker) -> None:
     # After leaving the context, commit should still not be called (since
     # auto_commit=False)
     mock_conn.commit.assert_not_called()
+
+
+def test_update_existing_record(db_mock) -> None:
+    """Test that updating an existing record works correctly."""
+    # Insert an example record
+    example_model = ExampleModel(
+        slug="test", name="Test License", content="Test Content"
+    )
+    db_mock.insert(example_model)
+
+    # Update the record's content
+    example_model.content = "Updated Content"
+    db_mock.update(example_model)
+
+    # Fetch the updated record and verify the changes
+    updated_record = db_mock.get(ExampleModel, "test")
+    assert updated_record is not None
+    assert updated_record.content == "Updated Content"
+
+
+def test_update_non_existing_record(db_mock) -> None:
+    """Test that updating a non-existing record raises RecordNotFoundError."""
+    # Create an example record that is not inserted into the DB
+    example_model = ExampleModel(
+        slug="nonexistent",
+        name="Nonexistent License",
+        content="Nonexistent Content",
+    )
+
+    # Try updating the non-existent record
+    with pytest.raises(RecordNotFoundError) as exc_info:
+        db_mock.update(example_model)
+
+    # Check that the correct error message is raised
+    assert "No record found for key 'nonexistent'" in str(exc_info.value)
