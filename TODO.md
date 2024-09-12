@@ -1,6 +1,8 @@
 # TODO
 
+- make `auto_commit` default to `True` instead of false. Provide a `commit`
+  method off the main class to allow manual commits.
 - allow adding multiple indexes to each table as well as the primary index.
-- rewrite the logic - all licenses scanned once at first startup and stored into
-  a sqlite database. Then, the database is used to generate the license list and
-  licenses. Add a flag to rescan if needed.
+- allow adding foreign keys and relationships to each table.
+- improve the filter and query syntax to allow more complex queries - for
+  example, `age__lt=25` to filter users with age less than 25.
