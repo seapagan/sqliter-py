@@ -215,3 +215,4 @@ pyrightconfig.json
 .python-version
 *.db
 .vscode
+.changelog_generator.toml

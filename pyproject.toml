@@ -53,6 +53,7 @@ dev-dependencies = [
   "pytest-watcher>=0.4.3",
   "pytest-clarity>=1.0.1",
   "poethepoet>=0.28.0",
+  "github-changelog-md>=0.9.5",
 ]
 
 [tool.poe.tasks]
@@ -66,6 +67,8 @@ test.help = "Run tests using Pytest"
 test.cmd = "pytest"
 "test:watch".cmd = "ptw . --now --clear"
 "test:watch".help = "Run tests using Pytest in watch mode"
+changelog.cmd = "github-changelog-md"
+changelog.help = "Generate a changelog"
 
 [tool.ruff]
 line-length = 80
