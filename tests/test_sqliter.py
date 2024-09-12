@@ -1,13 +1,11 @@
 """Test suite for the 'sqliter' library."""
 
-import sqlite3
-
 import pytest
 from sqliter import SqliterDB
 from sqliter.exceptions import (
-    RecordDeletionError,
     RecordFetchError,
     RecordNotFoundError,
+    TransactionError,
 )
 from sqliter.model import BaseDBModel
 
@@ -396,3 +394,44 @@ def test_delete_existing_record(db_mock) -> None:
     # Fetch the deleted record to confirm it's gone
     result = db_mock.get(ExampleModel, "test")
     assert result is None
+
+
+def test_transaction_commit_success(db_mock, mocker) -> None:
+    """Test that the transaction commits successfully with no exceptions."""
+    # Mock the _maybe_commit method to track the commit
+    mock_commit = mocker.patch.object(db_mock, "_maybe_commit")
+
+    # Run the context manager without errors
+    with db_mock:
+        """Dummy transaction."""
+
+    # Ensure commit was called
+    mock_commit.assert_called_once()
+
+
+def test_transaction_closes_connection(db_mock, mocker) -> None:
+    """Test that the connection is closed after the transaction completes."""
+    # Mock the connection object itself
+    mock_conn = mocker.patch.object(db_mock, "conn", autospec=True)
+
+    # Run the context manager
+    with db_mock:
+        """Dummy transaction."""
+
+    # Ensure the connection is closed
+    mock_conn.close.assert_called_once()
+
+
+def test_transaction_rollback_on_exception(db_mock, mocker) -> None:
+    """Test that the transaction rolls back and raises our custom exception."""
+    # Mock the connection object and ensure it's set as db_mock.conn
+    mock_conn = mocker.Mock()
+    mocker.patch.object(db_mock, "conn", mock_conn)
+
+    # Simulate an exception within the context manager
+    message = "Simulated error"
+    with pytest.raises(TransactionError), db_mock:
+        raise ValueError(message)
+
+    # Ensure rollback was called on the mocked connection
+    mock_conn.rollback.assert_called_once()

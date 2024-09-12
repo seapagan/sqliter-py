@@ -73,3 +73,9 @@ class InvalidFilterError(SqliterError):
     """Raised when an invalid filter field is used in a query."""
 
     message_template = "Invalid filter field: '{}'"
+
+
+class TransactionError(SqliterError):
+    """Raised when an error occurs during a transaction."""
+
+    message_template = "Transaction failed in table: '{}'"

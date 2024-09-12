@@ -15,6 +15,7 @@ from sqliter.exceptions import (
     RecordNotFoundError,
     RecordUpdateError,
     TableCreationError,
+    TransactionError,
 )
 from sqliter.query.query import QueryBuilder
 
@@ -211,6 +212,13 @@ class SqliterDB:
     ) -> None:
         """Exit the runtime context and close the connection."""
         if self.conn:
-            self._maybe_commit(self.conn)
-            self.conn.close()
-            self.conn = None
+            try:
+                if exc_type:
+                    # Roll back the transaction if there was an exception
+                    self.conn.rollback()
+                    raise TransactionError(self.conn) from exc_value
+                self._maybe_commit(self.conn)
+            finally:
+                # Close the connection and reset the instance variable
+                self.conn.close()
+                self.conn = None
