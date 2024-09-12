@@ -9,6 +9,7 @@ from typing_extensions import Self
 
 from sqliter.exceptions import (
     DatabaseConnectionError,
+    RecordFetchError,
     RecordInsertionError,
     RecordNotFoundError,
     RecordUpdateError,
@@ -115,18 +116,22 @@ class SqliterDB:
             SELECT {fields} FROM {table_name} WHERE {primary_key} = ?
         """  # noqa: S608
 
-        with self.connect() as conn:
-            cursor = conn.cursor()
-            cursor.execute(select_sql, (primary_key_value,))
-            result = cursor.fetchone()
+        try:
+            with self.connect() as conn:
+                cursor = conn.cursor()
+                cursor.execute(select_sql, (primary_key_value,))
+                result = cursor.fetchone()
 
-        if result:
-            result_dict = {
-                field: result[idx]
-                for idx, field in enumerate(model_class.model_fields)
-            }
-            return model_class(**result_dict)
-        return None
+            if result:
+                result_dict = {
+                    field: result[idx]
+                    for idx, field in enumerate(model_class.model_fields)
+                }
+                return model_class(**result_dict)
+        except sqlite3.Error as exc:
+            raise RecordFetchError(table_name) from exc
+        else:
+            return None
 
     def update(self, model_instance: BaseDBModel) -> None:
         """Update an existing record using the Pydantic model."""

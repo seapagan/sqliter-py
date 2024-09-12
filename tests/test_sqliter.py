@@ -2,7 +2,7 @@
 
 import pytest
 from sqliter import SqliterDB
-from sqliter.exceptions import RecordNotFoundError
+from sqliter.exceptions import RecordFetchError, RecordNotFoundError
 from sqliter.model import BaseDBModel
 
 from tests.conftest import ExampleModel
@@ -351,3 +351,20 @@ def test_update_non_existing_record(db_mock) -> None:
 
     # Check that the correct error message is raised
     assert "No record found for key 'nonexistent'" in str(exc_info.value)
+
+
+def test_get_non_existent_table(db_mock) -> None:
+    """Test fetching from a non-existent table raises RecordFetchError."""
+
+    class NonExistentModel(ExampleModel):
+        class Meta:
+            table_name = "non_existent_table"  # A table that doesn't exist
+
+    with pytest.raises(RecordFetchError):
+        db_mock.get(NonExistentModel, "non_existent_key")
+
+
+def test_get_record_no_result(db_mock) -> None:
+    """Test fetching a non-existent record returns None."""
+    result = db_mock.get(ExampleModel, "non_existent_key")
+    assert result is None

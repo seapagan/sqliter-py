@@ -3,8 +3,14 @@
 import sqlite3
 
 import pytest
-from sqliter.exceptions import DatabaseConnectionError, SqliterError
+from sqliter.exceptions import (
+    DatabaseConnectionError,
+    RecordInsertionError,
+    SqliterError,
+)
 from sqliter.sqliter import SqliterDB
+
+from tests.conftest import ExampleModel
 
 
 def test_sqliter_error_with_template() -> None:
@@ -43,15 +49,8 @@ def test_database_connection_error(mocker) -> None:
     )
 
 
-import pytest
-from sqliter.exceptions import RecordInsertionError
-from sqliter.sqliter import SqliterDB
-
-from tests.test_sqliter import ExampleModel
-
-
 def test_insert_duplicate_primary_key(db_mock) -> None:
-    """Test that RecordInsertionError is raised when inserting duplicate primary key."""
+    """Test that exception raised when inserting duplicate primary key."""
     # Create a model instance with a unique primary key
     example_model = ExampleModel(
         slug="test", name="Test License", content="Test Content"
@@ -60,7 +59,7 @@ def test_insert_duplicate_primary_key(db_mock) -> None:
     # Insert the record for the first time, should succeed
     db_mock.insert(example_model)
 
-    # Try inserting the same record again, which should raise a RecordInsertionError
+    # Try inserting the same record again, which should raise our exception
     with pytest.raises(RecordInsertionError) as exc_info:
         db_mock.insert(example_model)
 

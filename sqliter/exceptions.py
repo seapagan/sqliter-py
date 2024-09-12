@@ -55,3 +55,9 @@ class RecordNotFoundError(SqliterError):
     """Raised when a record with the specified primary key is not found."""
 
     message_template = "No record found for key '{}'"
+
+
+class RecordFetchError(SqliterError):
+    """Raised when an error occurs during record fetching."""
+
+    message_template = "Failed to fetch record from table: '{}'"

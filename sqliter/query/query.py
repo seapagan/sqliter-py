@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import sqlite3
 from typing import TYPE_CHECKING, Any, Optional
 
 from typing_extensions import Self
 
-from sqliter.exceptions import InvalidOffsetError
+from sqliter.exceptions import InvalidOffsetError, RecordFetchError
 
 if TYPE_CHECKING:  # pragma: no cover
     from sqliter import SqliterDB
@@ -85,10 +86,13 @@ class QueryBuilder:
         # Only include non-None values in the values list
         values = [value for _, value in self.filters if value is not None]
 
-        with self.db.connect() as conn:
-            cursor = conn.cursor()
-            cursor.execute(sql, values)
-            return cursor.fetchall() if not fetch_one else cursor.fetchone()
+        try:
+            with self.db.connect() as conn:
+                cursor = conn.cursor()
+                cursor.execute(sql, values)
+                return cursor.fetchall() if not fetch_one else cursor.fetchone()
+        except sqlite3.Error as exc:
+            raise RecordFetchError(self.table_name) from exc
 
     def fetch_all(self) -> list[BaseDBModel]:
         """Fetch all results matching the filters."""

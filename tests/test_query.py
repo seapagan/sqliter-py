@@ -3,8 +3,10 @@
 from typing import Optional
 
 import pytest
-from sqliter.exceptions import InvalidOffsetError
+from sqliter.exceptions import InvalidOffsetError, RecordFetchError
 from sqliter.model import BaseDBModel
+
+from tests.conftest import ExampleModel
 
 
 def test_fetch_all_no_results(db_mock) -> None:
@@ -531,3 +533,26 @@ def test_offset_edge_cases(db_mock) -> None:
     results = db_mock.select(EdgeCaseOffsetModel).offset(1).fetch_all()
     assert len(results) == 1
     assert results[0].name == "Jane Doe"
+
+
+def test_query_non_existent_table(db_mock) -> None:
+    """Test querying a non-existent table raises RecordFetchError."""
+
+    class NonExistentModel(ExampleModel):
+        class Meta:
+            table_name = "non_existent_table"  # A table that doesn't exist
+
+    with pytest.raises(RecordFetchError):
+        db_mock.select(NonExistentModel).fetch_all()
+
+
+def test_query_invalid_filter(db_mock) -> None:
+    """Test applying an invalid filter raises RecordFetchError."""
+    # Ensure the table is created
+    db_mock.create_table(ExampleModel)
+
+    # Attempt to filter using a non-existent field
+    with pytest.raises(RecordFetchError):
+        db_mock.select(ExampleModel).filter(
+            non_existent_field="value"
+        ).fetch_all()
