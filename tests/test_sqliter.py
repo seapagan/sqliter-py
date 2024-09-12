@@ -5,7 +5,6 @@ from sqliter import SqliterDB
 from sqliter.exceptions import (
     RecordFetchError,
     RecordNotFoundError,
-    TransactionError,
 )
 from sqliter.model import BaseDBModel
 
@@ -354,7 +353,9 @@ def test_update_non_existing_record(db_mock) -> None:
         db_mock.update(example_model)
 
     # Check that the correct error message is raised
-    assert "No record found for key 'nonexistent'" in str(exc_info.value)
+    assert "Failed to find a record for key 'nonexistent'" in str(
+        exc_info.value
+    )
 
 
 def test_get_non_existent_table(db_mock) -> None:
@@ -423,14 +424,14 @@ def test_transaction_closes_connection(db_mock, mocker) -> None:
 
 
 def test_transaction_rollback_on_exception(db_mock, mocker) -> None:
-    """Test that the transaction rolls back and raises our custom exception."""
+    """Test that the transaction rolls back when an exception occurs."""
     # Mock the connection object and ensure it's set as db_mock.conn
     mock_conn = mocker.Mock()
     mocker.patch.object(db_mock, "conn", mock_conn)
 
     # Simulate an exception within the context manager
     message = "Simulated error"
-    with pytest.raises(TransactionError), db_mock:
+    with pytest.raises(ValueError, match=message), db_mock:
         raise ValueError(message)
 
     # Ensure rollback was called on the mocked connection
