@@ -7,7 +7,11 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from typing_extensions import Self
 
-from sqliter.exceptions import InvalidOffsetError, RecordFetchError
+from sqliter.exceptions import (
+    InvalidFilterError,
+    InvalidOffsetError,
+    RecordFetchError,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from sqliter import SqliterDB
@@ -29,8 +33,13 @@ class QueryBuilder:
 
     def filter(self, **conditions: str | float | None) -> Self:
         """Add filter conditions to the query."""
+        valid_fields = self.model_class.model_fields
+
         for field, value in conditions.items():
+            if field not in valid_fields:
+                raise InvalidFilterError(field)
             self.filters.append((field, value))
+
         return self
 
     def limit(self, limit_value: int) -> Self:

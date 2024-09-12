@@ -67,3 +67,9 @@ class RecordDeletionError(SqliterError):
     """Raised when an error occurs during record deletion."""
 
     message_template = "Failed to delete record from table: '{}'"
+
+
+class InvalidFilterError(SqliterError):
+    """Raised when an invalid filter field is used in a query."""
+
+    message_template = "Invalid filter field: '{}'"
