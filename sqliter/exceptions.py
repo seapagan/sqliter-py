@@ -1,5 +1,9 @@
 """Define custom exceptions for the sqliter package."""
 
+import os
+import sys
+import traceback
+
 
 class SqliterError(Exception):
     """Base class for all exceptions raised by the sqliter package."""
@@ -7,7 +11,13 @@ class SqliterError(Exception):
     message_template: str = "An error occurred in the SQLiter package."
 
     def __init__(self, *args: object) -> None:
-        """Format the message using the provided arguments."""
+        """Format the message using the provided arguments.
+
+        We also capture (and display) the current exception context and chain
+        any previous exceptions.
+
+        :param args: Arguments to format into the message template
+        """
         if args:
             message = self.message_template.format(*args)
         else:
@@ -16,7 +26,36 @@ class SqliterError(Exception):
                 .replace(":", "")
                 .strip()
             )
+
+        # Capture the current exception context
+        self.original_exception = sys.exc_info()[1]
+
+        # If there's an active exception, append its information to our message
+        if self.original_exception:
+            original_type = type(self.original_exception).__name__
+            original_module = type(self.original_exception).__module__
+
+            # Get the traceback of the original exception
+            tb = traceback.extract_tb(self.original_exception.__traceback__)
+            if tb:
+                last_frame = tb[-1]
+                file_path = os.path.relpath(last_frame.filename)
+                line_number = last_frame.lineno
+                location = f"{file_path}:{line_number}"
+            else:
+                location = "unknown location"
+
+            message += (
+                f"\n  --> {original_module}.{original_type} "
+                f"from {location}: {self.original_exception}"
+            )
+
+        # Call the parent constructor with our formatted message
         super().__init__(message)
+
+        # Explicitly chain exceptions if there's an active one
+        if self.original_exception:
+            self.__cause__ = self.original_exception
 
 
 class DatabaseConnectionError(SqliterError):
