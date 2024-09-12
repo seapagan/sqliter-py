@@ -1,10 +1,10 @@
 # SQLiter
 
-<!-- ![PyPI - Version](https://img.shields.io/pypi/v/sqliter-py) -->
+![PyPI - Version](https://img.shields.io/pypi/v/sqliter-py)
 [![Test Suite](https://github.com/seapagan/sqliter-py/actions/workflows/testing.yml/badge.svg)](https://github.com/seapagan/sqliter-py/actions/workflows/testing.yml)
 [![Linting](https://github.com/seapagan/sqliter-py/actions/workflows/linting.yml/badge.svg)](https://github.com/seapagan/sqliter-py/actions/workflows/linting.yml)
 [![Type Checking](https://github.com/seapagan/sqliter-py/actions/workflows/mypy.yml/badge.svg)](https://github.com/seapagan/sqliter-py/actions/workflows/mypy.yml)
-<!-- ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/sqliter-py) -->
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/sqliter-py)
 
 SQLiter is a lightweight Object-Relational Mapping (ORM) library for SQLite
 databases in Python. It provides a simplified interface for interacting with
