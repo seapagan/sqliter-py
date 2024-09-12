@@ -15,7 +15,6 @@ from sqliter.exceptions import (
     RecordNotFoundError,
     RecordUpdateError,
     TableCreationError,
-    TransactionError,
 )
 from sqliter.query.query import QueryBuilder
 
@@ -188,6 +187,7 @@ class SqliterDB:
             with self.connect() as conn:
                 cursor = conn.cursor()
                 cursor.execute(delete_sql, (primary_key_value,))
+
                 if cursor.rowcount == 0:
                     raise RecordNotFoundError(primary_key_value)
                 self._maybe_commit(conn)
@@ -216,7 +216,6 @@ class SqliterDB:
                 if exc_type:
                     # Roll back the transaction if there was an exception
                     self.conn.rollback()
-                    raise TransactionError(self.conn) from exc_value
                 self._maybe_commit(self.conn)
             finally:
                 # Close the connection and reset the instance variable

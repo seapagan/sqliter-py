@@ -93,7 +93,7 @@ class RecordUpdateError(SqliterError):
 class RecordNotFoundError(SqliterError):
     """Raised when a record with the specified primary key is not found."""
 
-    message_template = "No record found for key '{}'"
+    message_template = "Failed to find a record for key '{}' "
 
 
 class RecordFetchError(SqliterError):
@@ -111,10 +111,4 @@ class RecordDeletionError(SqliterError):
 class InvalidFilterError(SqliterError):
     """Raised when an invalid filter field is used in a query."""
 
-    message_template = "Invalid filter field: '{}'"
-
-
-class TransactionError(SqliterError):
-    """Raised when an error occurs during a transaction."""
-
-    message_template = "Transaction failed in table: '{}'"
+    message_template = "Failed to apply filter: invalid field '{}'"
