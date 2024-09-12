@@ -1,23 +1,17 @@
 """Test suite for the 'sqliter' library."""
 
+import pytest
 from sqliter import SqliterDB
+from sqliter.exceptions import (
+    RecordFetchError,
+    RecordNotFoundError,
+    TransactionError,
+)
 from sqliter.model import BaseDBModel
 
+from tests.conftest import ExampleModel
 
 # License model for testing
-class ExampleModel(BaseDBModel):
-    """Define a model to use in the tests."""
-
-    slug: str
-    name: str
-    content: str
-
-    class Meta:
-        """Configuration for the model."""
-
-        create_id: bool = False
-        primary_key: str = "slug"
-        table_name: str = "test_table"
 
 
 def test_create_table(db_mock) -> None:
@@ -326,3 +320,118 @@ def test_transaction_manual_commit(mocker) -> None:
     # After leaving the context, commit should still not be called (since
     # auto_commit=False)
     mock_conn.commit.assert_not_called()
+
+
+def test_update_existing_record(db_mock) -> None:
+    """Test that updating an existing record works correctly."""
+    # Insert an example record
+    example_model = ExampleModel(
+        slug="test", name="Test License", content="Test Content"
+    )
+    db_mock.insert(example_model)
+
+    # Update the record's content
+    example_model.content = "Updated Content"
+    db_mock.update(example_model)
+
+    # Fetch the updated record and verify the changes
+    updated_record = db_mock.get(ExampleModel, "test")
+    assert updated_record is not None
+    assert updated_record.content == "Updated Content"
+
+
+def test_update_non_existing_record(db_mock) -> None:
+    """Test that updating a non-existing record raises RecordNotFoundError."""
+    # Create an example record that is not inserted into the DB
+    example_model = ExampleModel(
+        slug="nonexistent",
+        name="Nonexistent License",
+        content="Nonexistent Content",
+    )
+
+    # Try updating the non-existent record
+    with pytest.raises(RecordNotFoundError) as exc_info:
+        db_mock.update(example_model)
+
+    # Check that the correct error message is raised
+    assert "No record found for key 'nonexistent'" in str(exc_info.value)
+
+
+def test_get_non_existent_table(db_mock) -> None:
+    """Test fetching from a non-existent table raises RecordFetchError."""
+
+    class NonExistentModel(ExampleModel):
+        class Meta:
+            table_name = "non_existent_table"  # A table that doesn't exist
+
+    with pytest.raises(RecordFetchError):
+        db_mock.get(NonExistentModel, "non_existent_key")
+
+
+def test_get_record_no_result(db_mock) -> None:
+    """Test fetching a non-existent record returns None."""
+    result = db_mock.get(ExampleModel, "non_existent_key")
+    assert result is None
+
+
+def test_delete_non_existent_record(db_mock) -> None:
+    """Test that attempting to delete a non-existent record raises exception."""
+    with pytest.raises(RecordNotFoundError):
+        db_mock.delete(ExampleModel, "non_existent_key")
+
+
+def test_delete_existing_record(db_mock) -> None:
+    """Test that a record is deleted successfully."""
+    # Insert a record first
+    test_model = ExampleModel(
+        slug="test", name="Test License", content="Test Content"
+    )
+    db_mock.insert(test_model)
+
+    # Now delete the record
+    db_mock.delete(ExampleModel, "test")
+
+    # Fetch the deleted record to confirm it's gone
+    result = db_mock.get(ExampleModel, "test")
+    assert result is None
+
+
+def test_transaction_commit_success(db_mock, mocker) -> None:
+    """Test that the transaction commits successfully with no exceptions."""
+    # Mock the _maybe_commit method to track the commit
+    mock_commit = mocker.patch.object(db_mock, "_maybe_commit")
+
+    # Run the context manager without errors
+    with db_mock:
+        """Dummy transaction."""
+
+    # Ensure commit was called
+    mock_commit.assert_called_once()
+
+
+def test_transaction_closes_connection(db_mock, mocker) -> None:
+    """Test that the connection is closed after the transaction completes."""
+    # Mock the connection object itself
+    mock_conn = mocker.patch.object(db_mock, "conn", autospec=True)
+
+    # Run the context manager
+    with db_mock:
+        """Dummy transaction."""
+
+    # Ensure the connection is closed
+    mock_conn.close.assert_called_once()
+
+
+def test_transaction_rollback_on_exception(db_mock, mocker) -> None:
+    """Test that the transaction rolls back and raises our custom exception."""
+    # Mock the connection object and ensure it's set as db_mock.conn
+    mock_conn = mocker.Mock()
+    mocker.patch.object(db_mock, "conn", mock_conn)
+
+    # Simulate an exception within the context manager
+    message = "Simulated error"
+    with pytest.raises(TransactionError), db_mock:
+        raise ValueError(message)
+
+    # Ensure rollback was called on the mocked connection
+    mock_conn.rollback.assert_called_once()

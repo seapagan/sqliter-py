@@ -7,6 +7,16 @@ from typing import TYPE_CHECKING, Optional
 
 from typing_extensions import Self
 
+from sqliter.exceptions import (
+    DatabaseConnectionError,
+    RecordDeletionError,
+    RecordFetchError,
+    RecordInsertionError,
+    RecordNotFoundError,
+    RecordUpdateError,
+    TableCreationError,
+    TransactionError,
+)
 from sqliter.query.query import QueryBuilder
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -27,7 +37,10 @@ class SqliterDB:
     def connect(self) -> sqlite3.Connection:
         """Create or return a connection to the SQLite database."""
         if not self.conn:
-            self.conn = sqlite3.connect(self.db_filename)
+            try:
+                self.conn = sqlite3.connect(self.db_filename)
+            except sqlite3.Error as exc:
+                raise DatabaseConnectionError(self.db_filename) from exc
         return self.conn
 
     def create_table(self, model_class: type[BaseDBModel]) -> None:
@@ -55,10 +68,13 @@ class SqliterDB:
                 )
             """
 
-        with self.connect() as conn:
-            cursor = conn.cursor()
-            cursor.execute(create_table_sql)
-            conn.commit()
+        try:
+            with self.connect() as conn:
+                cursor = conn.cursor()
+                cursor.execute(create_table_sql)
+                conn.commit()
+        except sqlite3.Error as exc:
+            raise TableCreationError(table_name) from exc
 
     def _maybe_commit(self, conn: sqlite3.Connection) -> None:
         """Commit changes if auto_commit is True."""
@@ -77,14 +93,17 @@ class SqliterDB:
         )
 
         insert_sql = f"""
-        INSERT OR REPLACE INTO {table_name} ({fields})
+        INSERT INTO {table_name} ({fields})
         VALUES ({placeholders})
     """  # noqa: S608
 
-        with self.connect() as conn:
-            cursor = conn.cursor()
-            cursor.execute(insert_sql, values)
-            self._maybe_commit(conn)
+        try:
+            with self.connect() as conn:
+                cursor = conn.cursor()
+                cursor.execute(insert_sql, values)
+                self._maybe_commit(conn)
+        except sqlite3.Error as exc:
+            raise RecordInsertionError(table_name) from exc
 
     def get(
         self, model_class: type[BaseDBModel], primary_key_value: str
@@ -99,18 +118,22 @@ class SqliterDB:
             SELECT {fields} FROM {table_name} WHERE {primary_key} = ?
         """  # noqa: S608
 
-        with self.connect() as conn:
-            cursor = conn.cursor()
-            cursor.execute(select_sql, (primary_key_value,))
-            result = cursor.fetchone()
+        try:
+            with self.connect() as conn:
+                cursor = conn.cursor()
+                cursor.execute(select_sql, (primary_key_value,))
+                result = cursor.fetchone()
 
-        if result:
-            result_dict = {
-                field: result[idx]
-                for idx, field in enumerate(model_class.model_fields)
-            }
-            return model_class(**result_dict)
-        return None
+            if result:
+                result_dict = {
+                    field: result[idx]
+                    for idx, field in enumerate(model_class.model_fields)
+                }
+                return model_class(**result_dict)
+        except sqlite3.Error as exc:
+            raise RecordFetchError(table_name) from exc
+        else:
+            return None
 
     def update(self, model_instance: BaseDBModel) -> None:
         """Update an existing record using the Pydantic model."""
@@ -131,13 +154,24 @@ class SqliterDB:
         primary_key_value = getattr(model_instance, primary_key)
 
         update_sql = f"""
-            UPDATE {table_name} SET {fields} WHERE {primary_key} = ?
+            UPDATE {table_name}
+            SET {fields}
+            WHERE {primary_key} = ?
         """  # noqa: S608
 
-        with self.connect() as conn:
-            cursor = conn.cursor()
-            cursor.execute(update_sql, (*values, primary_key_value))
-            self._maybe_commit(conn)
+        try:
+            with self.connect() as conn:
+                cursor = conn.cursor()
+                cursor.execute(update_sql, (*values, primary_key_value))
+
+                # Check if any rows were updated
+                if cursor.rowcount == 0:
+                    raise RecordNotFoundError(primary_key_value)
+
+                self._maybe_commit(conn)
+
+        except sqlite3.Error as exc:
+            raise RecordUpdateError(table_name) from exc
 
     def delete(
         self, model_class: type[BaseDBModel], primary_key_value: str
@@ -150,10 +184,15 @@ class SqliterDB:
             DELETE FROM {table_name} WHERE {primary_key} = ?
         """  # noqa: S608
 
-        with self.connect() as conn:
-            cursor = conn.cursor()
-            cursor.execute(delete_sql, (primary_key_value,))
-            self._maybe_commit(conn)
+        try:
+            with self.connect() as conn:
+                cursor = conn.cursor()
+                cursor.execute(delete_sql, (primary_key_value,))
+                if cursor.rowcount == 0:
+                    raise RecordNotFoundError(primary_key_value)
+                self._maybe_commit(conn)
+        except sqlite3.Error as exc:
+            raise RecordDeletionError(table_name) from exc
 
     def select(self, model_class: type[BaseDBModel]) -> QueryBuilder:
         """Start a query for the given model."""
@@ -173,6 +212,13 @@ class SqliterDB:
     ) -> None:
         """Exit the runtime context and close the connection."""
         if self.conn:
-            self._maybe_commit(self.conn)
-            self.conn.close()
-            self.conn = None
+            try:
+                if exc_type:
+                    # Roll back the transaction if there was an exception
+                    self.conn.rollback()
+                    raise TransactionError(self.conn) from exc_value
+                self._maybe_commit(self.conn)
+            finally:
+                # Close the connection and reset the instance variable
+                self.conn.close()
+                self.conn = None

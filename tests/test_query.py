@@ -3,8 +3,14 @@
 from typing import Optional
 
 import pytest
-from sqliter.exceptions import InvalidOffsetError
+from sqliter.exceptions import (
+    InvalidFilterError,
+    InvalidOffsetError,
+    RecordFetchError,
+)
 from sqliter.model import BaseDBModel
+
+from tests.conftest import ExampleModel
 
 
 def test_fetch_all_no_results(db_mock) -> None:
@@ -502,6 +508,23 @@ def test_limit_edge_cases(db_mock) -> None:
     assert len(results) == 2
 
 
+def test_offset_exceeding_row_count(db_mock) -> None:
+    """Test that an offset > the number of rows returns an empty result."""
+    # Insert multiple records
+    for i in range(3):
+        db_mock.insert(
+            ExampleModel(
+                slug=f"test{i}", name=f"Test Name {i}", content="Test Content"
+            )
+        )
+
+    # Query with an offset greater than the total number of rows
+    result = db_mock.select(ExampleModel).offset(5).fetch_all()
+
+    # Assert that the result is an empty list
+    assert result == []
+
+
 def test_offset_edge_cases(db_mock) -> None:
     """Test offset with edge cases like zero and negative values."""
 
@@ -520,14 +543,61 @@ def test_offset_edge_cases(db_mock) -> None:
     # Offset with zero should raise InvalidOffsetError
     with pytest.raises(InvalidOffsetError) as exc:
         db_mock.select(EdgeCaseOffsetModel).offset(0).fetch_all()
-    assert "Invalid offset value: 0" in str(exc.value)
+    assert "Invalid offset value: '0'" in str(exc.value)
 
     # Negative offset should raise InvalidOffsetError
     with pytest.raises(InvalidOffsetError) as exc:
         db_mock.select(EdgeCaseOffsetModel).offset(-1).fetch_all()
-    assert "Invalid offset value: -1" in str(exc.value)
+    assert "Invalid offset value: '-1'" in str(exc.value)
 
     # Valid offset should work normally
     results = db_mock.select(EdgeCaseOffsetModel).offset(1).fetch_all()
     assert len(results) == 1
     assert results[0].name == "Jane Doe"
+
+
+def test_query_non_existent_table(db_mock) -> None:
+    """Test querying a non-existent table raises RecordFetchError."""
+
+    class NonExistentModel(ExampleModel):
+        class Meta:
+            table_name = "non_existent_table"  # A table that doesn't exist
+
+    with pytest.raises(RecordFetchError):
+        db_mock.select(NonExistentModel).fetch_all()
+
+
+def test_query_invalid_filter(db_mock) -> None:
+    """Test applying an invalid filter raises RecordFetchError."""
+    # Ensure the table is created
+    db_mock.create_table(ExampleModel)
+
+    # Attempt to filter using a non-existent field
+    with pytest.raises(InvalidFilterError):
+        db_mock.select(ExampleModel).filter(
+            non_existent_field="value"
+        ).fetch_all()
+
+
+def test_query_valid_filter(db_mock) -> None:
+    """Test that valid filter fields do not raise InvalidFilterError."""
+    # Ensure the table is created
+    db_mock.create_table(ExampleModel)
+
+    # Apply a filter using a valid field (e.g., 'name')
+    try:
+        db_mock.select(ExampleModel).filter(name="Valid Name").fetch_all()
+    except InvalidFilterError:
+        pytest.fail("Valid field raised InvalidFilterError unexpectedly")
+
+
+def test_query_mixed_valid_invalid_filter(db_mock) -> None:
+    """Test that a mix of valid and invalid fields raises InvalidFilterError."""
+    # Ensure the table is created
+    db_mock.create_table(ExampleModel)
+
+    # Attempt to filter using both valid and invalid fields
+    with pytest.raises(InvalidFilterError):
+        db_mock.select(ExampleModel).filter(
+            name="Valid Name", non_existent_field="Invalid"
+        ).fetch_all()

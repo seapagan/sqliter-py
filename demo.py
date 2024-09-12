@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from sqliter import SqliterDB
+from sqliter.exceptions import RecordInsertionError
 from sqliter.model import BaseDBModel
 
 
@@ -26,7 +27,7 @@ class LicenseModel(BaseDBModel):
 
 def main() -> None:
     """Simple example to demonstrate the usage of the 'sqliter' package."""
-    db = SqliterDB("lice.db", auto_commit=True)
+    db = SqliterDB("demo.db", auto_commit=True)
     with db:
         db.create_table(LicenseModel)  # Create the licenses table
         license1 = LicenseModel(
@@ -39,8 +40,11 @@ def main() -> None:
             name="GPL License",
             content="This is the GPL license content.",
         )
-        db.insert(license1)
-        db.insert(license2)
+        try:
+            db.insert(license1)
+            db.insert(license2)
+        except RecordInsertionError as exc:
+            logging.error(exc)  # noqa: TRY400
 
         # set up logging
         logging.basicConfig(
