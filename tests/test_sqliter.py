@@ -1,8 +1,14 @@
 """Test suite for the 'sqliter' library."""
 
+import sqlite3
+
 import pytest
 from sqliter import SqliterDB
-from sqliter.exceptions import RecordFetchError, RecordNotFoundError
+from sqliter.exceptions import (
+    RecordDeletionError,
+    RecordFetchError,
+    RecordNotFoundError,
+)
 from sqliter.model import BaseDBModel
 
 from tests.conftest import ExampleModel
@@ -367,4 +373,26 @@ def test_get_non_existent_table(db_mock) -> None:
 def test_get_record_no_result(db_mock) -> None:
     """Test fetching a non-existent record returns None."""
     result = db_mock.get(ExampleModel, "non_existent_key")
+    assert result is None
+
+
+def test_delete_non_existent_record(db_mock) -> None:
+    """Test that attempting to delete a non-existent record raises exception."""
+    with pytest.raises(RecordNotFoundError):
+        db_mock.delete(ExampleModel, "non_existent_key")
+
+
+def test_delete_existing_record(db_mock) -> None:
+    """Test that a record is deleted successfully."""
+    # Insert a record first
+    test_model = ExampleModel(
+        slug="test", name="Test License", content="Test Content"
+    )
+    db_mock.insert(test_model)
+
+    # Now delete the record
+    db_mock.delete(ExampleModel, "test")
+
+    # Fetch the deleted record to confirm it's gone
+    result = db_mock.get(ExampleModel, "test")
     assert result is None

@@ -61,3 +61,9 @@ class RecordFetchError(SqliterError):
     """Raised when an error occurs during record fetching."""
 
     message_template = "Failed to fetch record from table: '{}'"
+
+
+class RecordDeletionError(SqliterError):
+    """Raised when an error occurs during record deletion."""
+
+    message_template = "Failed to delete record from table: '{}'"

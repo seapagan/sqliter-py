@@ -9,6 +9,7 @@ from typing_extensions import Self
 
 from sqliter.exceptions import (
     DatabaseConnectionError,
+    RecordDeletionError,
     RecordFetchError,
     RecordInsertionError,
     RecordNotFoundError,
@@ -182,10 +183,15 @@ class SqliterDB:
             DELETE FROM {table_name} WHERE {primary_key} = ?
         """  # noqa: S608
 
-        with self.connect() as conn:
-            cursor = conn.cursor()
-            cursor.execute(delete_sql, (primary_key_value,))
-            self._maybe_commit(conn)
+        try:
+            with self.connect() as conn:
+                cursor = conn.cursor()
+                cursor.execute(delete_sql, (primary_key_value,))
+                if cursor.rowcount == 0:
+                    raise RecordNotFoundError(primary_key_value)
+                self._maybe_commit(conn)
+        except sqlite3.Error as exc:
+            raise RecordDeletionError(table_name) from exc
 
     def select(self, model_class: type[BaseDBModel]) -> QueryBuilder:
         """Start a query for the given model."""
