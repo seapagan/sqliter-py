@@ -114,10 +114,6 @@ keep-runtime-typing = true
 python_version = "3.9"
 
 [[tool.mypy.overrides]]
-module = "pyperclip"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
 disable_error_code = ["method-assign", "no-untyped-def", "attr-defined"]
 module = "tests.*"
 
