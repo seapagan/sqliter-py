@@ -1,8 +1,25 @@
 """Configuration for pytest."""
 
+from collections.abc import Generator
+from contextlib import contextmanager
+from typing import Any
+
 import pytest
 from sqliter.model import BaseDBModel
 from sqliter.sqliter import SqliterDB
+
+
+@contextmanager
+def not_raises(exception) -> Generator[None, Any, None]:
+    """Fake a pytest.raises context manager that does not raise an exception.
+
+    Use: `with not_raises(Exception):`
+    """
+    try:
+        yield
+    except exception:
+        err = f"DID RAISE {exception}"
+        pytest.fail(err)
 
 
 class ExampleModel(BaseDBModel):

@@ -10,7 +10,7 @@ from sqliter.exceptions import (
 )
 from sqliter.model import BaseDBModel
 
-from tests.conftest import ExampleModel
+from tests.conftest import ExampleModel, not_raises
 
 
 def test_fetch_all_no_results(db_mock) -> None:
@@ -540,10 +540,9 @@ def test_offset_edge_cases(db_mock) -> None:
     db_mock.insert(EdgeCaseOffsetModel(name="John Doe"))
     db_mock.insert(EdgeCaseOffsetModel(name="Jane Doe"))
 
-    # Offset with zero should raise InvalidOffsetError
-    with pytest.raises(InvalidOffsetError) as exc:
+    # Offset with zero should NOT raise InvalidOffsetError
+    with not_raises(InvalidOffsetError) as exc:
         db_mock.select(EdgeCaseOffsetModel).offset(0).fetch_all()
-    assert "Invalid offset value: '0'" in str(exc.value)
 
     # Negative offset should raise InvalidOffsetError
     with pytest.raises(InvalidOffsetError) as exc:

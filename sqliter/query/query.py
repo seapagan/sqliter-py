@@ -125,7 +125,7 @@ class QueryBuilder:
 
     def offset(self, offset_value: int) -> Self:
         """Set an offset value for the query."""
-        if offset_value <= 0:
+        if offset_value < 0:
             raise InvalidOffsetError(offset_value)
         self._offset = offset_value
 
@@ -152,7 +152,7 @@ class QueryBuilder:
 
         select_fields = fields if not count_only else "COUNT(*)"
 
-        sql = f"SELECT {select_fields} FROM {self.table_name}"  # noqa: S608
+        sql = f'SELECT {select_fields} FROM "{self.table_name}"'  # noqa: S608
 
         if self.filters:
             sql += f" WHERE {where_clause}"
@@ -161,10 +161,12 @@ class QueryBuilder:
             sql += f" ORDER BY {self._order_by}"
 
         if self._limit is not None:
-            sql += f" LIMIT {self._limit}"
+            sql += " LIMIT ?"
+            values.append(self._limit)
 
         if self._offset is not None:
-            sql += f" OFFSET {self._offset}"
+            sql += " OFFSET ?"
+            values.append(self._offset)
 
         try:
             with self.db.connect() as conn:
