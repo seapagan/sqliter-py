@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from typing_extensions import Self
 
+from sqliter.constants import OPERATOR_MAPPING
 from sqliter.exceptions import (
     InvalidFilterError,
     InvalidOffsetError,
@@ -26,7 +27,7 @@ class QueryBuilder:
         self.db = db
         self.model_class = model_class
         self.table_name = model_class.get_table_name()  # Use model_class method
-        self.filters: list[tuple[str, Any]] = []
+        self.filters: list[tuple[str, Any, str]] = []
         self._limit: Optional[int] = None
         self._offset: Optional[int] = None
         self._order_by: Optional[str] = None
@@ -36,11 +37,86 @@ class QueryBuilder:
         valid_fields = self.model_class.model_fields
 
         for field, value in conditions.items():
-            if field not in valid_fields:
-                raise InvalidFilterError(field)
-            self.filters.append((field, value))
+            # Split the field into the name and the operator
+            field_name, operator = self._parse_field_operator(field)
+
+            # Validate the field
+            if field_name not in valid_fields:
+                raise InvalidFilterError(field_name)
+
+            # Use the mapped SQL operator, or default to '=' for equality
+            sql_operator = OPERATOR_MAPPING.get(operator, "=")
+
+            if value is None:
+                # Handle None values as IS NULL
+                self.filters.append((f"{field_name} IS NULL", None, "__isnull"))
+            elif operator in ["__isnull", "__notnull"]:
+                # For IS NULL and IS NOT NULL, no value is needed
+                self.filters.append(
+                    (f"{field_name} {sql_operator}", None, operator)
+                )
+            elif operator in ["__in", "__not_in"]:
+                # Ensure value is a list for IN/NOT IN clauses
+                if not isinstance(value, list):
+                    err = f"{field_name} requires a list for '{operator}'"
+                    raise ValueError(err)
+                # and pass it as multiple values
+                placeholder_list = ", ".join(["?"] * len(value))
+                self.filters.append(
+                    (
+                        f"{field_name} {sql_operator} ({placeholder_list})",
+                        value,
+                        operator,
+                    )
+                )
+            elif operator in ["__startswith", "__endswith", "__contains"]:
+                # Ensure the value is a string before formatting it in this case
+                if isinstance(value, str):
+                    formatted_value = self._format_string_for_operator(
+                        operator, value
+                    )
+                    self.filters.append(
+                        (
+                            f"{field_name} {sql_operator}",
+                            [formatted_value],
+                            operator,
+                        )
+                    )
+                else:
+                    err = (
+                        f"{field_name} requires a string value for '{operator}'"
+                    )
+                    raise ValueError(err)
+            elif operator in ["__lt", "__lte", "__gt", "__gte", "__ne"]:
+                # Handle comparison operators specifically
+                sql_operator = OPERATOR_MAPPING[operator]
+                self.filters.append(
+                    (f"{field_name} {sql_operator} ?", value, operator)
+                )
+            else:
+                # Default behavior for equality checks
+                self.filters.append((field_name, value, operator))
 
         return self
+
+    # Helper method for parsing field and operator
+    def _parse_field_operator(self, field: str) -> tuple[str, str]:
+        for operator in OPERATOR_MAPPING:
+            if field.endswith(operator):
+                return field[: -len(operator)], operator
+        return field, "__eq"  # Default to equality if no operator is found
+
+    # Helper method for formatting string operators (like startswith)
+    def _format_string_for_operator(self, operator: str, value: str) -> str:
+        # Mapping operators to their corresponding string format
+        format_map = {
+            "__startswith": f"{value}%",
+            "__endswith": f"%{value}",
+            "__contains": f"%{value}%",
+        }
+
+        # Return the formatted string or the original value if no match
+        return format_map.get(operator, value)
 
     def limit(self, limit_value: int) -> Self:
         """Limit the number of results returned by the query."""
@@ -71,12 +147,27 @@ class QueryBuilder:
         fields = ", ".join(self.model_class.model_fields)
 
         # Build the WHERE clause with special handling for None (NULL in SQL)
-        where_clause = " AND ".join(
-            [
-                f"{field} IS NULL" if value is None else f"{field} = ?"
-                for field, value in self.filters
-            ]
-        )
+        where_clauses = []
+        values = []
+        for field, value, operator in self.filters:
+            if operator == "__isnull":
+                where_clauses.append(f"{field}")
+            elif operator == "__notnull":
+                where_clauses.append(f"{field} IS NOT NULL")
+            elif operator in ["__in", "__not_in"]:
+                where_clauses.append(field)
+                values.extend(value)
+            elif operator in ["__startswith", "__endswith", "__contains"]:
+                where_clauses.append(field)
+                values.extend(value)
+            elif operator in ["__lt", "__lte", "__gt", "__gte", "__ne"]:
+                where_clauses.append(field)
+                values.append(value)
+            else:
+                where_clauses.append(f"{field} = ?")
+                values.append(value)
+
+        where_clause = " AND ".join(where_clauses)
 
         sql = f"SELECT {fields} FROM {self.table_name}"  # noqa: S608
 
@@ -92,8 +183,7 @@ class QueryBuilder:
         if self._offset is not None:
             sql += f" OFFSET {self._offset}"
 
-        # Only include non-None values in the values list
-        values = [value for _, value in self.filters if value is not None]
+        print(f"Executing SQL: {sql} with values: {values}")  # Debug print
 
         try:
             with self.db.connect() as conn:
@@ -162,14 +252,14 @@ class QueryBuilder:
     def count(self) -> int:
         """Return the count of records matching the filters."""
         where_clause = " AND ".join(
-            [f"{field} = ?" for field, _ in self.filters]
+            [f"{field} = ?" for field, _, _ in self.filters]
         )
         sql = f"SELECT COUNT(*) FROM {self.table_name}"  # noqa: S608
 
         if self.filters:
             sql += f" WHERE {where_clause}"
 
-        values = [value for _, value in self.filters]
+        values = [value for _, _, value in self.filters]
 
         with self.db.connect() as conn:
             cursor = conn.cursor()
