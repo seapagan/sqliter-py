@@ -11,6 +11,7 @@ from sqliter.constants import OPERATOR_MAPPING
 from sqliter.exceptions import (
     InvalidFilterError,
     InvalidOffsetError,
+    InvalidOrderError,
     RecordFetchError,
 )
 
@@ -134,16 +135,33 @@ class QueryBuilder:
         return self
 
     def order(self, order_by_field: str, direction: str = "ASC") -> Self:
-        """Order the results by a specific field and optionally direction."""
+        """Order the results by a specific field and optionally direction.
+
+        Currently only supports ordering by a single field, though this will be
+        expanded in the future. You can chain this method to order by multiple
+        fields.
+
+        Parameters:
+            order_by_field (str): The field to order by.
+            direction (str, optional): The sorting direction, either 'ASC' or
+                'DESC'. Defaults to 'ASC'.
+
+        Returns:
+            Self: Returns the query object for chaining.
+
+        Raises:
+            InvalidOrderError: If the field or direction is invalid.
+        """
         if order_by_field not in self.model_class.model_fields:
-            err = f"Invalid order_by field: {order_by_field}"
-            raise ValueError(err)
+            err = f"'{order_by_field}' does not exist in the model fields."
+            raise InvalidOrderError(err)
 
         valid_directions = {"ASC", "DESC"}
         if direction.upper() not in valid_directions:
-            err = f"Invalid ordering direction: {direction}"
-            raise ValueError(err)
-        self._order_by = f"{order_by_field} {direction.upper()}"
+            err = f"'{direction}' is not a valid sorting direction."
+            raise InvalidOrderError(err)
+
+        self._order_by = f'"{order_by_field}" {direction.upper()}'
         return self
 
     def _execute_query(
