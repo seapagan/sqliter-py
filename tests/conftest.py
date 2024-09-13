@@ -1,12 +1,16 @@
 """Configuration for pytest."""
 
-from collections.abc import Generator
+from __future__ import annotations
+
 from contextlib import contextmanager
-from typing import Any
+from typing import TYPE_CHECKING, Any, Optional
 
 import pytest
 from sqliter.model import BaseDBModel
 from sqliter.sqliter import SqliterDB
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 @contextmanager
@@ -40,8 +44,8 @@ class ExampleModel(BaseDBModel):
 class PersonModel(BaseDBModel):
     """Model to test advanced filters."""
 
-    name: str
-    age: int
+    name: Optional[str]
+    age: Optional[int]
 
     class Meta:
         """Configuration for the model."""
@@ -64,4 +68,9 @@ def db_mock_adv() -> SqliterDB:
     """Fixture to create a SqliterDB class with an in-memory SQLite database."""
     db = SqliterDB(":memory:", auto_commit=True)
     db.create_table(PersonModel)
+
+    db.insert(PersonModel(name="Alice", age=25))
+    db.insert(PersonModel(name="Bob", age=30))
+    db.insert(PersonModel(name="Charlie", age=35))
+
     return db

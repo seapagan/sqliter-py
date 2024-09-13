@@ -174,7 +174,7 @@ class QueryBuilder:
         fields = ", ".join(self.model_class.model_fields)
 
         # Build the WHERE clause with special handling for None (NULL in SQL)
-        values, where_clause = self.parse_filter()
+        values, where_clause = self._parse_filter()
 
         select_fields = fields if not count_only else "COUNT(*)"
 
@@ -202,7 +202,7 @@ class QueryBuilder:
         except sqlite3.Error as exc:
             raise RecordFetchError(self.table_name) from exc
 
-    def parse_filter(self) -> tuple[list[Any], LiteralString]:
+    def _parse_filter(self) -> tuple[list[Any], LiteralString]:
         """Actually parse the filters."""
         where_clauses = []
         values = []
