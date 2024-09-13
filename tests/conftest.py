@@ -1,7 +1,5 @@
 """Configuration for pytest."""
 
-from venv import create
-
 import pytest
 from sqliter.model import BaseDBModel
 from sqliter.sqliter import SqliterDB
