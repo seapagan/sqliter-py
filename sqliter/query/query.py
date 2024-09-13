@@ -133,9 +133,17 @@ class QueryBuilder:
             self._limit = -1
         return self
 
-    def order(self, order_by_field: str) -> Self:
+    def order(self, order_by_field: str, direction: str = "ASC") -> Self:
         """Order the results by a specific field and optionally direction."""
-        self._order_by = order_by_field
+        if order_by_field not in self.model_class.model_fields:
+            err = f"Invalid order_by field: {order_by_field}"
+            raise ValueError(err)
+
+        valid_directions = {"ASC", "DESC"}
+        if direction.upper() not in valid_directions:
+            err = f"Invalid ordering direction: {direction}"
+            raise ValueError(err)
+        self._order_by = f"{order_by_field} {direction.upper()}"
         return self
 
     def _execute_query(
@@ -152,7 +160,7 @@ class QueryBuilder:
 
         select_fields = fields if not count_only else "COUNT(*)"
 
-        sql = f'SELECT {select_fields} FROM "{self.table_name}"'  # noqa: S608
+        sql = f'SELECT {select_fields} FROM "{self.table_name}"'  # noqa: S608 # nosec
 
         if self.filters:
             sql += f" WHERE {where_clause}"

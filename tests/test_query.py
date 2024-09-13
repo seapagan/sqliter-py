@@ -443,7 +443,11 @@ def test_order(db_mock) -> None:
     db_mock.insert(OrderTestModel(name="Jim Doe"))
 
     # Perform a query with ordering by name DESC
-    results = db_mock.select(OrderTestModel).order("name DESC").fetch_all()
+    results = (
+        db_mock.select(OrderTestModel)
+        .order("name", direction="desc")
+        .fetch_all()
+    )
 
     # Assert that the ordering works in descending order
     assert len(results) == 3
@@ -472,7 +476,7 @@ def test_limit_offset_order_combined(db_mock) -> None:
     # Perform a query with ordering by name DESC, offset 1, limit 2
     results = (
         db_mock.select(CombinedTestModel)
-        .order("name ASC")
+        .order("name")
         .offset(1)
         .limit(2)
         .fetch_all()
