@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import select
 import sqlite3
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -142,6 +143,7 @@ class QueryBuilder:
         self,
         *,
         fetch_one: bool = False,
+        count_only: bool = False,
     ) -> list[tuple[Any, ...]] | Optional[tuple[Any, ...]]:
         """Helper function to execute the query with filters."""
         fields = ", ".join(self.model_class.model_fields)
@@ -169,7 +171,9 @@ class QueryBuilder:
 
         where_clause = " AND ".join(where_clauses)
 
-        sql = f"SELECT {fields} FROM {self.table_name}"  # noqa: S608
+        select_fields = fields if not count_only else "COUNT(*)"
+
+        sql = f"SELECT {select_fields} FROM {self.table_name}"  # noqa: S608
 
         if self.filters:
             sql += f" WHERE {where_clause}"
@@ -251,22 +255,9 @@ class QueryBuilder:
 
     def count(self) -> int:
         """Return the count of records matching the filters."""
-        where_clause = " AND ".join(
-            [f"{field} = ?" for field, _, _ in self.filters]
-        )
-        sql = f"SELECT COUNT(*) FROM {self.table_name}"  # noqa: S608
+        result = self._execute_query(count_only=True)
 
-        if self.filters:
-            sql += f" WHERE {where_clause}"
-
-        values = [value for _, _, value in self.filters]
-
-        with self.db.connect() as conn:
-            cursor = conn.cursor()
-            cursor.execute(sql, values)
-            result = cursor.fetchone()
-
-        return int(result[0]) if result else 0
+        return int(result[0][0]) if result else 0
 
     def exists(self) -> bool:
         """Return True if any record matches the filters."""
