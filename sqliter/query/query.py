@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from typing import TYPE_CHECKING, Any, Optional
 
-from typing_extensions import Self
+from typing_extensions import LiteralString, Self
 
 from sqliter.constants import OPERATOR_MAPPING
 from sqliter.exceptions import (
@@ -148,28 +148,7 @@ class QueryBuilder:
         fields = ", ".join(self.model_class.model_fields)
 
         # Build the WHERE clause with special handling for None (NULL in SQL)
-        where_clauses = []
-        values = []
-        for field, value, operator in self.filters:
-            if operator == "__isnull":
-                where_clauses.append(f"{field}")
-            elif operator == "__notnull":
-                where_clauses.append(f"{field} IS NOT NULL")
-            elif operator in ["__in", "__not_in"] or operator in [
-                "__startswith",
-                "__endswith",
-                "__contains",
-            ]:
-                where_clauses.append(field)
-                values.extend(value)
-            elif operator in ["__lt", "__lte", "__gt", "__gte", "__ne"]:
-                where_clauses.append(field)
-                values.append(value)
-            else:
-                where_clauses.append(f"{field} = ?")
-                values.append(value)
-
-        where_clause = " AND ".join(where_clauses)
+        values, where_clause = self.parse_filter()
 
         select_fields = fields if not count_only else "COUNT(*)"
 
@@ -194,6 +173,32 @@ class QueryBuilder:
                 return cursor.fetchall() if not fetch_one else cursor.fetchone()
         except sqlite3.Error as exc:
             raise RecordFetchError(self.table_name) from exc
+
+    def parse_filter(self) -> tuple[list[Any], LiteralString]:
+        """Actually parse the filters."""
+        where_clauses = []
+        values = []
+        for field, value, operator in self.filters:
+            if operator == "__isnull":
+                where_clauses.append(f"{field}")
+            elif operator == "__notnull":
+                where_clauses.append(f"{field} IS NOT NULL")
+            elif operator in ["__in", "__not_in"] or operator in [
+                "__startswith",
+                "__endswith",
+                "__contains",
+            ]:
+                where_clauses.append(field)
+                values.extend(value)
+            elif operator in ["__lt", "__lte", "__gt", "__gte", "__ne"]:
+                where_clauses.append(field)
+                values.append(value)
+            else:
+                where_clauses.append(f"{field} = ?")
+                values.append(value)
+
+        where_clause = " AND ".join(where_clauses)
+        return values, where_clause
 
     def fetch_all(self) -> list[BaseDBModel]:
         """Fetch all results matching the filters."""
