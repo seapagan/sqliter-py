@@ -72,6 +72,12 @@ class InvalidOffsetError(SqliterError):
     )
 
 
+class InvalidOrderError(SqliterError):
+    """Raised when an invalid order value is used."""
+
+    message_template = "Invalid order value - {}"
+
+
 class TableCreationError(SqliterError):
     """Raised when a table cannot be created in the database."""
 

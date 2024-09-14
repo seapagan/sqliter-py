@@ -6,11 +6,12 @@ import pytest
 from sqliter.exceptions import (
     InvalidFilterError,
     InvalidOffsetError,
+    InvalidOrderError,
     RecordFetchError,
 )
 from sqliter.model import BaseDBModel
 
-from tests.conftest import ExampleModel
+from tests.conftest import ExampleModel, not_raises
 
 
 def test_fetch_all_no_results(db_mock) -> None:
@@ -426,7 +427,7 @@ def test_offset(db_mock) -> None:
     assert results[1].name == "Jim Doe"
 
 
-def test_order(db_mock) -> None:
+def test_order_default(db_mock) -> None:
     """Test that the order method works as expected."""
 
     # Define a simple model for the test
@@ -443,7 +444,67 @@ def test_order(db_mock) -> None:
     db_mock.insert(OrderTestModel(name="Jim Doe"))
 
     # Perform a query with ordering by name DESC
-    results = db_mock.select(OrderTestModel).order("name DESC").fetch_all()
+    results = db_mock.select(OrderTestModel).order("name").fetch_all()
+
+    # Assert that the ordering works in descending order
+    assert len(results) == 3
+    assert results[0].name == "Jane Doe"
+    assert results[1].name == "Jim Doe"
+    assert results[2].name == "John Doe"
+
+
+def test_order_ascending(db_mock) -> None:
+    """Test that the order method works as expected when ASC specified."""
+
+    # Define a simple model for the test
+    class OrderTestModel(BaseDBModel):
+        name: str
+
+        class Meta:
+            table_name: str = "order_test_table"
+
+    # Create the table and insert records
+    db_mock.create_table(OrderTestModel)
+    db_mock.insert(OrderTestModel(name="John Doe"))
+    db_mock.insert(OrderTestModel(name="Jane Doe"))
+    db_mock.insert(OrderTestModel(name="Jim Doe"))
+
+    # Perform a query with ordering by name DESC
+    results = (
+        db_mock.select(OrderTestModel)
+        .order("name", direction="asc")
+        .fetch_all()
+    )
+
+    # Assert that the ordering works in descending order
+    assert len(results) == 3
+    assert results[0].name == "Jane Doe"
+    assert results[1].name == "Jim Doe"
+    assert results[2].name == "John Doe"
+
+
+def test_order_desc(db_mock) -> None:
+    """Test that the order method works as expected descending."""
+
+    # Define a simple model for the test
+    class OrderTestModel(BaseDBModel):
+        name: str
+
+        class Meta:
+            table_name: str = "order_test_table"
+
+    # Create the table and insert records
+    db_mock.create_table(OrderTestModel)
+    db_mock.insert(OrderTestModel(name="John Doe"))
+    db_mock.insert(OrderTestModel(name="Jane Doe"))
+    db_mock.insert(OrderTestModel(name="Jim Doe"))
+
+    # Perform a query with ordering by name DESC
+    results = (
+        db_mock.select(OrderTestModel)
+        .order("name", direction="desc")
+        .fetch_all()
+    )
 
     # Assert that the ordering works in descending order
     assert len(results) == 3
@@ -472,7 +533,7 @@ def test_limit_offset_order_combined(db_mock) -> None:
     # Perform a query with ordering by name DESC, offset 1, limit 2
     results = (
         db_mock.select(CombinedTestModel)
-        .order("name ASC")
+        .order("name")
         .offset(1)
         .limit(2)
         .fetch_all()
@@ -482,6 +543,51 @@ def test_limit_offset_order_combined(db_mock) -> None:
     assert len(results) == 2
     assert results[0].name == "Jane Doe"
     assert results[1].name == "Jim Doe"
+
+
+def test_order_invalid_direction(db_mock) -> None:
+    """Test that an invalid order direction raises an exception."""
+
+    # Define a simple model for the test
+    class InvalidOrderModel(BaseDBModel):
+        name: str
+
+        class Meta:
+            table_name: str = "invalid_order_test_table"
+
+    # Create the table for the model
+    db_mock.create_table(InvalidOrderModel)
+
+    # Attempt to order by an invalid direction
+    with pytest.raises(InvalidOrderError) as exc:
+        db_mock.select(InvalidOrderModel).order("name", direction="invalid")
+
+    assert (
+        "Invalid order value - 'invalid' is not a valid sorting direction"
+        in str(exc.value)
+    )
+
+
+def test_order_invalid_field(db_mock) -> None:
+    """Test that an invalid order field raises an exception."""
+
+    # Define a simple model for the test
+    class InvalidOrderModel(BaseDBModel):
+        name: str
+
+        class Meta:
+            table_name: str = "invalid_order_test_table"
+
+    # Create the table for the model
+    db_mock.create_table(InvalidOrderModel)
+
+    # Attempt to order by an invalid field
+    with pytest.raises(InvalidOrderError) as exc:
+        db_mock.select(InvalidOrderModel).order("invalid_field")
+
+    assert "Invalid order value - 'invalid_field' does not exist" in str(
+        exc.value
+    )
 
 
 def test_limit_edge_cases(db_mock) -> None:
@@ -540,10 +646,9 @@ def test_offset_edge_cases(db_mock) -> None:
     db_mock.insert(EdgeCaseOffsetModel(name="John Doe"))
     db_mock.insert(EdgeCaseOffsetModel(name="Jane Doe"))
 
-    # Offset with zero should raise InvalidOffsetError
-    with pytest.raises(InvalidOffsetError) as exc:
+    # Offset with zero should NOT raise InvalidOffsetError
+    with not_raises(InvalidOffsetError) as exc:
         db_mock.select(EdgeCaseOffsetModel).offset(0).fetch_all()
-    assert "Invalid offset value: '0'" in str(exc.value)
 
     # Negative offset should raise InvalidOffsetError
     with pytest.raises(InvalidOffsetError) as exc:

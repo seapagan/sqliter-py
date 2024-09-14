@@ -216,3 +216,4 @@ pyrightconfig.json
 *.db
 .vscode
 .changelog_generator.toml
+repopack-output.xml
