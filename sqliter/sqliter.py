@@ -27,7 +27,7 @@ if TYPE_CHECKING:  # pragma: no cover
 class SqliterDB:
     """Class to manage SQLite database interactions."""
 
-    def __init__(self, db_filename: str, *, auto_commit: bool = False) -> None:
+    def __init__(self, db_filename: str, *, auto_commit: bool = True) -> None:
         """Initialize the class and options."""
         self.db_filename = db_filename
         self.auto_commit = auto_commit
@@ -41,6 +41,18 @@ class SqliterDB:
             except sqlite3.Error as exc:
                 raise DatabaseConnectionError(self.db_filename) from exc
         return self.conn
+
+    def close(self) -> None:
+        """Close the connection to the SQLite database."""
+        if self.conn:
+            self._maybe_commit()
+            self.conn.close()
+            self.conn = None
+
+    def commit(self) -> None:
+        """Commit any pending transactions."""
+        if self.conn:
+            self.conn.commit()
 
     def create_table(self, model_class: type[BaseDBModel]) -> None:
         """Create a table based on the Pydantic model."""
@@ -75,10 +87,10 @@ class SqliterDB:
         except sqlite3.Error as exc:
             raise TableCreationError(table_name) from exc
 
-    def _maybe_commit(self, conn: sqlite3.Connection) -> None:
+    def _maybe_commit(self) -> None:
         """Commit changes if auto_commit is True."""
-        if self.auto_commit:
-            conn.commit()
+        if self.auto_commit and self.conn:
+            self.conn.commit()
 
     def insert(self, model_instance: BaseDBModel) -> None:
         """Insert a new record into the table defined by the Pydantic model."""
@@ -100,7 +112,7 @@ class SqliterDB:
             with self.connect() as conn:
                 cursor = conn.cursor()
                 cursor.execute(insert_sql, values)
-                self._maybe_commit(conn)
+                self._maybe_commit()
         except sqlite3.Error as exc:
             raise RecordInsertionError(table_name) from exc
 
@@ -167,7 +179,7 @@ class SqliterDB:
                 if cursor.rowcount == 0:
                     raise RecordNotFoundError(primary_key_value)
 
-                self._maybe_commit(conn)
+                self._maybe_commit()
 
         except sqlite3.Error as exc:
             raise RecordUpdateError(table_name) from exc
@@ -190,7 +202,7 @@ class SqliterDB:
 
                 if cursor.rowcount == 0:
                     raise RecordNotFoundError(primary_key_value)
-                self._maybe_commit(conn)
+                self._maybe_commit()
         except sqlite3.Error as exc:
             raise RecordDeletionError(table_name) from exc
 

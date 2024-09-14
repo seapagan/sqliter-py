@@ -58,7 +58,7 @@ class PersonModel(BaseDBModel):
 @pytest.fixture
 def db_mock() -> SqliterDB:
     """Fixture to create a SqliterDB class with an in-memory SQLite database."""
-    db = SqliterDB(":memory:", auto_commit=True)
+    db = SqliterDB(":memory:")
     db.create_table(ExampleModel)
     return db
 
@@ -66,7 +66,7 @@ def db_mock() -> SqliterDB:
 @pytest.fixture
 def db_mock_adv() -> SqliterDB:
     """Fixture to create a SqliterDB class with an in-memory SQLite database."""
-    db = SqliterDB(":memory:", auto_commit=True)
+    db = SqliterDB(":memory:")
     db.create_table(PersonModel)
 
     db.insert(PersonModel(name="Alice", age=25))
