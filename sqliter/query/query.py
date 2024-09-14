@@ -73,19 +73,41 @@ class QueryBuilder:
                         operator,
                     )
                 )
-            elif operator in ["__startswith", "__endswith", "__contains"]:
-                # Ensure the value is a string before formatting it in this case
+            elif operator in [
+                "__startswith",
+                "__endswith",
+                "__contains",
+                "__istartswith",
+                "__iendswith",
+                "__icontains",
+            ]:
+                # Ensure the value is a string before formatting it
                 if isinstance(value, str):
                     formatted_value = self._format_string_for_operator(
                         operator, value
                     )
-                    self.filters.append(
-                        (
-                            f"{field_name} {sql_operator}",
-                            [formatted_value],
-                            operator,
+                    if operator in ["__startswith", "__endswith", "__contains"]:
+                        # Case-sensitive comparison using COLLATE BINARY
+                        self.filters.append(
+                            (
+                                f"{field_name} GLOB ?",
+                                [formatted_value],
+                                operator,
+                            )
                         )
-                    )
+                    elif operator in [
+                        "__istartswith",
+                        "__iendswith",
+                        "__icontains",
+                    ]:
+                        # Case-insensitive comparison using default collation
+                        self.filters.append(
+                            (
+                                f"{field_name} LIKE ?",
+                                [formatted_value],
+                                operator,
+                            )
+                        )
                 else:
                     err = (
                         f"{field_name} requires a string value for '{operator}'"
@@ -114,9 +136,12 @@ class QueryBuilder:
     def _format_string_for_operator(self, operator: str, value: str) -> str:
         # Mapping operators to their corresponding string format
         format_map = {
-            "__startswith": f"{value}%",
-            "__endswith": f"%{value}",
-            "__contains": f"%{value}%",
+            "__startswith": f"{value}*",
+            "__endswith": f"*{value}",
+            "__contains": f"*{value}*",
+            "__istartswith": f"{value.lower()}%",
+            "__iendswith": f"%{value.lower()}",
+            "__icontains": f"%{value.lower()}%",
         }
 
         # Return the formatted string or the original value if no match
@@ -217,10 +242,10 @@ class QueryBuilder:
                 "__startswith",
                 "__endswith",
                 "__contains",
-            ]:
-                where_clauses.append(f"{field} ?")
-                values.extend(value)
-            elif operator in ["__in", "__not_in"]:
+                "__istartswith",
+                "__iendswith",
+                "__icontains",
+            ] or operator in ["__in", "__not_in"]:
                 where_clauses.append(field)
                 values.extend(value)
             elif operator in ["__lt", "__lte", "__gt", "__gte", "__ne"]:

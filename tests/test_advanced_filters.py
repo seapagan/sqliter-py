@@ -166,13 +166,30 @@ def test_filter_with_bad_not_in_condition(db_mock_adv) -> None:
 
 # @pytest.mark.skip(reason="fails and needs investigation")
 def test_filter_with_starts_with_condition(db_mock_adv) -> None:
-    """Test filter with starts with condition."""
-    # Filter where name starts with 'A'
+    """Test filter with starts with condition (default case-sensitive)."""
+    db_mock_adv.insert(PersonModel(name="alison", age=50))
+    # Filter where name starts with 'A' case-sensitive
     results = (
         db_mock_adv.select(PersonModel).filter(name__startswith="A").fetch_all()
     )
 
     assert len(results) == 1
+    assert results[0].name == "Alice"
+
+
+def test_filter_with_starts_with_condition_case_insensitive(
+    db_mock_adv,
+) -> None:
+    """Test filter with starts with condition (case insensitive)."""
+    db_mock_adv.insert(PersonModel(name="alison", age=50))
+    # Filter where name starts with 'a' (case insensitive)
+    results = (
+        db_mock_adv.select(PersonModel)
+        .filter(name__istartswith="a")
+        .fetch_all()
+    )
+
+    assert len(results) == 2
     assert results[0].name == "Alice"
 
 
@@ -187,10 +204,23 @@ def test_filter_with_bad_starts_with_condition(db_mock_adv) -> None:
 
 
 def test_filter_with_ends_with_condition(db_mock_adv) -> None:
-    """Test filter with ends with condition."""
+    """Test filter with ends with condition (case sensitive)."""
+    db_mock_adv.insert(PersonModel(name="DALE", age=2))
+
     # Filter where name ends with 'e'
     results = (
         db_mock_adv.select(PersonModel).filter(name__endswith="e").fetch_all()
+    )
+
+    assert len(results) == 2
+    assert all(result.name.endswith("e") for result in results)
+
+
+def test_filter_with_ends_with_condition_case_insensitive(db_mock_adv) -> None:
+    """Test filter with ends with condition (case insensitive)."""
+    # Filter where name ends with 'e' (case insensitive)
+    results = (
+        db_mock_adv.select(PersonModel).filter(name__iendswith="E").fetch_all()
     )
 
     assert len(results) == 2
@@ -208,15 +238,64 @@ def test_filter_with_bad_ends_with_condition(db_mock_adv) -> None:
 
 
 def test_filter_with_contains_condition(db_mock_adv) -> None:
-    """Test filter with contains condition."""
-    # Filter where name contains 'i'
-    db_mock_adv.insert(PersonModel(name="Lief", age=50))
+    """Test filter with contains condition (case-sensitive)."""
+    # Add one more record for our test
+    db_mock_adv.insert(PersonModel(name="Lianne", age=40))
+
+    # Case-sensitive contains "lie" (should match Charlie)
     results = (
         db_mock_adv.select(PersonModel).filter(name__contains="lie").fetch_all()
     )
+    assert len(results) == 1
+    assert results[0].name == "Charlie"
 
+    # Case-sensitive contains "ia" (should match Lianne)
+    results = (
+        db_mock_adv.select(PersonModel).filter(name__contains="ia").fetch_all()
+    )
+    assert len(results) == 1
+    assert results[0].name == "Lianne"
+
+    # Case-sensitive contains "i" (should match Alice, Charlie, Lianne)
+    results = (
+        db_mock_adv.select(PersonModel).filter(name__contains="i").fetch_all()
+    )
+    assert len(results) == 3
+    assert {r.name for r in results} == {"Alice", "Charlie", "Lianne"}
+
+    # Case-sensitive contains "I" (should match none)
+    results = (
+        db_mock_adv.select(PersonModel).filter(name__contains="I").fetch_all()
+    )
+    assert len(results) == 0
+
+
+def test_filter_with_icontains_condition(db_mock_adv) -> None:
+    """Test filter with case-insensitive contains condition."""
+    # No need to insert new records, we'll use existing ones
+
+    # Case-insensitive contains "LI"
+    results = (
+        db_mock_adv.select(PersonModel).filter(name__icontains="LI").fetch_all()
+    )
     assert len(results) == 2
-    assert all("i" in result.name for result in results)
+    assert {r.name for r in results} == {"Alice", "Charlie"}
+
+    # Case-insensitive contains "BOB"
+    results = (
+        db_mock_adv.select(PersonModel)
+        .filter(name__icontains="BOB")
+        .fetch_all()
+    )
+    assert len(results) == 1
+    assert results[0].name == "Bob"
+
+    # Case-insensitive contains "i"
+    results = (
+        db_mock_adv.select(PersonModel).filter(name__icontains="i").fetch_all()
+    )
+    assert len(results) == 2
+    assert {r.name for r in results} == {"Alice", "Charlie"}
 
 
 def test_filter_with_bad_contains_condition(db_mock_adv) -> None:

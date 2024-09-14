@@ -14,4 +14,7 @@ OPERATOR_MAPPING = {
     "__startswith": "LIKE",
     "__endswith": "LIKE",
     "__contains": "LIKE",
+    "__istartswith": "LIKE",
+    "__iendswith": "LIKE",
+    "__icontains": "LIKE",
 }
