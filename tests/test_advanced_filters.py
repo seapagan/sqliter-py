@@ -150,7 +150,7 @@ def test_filter_with_not_in_condition(db_mock_adv) -> None:
 
 def test_filter_with_bad_in_condition(db_mock_adv) -> None:
     """Test filter with bad IN condition."""
-    with pytest.raises(ValueError, match="age requires a list") as exc_info:
+    with pytest.raises(TypeError, match="age requires a list") as exc_info:
         db_mock_adv.select(PersonModel).filter(age__in=25).fetch_all()
 
     assert str(exc_info.value) == "age requires a list for '__in'"
@@ -158,7 +158,7 @@ def test_filter_with_bad_in_condition(db_mock_adv) -> None:
 
 def test_filter_with_bad_not_in_condition(db_mock_adv) -> None:
     """Test filter with bad NOT IN condition."""
-    with pytest.raises(ValueError, match="age requires a list") as exc_info:
+    with pytest.raises(TypeError, match="age requires a list") as exc_info:
         db_mock_adv.select(PersonModel).filter(age__not_in=25).fetch_all()
 
     assert str(exc_info.value) == "age requires a list for '__not_in'"
@@ -195,7 +195,7 @@ def test_filter_with_starts_with_condition_case_insensitive(
 
 def test_filter_with_bad_starts_with_condition(db_mock_adv) -> None:
     """Test filter with bad starts with condition."""
-    with pytest.raises(ValueError, match="name requires a string") as exc_info:
+    with pytest.raises(TypeError, match="name requires a string") as exc_info:
         db_mock_adv.select(PersonModel).filter(name__startswith=25).fetch_all()
 
     assert (
@@ -229,7 +229,7 @@ def test_filter_with_ends_with_condition_case_insensitive(db_mock_adv) -> None:
 
 def test_filter_with_bad_ends_with_condition(db_mock_adv) -> None:
     """Test filter with bad ends with condition."""
-    with pytest.raises(ValueError, match="name requires a string") as exc_info:
+    with pytest.raises(TypeError, match="name requires a string") as exc_info:
         db_mock_adv.select(PersonModel).filter(name__endswith=25).fetch_all()
 
     assert (
@@ -300,7 +300,7 @@ def test_filter_with_icontains_condition(db_mock_adv) -> None:
 
 def test_filter_with_bad_contains_condition(db_mock_adv) -> None:
     """Test filter with bad contains condition."""
-    with pytest.raises(ValueError, match="name requires a string") as exc_info:
+    with pytest.raises(TypeError, match="name requires a string") as exc_info:
         db_mock_adv.select(PersonModel).filter(name__contains=25).fetch_all()
 
     assert (

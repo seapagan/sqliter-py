@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 from typing_extensions import LiteralString, Self
 
@@ -16,8 +16,15 @@ from sqliter.exceptions import (
 )
 
 if TYPE_CHECKING:  # pragma: no cover
+    from pydantic.fields import FieldInfo
+
     from sqliter import SqliterDB
     from sqliter.model import BaseDBModel
+
+# Define a type alias for the possible value types
+FilterValue = Union[
+    str, int, float, bool, None, list[Union[str, int, float, bool]]
+]
 
 
 class QueryBuilder:
@@ -33,97 +40,110 @@ class QueryBuilder:
         self._offset: Optional[int] = None
         self._order_by: Optional[str] = None
 
-    def filter(self, **conditions: str | float | None) -> Self:
+    def filter(self, **conditions: str | float | None) -> QueryBuilder:
         """Add filter conditions to the query."""
         valid_fields = self.model_class.model_fields
 
         for field, value in conditions.items():
-            # Split the field into the name and the operator
             field_name, operator = self._parse_field_operator(field)
+            self._validate_field(field_name, valid_fields)
 
-            # Validate the field
-            if field_name not in valid_fields:
-                raise InvalidFilterError(field_name)
-
-            # Use the mapped SQL operator, or default to '=' for equality
-            sql_operator = OPERATOR_MAPPING.get(operator, "=")
-
-            if value is None:
-                # Handle None values as IS NULL
-                self.filters.append((f"{field_name} IS NULL", None, "__isnull"))
-            elif operator in ["__isnull", "__notnull"]:
-                # Handle IS NULL and IS NOT NULL conditions
-                condition = (
-                    f"{field_name} IS NOT NULL"
-                    if operator == "__notnull"
-                    else f"{field_name} IS NULL"
-                )
-                self.filters.append((condition, None, operator))
-            elif operator in ["__in", "__not_in"]:
-                # Ensure value is a list for IN/NOT IN clauses
-                if not isinstance(value, list):
-                    err = f"{field_name} requires a list for '{operator}'"
-                    raise ValueError(err)
-                # and pass it as multiple values
-                placeholder_list = ", ".join(["?"] * len(value))
-                self.filters.append(
-                    (
-                        f"{field_name} {sql_operator} ({placeholder_list})",
-                        value,
-                        operator,
-                    )
-                )
-            elif operator in [
-                "__startswith",
-                "__endswith",
-                "__contains",
-                "__istartswith",
-                "__iendswith",
-                "__icontains",
-            ]:
-                # Ensure the value is a string before formatting it
-                if isinstance(value, str):
-                    formatted_value = self._format_string_for_operator(
-                        operator, value
-                    )
-                    if operator in ["__startswith", "__endswith", "__contains"]:
-                        # Case-sensitive comparison using COLLATE BINARY
-                        self.filters.append(
-                            (
-                                f"{field_name} GLOB ?",
-                                [formatted_value],
-                                operator,
-                            )
-                        )
-                    elif operator in [
-                        "__istartswith",
-                        "__iendswith",
-                        "__icontains",
-                    ]:
-                        # Case-insensitive comparison using default collation
-                        self.filters.append(
-                            (
-                                f"{field_name} LIKE ?",
-                                [formatted_value],
-                                operator,
-                            )
-                        )
-                else:
-                    err = (
-                        f"{field_name} requires a string value for '{operator}'"
-                    )
-                    raise ValueError(err)
-            elif operator in ["__lt", "__lte", "__gt", "__gte", "__ne"]:
-                # Handle comparison operators specifically
-                sql_operator = OPERATOR_MAPPING[operator]
-                self.filters.append(
-                    (f"{field_name} {sql_operator} ?", value, operator)
-                )
-            else:
-                # Default behavior for equality checks
-                self.filters.append((field_name, value, operator))
+            handler = self._get_operator_handler(operator)
+            handler(field_name, value, operator)
 
         return self
+
+    def _get_operator_handler(
+        self, operator: str
+    ) -> Callable[[str, Any, str], None]:
+        handlers = {
+            "__isnull": self._handle_null,
+            "__notnull": self._handle_null,
+            "__in": self._handle_in,
+            "__not_in": self._handle_in,
+            "__startswith": self._handle_like,
+            "__endswith": self._handle_like,
+            "__contains": self._handle_like,
+            "__istartswith": self._handle_like,
+            "__iendswith": self._handle_like,
+            "__icontains": self._handle_like,
+            "__lt": self._handle_comparison,
+            "__lte": self._handle_comparison,
+            "__gt": self._handle_comparison,
+            "__gte": self._handle_comparison,
+            "__ne": self._handle_comparison,
+        }
+        return handlers.get(operator, self._handle_equality)
+
+    def _validate_field(
+        self, field_name: str, valid_fields: dict[str, FieldInfo]
+    ) -> None:
+        if field_name not in valid_fields:
+            raise InvalidFilterError(field_name)
+
+    def _handle_equality(
+        self, field_name: str, value: FilterValue, operator: str
+    ) -> None:
+        if value is None:
+            self.filters.append((f"{field_name} IS NULL", None, "__isnull"))
+        else:
+            self.filters.append((field_name, value, operator))
+
+    def _handle_null(
+        self, field_name: str, _: FilterValue, operator: str
+    ) -> None:
+        condition = (
+            f"{field_name} IS NOT NULL"
+            if operator == "__notnull"
+            else f"{field_name} IS NULL"
+        )
+        self.filters.append((condition, None, operator))
+
+    def _handle_in(
+        self, field_name: str, value: FilterValue, operator: str
+    ) -> None:
+        if not isinstance(value, list):
+            err = f"{field_name} requires a list for '{operator}'"
+            raise TypeError(err)
+        sql_operator = OPERATOR_MAPPING.get(operator, "IN")
+        placeholder_list = ", ".join(["?"] * len(value))
+        self.filters.append(
+            (
+                f"{field_name} {sql_operator} ({placeholder_list})",
+                value,
+                operator,
+            )
+        )
+
+    def _handle_like(
+        self, field_name: str, value: FilterValue, operator: str
+    ) -> None:
+        if not isinstance(value, str):
+            err = f"{field_name} requires a string value for '{operator}'"
+            raise TypeError(err)
+        formatted_value = self._format_string_for_operator(operator, value)
+        if operator in ["__startswith", "__endswith", "__contains"]:
+            self.filters.append(
+                (
+                    f"{field_name} GLOB ?",
+                    [formatted_value],
+                    operator,
+                )
+            )
+        elif operator in ["__istartswith", "__iendswith", "__icontains"]:
+            self.filters.append(
+                (
+                    f"{field_name} LIKE ?",
+                    [formatted_value],
+                    operator,
+                )
+            )
+
+    def _handle_comparison(
+        self, field_name: str, value: FilterValue, operator: str
+    ) -> None:
+        sql_operator = OPERATOR_MAPPING[operator]
+        self.filters.append((f"{field_name} {sql_operator} ?", value, operator))
 
     # Helper method for parsing field and operator
     def _parse_field_operator(self, field: str) -> tuple[str, str]:
