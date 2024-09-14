@@ -211,11 +211,14 @@ class QueryBuilder:
                 where_clauses.append(f"{field}")
             elif operator == "__notnull":
                 where_clauses.append(f"{field} IS NOT NULL")
-            elif operator in ["__in", "__not_in"] or operator in [
+            elif operator in [
                 "__startswith",
                 "__endswith",
                 "__contains",
             ]:
+                where_clauses.append(f"{field} ?")
+                values.extend(value)
+            elif operator in ["__in", "__not_in"]:
                 where_clauses.append(field)
                 values.extend(value)
             elif operator in ["__lt", "__lte", "__gt", "__gte", "__ne"]:
