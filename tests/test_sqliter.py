@@ -10,7 +10,48 @@ from sqliter.model import BaseDBModel
 
 from tests.conftest import ExampleModel
 
-# License model for testing
+
+def test_auto_commit_default() -> None:
+    """Test that auto_commit is enabled by default."""
+    db = SqliterDB(":memory:")
+    assert db.auto_commit
+
+
+def test_auto_commit_disabled() -> None:
+    """Test that auto_commit can be disabled."""
+    db = SqliterDB(":memory:", auto_commit=False)
+    assert not db.auto_commit
+
+
+@pytest.mark.skip(reason="This does not test the behavour correctly.")
+def test_data_lost_when_auto_commit_disabled() -> None:
+    """Test that data is lost when auto_commit is disabled.
+
+    The other cases when auto_commit is enabled are tested in all the other
+    tests.
+    """
+    db = SqliterDB(":memory:", auto_commit=False)
+    db.create_table(ExampleModel)
+
+    # Insert a record
+    test_model = ExampleModel(
+        slug="test", name="Test License", content="Test Content"
+    )
+    db.insert(test_model)
+
+    # Ensure the record exists
+    fetched_license = db.get(ExampleModel, "test")
+    assert fetched_license is not None
+
+    # Close the connection
+    db.close()
+
+    # Re-open the connection
+    db.connect()
+
+    # Ensure the data is lost
+    with pytest.raises(RecordFetchError):
+        db.get(ExampleModel, "test")
 
 
 def test_create_table(db_mock) -> None:
@@ -21,6 +62,25 @@ def test_create_table(db_mock) -> None:
         tables = cursor.fetchall()
         assert len(tables) == 1
         assert tables[0][0] == "test_table"
+
+
+def test_close_connection(db_mock) -> None:
+    """Test closing the connection."""
+    db_mock.close()
+    assert db_mock.conn is None
+
+
+def test_commit_changes(mocker) -> None:
+    """Test committing changes to the database."""
+    db = SqliterDB(":memory:", auto_commit=False)
+    db.create_table(ExampleModel)
+    db.insert(ExampleModel(slug="test", name="Test License", content="Content"))
+    mock_conn = mocker.Mock()
+    mocker.patch.object(db, "conn", mock_conn)
+
+    db.commit()
+
+    assert mock_conn.commit.called
 
 
 def test_create_table_with_auto_increment(db_mock) -> None:
@@ -169,7 +229,7 @@ def test_fetch_license(db_mock) -> None:
     assert fetched_license.content == "GPL License Content"
 
 
-def test_update_license(db_mock) -> None:
+def test_update(db_mock) -> None:
     """Test updating an existing license."""
     test_model = ExampleModel(
         slug="mit", name="MIT License", content="MIT License Content"
@@ -185,7 +245,7 @@ def test_update_license(db_mock) -> None:
     assert fetched_license.content == "Updated MIT License Content"
 
 
-def test_delete_license(db_mock) -> None:
+def test_delete(db_mock) -> None:
     """Test deleting a license."""
     test_model = ExampleModel(
         slug="mit", name="MIT License", content="MIT License Content"
@@ -294,8 +354,9 @@ def test_transaction_commit(db_mock, mocker) -> None:
         db_mock.create_table(ExampleModel)
         db_mock.insert(license1)
 
-    # Ensure commit was called once during the context (due to auto_commit=True)
-    mock_conn.commit.assert_called_once()
+    # Ensure commit was twice - once during the insert (due to
+    # auto_commit=True) and once when the context manager exited
+    assert mock_conn.commit.call_count == 2
 
 
 def test_transaction_manual_commit(mocker) -> None:
