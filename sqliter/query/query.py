@@ -197,9 +197,6 @@ class QueryBuilder:
             sql += " OFFSET ?"
             values.append(self._offset)
 
-        print("SQL:", sql)
-        print("VALUES:", values)
-
         try:
             with self.db.connect() as conn:
                 cursor = conn.cursor()
