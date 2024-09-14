@@ -1,5 +1,7 @@
 # TODO
 
+- add an 'exists_ok' (default True) parameter to the 'create_table' method so it
+  will raise an exception if the table already exists and this is set to False.
 - add a `rollback` method to the main class to allow manual rollbacks.
 - allow 'Select' to return a custom set of fields instead of all fields.
 - allow adding multiple indexes to each table as well as the primary index.

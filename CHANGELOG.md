@@ -7,7 +7,26 @@ For the original changelog, please refer to the "OLD_CHANGELOG.md" file in the r
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/seapagan/sqliter-py/tree/HEAD)
+
+## [0.2.0](https://github.com/seapagan/sqliter-py/releases/tag/0.2.0) (September 14, 2024)
+
+**New Features**
+
+- Default to auto_create=True, and add 'commit()' & 'close()' methods ([#9](https://github.com/seapagan/sqliter-py/pull/9)) by [seapagan](https://github.com/seapagan)
+- Add more advanced filtering options ([#7](https://github.com/seapagan/sqliter-py/pull/7)) by [seapagan](https://github.com/seapagan)
+
+**Bug Fixes**
+
+- Ensure context manager commits on exit ([#8](https://github.com/seapagan/sqliter-py/pull/8)) by [seapagan](https://github.com/seapagan)
+
+[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.1.1...0.2.0) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.1.1...0.2.0.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.1.1...0.2.0.patch)
+
+## [0.1.1](https://github.com/seapagan/sqliter-py/releases/tag/0.1.1) (September 12, 2024)
+
+Just a documentation fix - README was old version
+[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.1.0...0.1.1) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.1.0...0.1.1.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.1.0...0.1.1.patch)
+
+## [0.1.0](https://github.com/seapagan/sqliter-py/releases/tag/0.1.0) (September 12, 2024)
 
 **New Features**
 
