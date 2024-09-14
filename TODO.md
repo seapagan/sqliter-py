@@ -1,5 +1,15 @@
 # TODO
 
+- deprectate 'direction=' in the 'order' method and replace with 'reverse=' with
+  a default of False. Leave the 'direction=' parameter in place for now but
+  raise a deprecation warning if it is used.
+- add an 'execute' method to the main class to allow executing arbitrary SQL
+  queries which can be chained to the 'find_first' etc methods or just used
+  directly.
+- add a 'drop_table' method to the main class to allow dropping tables.
+- add a method to drop the entire database - in sqlite this is just deleting the
+  file.
+- add an option to work completely in memory, good for temparary databases.
 - add an 'exists_ok' (default True) parameter to the 'create_table' method so it
   will raise an exception if the table already exists and this is set to False.
 - add a `rollback` method to the main class to allow manual rollbacks.
