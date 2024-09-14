@@ -216,7 +216,8 @@ class SqliterDB:
                 if exc_type:
                     # Roll back the transaction if there was an exception
                     self.conn.rollback()
-                self._maybe_commit(self.conn)
+                else:
+                    self.conn.commit()
             finally:
                 # Close the connection and reset the instance variable
                 self.conn.close()

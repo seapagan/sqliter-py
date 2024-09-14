@@ -133,7 +133,7 @@ all_users = db.select(User).fetch_all()
 young_users = db.select(User).filter(age=25).fetch_all()
 
 # Order users
-ordered_users = db.select(User).order("age DESC").fetch_all()
+ordered_users = db.select(User).order("age", direction="DESC").fetch_all()
 
 # Limit and offset
 paginated_users = db.select(User).limit(10).offset(20).fetch_all()
@@ -164,6 +164,11 @@ with db:
     db.insert(User(name="Bob", age=35, email="bob@example.com"))
     # If an exception occurs, the transaction will be rolled back
 ```
+
+> [!Important!]
+> Using the context manager will automatically commit the transaction
+at the end (unless an exception occurs), regardless of the `auto_commit`
+setting.
 
 ### Filter Options
 
