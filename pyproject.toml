@@ -26,7 +26,7 @@ classifiers = [
 # "HomeHage" = "https://xxxxxx"
 "Pull Requests" = "https://github.com/seapagan/sqliter-py/pulls"
 "Bug Tracker" = "https://github.com/seapagan/sqliter-py/issues"
-# "Changelog" = "https://github.com/seapagan/sqliter-py/blob/main/CHANGELOG.md"
+"Changelog" = "https://github.com/seapagan/sqliter-py/blob/main/CHANGELOG.md"
 "Repository" = "https://github.com/seapagan/sqliter-py"
 
 [build-system]

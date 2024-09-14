@@ -8,7 +8,8 @@
 
 SQLiter is a lightweight Object-Relational Mapping (ORM) library for SQLite
 databases in Python. It provides a simplified interface for interacting with
-SQLite databases using Pydantic models.
+SQLite databases using Pydantic models. The only external run-time dependency
+is Pydantic itself.
 
 It does not aim to be a full-fledged ORM like SQLAlchemy, but rather a simple
 and easy-to-use library for basic database operations, especially for small
@@ -36,6 +37,8 @@ database-like format without needing to learn SQL or use a full ORM.
     - [Querying Records](#querying-records)
     - [Updating Records](#updating-records)
     - [Deleting Records](#deleting-records)
+    - [Commit your changes](#commit-your-changes)
+    - [Close the Connection](#close-the-connection)
   - [Transactions](#transactions)
   - [Filter Options](#filter-options)
     - [Basic Filters](#basic-filters)
@@ -58,10 +61,26 @@ database-like format without needing to learn SQL or use a full ORM.
 
 ## Installation
 
-You can install SQLiter using pip:
+You can install SQLiter using whichever method you prefer or is compatible with
+your project setup.
+
+With `pip`:
 
 ```bash
 pip install sqliter-py
+```
+
+Or `Poetry`:
+
+```bash
+poetry add sqliter-py
+```
+
+Or `uv` which is rapidly becoming my favorite tool for managing projects and
+virtual environments (`uv` is used for developing this project and in the CI):
+
+```bash
+uv add sqliter-py
 ```
 
 ## Quick Start
@@ -81,7 +100,7 @@ class User(BaseDBModel):
         table_name = "users"
 
 # Create a database connection
-db = SqliterDB("example.db", auto_commit=True)
+db = SqliterDB("example.db")
 
 # Create the table
 db.create_table(User)
@@ -131,8 +150,20 @@ class User(BaseDBModel):
 ```python
 from sqliter import SqliterDB
 
-db = SqliterDB("your_database.db", auto_commit=True)
+db = SqliterDB("your_database.db")
 ```
+
+The default behavior is to automatically commit changes to the database after
+each operation. If you want to disable this behavior, you can set `auto_commit=False`
+when creating the database connection:
+
+```python
+db = SqliterDB("your_database.db", auto_commit=False)
+```
+
+It is then up to you to manually commit changes using the `commit()` method.
+This can be useful when you want to perform multiple operations in a single
+transaction without the overhead of committing after each operation.
 
 #### Creating Tables
 
@@ -178,6 +209,34 @@ db.update(user)
 db.delete(User, "Jane Doe")
 ```
 
+#### Commit your changes
+
+By default, SQLiter will automatically commit changes to the database after each
+operation. If you want to disable this behavior, you can set `auto_commit=False`
+when creating the database connection:
+
+```python
+db = SqliterDB("your_database.db", auto_commit=False)
+```
+
+You can then manually commit changes using the `commit()` method:
+
+```python
+db.commit()
+```
+
+#### Close the Connection
+
+When you're done with the database connection, you should close it to release
+resources:
+
+```python
+db.close()
+```
+
+Note that closing the connection will also commit any pending changes, unless
+`auto_commit` is set to `False`.
+
 ### Transactions
 
 SQLiter supports transactions using Python's context manager:
@@ -193,6 +252,9 @@ with db:
 > Using the context manager will automatically commit the transaction
 > at the end (unless an exception occurs), regardless of the `auto_commit`
 > setting.
+>
+> the 'close()' method will also be called when the context manager exits, so you
+> do not need to call it manually.
 
 ### Filter Options
 
