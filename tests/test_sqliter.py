@@ -299,12 +299,17 @@ def test_transaction_commit(db_mock, mocker) -> None:
 
 
 def test_transaction_manual_commit(mocker) -> None:
-    """Test manual commit when auto_commit is set to False."""
+    """Test context-manager commit when auto_commit is set to False.
+
+    Regardless of the auto_commit setting, the context manager should commit
+    changes when exiting the context.
+    """
     db_manual = SqliterDB(":memory:", auto_commit=False)
 
     # Mock the connection and commit
     mock_conn = mocker.MagicMock()
     mocker.patch.object(db_manual, "connect", return_value=mock_conn)
+    db_manual.conn = mock_conn  # Ensure the db_manual uses the mock connection
 
     license1 = ExampleModel(
         slug="mit", name="MIT License", content="MIT License Content"
@@ -316,9 +321,8 @@ def test_transaction_manual_commit(mocker) -> None:
         # Ensure commit hasn't been called yet
         mock_conn.commit.assert_not_called()
 
-    # After leaving the context, commit should still not be called (since
-    # auto_commit=False)
-    mock_conn.commit.assert_not_called()
+    # After leaving the context, commit should now be called
+    mock_conn.commit.assert_called_once()
 
 
 def test_update_existing_record(db_mock) -> None:
@@ -399,15 +403,16 @@ def test_delete_existing_record(db_mock) -> None:
 
 def test_transaction_commit_success(db_mock, mocker) -> None:
     """Test that the transaction commits successfully with no exceptions."""
-    # Mock the _maybe_commit method to track the commit
-    mock_commit = mocker.patch.object(db_mock, "_maybe_commit")
+    # Mock the connection's commit method to track the commit
+    mock_commit = mocker.patch.object(db_mock, "conn", create=True)
+    mock_commit.commit = mocker.MagicMock()
 
     # Run the context manager without errors
     with db_mock:
         """Dummy transaction."""
 
     # Ensure commit was called
-    mock_commit.assert_called_once()
+    mock_commit.commit.assert_called_once()
 
 
 def test_transaction_closes_connection(db_mock, mocker) -> None:

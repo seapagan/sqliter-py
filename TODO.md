@@ -12,6 +12,8 @@
 - add support for more data types, though since it is using Pydantic it should
   be quite comprehensive already.
 - add debug logging to show the SQL queries being executed.
+- add more tests where 'auto_commit' is set to False to ensure that commit is
+  not called automatically.
 
 ## Potential Filter Additions
 
