@@ -52,10 +52,13 @@ class QueryBuilder:
                 # Handle None values as IS NULL
                 self.filters.append((f"{field_name} IS NULL", None, "__isnull"))
             elif operator in ["__isnull", "__notnull"]:
-                # For IS NULL and IS NOT NULL, no value is needed
-                self.filters.append(
-                    (f"{field_name} {sql_operator}", None, operator)
+                # Handle IS NULL and IS NOT NULL conditions
+                condition = (
+                    f"{field_name} IS NOT NULL"
+                    if operator == "__notnull"
+                    else f"{field_name} IS NULL"
                 )
+                self.filters.append((condition, None, operator))
             elif operator in ["__in", "__not_in"]:
                 # Ensure value is a list for IN/NOT IN clauses
                 if not isinstance(value, list):
@@ -194,6 +197,9 @@ class QueryBuilder:
             sql += " OFFSET ?"
             values.append(self._offset)
 
+        print("SQL:", sql)
+        print("VALUES:", values)
+
         try:
             with self.db.connect() as conn:
                 cursor = conn.cursor()
@@ -207,10 +213,9 @@ class QueryBuilder:
         where_clauses = []
         values = []
         for field, value, operator in self.filters:
-            if operator == "__isnull":
-                where_clauses.append(f"{field}")
-            elif operator == "__notnull":
-                where_clauses.append(f"{field} IS NOT NULL")
+            if operator in ["__isnull", "__notnull"]:
+                # Skip processing as it's already handled in the filter() method
+                where_clauses.append(field)
             elif operator in [
                 "__startswith",
                 "__endswith",

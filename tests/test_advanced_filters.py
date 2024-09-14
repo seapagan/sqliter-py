@@ -110,7 +110,7 @@ def test_filter_with_is_null_condition(db_mock_adv) -> None:
     assert results[0].name == "David"
 
 
-@pytest.mark.skip(reason="fails and needs investigation")
+# @pytest.mark.skip(reason="fails and needs investigation")
 def test_filter_with_is_not_null_condition(db_mock_adv) -> None:
     """Test filter with IS NOT NULL condition."""
     db_mock_adv.insert(PersonModel(name="David", age=None))
@@ -164,7 +164,7 @@ def test_filter_with_bad_not_in_condition(db_mock_adv) -> None:
     assert str(exc_info.value) == "age requires a list for '__not_in'"
 
 
-@pytest.mark.skip(reason="fails and needs investigation")
+# @pytest.mark.skip(reason="fails and needs investigation")
 def test_filter_with_starts_with_condition(db_mock_adv) -> None:
     """Test filter with starts with condition."""
     # Filter where name starts with 'A'
@@ -174,3 +174,56 @@ def test_filter_with_starts_with_condition(db_mock_adv) -> None:
 
     assert len(results) == 1
     assert results[0].name == "Alice"
+
+
+def test_filter_with_bad_starts_with_condition(db_mock_adv) -> None:
+    """Test filter with bad starts with condition."""
+    with pytest.raises(ValueError, match="name requires a string") as exc_info:
+        db_mock_adv.select(PersonModel).filter(name__startswith=25).fetch_all()
+
+    assert (
+        str(exc_info.value) == "name requires a string value for '__startswith'"
+    )
+
+
+def test_filter_with_ends_with_condition(db_mock_adv) -> None:
+    """Test filter with ends with condition."""
+    # Filter where name ends with 'e'
+    results = (
+        db_mock_adv.select(PersonModel).filter(name__endswith="e").fetch_all()
+    )
+
+    assert len(results) == 2
+    assert all(result.name.endswith("e") for result in results)
+
+
+def test_filter_with_bad_ends_with_condition(db_mock_adv) -> None:
+    """Test filter with bad ends with condition."""
+    with pytest.raises(ValueError, match="name requires a string") as exc_info:
+        db_mock_adv.select(PersonModel).filter(name__endswith=25).fetch_all()
+
+    assert (
+        str(exc_info.value) == "name requires a string value for '__endswith'"
+    )
+
+
+def test_filter_with_contains_condition(db_mock_adv) -> None:
+    """Test filter with contains condition."""
+    # Filter where name contains 'i'
+    db_mock_adv.insert(PersonModel(name="Lief", age=50))
+    results = (
+        db_mock_adv.select(PersonModel).filter(name__contains="lie").fetch_all()
+    )
+
+    assert len(results) == 2
+    assert all("i" in result.name for result in results)
+
+
+def test_filter_with_bad_contains_condition(db_mock_adv) -> None:
+    """Test filter with bad contains condition."""
+    with pytest.raises(ValueError, match="name requires a string") as exc_info:
+        db_mock_adv.select(PersonModel).filter(name__contains=25).fetch_all()
+
+    assert (
+        str(exc_info.value) == "name requires a string value for '__contains'"
+    )
