@@ -29,4 +29,15 @@ jobs:
 
       - name: Run tests
         # For example, using `pytest`
-        run: uv run -p ${{ matrix.python-version }} pytest tests
+        run:
+          uv run -p ${{ matrix.python-version }} pytest tests --cov-report=xml
+
+      - name: Run codacy-coverage-reporter
+        env:
+          CODACY_CONFIGURED: ${{ secrets.CODACY_PROJECT_TOKEN }}
+        if: ${{ env.CODACY_CONFIGURED != ''}}
+        uses: codacy/codacy-coverage-reporter-action@v1
+        continue-on-error: true
+        with:
+          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
+          coverage-reports: ./coverage.xml
