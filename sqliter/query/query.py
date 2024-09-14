@@ -235,25 +235,16 @@ class QueryBuilder:
         where_clauses = []
         values = []
         for field, value, operator in self.filters:
-            if operator in ["__isnull", "__notnull"]:
-                # Skip processing as it's already handled in the filter() method
-                where_clauses.append(field)
-            elif operator in [
-                "__startswith",
-                "__endswith",
-                "__contains",
-                "__istartswith",
-                "__iendswith",
-                "__icontains",
-            ] or operator in ["__in", "__not_in"]:
-                where_clauses.append(field)
-                values.extend(value)
-            elif operator in ["__lt", "__lte", "__gt", "__gte", "__ne"]:
-                where_clauses.append(field)
-                values.append(value)
-            else:
+            if operator == "__eq":
                 where_clauses.append(f"{field} = ?")
                 values.append(value)
+            else:
+                where_clauses.append(field)
+                if operator not in ["__isnull", "__notnull"]:
+                    if isinstance(value, list):
+                        values.extend(value)
+                    else:
+                        values.append(value)
 
         where_clause = " AND ".join(where_clauses)
         return values, where_clause
