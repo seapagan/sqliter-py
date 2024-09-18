@@ -60,16 +60,19 @@ dev-dependencies = [
 [tool.poe.tasks]
 pre.cmd = "pre-commit run --all-files"
 pre.help = "Run pre-commit checks"
+
 mypy.cmd = "mypy . --strict"
 mypy.help = "Run mypy checks"
 format.help = "Format code with Ruff"
 format.cmd = "ruff format ."
 ruff.help = "Run Ruff checks"
-ruff.cmd = "ruff check ."
+ruff.cmd = "ruff check --output-format=concise ."
+
 test.help = "Run tests using Pytest"
 test.cmd = "pytest"
 "test:watch".cmd = "ptw . --now --clear"
 "test:watch".help = "Run tests using Pytest in watch mode"
+
 changelog.cmd = "github-changelog-md"
 changelog.help = "Generate a changelog"
 
@@ -89,7 +92,7 @@ lint.extend-ignore = [
   "ISC001",
 ] # these are ignored for ruff formatting
 
-src = ["lice2"]
+src = ["sqliter"]
 target-version = "py39" # minimum python version supported
 
 [tool.ruff.format]
@@ -111,7 +114,7 @@ convention = "google"
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["lice2"]
+known-first-party = ["sqliter"]
 
 [tool.ruff.lint.pyupgrade]
 keep-runtime-typing = true

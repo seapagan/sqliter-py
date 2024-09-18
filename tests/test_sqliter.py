@@ -1,13 +1,13 @@
 """Test suite for the 'sqliter' library."""
 
 import pytest
+
 from sqliter import SqliterDB
 from sqliter.exceptions import (
     RecordFetchError,
     RecordNotFoundError,
 )
 from sqliter.model import BaseDBModel
-
 from tests.conftest import ExampleModel
 
 

@@ -3,13 +3,13 @@
 import sqlite3
 
 import pytest
+
 from sqliter.exceptions import (
     DatabaseConnectionError,
     RecordInsertionError,
     SqliterError,
 )
 from sqliter.sqliter import SqliterDB
-
 from tests.conftest import ExampleModel
 
 
