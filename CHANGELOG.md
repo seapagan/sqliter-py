@@ -8,6 +8,18 @@ For the original changelog, please refer to the "OLD_CHANGELOG.md" file in the r
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [Unreleased](https://github.com/seapagan/sqliter-py/tree/HEAD)
+
+**New Features**
+
+- Improve dev tooling and contributor documentation ([#11](https://github.com/seapagan/sqliter-py/pull/11)) by [seapagan](https://github.com/seapagan)
+
+**Dependency Updates**
+
+- Update astral-sh/setup-uv action to v3 ([#10](https://github.com/seapagan/sqliter-py/pull/10)) by [renovate[bot]](https://github.com/apps/renovate)
+
+[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.2.0...HEAD) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.2.0...HEAD.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.2.0...HEAD.patch)
+
 ## [0.2.0](https://github.com/seapagan/sqliter-py/releases/tag/0.2.0) (September 14, 2024)
 
 **New Features**
