@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Optional
 
 import pytest
+
 from sqliter.model import BaseDBModel
 from sqliter.sqliter import SqliterDB
 

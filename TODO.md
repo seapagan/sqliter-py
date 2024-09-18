@@ -23,6 +23,7 @@
 - add debug logging to show the SQL queries being executed.
 - add more tests where 'auto_commit' is set to False to ensure that commit is
   not called automatically.
+- add a documentation website.
 
 ## Potential Filter Additions
 

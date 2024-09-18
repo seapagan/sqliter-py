@@ -3,6 +3,7 @@
 from typing import Optional
 
 import pytest
+
 from sqliter.exceptions import (
     InvalidFilterError,
     InvalidOffsetError,
@@ -10,7 +11,6 @@ from sqliter.exceptions import (
     RecordFetchError,
 )
 from sqliter.model import BaseDBModel
-
 from tests.conftest import ExampleModel, not_raises
 
 

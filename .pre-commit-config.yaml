@@ -1,0 +1,33 @@
+ci:
+  autofix_commit_msg: "[pre-commit.ci] auto fixes from pre-commit.com hooks [dependabot skip]"
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-yaml
+        args: [--unsafe]
+      - id: trailing-whitespace
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: end-of-file-fixer
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.5
+    hooks:
+      - id: ruff
+        name: "lint with ruff"
+      - id: ruff-format
+        name: "format with ruff"
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: "v1.11.2" # Use the sha / tag you want to point at
+    hooks:
+      - id: mypy
+        name: "run mypy"
+
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    # uv version.
+    rev: 0.4.11
+    hooks:
+      # Update the uv lockfile
+      - id: uv-lock
