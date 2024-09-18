@@ -54,9 +54,12 @@ dev-dependencies = [
   "pytest-clarity>=1.0.1",
   "poethepoet>=0.28.0",
   "github-changelog-md>=0.9.5",
+  "pre-commit>=3.8.0",
 ]
 
 [tool.poe.tasks]
+pre.cmd = "pre-commit run --all-files"
+pre.help = "Run pre-commit checks"
 mypy.cmd = "mypy . --strict"
 mypy.help = "Run mypy checks"
 format.help = "Format code with Ruff"
