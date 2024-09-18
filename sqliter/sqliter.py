@@ -206,9 +206,21 @@ class SqliterDB:
         except sqlite3.Error as exc:
             raise RecordDeletionError(table_name) from exc
 
-    def select(self, model_class: type[BaseDBModel]) -> QueryBuilder:
-        """Start a query for the given model."""
-        return QueryBuilder(self, model_class)
+    def select(
+        self, model_class: type[BaseDBModel], fields: Optional[list[str]] = None
+    ) -> QueryBuilder:
+        """Start a query for the given model.
+
+        Args:
+            model_class: The model class to query.
+            fields: Optional list of field names to select.
+                If None, all fields are selected.
+
+        Returns:
+            QueryBuilder: An instance of QueryBuilder for the given model and
+                fields.
+        """
+        return QueryBuilder(self, model_class, fields)
 
     # --- Context manager methods ---
     def __enter__(self) -> Self:

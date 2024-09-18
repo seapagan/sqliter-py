@@ -2,13 +2,22 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional, TypeVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+
+T = TypeVar("T", bound="BaseDBModel")
 
 
 class BaseDBModel(BaseModel):
     """Custom base model for database models."""
+
+    model_config = ConfigDict(
+        extra="ignore",
+        populate_by_name=True,
+        validate_assignment=False,
+        from_attributes=True,
+    )
 
     class Meta:
         """Configure the base model with default options."""
@@ -18,6 +27,15 @@ class BaseDBModel(BaseModel):
         table_name: Optional[str] = (
             None  # Table name, defaults to class name if not set
         )
+
+    @classmethod
+    def model_validate_partial(cls: type[T], obj: dict[str, Any]) -> T:
+        """Validate a partial model object.
+
+        This would be in the case that we are only returning a subset of the
+        fields.
+        """
+        return cls.model_validate(obj, strict=False)
 
     @classmethod
     def get_table_name(cls) -> str:

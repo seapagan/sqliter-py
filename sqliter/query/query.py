@@ -30,8 +30,22 @@ FilterValue = Union[
 class QueryBuilder:
     """Functions to build and execute queries for a given model."""
 
-    def __init__(self, db: SqliterDB, model_class: type[BaseDBModel]) -> None:
-        """Initialize the query builder with the database, model class, etc."""
+    def __init__(
+        self,
+        db: SqliterDB,
+        model_class: type[BaseDBModel],
+        fields: Optional[list[str]] = None,
+    ) -> None:
+        """Initialize the query builder.
+
+        Pass the database, model class, and optional fields.
+
+        Args:
+            db: The SqliterDB instance.
+            model_class: The model class to query.
+            fields: Optional list of field names to select. If None, all fields
+                are selected.
+        """
         self.db = db
         self.model_class = model_class
         self.table_name = model_class.get_table_name()  # Use model_class method
@@ -39,6 +53,22 @@ class QueryBuilder:
         self._limit: Optional[int] = None
         self._offset: Optional[int] = None
         self._order_by: Optional[str] = None
+        self._fields: Optional[list[str]] = fields
+
+        if self._fields:
+            self._validate_fields()
+
+    def _validate_fields(self) -> None:
+        """Validate that the specified fields exist in the model."""
+        if self._fields is None:
+            return
+        valid_fields = set(self.model_class.model_fields.keys())
+        invalid_fields = set(self._fields) - valid_fields
+        if invalid_fields:
+            err_message = (
+                f"Invalid fields specified: {', '.join(invalid_fields)}"
+            )
+            raise ValueError(err_message)
 
     def filter(self, **conditions: str | float | None) -> QueryBuilder:
         """Add filter conditions to the query."""
@@ -219,14 +249,19 @@ class QueryBuilder:
         count_only: bool = False,
     ) -> list[tuple[Any, ...]] | Optional[tuple[Any, ...]]:
         """Helper function to execute the query with filters."""
-        fields = ", ".join(self.model_class.model_fields)
+        if count_only:
+            fields = "COUNT(*)"
+        elif self._fields:
+            fields = ", ".join(f'"{field}"' for field in self._fields)
+        else:
+            fields = ", ".join(
+                f'"{field}"' for field in self.model_class.model_fields
+            )
+
+        sql = f'SELECT {fields} FROM "{self.table_name}"'  # noqa: S608 # nosec
 
         # Build the WHERE clause with special handling for None (NULL in SQL)
         values, where_clause = self._parse_filter()
-
-        select_fields = fields if not count_only else "COUNT(*)"
-
-        sql = f'SELECT {select_fields} FROM "{self.table_name}"'  # noqa: S608 # nosec
 
         if self.filters:
             sql += f" WHERE {where_clause}"
@@ -276,9 +311,17 @@ class QueryBuilder:
         if not results:
             return []
 
+        if self._fields:
+            return [
+                self.model_class.model_validate_partial(
+                    {field: row[idx] for idx, field in enumerate(self._fields)}
+                )
+                for row in results
+            ]
+
         return [
-            self.model_class(
-                **{
+            self.model_class.model_validate(
+                {
                     field: row[idx]
                     for idx, field in enumerate(self.model_class.model_fields)
                 }
