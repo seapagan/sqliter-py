@@ -312,16 +312,20 @@ class QueryBuilder:
             return []
 
         if self._fields:
+            PartialModel = self.model_class.model_as_partial()  # noqa: N806
             return [
-                self.model_class.model_validate_partial(
-                    {field: row[idx] for idx, field in enumerate(self._fields)}
+                PartialModel(
+                    **{
+                        field: row[idx]
+                        for idx, field in enumerate(self._fields)
+                    }
                 )
                 for row in results
             ]
 
         return [
-            self.model_class.model_validate(
-                {
+            self.model_class(
+                **{
                     field: row[idx]
                     for idx, field in enumerate(self.model_class.model_fields)
                 }
