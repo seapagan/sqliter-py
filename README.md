@@ -64,23 +64,23 @@ database-like format without needing to learn SQL or use a full ORM.
 You can install SQLiter using whichever method you prefer or is compatible with
 your project setup.
 
+With `uv` which is rapidly becoming my favorite tool for managing projects and
+virtual environments (`uv` is used for developing this project and in the CI):
+
+```bash
+uv add sqliter-py
+```
+
 With `pip`:
 
 ```bash
 pip install sqliter-py
 ```
 
-Or `Poetry`:
+Or with `Poetry`:
 
 ```bash
 poetry add sqliter-py
-```
-
-Or `uv` which is rapidly becoming my favorite tool for managing projects and
-virtual environments (`uv` is used for developing this project and in the CI):
-
-```bash
-uv add sqliter-py
 ```
 
 ## Quick Start
@@ -314,9 +314,34 @@ The `filter()` method in SQLiter supports various filter options to query record
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+See the [CONTRIBUTING](CONTRIBUTING.md) guide for more information.
+
+Please note that this project is released with a Contributor Code of Conduct,
+which you can read in the [CODE_OF_CONDUCT](CODE_OF_CONDUCT.md) file.
+
 ## License
 
 This project is licensed under the MIT License.
+
+Copyright (c) 2024 Grant Ramsay
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE
+OR OTHER DEALINGS IN THE SOFTWARE.
 
 ## Acknowledgements
 
