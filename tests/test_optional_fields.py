@@ -1,8 +1,11 @@
 """Tests for selecting specific fields from a model."""
 
+from typing import Union, cast
+
 import pytest
 
 from sqliter import SqliterDB
+from sqliter.model.model import BaseDBModel
 from tests.conftest import DetailedPersonModel
 
 
@@ -218,3 +221,17 @@ class TestOptionalFields:
         for result in results:
             assert isinstance(result.name, str)
             assert isinstance(result.age, int)
+
+    def test_model_validate_partial_else_block(self) -> None:
+        """Test where the for/else block is hit in model_validate_partial."""
+
+        class TestModel(BaseDBModel):
+            field_a: Union[int, float]
+
+        invalid_value = "string"
+
+        obj = {"field_a": invalid_value}
+
+        result = TestModel.model_validate_partial(obj)
+
+        assert cast(str, result.field_a) == invalid_value

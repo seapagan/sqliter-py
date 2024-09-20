@@ -33,33 +33,28 @@ class BaseDBModel(BaseModel):
         """Validate a partial model object."""
         converted_obj: dict[str, Any] = {}
         for field_name, value in obj.items():
-            if field_name in cls.model_fields:
-                field = cls.model_fields[field_name]
-                field_type: Optional[type] = field.annotation
-                if (
-                    field_type is None or value is None
-                ):  # Direct check for None values here
-                    converted_obj[field_name] = None
-                else:
-                    try:
-                        origin = get_origin(field_type)
-                        if origin is Union:
-                            args = get_args(field_type)
-                            for arg in args:
-                                try:
-                                    # Convert value only if it's not None
-                                    converted_obj[field_name] = arg(value)
-                                    break
-                                except (ValueError, TypeError):
-                                    pass
-                            else:
-                                converted_obj[field_name] = value
-                        else:
-                            converted_obj[field_name] = field_type(value)
-                    except (ValueError, TypeError):
-                        converted_obj[field_name] = value
+            field = cls.model_fields[field_name]
+            field_type: Optional[type] = field.annotation
+            if (
+                field_type is None or value is None
+            ):  # Direct check for None values here
+                converted_obj[field_name] = None
             else:
-                converted_obj[field_name] = value
+                origin = get_origin(field_type)
+                if origin is Union:
+                    args = get_args(field_type)
+                    for arg in args:
+                        try:
+                            # Try converting the value to the type
+                            converted_obj[field_name] = arg(value)
+                            break
+                        except (ValueError, TypeError):
+                            pass
+                    else:
+                        converted_obj[field_name] = value
+                else:
+                    converted_obj[field_name] = field_type(value)
+
         return cls.model_construct(**converted_obj)
 
     @classmethod
