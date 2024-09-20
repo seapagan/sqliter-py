@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Optional
+from datetime import date, datetime  # noqa: TCH003
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 import pytest
 
@@ -73,6 +74,28 @@ class DetailedPersonModel(BaseDBModel):
 
         table_name = "detailed_person_table"
         primary_key = "name"
+        create_id = False
+
+
+class ComplexModel(BaseDBModel):
+    """Model to test complex field types."""
+
+    id: int
+    name: str
+    age: float
+    is_active: bool
+    tags: list[str]
+    created_at: datetime
+    updated_at: Optional[datetime]
+    score: Union[int, float]
+    birthday: date
+    nullable_field: Optional[str]
+
+    class Meta:
+        """Configuration for the model."""
+
+        table_name = "complex_model"
+        primary_key = "id"
         create_id = False
 
 
