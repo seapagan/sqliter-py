@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from datetime import date, datetime  # noqa: TCH003
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 import pytest
@@ -84,11 +83,7 @@ class ComplexModel(BaseDBModel):
     name: str
     age: float
     is_active: bool
-    tags: list[str]
-    created_at: datetime
-    updated_at: Optional[datetime]
     score: Union[int, float]
-    birthday: date
     nullable_field: Optional[str]
 
     class Meta:

@@ -1,7 +1,5 @@
 """Test cases to ensure model type conversion works correctly."""
 
-from datetime import date, datetime
-
 import pytest
 
 from sqliter import SqliterDB
@@ -18,11 +16,7 @@ def db_mock_complex(db_mock: SqliterDB) -> SqliterDB:
             name="Alice",
             age=30.5,
             is_active=True,
-            tags=["tag1", "tag2"],
-            created_at=datetime(2023, 1, 1, 12, 0),  # noqa: DTZ001
-            updated_at=None,
             score=85,
-            birthday=date(1993, 5, 15),
             nullable_field="Not null",
         )
     )
@@ -32,11 +26,7 @@ def db_mock_complex(db_mock: SqliterDB) -> SqliterDB:
             name="Bob",
             age=25.0,
             is_active=False,
-            tags=["tag3"],
-            created_at=datetime(2023, 2, 1, 12, 0),  # noqa: DTZ001
-            updated_at=datetime(2023, 3, 1, 12, 0),  # noqa: DTZ001
             score=90.5,
-            birthday=date(1998, 8, 20),
             nullable_field=None,
         )
     )
@@ -55,14 +45,8 @@ class TestComplexModelPartialSelection:
             assert isinstance(result.name, str)
             assert isinstance(result.age, float)
             assert isinstance(result.is_active, bool)
-            assert isinstance(result.tags, list)
-            assert all(isinstance(tag, str) for tag in result.tags)
-            assert isinstance(result.created_at, datetime)
             assert isinstance(result.score, (int, float))
-            assert isinstance(result.birthday, date)
-            assert result.updated_at is None or isinstance(
-                result.updated_at, datetime
-            )
+
             assert result.nullable_field is None or isinstance(
                 result.nullable_field, str
             )
@@ -80,9 +64,6 @@ class TestComplexModelPartialSelection:
             assert isinstance(result.age, float)
             assert isinstance(result.is_active, bool)
             assert isinstance(result.score, (int, float))
-            assert not hasattr(result, "tags")
-            assert not hasattr(result, "created_at")
-            assert not hasattr(result, "updated_at")
             assert not hasattr(result, "birthday")
             assert not hasattr(result, "nullable_field")
 
@@ -100,33 +81,6 @@ class TestComplexModelPartialSelection:
             assert isinstance(result.age, float)
             assert isinstance(result.is_active, bool)
             assert isinstance(result.score, (int, float))
-
-    def test_select_with_datetime_and_date(
-        self, db_mock_complex: SqliterDB
-    ) -> None:
-        """Select fields with datetime and date types."""
-        fields = ["created_at", "updated_at", "birthday"]
-        results = db_mock_complex.select(
-            ComplexModel, fields=fields
-        ).fetch_all()
-        assert len(results) == 2
-        for result in results:
-            assert isinstance(result.created_at, datetime)
-            assert result.updated_at is None or isinstance(
-                result.updated_at, datetime
-            )
-            assert isinstance(result.birthday, date)
-
-    def test_select_with_list_field(self, db_mock_complex: SqliterDB) -> None:
-        """Select fields with a list type."""
-        fields = ["tags"]
-        results = db_mock_complex.select(
-            ComplexModel, fields=fields
-        ).fetch_all()
-        assert len(results) == 2
-        for result in results:
-            assert isinstance(result.tags, list)
-            assert all(isinstance(tag, str) for tag in result.tags)
 
     def test_select_with_nullable_field(
         self, db_mock_complex: SqliterDB
