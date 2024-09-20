@@ -97,16 +97,17 @@ class SqliterDB:
         model_class = type(model_instance)
         table_name = model_class.get_table_name()
 
-        fields = ", ".join(model_class.model_fields)
-        placeholders = ", ".join(["?"] * len(model_class.model_fields))
-        values = tuple(
-            getattr(model_instance, field) for field in model_class.model_fields
+        data = model_instance.model_dump()
+        fields = ", ".join(data.keys())
+        placeholders = ", ".join(
+            ["?" if value is not None else "NULL" for value in data.values()]
         )
+        values = tuple(value for value in data.values() if value is not None)
 
         insert_sql = f"""
         INSERT INTO {table_name} ({fields})
         VALUES ({placeholders})
-    """  # noqa: S608
+        """  # noqa: S608
 
         try:
             with self.connect() as conn:

@@ -30,26 +30,24 @@ class BaseDBModel(BaseModel):
 
     @classmethod
     def model_validate_partial(cls: type[T], obj: dict[str, Any]) -> T:
-        """Validate a partial model object.
-
-        This would be in the case that we are only returning a subset of the
-        fields.
-        """
-        converted_obj = {}
+        """Validate a partial model object."""
+        converted_obj: dict[str, Any] = {}
         for field_name, value in obj.items():
             if field_name in cls.model_fields:
                 field = cls.model_fields[field_name]
                 field_type: Optional[type] = field.annotation
-                if field_type is None:
-                    converted_obj[field_name] = value
+                if (
+                    field_type is None or value is None
+                ):  # Direct check for None values here
+                    converted_obj[field_name] = None
                 else:
                     try:
-                        # Handle Union types
                         origin = get_origin(field_type)
                         if origin is Union:
                             args = get_args(field_type)
                             for arg in args:
                                 try:
+                                    # Convert value only if it's not None
                                     converted_obj[field_name] = arg(value)
                                     break
                                 except (ValueError, TypeError):

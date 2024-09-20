@@ -90,6 +90,7 @@ class TestComplexModelPartialSelection:
         results = db_mock_complex.select(
             ComplexModel, fields=fields
         ).fetch_all()
+
         assert len(results) == 2
         assert any(result.nullable_field is None for result in results)
         assert any(isinstance(result.nullable_field, str) for result in results)
