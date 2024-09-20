@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional, TypeVar
+from typing import Any, Optional, TypeVar, Union, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict
 
@@ -35,7 +35,34 @@ class BaseDBModel(BaseModel):
         This would be in the case that we are only returning a subset of the
         fields.
         """
-        return cls.model_construct(**obj)
+        converted_obj = {}
+        for field_name, value in obj.items():
+            if field_name in cls.model_fields:
+                field = cls.model_fields[field_name]
+                field_type: Optional[type] = field.annotation
+                if field_type is None:
+                    converted_obj[field_name] = value
+                else:
+                    try:
+                        # Handle Union types
+                        origin = get_origin(field_type)
+                        if origin is Union:
+                            args = get_args(field_type)
+                            for arg in args:
+                                try:
+                                    converted_obj[field_name] = arg(value)
+                                    break
+                                except (ValueError, TypeError):
+                                    pass
+                            else:
+                                converted_obj[field_name] = value
+                        else:
+                            converted_obj[field_name] = field_type(value)
+                    except (ValueError, TypeError):
+                        converted_obj[field_name] = value
+            else:
+                converted_obj[field_name] = value
+        return cls.model_construct(**converted_obj)
 
     @classmethod
     def get_table_name(cls) -> str:
