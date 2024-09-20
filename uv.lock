@@ -663,18 +663,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pydantic-partial"
-version = "0.5.5"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pydantic" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/3f/a0/605813c761cd71fe9b9c2138f064adeea6b733c3756e3a61b32edde4caab/pydantic_partial-0.5.5.tar.gz", hash = "sha256:a903bdf6b2b30c850865843645432537eae81713fba59ee03bae567eb4c4ff3b", size = 6323 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/79/45/a4eca7f2d8892a58666cc34d50d43eb29c229e18d5098b8e7bcf67b8867e/pydantic_partial-0.5.5-py3-none-any.whl", hash = "sha256:1e2f1b2c99ee1e8cd0af82c48873d51b1551bbea10c308b65367c9fa1030e4ba", size = 7753 },
-]
-
-[[package]]
 name = "pygithub"
 version = "2.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1031,7 +1019,6 @@ version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "pydantic" },
-    { name = "pydantic-partial" },
 ]
 
 [package.dev-dependencies]
@@ -1053,10 +1040,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [
-    { name = "pydantic", specifier = ">=2.9.0" },
-    { name = "pydantic-partial", specifier = ">=0.5.5" },
-]
+requires-dist = [{ name = "pydantic", specifier = ">=2.9.0" }]
 
 [package.metadata.requires-dev]
 dev = [

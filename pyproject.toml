@@ -7,7 +7,6 @@ requires-python = ">=3.9"
 license = "MIT"
 authors = [{ name = "Grant Ramsay", email = "grant@gnramsay.com" }]
 dependencies = [
-    "pydantic-partial>=0.5.5",
     "pydantic>=2.9.0",
 ]
 

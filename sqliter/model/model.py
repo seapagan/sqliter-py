@@ -5,12 +5,11 @@ from __future__ import annotations
 from typing import Any, Optional, TypeVar
 
 from pydantic import BaseModel, ConfigDict
-from pydantic_partial import PartialModelMixin
 
 T = TypeVar("T", bound="BaseDBModel")
 
 
-class BaseDBModel(PartialModelMixin, BaseModel):
+class BaseDBModel(BaseModel):
     """Custom base model for database models."""
 
     model_config = ConfigDict(
@@ -31,9 +30,12 @@ class BaseDBModel(PartialModelMixin, BaseModel):
 
     @classmethod
     def model_validate_partial(cls: type[T], obj: dict[str, Any]) -> T:
-        """Validate a partial model from a dictionary."""
-        PartialModel = cls.model_as_partial()  # noqa: N806
-        return PartialModel(**obj)
+        """Validate a partial model object.
+
+        This would be in the case that we are only returning a subset of the
+        fields.
+        """
+        return cls.model_construct(**obj)
 
     @classmethod
     def get_table_name(cls) -> str:
