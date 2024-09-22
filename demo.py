@@ -10,46 +10,48 @@ from sqliter.exceptions import RecordInsertionError
 from sqliter.model import BaseDBModel
 
 
-# License model inheriting from the 'BaseDBModel' class
-class LicenseModel(BaseDBModel):
-    """This subclass represents a license model for the database."""
+# User model inheriting from the 'BaseDBModel' class
+class UserModel(BaseDBModel):
+    """This subclass represents a User model for the database."""
 
     slug: str
     name: str
     content: Optional[str]
+    admin: bool = False
 
     class Meta:
-        """Override the default options for the LicenseModel."""
+        """Override the default options for the UserModel."""
 
         create_id: bool = False  # Disable auto-increment ID
         primary_key: str = "slug"  # Use 'slug' as the primary key
-        table_name: str = "licenses"  # Explicitly define the table name
+        table_name: str = "users"  # Explicitly define the table name
 
 
 def main() -> None:
     """Simple example to demonstrate the usage of the 'sqliter' package."""
     db = SqliterDB("demo.db", auto_commit=True)
     with db:
-        db.create_table(LicenseModel)  # Create the licenses table
-        license1 = LicenseModel(
-            slug="mit",
-            name="MIT License",
-            content="This is the MIT license content.",
+        db.create_table(UserModel)  # Create the users table
+        user1 = UserModel(
+            slug="jdoe",
+            name="John Doe",
+            content="This is information about John Doe.",
+            admin=True,
         )
-        license2 = LicenseModel(
-            slug="gpl",
-            name="GPL License",
-            content="This is the GPL license content.",
+        user2 = UserModel(
+            slug="jdoe2",
+            name="Jane Doe",
+            content="This is information about Jane Doe.",
         )
-        license3 = LicenseModel(
-            slug="apache",
-            name="Apache License",
+        user3 = UserModel(
+            slug="jb",
+            name="Yogie Bear",
             content=None,
         )
         try:
-            db.insert(license1)
-            db.insert(license2)
-            db.insert(license3)
+            db.insert(user1)
+            db.insert(user2)
+            db.insert(user3)
         except RecordInsertionError as exc:
             logging.error(exc)  # noqa: TRY400
 
@@ -59,19 +61,17 @@ def main() -> None:
         )
 
         # Example queries
-        licenses = (
-            db.select(LicenseModel).filter(name="MIT License").fetch_all()
-        )
-        logging.info(licenses)
+        users = db.select(UserModel).filter(name="John Doe").fetch_all()
+        logging.info(users)
 
-        all_licenses = db.select(LicenseModel).fetch_all()
-        logging.info(all_licenses)
+        all_users = db.select(UserModel).fetch_all()
+        logging.info(all_users)
 
-        fetched_license = db.get(LicenseModel, "mit")
-        logging.info(fetched_license)
+        fetched_user = db.get(UserModel, "jdoe2")
+        logging.info(fetched_user)
 
-        count = db.select(LicenseModel).count()
-        logging.info("Total licenses: %s", count)
+        count = db.select(UserModel).count()
+        logging.info("Total Users: %s", count)
 
 
 if __name__ == "__main__":
