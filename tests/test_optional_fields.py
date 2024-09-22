@@ -334,3 +334,40 @@ class TestOptionalFields:
         assert not hasattr(result, "email")
         assert not hasattr(result, "address")
         assert not hasattr(result, "phone")
+
+    def test_fields_overrides_select(self, db_mock_adv: SqliterDB) -> None:
+        """Ensure that the fields() method overrides select() method fields."""
+        # Call select() first with certain fields, then override using fields()
+        result = (
+            db_mock_adv.select(PersonModel, fields=["name"])
+            .fields(["age"])
+            .fetch_all()
+        )
+
+        # Ensure only 'age' is present, as 'fields()' was called last
+        assert all(hasattr(person, "age") for person in result)
+        assert all(not hasattr(person, "name") for person in result)
+
+    def test_fields_overrides_select_with_overlap(
+        self,
+        db_mock_detailed: SqliterDB,
+    ) -> None:
+        """Ensure fields() method overrides overlapping fields from select()."""
+        # Call select() with certain fields, then override using fields() with
+        # overlap
+        result = (
+            db_mock_detailed.select(
+                DetailedPersonModel, fields=["name", "email"]
+            )
+            .fields(["age", "email"])
+            .fetch_all()
+        )
+
+        # Ensure only 'age' and 'email' are present, as 'fields()' was called
+        # last
+        assert all(hasattr(person, "age") for person in result)
+        assert all(hasattr(person, "email") for person in result)
+        assert all(not hasattr(person, "name") for person in result)
+        assert all(not hasattr(person, "address") for person in result)
+        assert all(not hasattr(person, "phone") for person in result)
+        assert all(not hasattr(person, "occupation") for person in result)
