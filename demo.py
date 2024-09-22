@@ -29,7 +29,7 @@ class UserModel(BaseDBModel):
 
 def main() -> None:
     """Simple example to demonstrate the usage of the 'sqliter' package."""
-    db = SqliterDB("demo.db", auto_commit=True)
+    db = SqliterDB("./demo-db/demo.db", auto_commit=True)
     with db:
         db.create_table(UserModel)  # Create the users table
         user1 = UserModel(
