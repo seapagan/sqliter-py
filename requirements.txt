@@ -2,5 +2,5 @@
 #    uv export --no-hashes --no-dev --no-emit-project --output-file=requirements.txt
 annotated-types==0.7.0
 pydantic==2.9.2
-pydantic-core==2.23.3
+pydantic-core==2.23.4
 typing-extensions==4.12.2
