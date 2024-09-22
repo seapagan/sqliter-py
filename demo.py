@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Optional
 
 from sqliter import SqliterDB
 from sqliter.exceptions import RecordInsertionError
@@ -15,7 +16,7 @@ class LicenseModel(BaseDBModel):
 
     slug: str
     name: str
-    content: str
+    content: Optional[str]
 
     class Meta:
         """Override the default options for the LicenseModel."""
@@ -40,9 +41,15 @@ def main() -> None:
             name="GPL License",
             content="This is the GPL license content.",
         )
+        license3 = LicenseModel(
+            slug="apache",
+            name="Apache License",
+            content=None,
+        )
         try:
             db.insert(license1)
             db.insert(license2)
+            db.insert(license3)
         except RecordInsertionError as exc:
             logging.error(exc)  # noqa: TRY400
 

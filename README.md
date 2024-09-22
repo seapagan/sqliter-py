@@ -19,9 +19,16 @@ time).
 The ideal use case is more for Python CLI tools that need to store data in a
 database-like format without needing to learn SQL or use a full ORM.
 
-> [!NOTE]
+> [!IMPORTANT]
 > This project is still in the early stages of development and is lacking some
 > planned functionality. Please use with caution.
+>
+> Also, structures like `list`, `dict`, `set` etc are not supported **at this
+> time** as field types, since SQLite does not have a native column type for
+> these. I will look at implementing these in the future, probably by
+> serializing them to JSON or pickling them and storing in a text field. For
+> now, you can actually do this manually when creating your Model (use `TEXT` or
+> `BLOB` fields), then serialize before saving after and retrieving data.
 >
 > See the [TODO](TODO.md) for planned features and improvements.
 
@@ -40,6 +47,10 @@ database-like format without needing to learn SQL or use a full ORM.
     - [Commit your changes](#commit-your-changes)
     - [Close the Connection](#close-the-connection)
   - [Transactions](#transactions)
+  - [Field Control](#field-control)
+    - [Selecting Specific Fields](#selecting-specific-fields)
+    - [Excluding Specific Fields](#excluding-specific-fields)
+    - [Returning exactly one explicit field only](#returning-exactly-one-explicit-field-only)
   - [Filter Options](#filter-options)
     - [Basic Filters](#basic-filters)
     - [Null Checks](#null-checks)
@@ -48,6 +59,7 @@ database-like format without needing to learn SQL or use a full ORM.
     - [String Operations (Case-Sensitive)](#string-operations-case-sensitive)
     - [String Operations (Case-Insensitive)](#string-operations-case-insensitive)
 - [Contributing](#contributing)
+- [Exceptions](#exceptions)
 - [License](#license)
 - [Acknowledgements](#acknowledgements)
 
@@ -58,6 +70,9 @@ database-like format without needing to learn SQL or use a full ORM.
 - Basic query building with filtering, ordering, and pagination
 - Transaction support
 - Custom exceptions for better error handling
+- Full type hinting and type checking
+- No external dependencies other than Pydantic
+- Full test coverage
 
 ## Installation
 
@@ -143,6 +158,14 @@ class User(BaseDBModel):
         create_id = False  # Set to True to auto-create an ID field
 ```
 
+For a standard database with an auto-incrementing integer 'id' primary key, you
+do not need to specify the `primary_key` or `create_id` fields. If you want to
+specify a different primary key field, you can do so using the `primary_key`
+field in the `Meta` class.
+
+If `table_name` is not specified, the table name will be the same as the model
+name, converted to lower case.
+
 ### Database Operations
 
 #### Creating a Connection
@@ -193,6 +216,11 @@ ordered_users = db.select(User).order("age", direction="DESC").fetch_all()
 # Limit and offset
 paginated_users = db.select(User).limit(10).offset(20).fetch_all()
 ```
+
+> [!IMPORTANT]
+>
+> The `select()` MUST come first, before any filtering, ordering, or pagination
+> etc. This is the starting point for building your query.
 
 See below for more advanced filtering options.
 
@@ -253,8 +281,64 @@ with db:
 > at the end (unless an exception occurs), regardless of the `auto_commit`
 > setting.
 >
-> the 'close()' method will also be called when the context manager exits, so you
+> the `close()` method will also be called when the context manager exits, so you
 > do not need to call it manually.
+
+### Field Control
+
+#### Selecting Specific Fields
+
+By default, all commands query and return all fields in the table. If you want
+to select only specific fields, you can pass them using the `fields()`
+method:
+
+```python
+results = db.select(User).fields(["name", "age"]).fetch_all()
+```
+
+This will return only the `name` and `age` fields for each record.
+
+You can also pass this as a parameter to the `select()` method:
+
+```python
+results = db.select(User, fields=["name", "age"]).fetch_all()
+```
+
+Note that using the `fields()` method will override any fields specified in the
+'select()' method.
+
+#### Excluding Specific Fields
+
+If you want to exclude specific fields from the results, you can use the
+`exclude()` method:
+
+```python
+results = db.select(User).exclude(["email"]).fetch_all()
+```
+
+This will return all fields except the `email` field.
+
+You can also pass this as a parameter to the `select()` method:
+
+```python
+results = db.select(User, exclude=["email"]).fetch_all()
+```
+
+#### Returning exactly one explicit field only
+
+If you only want to return a single field from the results, you can use the
+`only()` method:
+
+```python
+result = db.select(User).only("name").fetch_first()
+```
+
+This will return only the `name` field for the first record.
+
+This is exactly the same as using the `fields()` method with a single field, but
+very specific and obvious. **There is NO equivalent argument to this in the
+`select()` method**. An exception **WILL** be raised if you try to use this method
+with more than one field.
 
 ### Filter Options
 
@@ -318,6 +402,54 @@ See the [CONTRIBUTING](CONTRIBUTING.md) guide for more information.
 
 Please note that this project is released with a Contributor Code of Conduct,
 which you can read in the [CODE_OF_CONDUCT](CODE_OF_CONDUCT.md) file.
+
+## Exceptions
+
+SQLiter includes several custom exceptions to handle specific errors that may occur during database operations. These exceptions inherit from a common base class, `SqliterError`, to ensure consistency across error messages and behavior.
+
+- **`SqliterError`**:
+  - The base class for all exceptions in SQLiter. It captures the exception context and chains any previous exceptions.
+  - **Message**: "An error occurred in the SQLiter package."
+
+- **`DatabaseConnectionError`**:
+  - Raised when the SQLite database connection fails.
+  - **Message**: "Failed to connect to the database: '{}'."
+
+- **`InvalidOffsetError`**:
+  - Raised when an invalid offset value (0 or negative) is used in queries.
+  - **Message**: "Invalid offset value: '{}'. Offset must be a positive integer."
+
+- **`InvalidOrderError`**:
+  - Raised when an invalid order value is used in queries, such as a non-existent field or an incorrect sorting direction.
+  - **Message**: "Invalid order value - {}"
+
+- **`TableCreationError`**:
+  - Raised when a table cannot be created in the database.
+  - **Message**: "Failed to create the table: '{}'."
+
+- **`RecordInsertionError`**:
+  - Raised when an error occurs during record insertion.
+  - **Message**: "Failed to insert record into table: '{}'."
+
+- **`RecordUpdateError`**:
+  - Raised when an error occurs during record update.
+  - **Message**: "Failed to update record in table: '{}'."
+
+- **`RecordNotFoundError`**:
+  - Raised when a record with the specified primary key is not found.
+  - **Message**: "Failed to find a record for key '{}'".
+
+- **`RecordFetchError`**:
+  - Raised when an error occurs while fetching records from the database.
+  - **Message**: "Failed to fetch record from table: '{}'."
+
+- **`RecordDeletionError`**:
+  - Raised when an error occurs during record deletion.
+  - **Message**: "Failed to delete record from table: '{}'."
+
+- **`InvalidFilterError`**:
+  - Raised when an invalid filter field is used in a query.
+  - **Message**: "Failed to apply filter: invalid field '{}'".
 
 ## License
 

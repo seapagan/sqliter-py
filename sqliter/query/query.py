@@ -3,7 +3,15 @@
 from __future__ import annotations
 
 import sqlite3
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Literal,
+    Optional,
+    Union,
+    overload,
+)
 
 from typing_extensions import LiteralString, Self
 
@@ -30,8 +38,22 @@ FilterValue = Union[
 class QueryBuilder:
     """Functions to build and execute queries for a given model."""
 
-    def __init__(self, db: SqliterDB, model_class: type[BaseDBModel]) -> None:
-        """Initialize the query builder with the database, model class, etc."""
+    def __init__(
+        self,
+        db: SqliterDB,
+        model_class: type[BaseDBModel],
+        fields: Optional[list[str]] = None,
+    ) -> None:
+        """Initialize the query builder.
+
+        Pass the database, model class, and optional fields.
+
+        Args:
+            db: The SqliterDB instance.
+            model_class: The model class to query.
+            fields: Optional list of field names to select. If None, all fields
+                are selected.
+        """
         self.db = db
         self.model_class = model_class
         self.table_name = model_class.get_table_name()  # Use model_class method
@@ -39,6 +61,22 @@ class QueryBuilder:
         self._limit: Optional[int] = None
         self._offset: Optional[int] = None
         self._order_by: Optional[str] = None
+        self._fields: Optional[list[str]] = fields
+
+        if self._fields:
+            self._validate_fields()
+
+    def _validate_fields(self) -> None:
+        """Validate that the specified fields exist in the model."""
+        if self._fields is None:
+            return
+        valid_fields = set(self.model_class.model_fields.keys())
+        invalid_fields = set(self._fields) - valid_fields
+        if invalid_fields:
+            err_message = (
+                f"Invalid fields specified: {', '.join(invalid_fields)}"
+            )
+            raise ValueError(err_message)
 
     def filter(self, **conditions: str | float | None) -> QueryBuilder:
         """Add filter conditions to the query."""
@@ -51,6 +89,53 @@ class QueryBuilder:
             handler = self._get_operator_handler(operator)
             handler(field_name, value, operator)
 
+        return self
+
+    def fields(self, fields: Optional[list[str]] = None) -> QueryBuilder:
+        """Select specific fields to return in the query."""
+        if fields:
+            self._fields = fields
+            self._validate_fields()
+        return self
+
+    def exclude(self, fields: Optional[list[str]] = None) -> QueryBuilder:
+        """Exclude specific fields from the query output."""
+        if fields:
+            all_fields = set(self.model_class.model_fields.keys())
+
+            # Check for invalid fields before subtraction
+            invalid_fields = set(fields) - all_fields
+            if invalid_fields:
+                err = (
+                    "Invalid fields specified for exclusion: "
+                    f"{', '.join(invalid_fields)}"
+                )
+                raise ValueError(err)
+
+            # Subtract the fields specified for exclusion
+            self._fields = list(all_fields - set(fields))
+
+            # Explicit check: raise an error if no fields remain
+            if not self._fields:
+                err = "Exclusion results in no fields being selected."
+                raise ValueError(err)
+
+            # Now validate the remaining fields to ensure they are all valid
+            self._validate_fields()
+
+        return self
+
+    def only(self, field: str) -> QueryBuilder:
+        """Return only the specified single field."""
+        all_fields = set(self.model_class.model_fields.keys())
+
+        # Validate that the field exists
+        if field not in all_fields:
+            err = f"Invalid field specified: {field}"
+            raise ValueError(err)
+
+        # Set self._fields to just the single field
+        self._fields = [field]
         return self
 
     def _get_operator_handler(
@@ -219,14 +304,19 @@ class QueryBuilder:
         count_only: bool = False,
     ) -> list[tuple[Any, ...]] | Optional[tuple[Any, ...]]:
         """Helper function to execute the query with filters."""
-        fields = ", ".join(self.model_class.model_fields)
+        if count_only:
+            fields = "COUNT(*)"
+        elif self._fields:
+            fields = ", ".join(f'"{field}"' for field in self._fields)
+        else:
+            fields = ", ".join(
+                f'"{field}"' for field in self.model_class.model_fields
+            )
+
+        sql = f'SELECT {fields} FROM "{self.table_name}"'  # noqa: S608 # nosec
 
         # Build the WHERE clause with special handling for None (NULL in SQL)
         values, where_clause = self._parse_filter()
-
-        select_fields = fields if not count_only else "COUNT(*)"
-
-        sql = f'SELECT {select_fields} FROM "{self.table_name}"'  # noqa: S608 # nosec
 
         if self.filters:
             sql += f" WHERE {where_clause}"
@@ -269,61 +359,68 @@ class QueryBuilder:
         where_clause = " AND ".join(where_clauses)
         return values, where_clause
 
-    def fetch_all(self) -> list[BaseDBModel]:
-        """Fetch all results matching the filters."""
-        results = self._execute_query()
+    def _convert_row_to_model(self, row: tuple[Any, ...]) -> BaseDBModel:
+        """Convert a result row tuple into a Pydantic model."""
+        if self._fields:
+            return self.model_class.model_validate_partial(
+                {field: row[idx] for idx, field in enumerate(self._fields)}
+            )
+        return self.model_class(
+            **{
+                field: row[idx]
+                for idx, field in enumerate(self.model_class.model_fields)
+            }
+        )
 
-        if not results:
+    @overload
+    def _fetch_result(
+        self, *, fetch_one: Literal[True]
+    ) -> Optional[BaseDBModel]: ...
+
+    @overload
+    def _fetch_result(
+        self, *, fetch_one: Literal[False]
+    ) -> list[BaseDBModel]: ...
+
+    def _fetch_result(
+        self, *, fetch_one: bool = False
+    ) -> Union[list[BaseDBModel], Optional[BaseDBModel]]:
+        """Fetch one or all results and convert them to Pydantic models."""
+        result = self._execute_query(fetch_one=fetch_one)
+
+        if not result:
+            if fetch_one:
+                return None
             return []
 
-        return [
-            self.model_class(
-                **{
-                    field: row[idx]
-                    for idx, field in enumerate(self.model_class.model_fields)
-                }
-            )
-            for row in results
-        ]
+        if fetch_one:
+            # Ensure we pass a tuple, not a list, to _convert_row_to_model
+            if isinstance(result, list):
+                result = result[
+                    0
+                ]  # Get the first (and only) result if it's wrapped in a list.
+            return self._convert_row_to_model(result)
 
-    def fetch_one(self) -> BaseDBModel | None:
+        return [self._convert_row_to_model(row) for row in result]
+
+    def fetch_all(self) -> list[BaseDBModel]:
+        """Fetch all results matching the filters."""
+        return self._fetch_result(fetch_one=False)
+
+    def fetch_one(self) -> Optional[BaseDBModel]:
         """Fetch exactly one result."""
-        result = self._execute_query(fetch_one=True)
-        if not result:
-            return None
-        return self.model_class(
-            **{
-                field: result[idx]
-                for idx, field in enumerate(self.model_class.model_fields)
-            }
-        )
+        return self._fetch_result(fetch_one=True)
 
-    def fetch_first(self) -> BaseDBModel | None:
+    def fetch_first(self) -> Optional[BaseDBModel]:
         """Fetch the first result of the query."""
         self._limit = 1
-        result = self._execute_query()
-        if not result:
-            return None
-        return self.model_class(
-            **{
-                field: result[0][idx]
-                for idx, field in enumerate(self.model_class.model_fields)
-            }
-        )
+        return self._fetch_result(fetch_one=True)
 
-    def fetch_last(self) -> BaseDBModel | None:
+    def fetch_last(self) -> Optional[BaseDBModel]:
         """Fetch the last result of the query (based on the insertion order)."""
         self._limit = 1
         self._order_by = "rowid DESC"
-        result = self._execute_query()
-        if not result:
-            return None
-        return self.model_class(
-            **{
-                field: result[0][idx]
-                for idx, field in enumerate(self.model_class.model_fields)
-            }
-        )
+        return self._fetch_result(fetch_one=True)
 
     def count(self) -> int:
         """Return the count of records matching the filters."""

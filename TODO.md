@@ -1,5 +1,7 @@
 # TODO
 
+- add an option to the SQLiter constructor to delete the database file if it
+  already exists. Default to False.
 - deprectate 'direction=' in the 'order' method and replace with 'reverse=' with
   a default of False. Leave the 'direction=' parameter in place for now but
   raise a deprecation warning if it is used.
@@ -7,13 +9,12 @@
   queries which can be chained to the 'find_first' etc methods or just used
   directly.
 - add a 'drop_table' method to the main class to allow dropping tables.
-- add a method to drop the entire database - in sqlite this is just deleting the
-  file.
-- add an option to work completely in memory, good for temparary databases.
+- add a method to drop the entire database easiest way is prob to just delete
+  and recreate the database file.
+- add an option to work completely in memory, good for temporary databases.
 - add an 'exists_ok' (default True) parameter to the 'create_table' method so it
   will raise an exception if the table already exists and this is set to False.
 - add a `rollback` method to the main class to allow manual rollbacks.
-- allow 'Select' to return a custom set of fields instead of all fields.
 - allow adding multiple indexes to each table as well as the primary index.
 - allow adding foreign keys and relationships to each table.
 - add a migration system to allow updating the database schema without losing
@@ -24,6 +25,17 @@
 - add more tests where 'auto_commit' is set to False to ensure that commit is
   not called automatically.
 - add a documentation website.
+- the database is created with every field as TEXT. We should try to infer the
+  correct type from the Pydantic model and map it to the correct SQLite type.
+  The return model is created using the pydantic model, so these are converted
+  correctly anyway, but it would be nice to have the database schema match the
+  model schema.
+- update the auto table_name generation to convert to snake_case, and remove the
+  'Model' suffix if present.
+- support structures like, `list`, `dict`, `set` etc. in the model. This
+  will need to be stored as a JSON string or pickled in the database. Also
+  support `date` which can be either stored as a string or more useful as a Unix
+  timestamp in an integer field.
 
 ## Potential Filter Additions
 

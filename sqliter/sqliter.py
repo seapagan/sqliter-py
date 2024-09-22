@@ -97,16 +97,17 @@ class SqliterDB:
         model_class = type(model_instance)
         table_name = model_class.get_table_name()
 
-        fields = ", ".join(model_class.model_fields)
-        placeholders = ", ".join(["?"] * len(model_class.model_fields))
-        values = tuple(
-            getattr(model_instance, field) for field in model_class.model_fields
+        data = model_instance.model_dump()
+        fields = ", ".join(data.keys())
+        placeholders = ", ".join(
+            ["?" if value is not None else "NULL" for value in data.values()]
         )
+        values = tuple(value for value in data.values() if value is not None)
 
         insert_sql = f"""
         INSERT INTO {table_name} ({fields})
         VALUES ({placeholders})
-    """  # noqa: S608
+        """  # noqa: S608
 
         try:
             with self.connect() as conn:
@@ -206,9 +207,32 @@ class SqliterDB:
         except sqlite3.Error as exc:
             raise RecordDeletionError(table_name) from exc
 
-    def select(self, model_class: type[BaseDBModel]) -> QueryBuilder:
-        """Start a query for the given model."""
-        return QueryBuilder(self, model_class)
+    def select(
+        self,
+        model_class: type[BaseDBModel],
+        fields: Optional[list[str]] = None,
+        exclude: Optional[list[str]] = None,
+    ) -> QueryBuilder:
+        """Start a query for the given model.
+
+        Args:
+            model_class: The model class to query.
+            fields: Optional list of field names to select. If None, all fields
+                are selected.
+            exclude: Optional list of field names to exclude from the query
+                output.
+
+        Returns:
+            QueryBuilder: An instance of QueryBuilder for the given model and
+            fields.
+        """
+        query_builder = QueryBuilder(self, model_class, fields)
+
+        # If exclude is provided, apply the exclude method
+        if exclude:
+            query_builder.exclude(exclude)
+
+        return query_builder
 
     # --- Context manager methods ---
     def __enter__(self) -> Self:

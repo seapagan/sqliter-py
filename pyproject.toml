@@ -111,6 +111,7 @@ convention = "google"
   "ANN001",  # annotations for fixtures are sometimes a pain for test files
   "ARG00",   # test fixtures often are not directly used
   "PLR2004", # magic numbers are often used in test files
+  "SLF001",  # sometimes we need to test private methods
 ]
 
 [tool.ruff.lint.isort]
