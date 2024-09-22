@@ -218,3 +218,4 @@ pyrightconfig.json
 .changelog_generator.toml
 repopack-output.xml
 .envrc
+demo-db

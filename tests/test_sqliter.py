@@ -556,3 +556,57 @@ def test_select_with_exclude_and_filter(db_mock_detailed: SqliterDB) -> None:
         assert hasattr(result, "name")
         assert hasattr(result, "email")
         assert not hasattr(result, "phone")
+
+
+def test_in_memory_db_initialization() -> None:
+    """Test that an in-memory database is initialized correctly."""
+    db = SqliterDB(memory=True)
+    assert db.db_filename == ":memory:"
+
+
+def test_file_based_db_initialization() -> None:
+    """Test that a file-based database is initialized correctly."""
+    db = SqliterDB(db_filename="test.db")
+    assert db.db_filename == "test.db"
+
+
+def test_error_when_no_db_name_and_not_memory() -> None:
+    """Error is raised when no db_filename is provided and memory is False."""
+    with pytest.raises(ValueError, match="Database name must be provided"):
+        SqliterDB(memory=False)
+
+
+def test_file_is_created_when_filename_is_provided(mocker) -> None:
+    """Test that sqlite3.connect is called with the correct file path."""
+    mock_connect = mocker.patch("sqlite3.connect")
+
+    db_filename = "/fakepath/test.db"
+    db = SqliterDB(db_filename=db_filename)
+    db.connect()
+
+    # Check if sqlite3.connect was called with the correct filename
+    mock_connect.assert_called_with(db_filename)
+
+
+def test_memory_database_no_file_created(mocker) -> None:
+    """Test that sqlite3.connect is called with ':memory:' when memory=True."""
+    mock_connect = mocker.patch("sqlite3.connect")
+
+    db = SqliterDB(memory=True)
+    db.connect()
+
+    # Check if sqlite3.connect was called with ':memory:' for the in-memory DB
+    mock_connect.assert_called_with(":memory:")
+
+
+def test_memory_db_ignores_filename(mocker) -> None:
+    """Test that memory=True igores any filename, creating an in-memory DB."""
+    mock_connect = mocker.patch("sqlite3.connect")
+
+    db_filename = "/fakepath/test.db"
+    db = SqliterDB(db_filename=db_filename, memory=True)
+    db.connect()
+
+    # Check that sqlite3.connect was called with ':memory:', ignoring the
+    # filename
+    mock_connect.assert_called_with(":memory:")

@@ -27,9 +27,24 @@ if TYPE_CHECKING:  # pragma: no cover
 class SqliterDB:
     """Class to manage SQLite database interactions."""
 
-    def __init__(self, db_filename: str, *, auto_commit: bool = True) -> None:
+    def __init__(
+        self,
+        db_filename: Optional[str] = None,
+        *,
+        memory: bool = False,
+        auto_commit: bool = True,
+    ) -> None:
         """Initialize the class and options."""
-        self.db_filename = db_filename
+        if memory:
+            self.db_filename = ":memory:"
+        elif db_filename:
+            self.db_filename = db_filename
+        else:
+            err = (
+                "Database name must be provided if not using an in-memory "
+                "database."
+            )
+            raise ValueError(err)
         self.auto_commit = auto_commit
         self.conn: Optional[sqlite3.Connection] = None
 
