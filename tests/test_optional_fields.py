@@ -285,3 +285,52 @@ class TestOptionalFields:
         query._validate_fields()
 
         # No assertion needed since we're testing for the absence of exceptions
+
+    def test_fetch_one_with_specific_fields(
+        self, db_mock_detailed: SqliterDB
+    ) -> None:
+        """Test fetch_one selecting specific fields."""
+        result = db_mock_detailed.select(
+            DetailedPersonModel, fields=["name", "email"]
+        ).fetch_one()
+
+        assert result is not None
+        assert hasattr(result, "name")
+        assert hasattr(result, "email")
+        assert not hasattr(result, "age")
+        assert not hasattr(result, "address")
+        assert not hasattr(result, "phone")
+        assert not hasattr(result, "occupation")
+
+    def test_fetch_first_with_specific_fields(
+        self, db_mock_detailed: SqliterDB
+    ) -> None:
+        """Test fetch_first selecting specific fields."""
+        result = db_mock_detailed.select(
+            DetailedPersonModel, fields=["name", "age"]
+        ).fetch_first()
+
+        assert result is not None
+        assert hasattr(result, "name")
+        assert hasattr(result, "age")
+        assert not hasattr(result, "email")
+        assert not hasattr(result, "address")
+        assert not hasattr(result, "phone")
+        assert not hasattr(result, "occupation")
+
+    def test_fetch_last_with_specific_fields(
+        self,
+        db_mock_detailed: SqliterDB,
+    ) -> None:
+        """Test fetch_last selecting specific fields."""
+        result = db_mock_detailed.select(
+            DetailedPersonModel, fields=["name", "occupation"]
+        ).fetch_last()
+
+        assert result is not None
+        assert hasattr(result, "name")
+        assert hasattr(result, "occupation")
+        assert not hasattr(result, "age")
+        assert not hasattr(result, "email")
+        assert not hasattr(result, "address")
+        assert not hasattr(result, "phone")

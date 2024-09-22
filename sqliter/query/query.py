@@ -341,6 +341,12 @@ class QueryBuilder:
         result = self._execute_query(fetch_one=True)
         if not result:
             return None
+
+        if self._fields:
+            return self.model_class.model_validate_partial(
+                {field: result[idx] for idx, field in enumerate(self._fields)}
+            )
+
         return self.model_class(
             **{
                 field: result[idx]
@@ -354,6 +360,15 @@ class QueryBuilder:
         result = self._execute_query()
         if not result:
             return None
+
+        if self._fields:
+            return self.model_class.model_validate_partial(
+                {
+                    field: result[0][idx]
+                    for idx, field in enumerate(self._fields)
+                }
+            )
+
         return self.model_class(
             **{
                 field: result[0][idx]
@@ -368,6 +383,15 @@ class QueryBuilder:
         result = self._execute_query()
         if not result:
             return None
+
+        if self._fields:
+            return self.model_class.model_validate_partial(
+                {
+                    field: result[0][idx]
+                    for idx, field in enumerate(self._fields)
+                }
+            )
+
         return self.model_class(
             **{
                 field: result[0][idx]
