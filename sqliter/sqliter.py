@@ -208,20 +208,31 @@ class SqliterDB:
             raise RecordDeletionError(table_name) from exc
 
     def select(
-        self, model_class: type[BaseDBModel], fields: Optional[list[str]] = None
+        self,
+        model_class: type[BaseDBModel],
+        fields: Optional[list[str]] = None,
+        exclude: Optional[list[str]] = None,
     ) -> QueryBuilder:
         """Start a query for the given model.
 
         Args:
             model_class: The model class to query.
-            fields: Optional list of field names to select.
-                If None, all fields are selected.
+            fields: Optional list of field names to select. If None, all fields
+                are selected.
+            exclude: Optional list of field names to exclude from the query
+                output.
 
         Returns:
             QueryBuilder: An instance of QueryBuilder for the given model and
-                fields.
+            fields.
         """
-        return QueryBuilder(self, model_class, fields)
+        query_builder = QueryBuilder(self, model_class, fields)
+
+        # If exclude is provided, apply the exclude method
+        if exclude:
+            query_builder.exclude(exclude)
+
+        return query_builder
 
     # --- Context manager methods ---
     def __enter__(self) -> Self:

@@ -8,7 +8,7 @@ from sqliter.exceptions import (
     RecordNotFoundError,
 )
 from sqliter.model import BaseDBModel
-from tests.conftest import ExampleModel
+from tests.conftest import DetailedPersonModel, ExampleModel
 
 
 def test_auto_commit_default() -> None:
@@ -502,3 +502,57 @@ def test_transaction_rollback_on_exception(db_mock, mocker) -> None:
 
     # Ensure rollback was called on the mocked connection
     mock_conn.rollback.assert_called_once()
+
+
+def test_select_with_exclude_single_field(db_mock_detailed: SqliterDB) -> None:
+    """Test selecting with exclude parameter to remove a single field."""
+    results = db_mock_detailed.select(
+        DetailedPersonModel, exclude=["email"]
+    ).fetch_all()
+    assert len(results) == 3
+    for result in results:
+        assert hasattr(result, "name")
+        assert hasattr(result, "age")
+        assert not hasattr(result, "email")
+
+
+def test_select_with_exclude_multiple_fields(
+    db_mock_detailed: SqliterDB,
+) -> None:
+    """Test selecting with exclude parameter to remove multiple fields."""
+    results = db_mock_detailed.select(
+        DetailedPersonModel, exclude=["email", "phone"]
+    ).fetch_all()
+    assert len(results) == 3
+    for result in results:
+        assert hasattr(result, "name")
+        assert hasattr(result, "age")
+        assert not hasattr(result, "email")
+        assert not hasattr(result, "phone")
+
+
+def test_select_with_exclude_all_fields_error(
+    db_mock_detailed: SqliterDB,
+) -> None:
+    """Test select with exclude parameter removing all fields raises error."""
+    with pytest.raises(
+        ValueError, match="Exclusion results in no fields being selected."
+    ):
+        db_mock_detailed.select(
+            DetailedPersonModel,
+            exclude=["name", "age", "email", "address", "phone", "occupation"],
+        ).fetch_all()
+
+
+def test_select_with_exclude_and_filter(db_mock_detailed: SqliterDB) -> None:
+    """Test selecting with exclude and filter combined."""
+    results = (
+        db_mock_detailed.select(DetailedPersonModel, exclude=["phone"])
+        .filter(age__gte=30)
+        .fetch_all()
+    )
+    assert len(results) == 2
+    for result in results:
+        assert hasattr(result, "name")
+        assert hasattr(result, "email")
+        assert not hasattr(result, "phone")

@@ -98,6 +98,33 @@ class QueryBuilder:
             self._validate_fields()
         return self
 
+    def exclude(self, fields: Optional[list[str]] = None) -> QueryBuilder:
+        """Exclude specific fields from the query output."""
+        if fields:
+            all_fields = set(self.model_class.model_fields.keys())
+
+            # Check for invalid fields before subtraction
+            invalid_fields = set(fields) - all_fields
+            if invalid_fields:
+                err = (
+                    "Invalid fields specified for exclusion: "
+                    f"{', '.join(invalid_fields)}"
+                )
+                raise ValueError(err)
+
+            # Subtract the fields specified for exclusion
+            self._fields = list(all_fields - set(fields))
+
+            # Explicit check: raise an error if no fields remain
+            if not self._fields:
+                err = "Exclusion results in no fields being selected."
+                raise ValueError(err)
+
+            # Now validate the remaining fields to ensure they are all valid
+            self._validate_fields()
+
+        return self
+
     def _get_operator_handler(
         self, operator: str
     ) -> Callable[[str, Any, str], None]:

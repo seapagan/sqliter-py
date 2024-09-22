@@ -371,3 +371,88 @@ class TestOptionalFields:
         assert all(not hasattr(person, "address") for person in result)
         assert all(not hasattr(person, "phone") for person in result)
         assert all(not hasattr(person, "occupation") for person in result)
+
+    def test_exclude_single_field(self, db_mock_detailed: SqliterDB) -> None:
+        """Test excluding a single field."""
+        results = (
+            db_mock_detailed.select(DetailedPersonModel)
+            .exclude(fields=["email"])
+            .fetch_all()
+        )
+        assert len(results) == 3
+        for result in results:
+            assert hasattr(result, "name")
+            assert hasattr(result, "age")
+            assert not hasattr(result, "email")
+
+    def test_exclude_multiple_fields(self, db_mock_detailed: SqliterDB) -> None:
+        """Test excluding multiple fields."""
+        results = (
+            db_mock_detailed.select(DetailedPersonModel)
+            .exclude(fields=["email", "phone", "occupation"])
+            .fetch_all()
+        )
+        assert len(results) == 3
+        for result in results:
+            assert hasattr(result, "name")
+            assert hasattr(result, "age")
+            assert not hasattr(result, "email")
+            assert not hasattr(result, "phone")
+            assert not hasattr(result, "occupation")
+
+    def test_exclude_all_fields_error(
+        self, db_mock_detailed: SqliterDB
+    ) -> None:
+        """Test excluding all fields raises an error."""
+        with pytest.raises(
+            ValueError, match="Exclusion results in no fields being selected."
+        ):
+            db_mock_detailed.select(DetailedPersonModel).exclude(
+                fields=[
+                    "name",
+                    "age",
+                    "email",
+                    "address",
+                    "phone",
+                    "occupation",
+                ]
+            ).fetch_all()
+
+    def test_exclude_invalid_field(self, db_mock_detailed: SqliterDB) -> None:
+        """Test excluding an invalid field raises an error."""
+        with pytest.raises(
+            ValueError,
+            match="Invalid fields specified for exclusion: invalid_field",
+        ):
+            db_mock_detailed.select(DetailedPersonModel).exclude(
+                fields=["invalid_field"]
+            ).fetch_all()
+
+    def test_exclude_with_filter(self, db_mock_detailed: SqliterDB) -> None:
+        """Test excluding fields while filtering."""
+        results = (
+            db_mock_detailed.select(DetailedPersonModel)
+            .filter(age__gte=30)
+            .exclude(fields=["phone"])
+            .fetch_all()
+        )
+        assert len(results) == 2
+        for result in results:
+            assert hasattr(result, "name")
+            assert hasattr(result, "email")
+            assert not hasattr(result, "phone")
+
+    def test_exclude_with_no_fields(self, db_mock_detailed: SqliterDB) -> None:
+        """Test calling exclude with no fields has no effect."""
+        results = (
+            db_mock_detailed.select(DetailedPersonModel)
+            .exclude(fields=[])
+            .fetch_all()
+        )
+        assert len(results) == 3
+        for result in results:
+            assert hasattr(result, "name")
+            assert hasattr(result, "age")
+            assert hasattr(result, "email")
+            assert hasattr(result, "phone")
+            assert hasattr(result, "occupation")
