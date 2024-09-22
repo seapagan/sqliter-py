@@ -16,6 +16,12 @@ and easy-to-use library for basic database operations, especially for small
 projects. It is NOT asynchronous and does not support complex queries (at this
 time).
 
+Note also that structures like `list`, `dict`, `set` etc are not supported **at
+this time** as field types, since SQLite does not have a native column type for
+these. I will look at implementing these in the future, probably by serializing
+them to JSON or pickling them and storing in a text field. For now, you can
+actually do this manually when storing and retrieving data.
+
 The ideal use case is more for Python CLI tools that need to store data in a
 database-like format without needing to learn SQL or use a full ORM.
 

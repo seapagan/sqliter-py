@@ -1,5 +1,7 @@
 # TODO
 
+- add an option to the SQLiter constructor to delete the database file if it
+  already exists. Default to False.
 - deprectate 'direction=' in the 'order' method and replace with 'reverse=' with
   a default of False. Leave the 'direction=' parameter in place for now but
   raise a deprecation warning if it is used.
@@ -24,6 +26,8 @@
 - add more tests where 'auto_commit' is set to False to ensure that commit is
   not called automatically.
 - add a documentation website.
+- the database is created with every field as TEXT. We should try to infer the
+  correct type from the Pydantic model and map it to the correct SQLite type.
 
 ## Potential Filter Additions
 
