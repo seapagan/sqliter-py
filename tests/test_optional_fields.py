@@ -6,7 +6,7 @@ import pytest
 
 from sqliter import SqliterDB
 from sqliter.model.model import BaseDBModel
-from tests.conftest import DetailedPersonModel
+from tests.conftest import DetailedPersonModel, PersonModel
 
 
 class TestOptionalFields:
@@ -235,3 +235,53 @@ class TestOptionalFields:
         result = TestModel.model_validate_partial(obj)
 
         assert cast(str, result.field_a) == invalid_value
+
+    def test_fields_operator_all_fields_explicitly(
+        self, db_mock_detailed: SqliterDB
+    ) -> None:
+        """Test selecting all fields explicitly."""
+        all_fields = ["name", "age", "email", "address", "phone", "occupation"]
+        results = (
+            db_mock_detailed.select(DetailedPersonModel)
+            .fields(all_fields)
+            .fetch_all()
+        )
+        assert len(results) == 3
+        for result in results:
+            for field in all_fields:
+                assert hasattr(result, field)
+
+    def test_fields_operator_no_fields_explicitly(
+        self, db_mock_detailed: SqliterDB
+    ) -> None:
+        """Test selecting all fields explicitly."""
+        all_fields = ["name", "age", "email", "address", "phone", "occupation"]
+
+        results = (
+            db_mock_detailed.select(DetailedPersonModel).fields().fetch_all()
+        )
+        assert len(results) == 3
+        for result in results:
+            for field in all_fields:
+                assert hasattr(result, field)
+
+    def test_validate_fields_with_none(self, db_mock_adv) -> None:
+        """Test _validate_fields with self._fields set to None."""
+        # This test will indirectly invoke _validate_fields by creating a
+        # QueryBuilder without specifying fields (i.e., self._fields will be
+        # None).
+        query = db_mock_adv.select(PersonModel, fields=None)
+
+        # The _validate_fields method should pass without raising any errors
+        # since self._fields is None.
+        assert query._fields is None
+
+    def test_direct_validate_fields_with_none(self, db_mock_adv) -> None:
+        """Test _validate_fields directly with self._fields set to None."""
+        # Create the query builder instance
+        query = db_mock_adv.select(PersonModel, fields=None)
+
+        # Directly call  _validate_fields to hit the specific code path
+        query._validate_fields()
+
+        # No assertion needed since we're testing for the absence of exceptions

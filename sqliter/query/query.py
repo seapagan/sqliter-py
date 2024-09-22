@@ -83,6 +83,13 @@ class QueryBuilder:
 
         return self
 
+    def fields(self, fields: Optional[list[str]] = None) -> QueryBuilder:
+        """Select specific fields to return in the query."""
+        if fields:
+            self._fields = fields
+            self._validate_fields()
+        return self
+
     def _get_operator_handler(
         self, operator: str
     ) -> Callable[[str, Any, str], None]:
