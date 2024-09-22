@@ -125,6 +125,19 @@ class QueryBuilder:
 
         return self
 
+    def only(self, field: str) -> QueryBuilder:
+        """Return only the specified single field."""
+        all_fields = set(self.model_class.model_fields.keys())
+
+        # Validate that the field exists
+        if field not in all_fields:
+            err = f"Invalid field specified: {field}"
+            raise ValueError(err)
+
+        # Set self._fields to just the single field
+        self._fields = [field]
+        return self
+
     def _get_operator_handler(
         self, operator: str
     ) -> Callable[[str, Any, str], None]:

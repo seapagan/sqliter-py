@@ -47,8 +47,10 @@ database-like format without needing to learn SQL or use a full ORM.
     - [Commit your changes](#commit-your-changes)
     - [Close the Connection](#close-the-connection)
   - [Transactions](#transactions)
-  - [Selecting Specific Fields](#selecting-specific-fields)
-  - [Excluding Specific Fields](#excluding-specific-fields)
+  - [Field Control](#field-control)
+    - [Selecting Specific Fields](#selecting-specific-fields)
+    - [Excluding Specific Fields](#excluding-specific-fields)
+    - [Returning exactly one explicit field only](#returning-exactly-one-explicit-field-only)
   - [Filter Options](#filter-options)
     - [Basic Filters](#basic-filters)
     - [Null Checks](#null-checks)
@@ -282,7 +284,9 @@ with db:
 > the `close()` method will also be called when the context manager exits, so you
 > do not need to call it manually.
 
-### Selecting Specific Fields
+### Field Control
+
+#### Selecting Specific Fields
 
 By default, all commands query and return all fields in the table. If you want
 to select only specific fields, you can pass them using the `fields()`
@@ -303,7 +307,7 @@ results = db.select(User, fields=["name", "age"]).fetch_all()
 Note that using the `fields()` method will override any fields specified in the
 'select()' method.
 
-### Excluding Specific Fields
+#### Excluding Specific Fields
 
 If you want to exclude specific fields from the results, you can use the
 `exclude()` method:
@@ -319,6 +323,22 @@ You can also pass this as a parameter to the `select()` method:
 ```python
 results = db.select(User, exclude=["email"]).fetch_all()
 ```
+
+#### Returning exactly one explicit field only
+
+If you only want to return a single field from the results, you can use the
+`only()` method:
+
+```python
+result = db.select(User).only("name").fetch_first()
+```
+
+This will return only the `name` field for the first record.
+
+This is exactly the same as using the `fields()` method with a single field, but
+very specific and obvious. **There is NO equivalent argument to this in the
+`select()` method**. An exception **WILL** be raised if you try to use this method
+with more than one field.
 
 ### Filter Options
 

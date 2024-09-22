@@ -11,7 +11,7 @@
 - add a 'drop_table' method to the main class to allow dropping tables.
 - add a method to drop the entire database easiest way is prob to just delete
   and recreate the database file.
-- add an option to work completely in memory, good for temparary databases.
+- add an option to work completely in memory, good for temporary databases.
 - add an 'exists_ok' (default True) parameter to the 'create_table' method so it
   will raise an exception if the table already exists and this is set to False.
 - add a `rollback` method to the main class to allow manual rollbacks.
@@ -30,12 +30,12 @@
   The return model is created using the pydantic model, so these are converted
   correctly anyway, but it would be nice to have the database schema match the
   model schema.
-- add an 'only()' method to the query class (and similar variable to the
-  'select() method) to return only a single field in the result.
 - update the auto table_name generation to convert to snake_case, and remove the
   'Model' suffix if present.
-- support structures like, `list`, `dict`, `set` etc. in the model. This will
-  need to be stored as a JSON string or pickled in the database.
+- support structures like, `list`, `dict`, `set` etc. in the model. This
+  will need to be stored as a JSON string or pickled in the database. Also
+  support `date` which can be either stored as a string or more useful as a Unix
+  timestamp in an integer field.
 
 ## Potential Filter Additions
 

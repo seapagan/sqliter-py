@@ -456,3 +456,48 @@ class TestOptionalFields:
             assert hasattr(result, "email")
             assert hasattr(result, "phone")
             assert hasattr(result, "occupation")
+
+    def test_only_method_with_single_field(
+        self, db_mock_detailed: SqliterDB
+    ) -> None:
+        """Test selecting with only one specific field."""
+        results = (
+            db_mock_detailed.select(DetailedPersonModel)
+            .only("name")
+            .fetch_all()
+        )
+        assert len(results) == 3
+        for result in results:
+            assert hasattr(result, "name")
+            assert not hasattr(result, "age")
+            assert not hasattr(result, "email")
+
+    def test_only_with_list_raises_type_error(
+        self,
+        db_mock_detailed: SqliterDB,
+    ) -> None:
+        """Test that only() raises TypeError with list or multiple fields.
+
+        This is the default behavior for Python anyway, but we want to ensure
+        that the method enforces this.
+        """
+        with pytest.raises(TypeError):
+            db_mock_detailed.select(DetailedPersonModel).only(
+                ["name", "email"]  # type: ignore
+            ).fetch_all()  # Passing a list
+
+        with pytest.raises(TypeError):
+            db_mock_detailed.select(DetailedPersonModel).only(
+                "name",
+                "email",  # type: ignore
+            ).fetch_all()  # Passing multiple fields
+
+    def test_only_with_invalid_field(self, db_mock_detailed: SqliterDB) -> None:
+        """Test that only() raises ValueError with invalid field."""
+        with pytest.raises(
+            ValueError,
+            match="Invalid field specified: invalid_field",
+        ):
+            db_mock_detailed.select(DetailedPersonModel).only(
+                "invalid_field"
+            ).fetch_all()
