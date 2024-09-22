@@ -39,6 +39,7 @@ database-like format without needing to learn SQL or use a full ORM.
   - [Defining Models](#defining-models)
   - [Database Operations](#database-operations)
     - [Creating a Connection](#creating-a-connection)
+    - [Using an In-Memory Database](#using-an-in-memory-database)
     - [Creating Tables](#creating-tables)
     - [Inserting Records](#inserting-records)
     - [Querying Records](#querying-records)
@@ -187,6 +188,36 @@ db = SqliterDB("your_database.db", auto_commit=False)
 It is then up to you to manually commit changes using the `commit()` method.
 This can be useful when you want to perform multiple operations in a single
 transaction without the overhead of committing after each operation.
+
+#### Using an In-Memory Database
+
+If you want to use an in-memory database, you can set `memory=True` when
+creating the database connection:
+
+```python
+db = SqliterDB(memory=True)
+```
+
+This will create an in-memory database that is not persisted to disk. If you
+also specify a database name, it will be ignored.
+
+```python
+db = SqliterDB("ignored.db", memory=True)
+```
+
+The `ignored.db` file will not be created, and the database will be in-memory.
+If you do not specify a database name, and do NOT set `memory=True`, an
+exception will be raised.
+
+> [!NOTE]
+>
+> You can also use `":memory:"` as the database name (same as normal with
+> Sqlite) to create an in-memory database, this is just a cleaner and more
+> descriptive way to do it.
+>
+> ```python
+> db = SqliterDB(":memory:")
+> ```
 
 #### Creating Tables
 

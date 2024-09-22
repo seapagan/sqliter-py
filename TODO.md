@@ -11,7 +11,6 @@
 - add a 'drop_table' method to the main class to allow dropping tables.
 - add a method to drop the entire database easiest way is prob to just delete
   and recreate the database file.
-- add an option to work completely in memory, good for temporary databases.
 - add an 'exists_ok' (default True) parameter to the 'create_table' method so it
   will raise an exception if the table already exists and this is set to False.
 - add a `rollback` method to the main class to allow manual rollbacks.
