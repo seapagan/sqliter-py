@@ -16,18 +16,19 @@ and easy-to-use library for basic database operations, especially for small
 projects. It is NOT asynchronous and does not support complex queries (at this
 time).
 
-Note also that structures like `list`, `dict`, `set` etc are not supported **at
-this time** as field types, since SQLite does not have a native column type for
-these. I will look at implementing these in the future, probably by serializing
-them to JSON or pickling them and storing in a text field. For now, you can
-actually do this manually when storing and retrieving data.
-
 The ideal use case is more for Python CLI tools that need to store data in a
 database-like format without needing to learn SQL or use a full ORM.
 
-> [!NOTE]
+> [!IMPORTANT]
 > This project is still in the early stages of development and is lacking some
 > planned functionality. Please use with caution.
+>
+> Also, structures like `list`, `dict`, `set` etc are not supported **at this
+> time** as field types, since SQLite does not have a native column type for
+> these. I will look at implementing these in the future, probably by
+> serializing them to JSON or pickling them and storing in a text field. For
+> now, you can actually do this manually when creating your Model (use `TEXT` or
+> `BLOB` fields), then serialize before saving after and retrieving data.
 >
 > See the [TODO](TODO.md) for planned features and improvements.
 
@@ -47,6 +48,7 @@ database-like format without needing to learn SQL or use a full ORM.
     - [Close the Connection](#close-the-connection)
   - [Transactions](#transactions)
   - [Selecting Specific Fields](#selecting-specific-fields)
+  - [Excluding Specific Fields](#excluding-specific-fields)
   - [Filter Options](#filter-options)
     - [Basic Filters](#basic-filters)
     - [Null Checks](#null-checks)
@@ -66,6 +68,9 @@ database-like format without needing to learn SQL or use a full ORM.
 - Basic query building with filtering, ordering, and pagination
 - Transaction support
 - Custom exceptions for better error handling
+- Full type hinting and type checking
+- No external dependencies other than Pydantic
+- Full test coverage
 
 ## Installation
 
@@ -150,6 +155,14 @@ class User(BaseDBModel):
         primary_key = "name"  # Default is "id"
         create_id = False  # Set to True to auto-create an ID field
 ```
+
+For a standard database with an auto-incrementing integer 'id' primary key, you
+do not need to specify the `primary_key` or `create_id` fields. If you want to
+specify a different primary key field, you can do so using the `primary_key`
+field in the `Meta` class.
+
+If `table_name` is not specified, the table name will be the same as the model
+name, converted to lower case.
 
 ### Database Operations
 
@@ -266,7 +279,7 @@ with db:
 > at the end (unless an exception occurs), regardless of the `auto_commit`
 > setting.
 >
-> the 'close()' method will also be called when the context manager exits, so you
+> the `close()` method will also be called when the context manager exits, so you
 > do not need to call it manually.
 
 ### Selecting Specific Fields
@@ -289,6 +302,23 @@ results = db.select(User, fields=["name", "age"]).fetch_all()
 
 Note that using the `fields()` method will override any fields specified in the
 'select()' method.
+
+### Excluding Specific Fields
+
+If you want to exclude specific fields from the results, you can use the
+`exclude()` method:
+
+```python
+results = db.select(User).exclude(["email"]).fetch_all()
+```
+
+This will return all fields except the `email` field.
+
+You can also pass this as a parameter to the `select()` method:
+
+```python
+results = db.select(User, exclude=["email"]).fetch_all()
+```
 
 ### Filter Options
 

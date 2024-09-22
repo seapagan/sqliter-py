@@ -30,11 +30,12 @@
   The return model is created using the pydantic model, so these are converted
   correctly anyway, but it would be nice to have the database schema match the
   model schema.
-- add an 'exclude()' method to the query class (and similar variable to the
-  'select() method) to exclude fields from the result. Opposite of the
-  'fields()' method.
 - add an 'only()' method to the query class (and similar variable to the
   'select() method) to return only a single field in the result.
+- update the auto table_name generation to convert to snake_case, and remove the
+  'Model' suffix if present.
+- support structures like, `list`, `dict`, `set` etc. in the model. This will
+  need to be stored as a JSON string or pickled in the database.
 
 ## Potential Filter Additions
 
