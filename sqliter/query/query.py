@@ -3,7 +3,15 @@
 from __future__ import annotations
 
 import sqlite3
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Literal,
+    Optional,
+    Union,
+    overload,
+)
 
 from typing_extensions import LiteralString, Self
 
@@ -311,93 +319,68 @@ class QueryBuilder:
         where_clause = " AND ".join(where_clauses)
         return values, where_clause
 
-    def fetch_all(self) -> list[BaseDBModel]:
-        """Fetch all results matching the filters."""
-        results = self._execute_query()
+    def _convert_row_to_model(self, row: tuple[Any, ...]) -> BaseDBModel:
+        """Convert a result row tuple into a Pydantic model."""
+        if self._fields:
+            return self.model_class.model_validate_partial(
+                {field: row[idx] for idx, field in enumerate(self._fields)}
+            )
+        return self.model_class(
+            **{
+                field: row[idx]
+                for idx, field in enumerate(self.model_class.model_fields)
+            }
+        )
 
-        if not results:
+    @overload
+    def _fetch_result(
+        self, *, fetch_one: Literal[True]
+    ) -> Optional[BaseDBModel]: ...
+
+    @overload
+    def _fetch_result(
+        self, *, fetch_one: Literal[False]
+    ) -> list[BaseDBModel]: ...
+
+    def _fetch_result(
+        self, *, fetch_one: bool = False
+    ) -> Union[list[BaseDBModel], Optional[BaseDBModel]]:
+        """Fetch one or all results and convert them to Pydantic models."""
+        result = self._execute_query(fetch_one=fetch_one)
+
+        if not result:
+            if fetch_one:
+                return None
             return []
 
-        if self._fields:
-            return [
-                self.model_class.model_validate_partial(
-                    {field: row[idx] for idx, field in enumerate(self._fields)}
-                )
-                for row in results
-            ]
+        if fetch_one:
+            # Ensure we pass a tuple, not a list, to _convert_row_to_model
+            if isinstance(result, list):
+                result = result[
+                    0
+                ]  # Get the first (and only) result if it's wrapped in a list.
+            return self._convert_row_to_model(result)
 
-        return [
-            self.model_class(
-                **{
-                    field: row[idx]
-                    for idx, field in enumerate(self.model_class.model_fields)
-                }
-            )
-            for row in results
-        ]
+        return [self._convert_row_to_model(row) for row in result]
 
-    def fetch_one(self) -> BaseDBModel | None:
+    def fetch_all(self) -> list[BaseDBModel]:
+        """Fetch all results matching the filters."""
+        return self._fetch_result(fetch_one=False)
+
+    def fetch_one(self) -> Optional[BaseDBModel]:
         """Fetch exactly one result."""
-        result = self._execute_query(fetch_one=True)
-        if not result:
-            return None
+        return self._fetch_result(fetch_one=True)
 
-        if self._fields:
-            return self.model_class.model_validate_partial(
-                {field: result[idx] for idx, field in enumerate(self._fields)}
-            )
-
-        return self.model_class(
-            **{
-                field: result[idx]
-                for idx, field in enumerate(self.model_class.model_fields)
-            }
-        )
-
-    def fetch_first(self) -> BaseDBModel | None:
+    def fetch_first(self) -> Optional[BaseDBModel]:
         """Fetch the first result of the query."""
         self._limit = 1
-        result = self._execute_query()
-        if not result:
-            return None
+        return self._fetch_result(fetch_one=True)
 
-        if self._fields:
-            return self.model_class.model_validate_partial(
-                {
-                    field: result[0][idx]
-                    for idx, field in enumerate(self._fields)
-                }
-            )
-
-        return self.model_class(
-            **{
-                field: result[0][idx]
-                for idx, field in enumerate(self.model_class.model_fields)
-            }
-        )
-
-    def fetch_last(self) -> BaseDBModel | None:
+    def fetch_last(self) -> Optional[BaseDBModel]:
         """Fetch the last result of the query (based on the insertion order)."""
         self._limit = 1
         self._order_by = "rowid DESC"
-        result = self._execute_query()
-        if not result:
-            return None
-
-        if self._fields:
-            return self.model_class.model_validate_partial(
-                {
-                    field: result[0][idx]
-                    for idx, field in enumerate(self._fields)
-                }
-            )
-
-        return self.model_class(
-            **{
-                field: result[0][idx]
-                for idx, field in enumerate(self.model_class.model_fields)
-            }
-        )
+        return self._fetch_result(fetch_one=True)
 
     def count(self) -> int:
         """Return the count of records matching the filters."""
