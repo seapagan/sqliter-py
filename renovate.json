@@ -9,5 +9,9 @@
   "gitIgnoredAuthors": [
     "66853113+pre-commit-ci[bot]@users.noreply.github.com"
   ],
-  "enabled": false
+  "enabled": true,
+  "enabledManagers": [
+    "pep621",
+    "github-actions"
+  ]
 }
