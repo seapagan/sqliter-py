@@ -9,13 +9,12 @@
   queries which can be chained to the 'find_first' etc methods or just used
   directly.
 - add a 'drop_table' method to the main class to allow dropping tables.
-- add a method to drop the entire database - in sqlite this is just deleting the
-  file.
+- add a method to drop the entire database easiest way is prob to just delete
+  and recreate the database file.
 - add an option to work completely in memory, good for temparary databases.
 - add an 'exists_ok' (default True) parameter to the 'create_table' method so it
   will raise an exception if the table already exists and this is set to False.
 - add a `rollback` method to the main class to allow manual rollbacks.
-- allow 'Select' to return a custom set of fields instead of all fields.
 - allow adding multiple indexes to each table as well as the primary index.
 - allow adding foreign keys and relationships to each table.
 - add a migration system to allow updating the database schema without losing
