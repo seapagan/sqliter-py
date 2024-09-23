@@ -22,6 +22,9 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
+[project.optional-dependencies]
+extras = ["inflect==7.0.0"]
+
 [project.urls]
 # "HomeHage" = "https://xxxxxx"
 "Pull Requests" = "https://github.com/seapagan/sqliter-py/pulls"

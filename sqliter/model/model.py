@@ -77,11 +77,19 @@ class BaseDBModel(BaseModel):
         # Convert to snake_case
         snake_case_name = re.sub(r"(?<!^)(?=[A-Z])", "_", class_name).lower()
 
-        # Pluralize the table name (simple 's' pluralization)
-        if not snake_case_name.endswith("s"):
-            snake_case_name += "s"
+        # Pluralize the table name
+        try:
+            import inflect
 
-        return snake_case_name
+            p = inflect.engine()
+            return p.plural(snake_case_name)
+        except ImportError:
+            # Fallback to simple pluralization by adding 's'
+            return (
+                snake_case_name
+                if snake_case_name.endswith("s")
+                else snake_case_name + "s"
+            )
 
     @classmethod
     def get_primary_key(cls) -> str:

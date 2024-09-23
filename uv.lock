@@ -388,6 +388,19 @@ wheels = [
 ]
 
 [[package]]
+name = "inflect"
+version = "7.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9f/90/1d0a889847fdce963ebe9684de24a749e4fad627bf595e9f0d32730f85a8/inflect-7.0.0.tar.gz", hash = "sha256:63da9325ad29da81ec23e055b41225795ab793b4ecb483be5dc1fa363fd4717e", size = 70963 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fb/c6/d9feb758be584f729424390af24687d3a4363d968164f94079f83cd536b4/inflect-7.0.0-py3-none-any.whl", hash = "sha256:9544afed6182176e43955c44b1acdaed30f9b2b56c16d1fc5b222d98218b546e", size = 34788 },
+]
+
+[[package]]
 name = "iniconfig"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1021,6 +1034,11 @@ dependencies = [
     { name = "pydantic" },
 ]
 
+[package.optional-dependencies]
+extras = [
+    { name = "inflect" },
+]
+
 [package.dev-dependencies]
 dev = [
     { name = "github-changelog-md" },
@@ -1040,7 +1058,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pydantic", specifier = ">=2.9.0" }]
+requires-dist = [
+    { name = "inflect", marker = "extra == 'extras'", specifier = "==7.0.0" },
+    { name = "pydantic", specifier = ">=2.9.0" },
+]
 
 [package.metadata.requires-dev]
 dev = [
