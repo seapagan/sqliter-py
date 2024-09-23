@@ -2,6 +2,8 @@
 
 - add an option to the SQLiter constructor to delete the database file if it
   already exists. Default to False.
+- add attributes to the BaseDBModel to read the table-name, file-name, is-memory
+  etc.
 - deprectate 'direction=' in the 'order' method and replace with 'reverse=' with
   a default of False. Leave the 'direction=' parameter in place for now but
   raise a deprecation warning if it is used.
