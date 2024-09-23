@@ -187,7 +187,10 @@ def test_create_table_with_custom_auto_increment_pk(db_mock) -> None:
 
 
 def test_default_table_name(db_mock) -> None:
-    """Test that the table name defaults to the class name in lowercase."""
+    """Test the default table name generation.
+
+    It should default to the class name in lowercase, plural form.
+    """
 
     class DefaultNameModel(BaseDBModel):
         name: str
@@ -196,7 +199,43 @@ def test_default_table_name(db_mock) -> None:
             table_name = None  # Explicitly set to None to test the default
 
     # Verify that get_table_name defaults to class name in lowercase
-    assert DefaultNameModel.get_table_name() == "defaultnamemodel"
+    assert DefaultNameModel.get_table_name() == "default_names"
+
+
+def test_get_table_name_fallback_without_inflect(mocker) -> None:
+    """Test get_table_name falls back to manual plural without 'inflect."""
+    # Mock the inflect import to raise ImportError, simulating it being absent
+    mocker.patch.dict("sys.modules", {"inflect": None})
+
+    class UserModel(BaseDBModel):
+        pass
+
+    table_name = UserModel.get_table_name()
+    assert table_name == "users"  # Fallback logic should add 's'
+
+
+def test_get_table_name_no_double_s_without_inflect(mocker) -> None:
+    """Test get_table_name doesn't add extra 's' if it already ends with 's'."""
+    # Mock the sys.modules to simulate 'inflect' being unavailable
+    mocker.patch.dict("sys.modules", {"inflect": None})
+
+    class UsersModel(BaseDBModel):
+        pass
+
+    table_name = UsersModel.get_table_name()
+    assert table_name == "users"  # Should not add an extra 's'
+
+
+def test_get_table_name_with_inflect() -> None:
+    """Test get_table_name uses 'inflect' for pluralization if available."""
+
+    class PersonModel(BaseDBModel):
+        pass
+
+    table_name = PersonModel.get_table_name()
+
+    # Here, we assume that inflect will pluralize 'person' to 'people'
+    assert table_name == "people"
 
 
 def test_insert_license(db_mock) -> None:
