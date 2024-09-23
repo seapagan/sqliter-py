@@ -132,7 +132,9 @@ module = "tests.*"
 
 [tool.pytest.ini_options]
 addopts = ["--cov", "--cov-report", "term-missing", "--cov-report", "html"]
-filterwarnings = []
+filterwarnings = [
+  "ignore:'direction' argument is deprecated:DeprecationWarning",
+]
 mock_use_standalone_module = true
 
 [tool.coverage.run]

@@ -453,7 +453,51 @@ def test_order_default(db_mock) -> None:
     assert results[2].name == "John Doe"
 
 
-def test_order_ascending(db_mock) -> None:
+def test_order_with_reverse_false(db_mock) -> None:
+    """Test that the order method works with reverse=False (ascending order)."""
+
+    class TestModel(BaseDBModel):
+        name: str
+
+        class Meta:
+            table_name = "test_table"
+
+    db_mock.create_table(TestModel)
+    db_mock.insert(TestModel(name="Charlie"))
+    db_mock.insert(TestModel(name="Alice"))
+    db_mock.insert(TestModel(name="Bob"))
+
+    # Ascending order
+    results = db_mock.select(TestModel).order("name", reverse=False).fetch_all()
+    assert len(results) == 3
+    assert results[0].name == "Alice"
+    assert results[1].name == "Bob"
+    assert results[2].name == "Charlie"
+
+
+def test_order_with_reverse_true(db_mock) -> None:
+    """Test that the order method works with reverse=True (descending order)."""
+
+    class TestModel(BaseDBModel):
+        name: str
+
+        class Meta:
+            table_name = "test_table"
+
+    db_mock.create_table(TestModel)
+    db_mock.insert(TestModel(name="Charlie"))
+    db_mock.insert(TestModel(name="Alice"))
+    db_mock.insert(TestModel(name="Bob"))
+
+    # Descending order
+    results = db_mock.select(TestModel).order("name", reverse=True).fetch_all()
+    assert len(results) == 3
+    assert results[0].name == "Charlie"
+    assert results[1].name == "Bob"
+    assert results[2].name == "Alice"
+
+
+def test_order_direction_ascending(db_mock) -> None:
     """Test that the order method works as expected when ASC specified."""
 
     # Define a simple model for the test
@@ -483,7 +527,7 @@ def test_order_ascending(db_mock) -> None:
     assert results[2].name == "John Doe"
 
 
-def test_order_desc(db_mock) -> None:
+def test_order_direction_desc(db_mock) -> None:
     """Test that the order method works as expected descending."""
 
     # Define a simple model for the test
@@ -511,6 +555,39 @@ def test_order_desc(db_mock) -> None:
     assert results[0].name == "John Doe"
     assert results[1].name == "Jim Doe"
     assert results[2].name == "Jane Doe"
+
+
+def test_order_with_both_reverse_and_direction(db_mock) -> None:
+    """Test that  both 'direction' and 'reverse' raises an InvalidOrderError."""
+
+    class TestModel(BaseDBModel):
+        name: str
+
+        class Meta:
+            table_name = "test_table"
+
+    db_mock.create_table(TestModel)
+    db_mock.insert(TestModel(name="Charlie"))
+    db_mock.insert(TestModel(name="Alice"))
+    db_mock.insert(TestModel(name="Bob"))
+
+    # Both 'reverse' and 'direction' specified (should raise error)
+    with pytest.raises(
+        InvalidOrderError, match="Cannot specify both 'direction' and 'reverse'"
+    ):
+        db_mock.select(TestModel).order("name", direction="ASC", reverse=True)
+
+
+def test_order_deprecation_warning(db_mock) -> None:
+    """Test that using 'direction' raises a DeprecationWarning."""
+
+    class TestModel(BaseDBModel):
+        name: str
+
+    with pytest.warns(
+        DeprecationWarning, match="'direction' argument is deprecated"
+    ):
+        db_mock.select(TestModel).order("name", direction="ASC")
 
 
 def test_limit_offset_order_combined(db_mock) -> None:
