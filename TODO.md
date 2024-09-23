@@ -17,8 +17,6 @@
 - allow adding foreign keys and relationships to each table.
 - add a migration system to allow updating the database schema without losing
   data.
-- add support for more data types, though since it is using Pydantic it should
-  be quite comprehensive already.
 - add debug logging to show the SQL queries being executed.
 - add more tests where 'auto_commit' is set to False to ensure that commit is
   not called automatically.
@@ -28,10 +26,12 @@
   The return model is created using the pydantic model, so these are converted
   correctly anyway, but it would be nice to have the database schema match the
   model schema.
-- support structures like, `list`, `dict`, `set` etc. in the model. This
-  will need to be stored as a JSON string or pickled in the database. Also
-  support `date` which can be either stored as a string or more useful as a Unix
-  timestamp in an integer field.
+- support structures like, `list`, `dict`, `set` etc. in the model. This will
+  need to be stored as a JSON string or pickled in the database (the latter
+  would be more versatile). Also support `date` which can be either stored as a
+  string or more useful as a Unix timestamp in an integer field.
+- for the `order()` allow ommitting the field name and just specifying the
+  direction. This will default to the primary key field.
 
 ## Potential Filter Additions
 
