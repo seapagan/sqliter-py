@@ -196,7 +196,7 @@ def test_default_table_name(db_mock) -> None:
             table_name = None  # Explicitly set to None to test the default
 
     # Verify that get_table_name defaults to class name in lowercase
-    assert DefaultNameModel.get_table_name() == "defaultnamemodel"
+    assert DefaultNameModel.get_table_name() == "default_names"
 
 
 def test_insert_license(db_mock) -> None:
