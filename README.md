@@ -185,13 +185,13 @@ class User(BaseDBModel):
     class Meta:
         table_name = "users"
         primary_key = "name"  # Default is "id"
-        create_id = False  # disable auto-creating an incrementing primary key - default is True
+        create_pk = False  # disable auto-creating an incrementing primary key - default is True
 ```
 
 For a standard database with an auto-incrementing integer 'id' primary key, you
-do not need to specify the `primary_key` or `create_id` fields. If you want to
-specify a different primary key field, you can do so using the `primary_key`
-field in the `Meta` class.
+do not need to specify the `primary_key` or `create_pk` fields. If you want to
+specify a different primary key field name, you can do so using the
+`primary_key` field in the `Meta` class.
 
 If `table_name` is not specified, the table name will be the same as the model
 name, converted to 'snake_case' and pluralized (e.g., `User` -> `users`). Also,

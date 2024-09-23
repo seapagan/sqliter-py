@@ -23,8 +23,10 @@ class BaseDBModel(BaseModel):
     class Meta:
         """Configure the base model with default options."""
 
-        create_id: bool = True  # Whether to create an auto-increment ID
-        primary_key: str = "id"  # Default primary key field
+        create_pk: bool = (
+            True  # Whether to create an auto-increment primary key
+        )
+        primary_key: str = "id"  # Default primary key name
         table_name: Optional[str] = (
             None  # Table name, defaults to class name if not set
         )
@@ -97,6 +99,6 @@ class BaseDBModel(BaseModel):
         return getattr(cls.Meta, "primary_key", "id")
 
     @classmethod
-    def should_create_id(cls) -> bool:
+    def should_create_pk(cls) -> bool:
         """Check whether the model should create an auto-increment ID."""
-        return getattr(cls.Meta, "create_id", True)
+        return getattr(cls.Meta, "create_pk", True)
