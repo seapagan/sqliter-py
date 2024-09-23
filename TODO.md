@@ -4,9 +4,6 @@
   already exists. Default to False.
 - add attributes to the BaseDBModel to read the table-name, file-name, is-memory
   etc.
-- deprectate 'direction=' in the 'order' method and replace with 'reverse=' with
-  a default of False. Leave the 'direction=' parameter in place for now but
-  raise a deprecation warning if it is used.
 - add an 'execute' method to the main class to allow executing arbitrary SQL
   queries which can be chained to the 'find_first' etc methods or just used
   directly.
