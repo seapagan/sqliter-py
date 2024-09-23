@@ -1,7 +1,5 @@
 # TODO
 
-- BREAKING: change the 'create_id' meta field to 'create_pk' as it may not be
-  called 'id' in the model.
 - add an option to the SQLiter constructor to delete the database file if it
   already exists. Default to False.
 - add attributes to the BaseDBModel to read the table-name, file-name, is-memory
@@ -18,7 +16,7 @@
 - add an 'exists_ok' (default True) parameter to the 'create_table' method so it
   will raise an exception if the table already exists and this is set to False.
 - add a `rollback` method to the main class to allow manual rollbacks.
-- allow adding multiple indexes to each table as well as the primary index.
+- allow adding multiple indexes to each table as well as the primary key.
 - allow adding foreign keys and relationships to each table.
 - add a migration system to allow updating the database schema without losing
   data.

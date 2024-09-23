@@ -90,7 +90,7 @@ def test_create_table_with_auto_increment(db_mock) -> None:
         name: str
 
         class Meta:
-            create_id: bool = True  # Enable auto-increment ID
+            create_pk: bool = True  # Enable auto-increment ID
             primary_key: str = "id"  # Default primary key is 'id'
             table_name: str = "auto_increment_table"
 
@@ -117,7 +117,7 @@ def test_create_table_with_custom_primary_key(db_mock) -> None:
         description: str
 
         class Meta:
-            create_id: bool = False  # Disable auto-increment ID
+            create_pk: bool = False  # Disable auto-increment ID
             primary_key: str = "code"  # Use 'code' as the primary key
             table_name: str = "custom_pk_table"
 
@@ -143,7 +143,7 @@ def test_create_table_with_custom_auto_increment_pk(db_mock) -> None:
         name: str
 
         class Meta:
-            create_id: bool = True  # Enable auto-increment ID
+            create_pk: bool = True  # Enable auto-increment ID
             primary_key: str = "custom_id"  # Use 'custom_id' as the primary key
             table_name: str = "custom_auto_increment_pk_table"
 

@@ -39,7 +39,7 @@ class ExampleModel(BaseDBModel):
     class Meta:
         """Configuration for the model."""
 
-        create_id: bool = False
+        create_pk: bool = False
         primary_key: str = "slug"
         table_name: str = "test_table"
 
@@ -53,7 +53,7 @@ class PersonModel(BaseDBModel):
     class Meta:
         """Configuration for the model."""
 
-        create_id = False
+        create_pk = False
         table_name = "person_table"
         primary_key = "name"
 
@@ -73,7 +73,7 @@ class DetailedPersonModel(BaseDBModel):
 
         table_name = "detailed_person_table"
         primary_key = "name"
-        create_id = False
+        create_pk = False
 
 
 class ComplexModel(BaseDBModel):
@@ -91,7 +91,7 @@ class ComplexModel(BaseDBModel):
 
         table_name = "complex_model"
         primary_key = "id"
-        create_id = False
+        create_pk = False
 
 
 @pytest.fixture

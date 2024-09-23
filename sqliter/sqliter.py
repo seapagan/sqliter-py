@@ -73,13 +73,13 @@ class SqliterDB:
         """Create a table based on the Pydantic model."""
         table_name = model_class.get_table_name()
         primary_key = model_class.get_primary_key()
-        create_id = model_class.should_create_id()
+        create_pk = model_class.should_create_pk()
 
         fields = ", ".join(
             f"{field_name} TEXT" for field_name in model_class.model_fields
         )
 
-        if create_id:
+        if create_pk:
             create_table_sql = f"""
                 CREATE TABLE IF NOT EXISTS {table_name} (
                     {primary_key} INTEGER PRIMARY KEY AUTOINCREMENT,
