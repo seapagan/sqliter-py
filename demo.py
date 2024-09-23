@@ -29,7 +29,7 @@ class UserModel(BaseDBModel):
 
 def main() -> None:
     """Simple example to demonstrate the usage of the 'sqliter' package."""
-    db = SqliterDB("./demo-db/demo.db", auto_commit=True)
+    db = SqliterDB(memory=True, auto_commit=True)
     with db:
         db.create_table(UserModel)  # Create the users table
         user1 = UserModel(
@@ -66,6 +66,11 @@ def main() -> None:
 
         all_users = db.select(UserModel).fetch_all()
         logging.info(all_users)
+
+        all_reversed = (
+            db.select(UserModel).order("name", reverse=True).fetch_all()
+        )
+        logging.info(all_reversed)
 
         fetched_user = db.get(UserModel, "jdoe2")
         logging.info(fetched_user)

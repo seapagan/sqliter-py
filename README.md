@@ -49,6 +49,7 @@ database-like format without needing to learn SQL or use a full ORM.
     - [Commit your changes](#commit-your-changes)
     - [Close the Connection](#close-the-connection)
   - [Transactions](#transactions)
+  - [Ordering](#ordering)
   - [Field Control](#field-control)
     - [Selecting Specific Fields](#selecting-specific-fields)
     - [Excluding Specific Fields](#excluding-specific-fields)
@@ -282,7 +283,7 @@ all_users = db.select(User).fetch_all()
 young_users = db.select(User).filter(age=25).fetch_all()
 
 # Order users
-ordered_users = db.select(User).order("age", direction="DESC").fetch_all()
+ordered_users = db.select(User).order("age", reverse=True).fetch_all()
 
 # Limit and offset
 paginated_users = db.select(User).limit(10).offset(20).fetch_all()
@@ -354,6 +355,24 @@ with db:
 >
 > the `close()` method will also be called when the context manager exits, so you
 > do not need to call it manually.
+
+### Ordering
+
+For now we only support ordering by the single field. You can specify the
+field to order by and whether to reverse the order:
+
+```python
+results = db.select(User).order("age", reverse=True).fetch_all()
+```
+
+This will order the results by the `age` field in descending order.
+
+> [!WARNING]
+>
+> Previously ordering was done using the `direction` parameter with `asc` or
+> `desc`, but this has been deprecated in favor of using the `reverse`
+> parameter. The `direction` parameter still works, but will raise a
+> `DeprecationWarning` and will be removed in a future release.
 
 ### Field Control
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+import warnings
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -267,34 +268,61 @@ class QueryBuilder:
             self._limit = -1
         return self
 
-    def order(self, order_by_field: str, direction: str = "ASC") -> Self:
-        """Order the results by a specific field and optionally direction.
+    def order(
+        self,
+        order_by_field: str,
+        direction: Optional[str] = None,
+        *,
+        reverse: bool = False,
+    ) -> Self:
+        """Order the query results by the specified field.
 
-        Currently only supports ordering by a single field, though this will be
-        expanded in the future. You can chain this method to order by multiple
-        fields.
-
-        Parameters:
+        Args:
             order_by_field (str): The field to order by.
-            direction (str, optional): The sorting direction, either 'ASC' or
-                'DESC'. Defaults to 'ASC'.
-
-        Returns:
-            Self: Returns the query object for chaining.
+            direction (Optional[str]): The ordering direction ('ASC' or 'DESC').
+                This is deprecated in favor of 'reverse'.
+            reverse (bool): Whether to reverse the order (True for descending,
+                False for ascending).
 
         Raises:
-            InvalidOrderError: If the field or direction is invalid.
+            InvalidOrderError: If the field doesn't exist in the model fields
+                or if both 'direction' and 'reverse' are specified.
+
+        Returns:
+            QueryBuilder: The current query builder instance with updated
+                ordering.
         """
+        if direction:
+            warnings.warn(
+                "'direction' argument is deprecated and will be removed in a "
+                "future version. Use 'reverse' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         if order_by_field not in self.model_class.model_fields:
             err = f"'{order_by_field}' does not exist in the model fields."
             raise InvalidOrderError(err)
-
-        valid_directions = {"ASC", "DESC"}
-        if direction.upper() not in valid_directions:
-            err = f"'{direction}' is not a valid sorting direction."
+        # Raise an exception if both 'direction' and 'reverse' are specified
+        if direction and reverse:
+            err = (
+                "Cannot specify both 'direction' and 'reverse' as it "
+                "is ambiguous."
+            )
             raise InvalidOrderError(err)
 
-        self._order_by = f'"{order_by_field}" {direction.upper()}'
+        # Determine the sorting direction
+        if reverse:
+            sort_order = "DESC"
+        elif direction:
+            sort_order = direction.upper()
+            if sort_order not in {"ASC", "DESC"}:
+                err = f"'{direction}' is not a valid sorting direction."
+                raise InvalidOrderError(err)
+        else:
+            sort_order = "ASC"
+
+        self._order_by = f'"{order_by_field}" {sort_order}'
         return self
 
     def _execute_query(
