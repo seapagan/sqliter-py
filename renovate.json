@@ -13,5 +13,8 @@
   "enabledManagers": [
     "pep621",
     "github-actions"
+  ],
+  "ignoreDeps": [
+    "inflect"
   ]
 }
