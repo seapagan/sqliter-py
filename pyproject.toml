@@ -23,7 +23,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-extras = ["inflect==7.0.0"]
+extras = ["inflect==7.4.0"]
 
 [project.urls]
 # "HomeHage" = "https://xxxxxx"
