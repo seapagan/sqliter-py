@@ -1,17 +1,20 @@
 # Changelog
 
 This is an auto-generated log of all the changes that have been made to the
-project since release 0.7.0.
-
-For the original changelog, please refer to the "OLD_CHANGELOG.md" file in the repository.
+project since the first release, with the latest changes at the top.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [Unreleased](https://github.com/seapagan/sqliter-py/tree/HEAD)
+## [0.3.0](https://github.com/seapagan/sqliter-py/releases/tag/0.3.0) (September 23, 2024)
+
+**Breaking Changes**
+
+- Rename 'create_id' to 'create_pk' ([#23](https://github.com/seapagan/sqliter-py/pull/23)) by [seapagan](https://github.com/seapagan)
 
 **New Features**
 
+- Deprecate 'direction=' for 'reverse=' in `order()` method. ([#24](https://github.com/seapagan/sqliter-py/pull/24)) by [seapagan](https://github.com/seapagan)
 - Add improved table name generation ([#21](https://github.com/seapagan/sqliter-py/pull/21)) by [seapagan](https://github.com/seapagan)
 - Implement an in-memory database option ([#15](https://github.com/seapagan/sqliter-py/pull/15)) by [seapagan](https://github.com/seapagan)
 - Allow selecting a subset of the database fields instead of all them ([#12](https://github.com/seapagan/sqliter-py/pull/12)) by [seapagan](https://github.com/seapagan)
@@ -25,7 +28,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Update dependency zipp to v3.20.2 ([#16](https://github.com/seapagan/sqliter-py/pull/16)) by [renovate[bot]](https://github.com/apps/renovate)
 - Update astral-sh/setup-uv action to v3 ([#10](https://github.com/seapagan/sqliter-py/pull/10)) by [renovate[bot]](https://github.com/apps/renovate)
 
-[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.2.0...HEAD) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.2.0...HEAD.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.2.0...HEAD.patch)
+[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.2.0...0.3.0) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.2.0...0.3.0.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.2.0...0.3.0.patch)
 
 ## [0.2.0](https://github.com/seapagan/sqliter-py/releases/tag/0.2.0) (September 14, 2024)
 
