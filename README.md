@@ -34,6 +34,7 @@ database-like format without needing to learn SQL or use a full ORM.
 
 - [Features](#features)
 - [Installation](#installation)
+  - [Optional Dependencies](#optional-dependencies)
 - [Quick Start](#quick-start)
 - [Detailed Usage](#detailed-usage)
   - [Defining Models](#defining-models)
@@ -99,6 +100,34 @@ Or with `Poetry`:
 poetry add sqliter-py
 ```
 
+### Optional Dependencies
+
+Currently by default, the only external dependency is Pydantic. However, there
+are some optional dependencies that can be installed to enable additional
+features:
+
+- `inflect`: For pluralizing table names (if not specified). This just offers a
+  more-advanced pluralization than the default method used. In most cases you
+  will not need this.
+
+These can be installed using `uv`:
+
+```bash
+uv add 'sqliter-py[extras]'
+```
+
+Or with `pip`:
+
+```bash
+pip install 'sqliter-py[extras]'
+```
+
+Or with `Poetry`:
+
+```bash
+poetry add 'sqliter-py[extras]'
+```
+
 ## Quick Start
 
 Here's a quick example of how to use SQLiter:
@@ -156,7 +185,7 @@ class User(BaseDBModel):
     class Meta:
         table_name = "users"
         primary_key = "name"  # Default is "id"
-        create_id = False  # Set to True to auto-create an ID field
+        create_id = False  # disable auto-creating an incrementing primary key - default is True
 ```
 
 For a standard database with an auto-incrementing integer 'id' primary key, you
@@ -165,7 +194,18 @@ specify a different primary key field, you can do so using the `primary_key`
 field in the `Meta` class.
 
 If `table_name` is not specified, the table name will be the same as the model
-name, converted to lower case.
+name, converted to 'snake_case' and pluralized (e.g., `User` -> `users`). Also,
+any 'Model' suffix will be removed (e.g., `UserModel` -> `users`). To override
+this behavior, you can specify the `table_name` in the `Meta` class manually as
+above.
+
+> [!NOTE]
+>
+> The pluralization is pretty basic by default, and just consists of adding an
+> 's' if not already there. This will fail on words like 'person' or 'child'. If
+> you need more advanced pluralization, you can install the `extras` package as
+> mentioned above. Of course, you can always specify the `table_name` manually
+> in this case!
 
 ### Database Operations
 

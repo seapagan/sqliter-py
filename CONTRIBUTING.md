@@ -49,14 +49,14 @@ To get started, follow these steps:
 ## Install Dependencies
 
 Run the following command to create a local virtualenv and install the required
-dependencies:
+dependencies. We need the optional extras installed so the tests pass:
 
 ```console
-uv sync
+uv sync --all-extras
 ```
 
-Note that `.venv` should be added to your `.gitignore` file if not already
-there.
+The `.venv` folder is already in the `.gitignore` file so will not be committed
+to the repository. This is where the virtual environment will be created.
 
 You then need to activate the virtual environment:
 
