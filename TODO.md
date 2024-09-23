@@ -33,8 +33,6 @@
   The return model is created using the pydantic model, so these are converted
   correctly anyway, but it would be nice to have the database schema match the
   model schema.
-- update the auto table_name generation to convert to snake_case, and remove the
-  'Model' suffix if present.
 - support structures like, `list`, `dict`, `set` etc. in the model. This
   will need to be stored as a JSON string or pickled in the database. Also
   support `date` which can be either stored as a string or more useful as a Unix
