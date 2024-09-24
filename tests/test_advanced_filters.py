@@ -110,7 +110,6 @@ def test_filter_with_is_null_condition(db_mock_adv) -> None:
     assert results[0].name == "David"
 
 
-# @pytest.mark.skip(reason="fails and needs investigation")
 def test_filter_with_is_not_null_condition(db_mock_adv) -> None:
     """Test filter with IS NOT NULL condition."""
     db_mock_adv.insert(PersonModel(name="David", age=None))
@@ -164,7 +163,6 @@ def test_filter_with_bad_not_in_condition(db_mock_adv) -> None:
     assert str(exc_info.value) == "age requires a list for '__not_in'"
 
 
-# @pytest.mark.skip(reason="fails and needs investigation")
 def test_filter_with_starts_with_condition(db_mock_adv) -> None:
     """Test filter with starts with condition (default case-sensitive)."""
     db_mock_adv.insert(PersonModel(name="alison", age=50))

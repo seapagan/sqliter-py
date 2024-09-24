@@ -186,6 +186,32 @@ def test_create_table_with_custom_auto_increment_pk(db_mock) -> None:
     assert results[1][1] == "Second Entry"
 
 
+def test_create_table_missing_primary_key() -> None:
+    """Test create_table raises ValueError when primary key is missing."""
+
+    # Define a model that doesn't have the expected primary key
+    class NoPKModel(BaseDBModel):
+        # Intentionally omitting the primary key field, e.g., 'id' or 'slug'
+        name: str
+        age: int
+
+        class Meta:
+            create_pk = False
+
+    # Initialize your SqliterDB instance (adjust if needed)
+    db = SqliterDB(memory=True)  # Assuming memory=True uses an in-memory DB
+
+    # Use pytest.raises to check if ValueError is raised
+    with pytest.raises(
+        ValueError, match="Primary key field 'id' not found in model fields."
+    ) as exc_info:
+        db.create_table(NoPKModel)
+
+    # Check that the error message matches the expected output
+    assert "Primary key field" in str(exc_info.value)
+    assert "not found in model fields" in str(exc_info.value)
+
+
 def test_default_table_name(db_mock) -> None:
     """Test the default table name generation.
 
