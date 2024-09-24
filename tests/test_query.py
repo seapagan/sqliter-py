@@ -11,6 +11,7 @@ from sqliter.exceptions import (
     RecordFetchError,
 )
 from sqliter.model import BaseDBModel
+from sqliter.sqliter import SqliterDB
 from tests.conftest import ExampleModel, not_raises
 
 
@@ -783,3 +784,27 @@ def test_query_mixed_valid_invalid_filter(db_mock) -> None:
         db_mock.select(ExampleModel).filter(
             name="Valid Name", non_existent_field="Invalid"
         ).fetch_all()
+
+
+def test_fetch_result_with_list_of_tuples(mocker) -> None:
+    """Test _fetch_result method when _execute_query returns list of tuples."""
+    db = SqliterDB(memory=True)
+
+    # Create some mock tuples (mimicking database rows)
+    mock_result = [
+        ("john", "John", "content"),
+        ("jane", "Jane", "content"),
+    ]
+
+    # Mock the _execute_query method on the QueryBuilder instance
+    query = db.select(ExampleModel)
+    mocker.patch.object(query, "_execute_query", return_value=mock_result)
+
+    # Perform the fetch (this will internally call _fetch_result)
+    result = query.fetch_one()
+
+    # Assert that the result is the first tuple in the list and correct type and
+    # content
+    assert not isinstance(result, list)
+    assert isinstance(result, ExampleModel)
+    assert result == ExampleModel(slug="john", name="John", content="content")

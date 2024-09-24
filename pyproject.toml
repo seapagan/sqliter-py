@@ -146,7 +146,15 @@ disable_error_code = ["method-assign", "no-untyped-def", "attr-defined"]
 module = "tests.*"
 
 [tool.pytest.ini_options]
-addopts = ["--cov", "--cov-report", "term-missing", "--cov-report", "html"]
+addopts = [
+  "--cov",
+  "--cov-report",
+  "term-missing",
+  "--cov-report",
+  "html",
+  "--cov-report",
+  "lcov",
+]
 filterwarnings = [
   "ignore:'direction' argument is deprecated:DeprecationWarning",
 ]
