@@ -88,23 +88,9 @@ features:
   more-advanced pluralization than the default method used. In most cases you
   will not need this.
 
-These can be installed using `uv`:
-
-```bash
-uv add 'sqliter-py[extras]'
-```
-
-Or with `pip`:
-
-```bash
-pip install 'sqliter-py[extras]'
-```
-
-Or with `Poetry`:
-
-```bash
-poetry add 'sqliter-py[extras]'
-```
+See [Installing Optional
+Dependencies](https://sqliter.grantramsay.dev/installation#optional-dependencies)
+for more information.
 
 ## Quick Start
 
@@ -118,9 +104,6 @@ from sqliter.model import BaseDBModel
 class User(BaseDBModel):
     name: str
     age: int
-
-    class Meta:
-        table_name = "users"
 
 # Create a database connection
 db = SqliterDB("example.db")
@@ -161,6 +144,7 @@ which you can read in the [CODE_OF_CONDUCT](CODE_OF_CONDUCT.md) file.
 
 This project is licensed under the MIT License.
 
+```pre
 Copyright (c) 2024 Grant Ramsay
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -180,6 +164,7 @@ IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
 DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
 OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE
 OR OTHER DEALINGS IN THE SOFTWARE.
+```
 
 ## Acknowledgements
 
