@@ -1,0 +1,66 @@
+site_name: SQLiter
+
+# default to using the material theme
+theme:
+  name: material
+  palette:
+    primary: light-blue
+    accent: blue
+  features:
+    - navigation.footer
+    - navigation.expand
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/seapagan/simple-toml-settings
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/gnramsay_dev
+  consent:
+    title: Cookie consent
+    description: >-
+      We use cookies to recognize your repeated visits and preferences, as well
+      as to measure the effectiveness of our documentation and whether users
+      find what they're searching for. With your consent, you're helping us to
+      make our documentation better.
+
+copyright: © 2024 Grant Ramsay (Seapagan)
+
+repo_name: SQLiter
+repo_url: https://github.com/seapagan/sqliter-py
+
+hooks:
+  - docs/hooks/google_style_notes.py
+
+plugins:
+  - search
+  - privacy
+  - minify:
+      minify_html: true
+      minify_css: true
+      minify_js: true
+      htmlmin_opts:
+        remove_comments: true
+        remove_empty_space: true
+
+markdown_extensions:
+  - admonition
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      linenums: false
+      auto_title: false
+  - attr_list
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+extra_css:
+  - css/extra.css
+
+nav:
+  - Introduction: index.md
+  - Installation: installation.md
+  - Quick Start: quickstart.md
+  - Usage: usage.md
+  - Future Plans: todo.md
