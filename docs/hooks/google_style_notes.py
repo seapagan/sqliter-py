@@ -16,8 +16,14 @@ def on_page_markdown(markdown: str, **_: dict[str, Any]) -> str:
             "IMPORTANT": "info",
             "CAUTION": "danger",
         }
-        admonition_type: str = type_map.get(match.group(1), "note")
+        original_type: str = match.group(1)
+        admonition_type: str = type_map[
+            original_type
+        ]  # Direct mapping without .lower()
         content: str = match.group(2).strip()
+
+        # Convert original type to title case
+        title_case_type: str = original_type.title()
 
         # Remove '>' from the beginning of each line and strip whitespace
         content_lines: list[str] = [
@@ -33,7 +39,9 @@ def on_page_markdown(markdown: str, **_: dict[str, Any]) -> str:
             f"    {line}" if line else "" for line in content_lines
         )
 
-        return f"!!! {admonition_type}\n\n{indented_content}\n"
+        return (
+            f'!!! {admonition_type} "{title_case_type}"\n\n{indented_content}\n'
+        )
 
     # Use a single regex to match all admonition types and their content
     pattern: str = (

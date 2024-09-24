@@ -19,7 +19,7 @@ time).
 The ideal use case is more for Python CLI tools that need to store data in a
 database-like format without needing to learn SQL or use a full ORM.
 
-> [!IMPORTANT]
+> [!CAUTION]
 > This project is still in the early stages of development and is lacking some
 > planned functionality. Please use with caution.
 >
