@@ -36,8 +36,8 @@ above.
 > The pluralization is pretty basic by default, and just consists of adding an
 > 's' if not already there. This will fail on words like 'person' or 'child'. If
 > you need more advanced pluralization, you can install the `extras` package as
-> mentioned above. Of course, you can always specify the `table_name` manually
-> in this case!
+> mentioned in the [installation](installation.md#optional-dependencies). Of
+> course, you can always specify the `table_name` manually in this case!
 
 ## Database Operations
 
@@ -265,19 +265,19 @@ with more than one field.
 
 The `filter()` method in SQLiter supports various filter options to query records.
 
-#### Basic Filters
+### Basic Filters
 
 - `__eq`: Equal to (default if no operator is specified)
   - Example: `name="John"` or `name__eq="John"`
 
-#### Null Checks
+### Null Checks
 
 - `__isnull`: Is NULL
   - Example: `email__isnull=True`
 - `__notnull`: Is NOT NULL
   - Example: `email__notnull=True`
 
-#### Comparison Operators
+### Comparison Operators
 
 - `__lt`: Less than
   - Example: `age__lt=30`
@@ -290,14 +290,14 @@ The `filter()` method in SQLiter supports various filter options to query record
 - `__ne`: Not equal to
   - Example: `status__ne="inactive"`
 
-#### List Operations
+### List Operations
 
 - `__in`: In a list of values
   - Example: `status__in=["active", "pending"]`
 - `__not_in`: Not in a list of values
   - Example: `category__not_in=["archived", "deleted"]`
 
-#### String Operations (Case-Sensitive)
+### String Operations (Case-Sensitive)
 
 - `__startswith`: Starts with
   - Example: `name__startswith="A"`
@@ -306,7 +306,7 @@ The `filter()` method in SQLiter supports various filter options to query record
 - `__contains`: Contains
   - Example: `description__contains="important"`
 
-#### String Operations (Case-Insensitive)
+### String Operations (Case-Insensitive)
 
 - `__istartswith`: Starts with (case-insensitive)
   - Example: `name__istartswith="a"`

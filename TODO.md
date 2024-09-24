@@ -22,7 +22,6 @@
 - add debug logging to show the SQL queries being executed.
 - add more tests where 'auto_commit' is set to False to ensure that commit is
   not called automatically.
-- add a documentation website.
 - the database is created with every field as TEXT. We should try to infer the
   correct type from the Pydantic model and map it to the correct SQLite type.
   The return model is created using the pydantic model, so these are converted
