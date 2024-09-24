@@ -6,6 +6,14 @@ project since the first release, with the latest changes at the top.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [Unreleased](https://github.com/seapagan/sqliter-py/tree/HEAD)
+
+**Documentation**
+
+- Add a documentation website and trim down the README ([#25](https://github.com/seapagan/sqliter-py/pull/25)) by [seapagan](https://github.com/seapagan)
+
+[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.3.0...HEAD) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.3.0...HEAD.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.3.0...HEAD.patch)
+
 ## [0.3.0](https://github.com/seapagan/sqliter-py/releases/tag/0.3.0) (September 23, 2024)
 
 **Breaking Changes**
