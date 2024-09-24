@@ -18,3 +18,12 @@ OPERATOR_MAPPING = {
     "__iendswith": "LIKE",
     "__icontains": "LIKE",
 }
+
+# Mapping of Python types to SQLite types
+SQLITE_TYPE_MAPPING = {
+    int: "INTEGER",
+    float: "REAL",
+    str: "TEXT",
+    bool: "INTEGER",  # SQLite stores booleans as integers (0 or 1)
+    bytes: "BLOB",
+}

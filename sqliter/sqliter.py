@@ -16,6 +16,7 @@ from sqliter.exceptions import (
     RecordUpdateError,
     TableCreationError,
 )
+from sqliter.helpers import infer_sqlite_type
 from sqliter.query.query import QueryBuilder
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -75,24 +76,34 @@ class SqliterDB:
         primary_key = model_class.get_primary_key()
         create_pk = model_class.should_create_pk()
 
-        fields = ", ".join(
-            f"{field_name} TEXT" for field_name in model_class.model_fields
-        )
+        fields = []
 
+        # Always add the primary key field first
         if create_pk:
-            create_table_sql = f"""
-                CREATE TABLE IF NOT EXISTS {table_name} (
-                    {primary_key} INTEGER PRIMARY KEY AUTOINCREMENT,
-                    {fields}
-                )
-            """
+            fields.append(f"{primary_key} INTEGER PRIMARY KEY AUTOINCREMENT")
         else:
-            create_table_sql = f"""
-                CREATE TABLE IF NOT EXISTS {table_name} (
-                    {fields},
-                    PRIMARY KEY ({primary_key})
+            field_info = model_class.model_fields.get(primary_key)
+            if field_info is not None:
+                sqlite_type = infer_sqlite_type(field_info.annotation)
+                fields.append(f"{primary_key} {sqlite_type} PRIMARY KEY")
+            else:
+                err = (
+                    f"Primary key field '{primary_key}' not found in model "
+                    "fields."
                 )
-            """
+                raise ValueError(err)
+
+        # Add remaining fields
+        for field_name, field_info in model_class.model_fields.items():
+            if field_name != primary_key:
+                sqlite_type = infer_sqlite_type(field_info.annotation)
+                fields.append(f"{field_name} {sqlite_type}")
+
+        create_table_sql = f"""
+        CREATE TABLE IF NOT EXISTS {table_name} (
+            {", ".join(fields)}
+        )
+        """
 
         try:
             with self.connect() as conn:

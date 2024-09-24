@@ -8,7 +8,7 @@ from sqliter.exceptions import (
     RecordNotFoundError,
 )
 from sqliter.model import BaseDBModel
-from tests.conftest import DetailedPersonModel, ExampleModel
+from tests.conftest import ComplexModel, DetailedPersonModel, ExampleModel
 
 
 def test_auto_commit_default() -> None:
@@ -649,3 +649,67 @@ def test_memory_db_ignores_filename(mocker) -> None:
     # Check that sqlite3.connect was called with ':memory:', ignoring the
     # filename
     mock_connect.assert_called_with(":memory:")
+
+
+def test_complex_model_field_types(db_mock) -> None:
+    """Test that the table is created with the correct field types."""
+    # Create table based on ComplexModel
+    db_mock.create_table(ComplexModel)
+
+    # Get table info for ComplexModel
+    with db_mock.connect() as conn:
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(complex_model);")
+        table_info = cursor.fetchall()
+
+    # Expected types in SQLite (INTEGER, REAL, TEXT, etc.)
+    expected_types = {
+        "id": "INTEGER",
+        "name": "TEXT",
+        "age": "REAL",
+        "price": "REAL",
+        "is_active": "INTEGER",  # Boolean stored as INTEGER
+        "nullable_field": "TEXT",  # Optional fields default to TEXT
+        "score": "TEXT",
+    }
+
+    # Assert each field has the correct SQLite type
+    for column in table_info:
+        column_name = column[
+            1
+        ]  # Column name is the second element in table_info
+        column_type = column[2]  # Column type is the third element
+        assert expected_types[column_name] == column_type, (
+            f"Field {column_name} expected {expected_types[column_name]} but "
+            f"got {column_type}"
+        )
+
+
+def test_complex_model_primary_key(db_mock) -> None:
+    """Test that the primary key is correctly created for ComplexModel."""
+    # Create table based on ComplexModel
+    db_mock.create_table(ComplexModel)
+
+    # Get table info for ComplexModel
+    with db_mock.connect() as conn:
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(complex_model);")
+        table_info = cursor.fetchall()
+
+    # Find the primary key column
+    primary_key_column = None
+    for column in table_info:
+        if (
+            column[5] == 1
+        ):  # The sixth element in table_info indicates if the column is the pk
+            primary_key_column = column
+
+    # Assert that the primary key is the 'id' field and is an INTEGER
+    assert primary_key_column is not None, "Primary key not found"
+    assert (
+        primary_key_column[1] == "id"
+    ), f"Expected 'id' as primary key, but got {primary_key_column[1]}"
+    assert primary_key_column[2] == "INTEGER", (
+        f"Expected 'INTEGER' type for primary key, but got "
+        f"{primary_key_column[2]}"
+    )
