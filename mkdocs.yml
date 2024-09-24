@@ -63,4 +63,8 @@ nav:
   - Installation: installation.md
   - Quick Start: quickstart.md
   - Usage: usage.md
+  - Exceptions: exceptions.md
   - Future Plans: todo.md
+  - Contributing: contributing.md
+  - Changelog: changelog.md
+  - License: license.md
