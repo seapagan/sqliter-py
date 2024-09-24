@@ -58,6 +58,11 @@ dev-dependencies = [
   "poethepoet>=0.28.0",
   "github-changelog-md>=0.9.5",
   "pre-commit>=3.8.0",
+  "mkdocs>=1.6.1",
+  "mkdocs-material>=9.5.36",
+  "pygments>=2.18.0",
+  "mkdocs-minify-plugin>=0.8.0",
+  "mdx-truly-sane-lists>=1.3",
 ]
 
 [tool.poe.tasks]
@@ -66,18 +71,27 @@ pre.help = "Run pre-commit checks"
 
 mypy.cmd = "mypy . --strict"
 mypy.help = "Run mypy checks"
-format.help = "Format code with Ruff"
 format.cmd = "ruff format ."
-ruff.help = "Run Ruff checks"
+format.help = "Format code with Ruff"
 ruff.cmd = "ruff check --output-format=concise ."
+ruff.help = "Run Ruff checks"
 
-test.help = "Run tests using Pytest"
 test.cmd = "pytest"
+test.help = "Run tests using Pytest"
 "test:watch".cmd = "ptw . --now --clear"
 "test:watch".help = "Run tests using Pytest in watch mode"
 
 changelog.cmd = "github-changelog-md"
 changelog.help = "Generate a changelog"
+
+"docs:publish".cmd = "mkdocs gh-deploy"
+"docs:publish".help = "Publish documentation to GitHub Pages"
+"docs:build".cmd = "mkdocs build"
+"docs:build".help = "Build documentation locally to './site' folder"
+"docs:serve".cmd = "mkdocs serve -w TODO.md -w CHANGELOG.md -w CONTRIBUTING.md"
+"docs:serve".help = "Serve documentation locally"
+"docs:serve:all".cmd = "mkdocs serve -w TODO.md -w CHANGELOG.md -w CONTRIBUTING.md -a 0.0.0.0:9000"
+"docs:serve:all".help = "Serve documentation locally on all interfaces"
 
 [tool.ruff]
 line-length = 80

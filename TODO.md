@@ -1,5 +1,7 @@
 # TODO
 
+## General Plans and Ideas
+
 - add an option to the SQLiter constructor to delete the database file if it
   already exists. Default to False.
 - add attributes to the BaseDBModel to read the table-name, file-name, is-memory
@@ -20,7 +22,6 @@
 - add debug logging to show the SQL queries being executed.
 - add more tests where 'auto_commit' is set to False to ensure that commit is
   not called automatically.
-- add a documentation website.
 - the database is created with every field as TEXT. We should try to infer the
   correct type from the Pydantic model and map it to the correct SQLite type.
   The return model is created using the pydantic model, so these are converted
@@ -35,28 +36,28 @@
 
 ## Potential Filter Additions
 
-1. **Range filter**
-   - `__range`: For selecting values within a specific range
+- **Range filter**
+  - `__range`: For selecting values within a specific range
 
-2. **Date and time filters**
-   - `__year`, `__month`, `__day`: For filtering date fields
-   - `__date`: For filtering the date part of a datetime field
+- **Date and time filters**
+  - `__year`, `__month`, `__day`: For filtering date fields
+  - `__date`: For filtering the date part of a datetime field
 
-3. **Regular expression filter**
-   - `__regex`: For more complex string matching
+- **Regular expression filter**
+  - `__regex`: For more complex string matching
 
-4. **Numeric operations**
-   - `__abs`: Absolute value comparison
+- **Numeric operations**
+  - `__abs`: Absolute value comparison
 
-5. **Boolean filters**
-   - `__istrue`, `__isfalse`: Explicit boolean checks
+- **Boolean filters**
+  - `__istrue`, `__isfalse`: Explicit boolean checks
 
-6. **List field operations**
-   - `__contains_all`: Check if a list field contains all specified values
-   - `__contains_any`: Check if a list field contains any of the specified values
+- **List field operations**
+  - `__contains_all`: Check if a list field contains all specified values
+  - `__contains_any`: Check if a list field contains any of the specified values
 
-7. **Negation filter**
-   - `__not`: General negation for other filters
+- **Negation filter**
+  - `__not`: General negation for other filters
 
-8. **Distinct filter**
-    - `__distinct`: To get distinct values in a field
+- **Distinct filter**
+  - `__distinct`: To get distinct values in a field

@@ -151,7 +151,7 @@ Lint the code using **`ruff check`**:
 poe ruff
 ```
 
-<!-- ## Documentation Tasks
+## Documentation Tasks
 
 These are to help with developing and updating the documentation.
 
@@ -160,7 +160,7 @@ These are to help with developing and updating the documentation.
   view it on other devices on your network
 - `poe docs:build` - Build the MkDocs site into the `dist` folder
 - `poe docs:publish` - Publish the docs to your GitHub pages. **Note that only
-  those with write-access to this repo can do this**. -->
+  those with write-access to this repo can do this**.
 
 ## Guidelines
 
