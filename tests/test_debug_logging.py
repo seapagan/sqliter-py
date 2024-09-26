@@ -2,8 +2,6 @@
 
 import logging
 
-import pytest
-
 from sqliter.sqliter import SqliterDB
 from tests.conftest import ComplexModel
 

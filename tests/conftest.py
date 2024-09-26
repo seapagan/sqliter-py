@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import io
-import logging
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Optional, Union
 

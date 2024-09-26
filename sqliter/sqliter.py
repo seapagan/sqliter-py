@@ -69,13 +69,10 @@ class SqliterDB:
         if root_logger.hasHandlers():
             # If the root logger has handlers, use it without modifying the root
             # configuration
-            print("Root logger has handlers, using it for SqliterDB.")
-            print("Root logger handlers:", root_logger.handlers)
             self.logger = root_logger.getChild("sqliter")
         else:
             # If no root logger is configured, set up a new logger specific to
             # SqliterDB
-            print("No root handlers, creating custom SqliterDB logger.")
             self.logger = logging.getLogger("sqliter")
 
             # Only add a handler if this logger has no handlers
@@ -104,7 +101,7 @@ class SqliterDB:
                 else:
                     formatted_sql = formatted_sql.replace("?", str(value), 1)
 
-            self.logger.debug(f"Executing SQL: {formatted_sql}")
+            self.logger.debug("Executing SQL: %s", formatted_sql)
 
     def connect(self) -> sqlite3.Connection:
         """Create or return a connection to the SQLite database."""
