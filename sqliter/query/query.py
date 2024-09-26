@@ -361,15 +361,9 @@ class QueryBuilder:
             values.append(self._offset)
 
         # Print the raw SQL and values if debug is enabled
+        # Log the SQL if debug is enabled
         if self.db.debug:
-            formatted_sql = sql
-            for value in values:
-                if isinstance(value, str):
-                    formatted_sql = formatted_sql.replace("?", f"'{value}'", 1)
-                else:
-                    formatted_sql = formatted_sql.replace("?", str(value), 1)
-
-            print(f"Executing SQL: {formatted_sql}")
+            self.db._log_sql(sql, values)
 
         try:
             with self.db.connect() as conn:

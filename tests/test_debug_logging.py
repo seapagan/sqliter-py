@@ -1,5 +1,7 @@
 """Testd the debug logging for the SqliterDB class."""
 
+import logging
+
 import pytest
 
 from sqliter.sqliter import SqliterDB
@@ -28,189 +30,221 @@ def test_sqliterdb_debug_set_true() -> None:
     ), "The debug flag should be True when explicitly passed as True."
 
 
-@pytest.fixture
-def db_mock_complex_debug() -> SqliterDB:
-    """Return a memory-based db with debug=True using ComplexModel."""
-    db = SqliterDB(":memory:", debug=True)
-    db.create_table(ComplexModel)
-    db.insert(
-        ComplexModel(
-            id=1,
-            name="Alice",
-            age=30.5,
-            is_active=True,
-            score=85,
-            nullable_field="Not null",
-        )
-    )
-    db.insert(
-        ComplexModel(
-            id=2,
-            name="Bob",
-            age=25.0,
-            is_active=False,
-            score=90.5,
-            nullable_field=None,
-        )
-    )
-    db.insert(
-        ComplexModel(
-            id=3,
-            name="Charlie",
-            age=35.0,
-            is_active=True,
-            score=95.0,
-            nullable_field=None,
-        )
-    )
-    return db
-
-
 def test_debug_sql_output_basic_query(
-    db_mock_complex_debug: SqliterDB, capsys
+    db_mock_complex_debug: SqliterDB, caplog
 ) -> None:
     """Test that the debug output correctly prints the SQL query and values."""
-    db_mock_complex_debug.select(ComplexModel).filter(age=30.5).fetch_all()
-
-    # Capture the output
-    captured = capsys.readouterr()
+    with caplog.at_level(logging.DEBUG):
+        db_mock_complex_debug.select(ComplexModel).filter(age=30.5).fetch_all()
 
     # Assert the SQL query was printed
     assert (
         'Executing SQL: SELECT "id", "name", "age", "is_active", "score", '
-        '"nullable_field" FROM "complex_model" WHERE age = 30.5' in captured.out
+        '"nullable_field" FROM "complex_model" WHERE age = 30.5' in caplog.text
     )
 
 
 def test_debug_sql_output_string_values(
-    db_mock_complex_debug: SqliterDB, capsys
+    db_mock_complex_debug: SqliterDB, caplog
 ) -> None:
     """Test that the debug output correctly handles string values."""
-    db_mock_complex_debug.select(ComplexModel).filter(name="Alice").fetch_all()
-
-    # Capture the output
-    captured = capsys.readouterr()
+    with caplog.at_level(logging.DEBUG):
+        db_mock_complex_debug.select(ComplexModel).filter(
+            name="Alice"
+        ).fetch_all()
 
     # Assert the SQL query was printed with the string properly quoted
     assert (
         'Executing SQL: SELECT "id", "name", "age", "is_active", "score", '
         '"nullable_field" FROM "complex_model" WHERE name = \'Alice\''
-        in captured.out
+        in caplog.text
     )
 
 
 def test_debug_sql_output_multiple_conditions(
-    db_mock_complex_debug: SqliterDB, capsys
+    db_mock_complex_debug: SqliterDB, caplog
 ) -> None:
     """Test that the debug output works with multiple conditions."""
-    db_mock_complex_debug.select(ComplexModel).filter(
-        name="Alice", age=30.5
-    ).fetch_all()
-
-    # Capture the output
-    captured = capsys.readouterr()
+    with caplog.at_level(logging.DEBUG):
+        db_mock_complex_debug.select(ComplexModel).filter(
+            name="Alice", age=30.5
+        ).fetch_all()
 
     # Assert the SQL query was printed with multiple conditions
     assert (
         'Executing SQL: SELECT "id", "name", "age", "is_active", "score", '
         '"nullable_field" FROM "complex_model" WHERE name = \'Alice\' AND '
-        "age = 30.5" in captured.out
+        "age = 30.5" in caplog.text
     )
 
 
 def test_debug_sql_output_order_and_limit(
-    db_mock_complex_debug: SqliterDB, capsys
+    db_mock_complex_debug: SqliterDB, caplog
 ) -> None:
     """Test that the debug output works with order and limit."""
-    db_mock_complex_debug.select(ComplexModel).order("age", reverse=True).limit(
-        1
-    ).fetch_all()
-
-    # Capture the output
-    captured = capsys.readouterr()
+    with caplog.at_level(logging.DEBUG):
+        db_mock_complex_debug.select(ComplexModel).order(
+            "age", reverse=True
+        ).limit(1).fetch_all()
 
     # Assert the SQL query was printed with ORDER and LIMIT
     assert (
         'Executing SQL: SELECT "id", "name", "age", "is_active", "score", '
         '"nullable_field" FROM "complex_model" ORDER BY "age" DESC LIMIT 1'
-        in captured.out
+        in caplog.text
     )
 
 
 def test_debug_sql_output_with_null_value(
-    db_mock_complex_debug: SqliterDB, capsys
+    db_mock_complex_debug: SqliterDB, caplog
 ) -> None:
     """Test that the debug output works when filtering on a NULL value."""
-    db_mock_complex_debug.insert(
-        ComplexModel(
-            id=4,
-            name="David",
-            age=40.0,
-            is_active=True,
-            score=80.0,
-            nullable_field=None,
+    with caplog.at_level(logging.DEBUG):
+        db_mock_complex_debug.insert(
+            ComplexModel(
+                id=4,
+                name="David",
+                age=40.0,
+                is_active=True,
+                score=80.0,
+                nullable_field=None,
+            )
         )
-    )
 
-    db_mock_complex_debug.select(ComplexModel).filter(
-        age__isnull=True
-    ).fetch_all()
-
-    # Capture the output
-    captured = capsys.readouterr()
+        db_mock_complex_debug.select(ComplexModel).filter(
+            age__isnull=True
+        ).fetch_all()
 
     # Assert the SQL query was printed with IS NULL
     assert (
         'Executing SQL: SELECT "id", "name", "age", "is_active", "score", '
-        '"nullable_field" FROM "complex_model" WHERE age IS NULL'
-        in captured.out
+        '"nullable_field" FROM "complex_model" WHERE age IS NULL' in caplog.text
     )
 
 
 def test_debug_sql_output_with_fields_single(
-    db_mock_complex_debug: SqliterDB, capsys
+    db_mock_complex_debug: SqliterDB, caplog
 ) -> None:
     """Test debug output correct when selecting a single field."""
-    db_mock_complex_debug.select(ComplexModel).fields(["name"]).fetch_all()
-
-    # Capture the output
-    captured = capsys.readouterr()
+    with caplog.at_level(logging.DEBUG):
+        db_mock_complex_debug.select(ComplexModel).fields(["name"]).fetch_all()
 
     # Assert the SQL query only selects the 'name' field
-    assert 'Executing SQL: SELECT "name" FROM "complex_model"' in captured.out
+    assert 'Executing SQL: SELECT "name" FROM "complex_model"' in caplog.text
 
 
 def test_debug_sql_output_with_fields_multiple(
-    db_mock_complex_debug: SqliterDB, capsys
+    db_mock_complex_debug: SqliterDB, caplog
 ) -> None:
     """Test that the debug output correct when selecting multiple fields."""
-    db_mock_complex_debug.select(ComplexModel).fields(
-        ["name", "age"]
-    ).fetch_all()
-
-    # Capture the output
-    captured = capsys.readouterr()
+    with caplog.at_level(logging.DEBUG):
+        db_mock_complex_debug.select(ComplexModel).fields(
+            ["name", "age"]
+        ).fetch_all()
 
     # Assert the SQL query only selects the 'name' and 'age' fields
     assert (
         'Executing SQL: SELECT "name", "age" FROM "complex_model"'
-        in captured.out
+        in caplog.text
     )
 
 
 def test_debug_sql_output_with_fields_and_filter(
-    db_mock_complex_debug: SqliterDB, capsys
+    db_mock_complex_debug: SqliterDB, caplog
 ) -> None:
     """Test that the debug output correctlwith selected fields and a filter."""
-    db_mock_complex_debug.select(ComplexModel).fields(["name", "score"]).filter(
-        score__gt=85
-    ).fetch_all()
-
-    # Capture the output
-    captured = capsys.readouterr()
+    with caplog.at_level(logging.DEBUG):
+        db_mock_complex_debug.select(ComplexModel).fields(
+            ["name", "score"]
+        ).filter(score__gt=85).fetch_all()
 
     # Assert the SQL query selects 'name' and 'score' and applies the filter
     assert (
         'Executing SQL: SELECT "name", "score" FROM "complex_model" '
-        "WHERE score > 85" in captured.out
+        "WHERE score > 85" in caplog.text
+    )
+
+
+def test_no_log_output_when_debug_false(caplog) -> None:
+    """Test that no log output occurs when debug=False."""
+    db = SqliterDB(":memory:", debug=False)
+    db.create_table(ComplexModel)
+
+    with caplog.at_level(logging.DEBUG):
+        db.select(ComplexModel).filter(age=30.5).fetch_all()
+
+    # Assert that there is no log output
+    assert caplog.text == ""
+
+
+def test_no_log_output_above_debug_level(
+    db_mock_complex_debug: SqliterDB, caplog
+) -> None:
+    """Test no DEBUG log output occurs when log level is higher than DEBUG."""
+    with caplog.at_level(logging.INFO):  # Set log level higher than DEBUG
+        db_mock_complex_debug.select(ComplexModel).filter(age=30.5).fetch_all()
+
+    # Assert that no DEBUG messages are present in the logs
+    assert caplog.text == ""
+
+
+def test_manual_logger_respects_debug_flag(caplog) -> None:
+    """Test that a manually passed logger respects the debug flag."""
+    custom_logger = logging.getLogger("CustomLogger")
+    custom_logger.setLevel(logging.DEBUG)
+    db = SqliterDB(":memory:", debug=True, logger=custom_logger)
+    db.create_table(ComplexModel)
+
+    with caplog.at_level(logging.DEBUG):
+        db.select(ComplexModel).filter(age=30.5).fetch_all()
+
+    # Assert that log output was captured with the manually passed logger
+    assert (
+        'Executing SQL: SELECT "id", "name", "age", "is_active", "score", '
+        in caplog.text
+    )
+
+
+def test_manual_logger_above_debug_level(caplog) -> None:
+    """Ensure no log output when manually passed logger is above DEBUG."""
+    custom_logger = logging.getLogger("CustomLogger")
+    custom_logger.setLevel(logging.INFO)  # Set log level higher than DEBUG
+
+    db = SqliterDB(":memory:", debug=True, logger=custom_logger)
+    db.create_table(ComplexModel)
+
+    with caplog.at_level(logging.INFO):  # Use caplog at INFO level
+        db.select(ComplexModel).filter(age=30.5).fetch_all()
+
+    # Assert that no DEBUG messages were logged
+    assert caplog.text == ""
+
+
+def test_debug_sql_output_no_matching_records(
+    db_mock_complex_debug: SqliterDB, caplog
+) -> None:
+    """Test the debug output occurs even when no records match the query."""
+    with caplog.at_level(logging.DEBUG):
+        db_mock_complex_debug.select(ComplexModel).filter(
+            age=100
+        ).fetch_all()  # No records with age=100
+
+    # Assert that the SQL query was logged despite no matching records
+    assert (
+        'Executing SQL: SELECT "id", "name", "age", "is_active", "score", '
+        '"nullable_field" FROM "complex_model" WHERE age = 100' in caplog.text
+    )
+
+
+def test_debug_sql_output_empty_query(
+    db_mock_complex_debug: SqliterDB, caplog
+) -> None:
+    """Test debug output occurs for empty query (no filters, etc)."""
+    with caplog.at_level(logging.DEBUG):
+        db_mock_complex_debug.select(ComplexModel).fetch_all()
+
+    # Assert that the SQL query was logged for a full table scan
+    assert (
+        'Executing SQL: SELECT "id", "name", "age", "is_active", "score", '
+        '"nullable_field" FROM "complex_model"' in caplog.text
     )
