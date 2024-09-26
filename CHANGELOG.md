@@ -8,6 +8,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased](https://github.com/seapagan/sqliter-py/tree/HEAD)
 
+**New Features**
+
+- Add debug logging option ([#29](https://github.com/seapagan/sqliter-py/pull/29)) by [seapagan](https://github.com/seapagan)
+- Create relevant database fields depending on the Model types ([#27](https://github.com/seapagan/sqliter-py/pull/27)) by [seapagan](https://github.com/seapagan)
+
+**Testing**
+
+- Add test coverage where missing ([#28](https://github.com/seapagan/sqliter-py/pull/28)) by [seapagan](https://github.com/seapagan)
+
 **Documentation**
 
 - Add a documentation website and trim down the README ([#25](https://github.com/seapagan/sqliter-py/pull/25)) by [seapagan](https://github.com/seapagan)
