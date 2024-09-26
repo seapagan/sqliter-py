@@ -156,3 +156,41 @@ def db_mock_detailed() -> SqliterDB:
     )
 
     return db
+
+
+@pytest.fixture
+def db_mock_complex_debug() -> SqliterDB:
+    """Return a memory-based db with debug=True using ComplexModel."""
+    db = SqliterDB(":memory:", debug=True)
+    db.create_table(ComplexModel)
+    db.insert(
+        ComplexModel(
+            id=1,
+            name="Alice",
+            age=30.5,
+            is_active=True,
+            score=85,
+            nullable_field="Not null",
+        )
+    )
+    db.insert(
+        ComplexModel(
+            id=2,
+            name="Bob",
+            age=25.0,
+            is_active=False,
+            score=90.5,
+            nullable_field=None,
+        )
+    )
+    db.insert(
+        ComplexModel(
+            id=3,
+            name="Charlie",
+            age=35.0,
+            is_active=True,
+            score=95.0,
+            nullable_field=None,
+        )
+    )
+    return db

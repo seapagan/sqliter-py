@@ -53,6 +53,8 @@ Website](https://sqliter.grantramsay.dev)
 - Full type hinting and type checking
 - No external dependencies other than Pydantic
 - Full test coverage
+- Can optionally output the raw SQL queries being executed for debugging
+  purposes.
 
 ## Installation
 

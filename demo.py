@@ -29,7 +29,12 @@ class UserModel(BaseDBModel):
 
 def main() -> None:
     """Simple example to demonstrate the usage of the 'sqliter' package."""
-    db = SqliterDB(memory=True, auto_commit=True)
+    # set up logging
+    logging.basicConfig(
+        level=logging.DEBUG, format="%(levelname)-8s%(message)s"
+    )
+
+    db = SqliterDB(memory=True, auto_commit=True, debug=True)
     with db:
         db.create_table(UserModel)  # Create the users table
         user1 = UserModel(
@@ -54,11 +59,6 @@ def main() -> None:
             db.insert(user3)
         except RecordInsertionError as exc:
             logging.error(exc)  # noqa: TRY400
-
-        # set up logging
-        logging.basicConfig(
-            level=logging.INFO, format="%(levelname)s:  %(message)s"
-        )
 
         # Example queries
         users = db.select(UserModel).filter(name="John Doe").fetch_all()

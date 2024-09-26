@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 import sqlite3
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from typing_extensions import Self
 
@@ -34,6 +35,8 @@ class SqliterDB:
         *,
         memory: bool = False,
         auto_commit: bool = True,
+        debug: bool = False,
+        logger: Optional[logging.Logger] = None,
     ) -> None:
         """Initialize the class and options."""
         if memory:
@@ -47,7 +50,52 @@ class SqliterDB:
             )
             raise ValueError(err)
         self.auto_commit = auto_commit
+        self.debug = debug
+        self.logger = logger
         self.conn: Optional[sqlite3.Connection] = None
+
+        if self.debug:
+            self._setup_logger()
+
+    def _setup_logger(self) -> None:
+        """Sets up the logger for SQL debugging.
+
+        This uses any existing logger if it has handlers, otherwise it creates a
+        new logger with a custom handler and formatter.
+        """
+        # Check if the root logger is already configured
+        root_logger = logging.getLogger()
+
+        if root_logger.hasHandlers():
+            # If the root logger has handlers, use it without modifying the root
+            # configuration
+            self.logger = root_logger.getChild("sqliter")
+        else:
+            # If no root logger is configured, set up a new logger specific to
+            # SqliterDB
+            self.logger = logging.getLogger("sqliter")
+
+            handler = logging.StreamHandler()  # Output to console
+            formatter = logging.Formatter(
+                "%(levelname)-8s%(message)s"
+            )  # Custom format
+            handler.setFormatter(formatter)
+            self.logger.addHandler(handler)
+
+            self.logger.setLevel(logging.DEBUG)
+            self.logger.propagate = False
+
+    def _log_sql(self, sql: str, values: list[Any]) -> None:
+        """Logs the SQL query and values if debugging is enabled."""
+        if self.debug and self.logger:
+            formatted_sql = sql
+            for value in values:
+                if isinstance(value, str):
+                    formatted_sql = formatted_sql.replace("?", f"'{value}'", 1)
+                else:
+                    formatted_sql = formatted_sql.replace("?", str(value), 1)
+
+            self.logger.debug("Executing SQL: %s", formatted_sql)
 
     def connect(self) -> sqlite3.Connection:
         """Create or return a connection to the SQLite database."""

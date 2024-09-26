@@ -43,3 +43,5 @@ database-like format without needing to learn SQL or use a full ORM.
 - Full type hinting and type checking
 - No external dependencies other than Pydantic
 - Full test coverage
+- Can optionally output the raw SQL queries being executed for debugging
+  purposes.

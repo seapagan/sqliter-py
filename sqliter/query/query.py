@@ -360,6 +360,11 @@ class QueryBuilder:
             sql += " OFFSET ?"
             values.append(self._offset)
 
+        # Print the raw SQL and values if debug is enabled
+        # Log the SQL if debug is enabled
+        if self.db.debug:
+            self.db._log_sql(sql, values)  # noqa: SLF001
+
         try:
             with self.db.connect() as conn:
                 cursor = conn.cursor()

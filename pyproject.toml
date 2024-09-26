@@ -159,6 +159,7 @@ filterwarnings = [
   "ignore:'direction' argument is deprecated:DeprecationWarning",
 ]
 mock_use_standalone_module = true
+markers = []
 
 [tool.coverage.run]
 source = ["sqliter"]
