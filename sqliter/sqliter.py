@@ -75,20 +75,14 @@ class SqliterDB:
             # SqliterDB
             self.logger = logging.getLogger("sqliter")
 
-            # Only add a handler if this logger has no handlers
-            if not self.logger.hasHandlers():
-                handler = logging.StreamHandler()  # Output to console
-                formatter = logging.Formatter(
-                    "%(levelname)-8s%(message)s"
-                )  # Custom format
-                handler.setFormatter(formatter)
-                self.logger.addHandler(handler)
+            handler = logging.StreamHandler()  # Output to console
+            formatter = logging.Formatter(
+                "%(levelname)-8s%(message)s"
+            )  # Custom format
+            handler.setFormatter(formatter)
+            self.logger.addHandler(handler)
 
-            # Set the level to DEBUG for this logger, but don't change parent
-            # loggers
             self.logger.setLevel(logging.DEBUG)
-
-            # Ensure no logs are propagated if we are using a custom logger
             self.logger.propagate = False
 
     def _log_sql(self, sql: str, values: list[Any]) -> None:
