@@ -19,7 +19,6 @@
 - allow adding foreign keys and relationships to each table.
 - add a migration system to allow updating the database schema without losing
   data.
-- add debug logging to show the SQL queries being executed.
 - add more tests where 'auto_commit' is set to False to ensure that commit is
   not called automatically.
 - the database is created with every field as TEXT. We should try to infer the
