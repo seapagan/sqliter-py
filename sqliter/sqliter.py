@@ -34,6 +34,7 @@ class SqliterDB:
         *,
         memory: bool = False,
         auto_commit: bool = True,
+        debug: bool = False,
     ) -> None:
         """Initialize the class and options."""
         if memory:
@@ -47,6 +48,7 @@ class SqliterDB:
             )
             raise ValueError(err)
         self.auto_commit = auto_commit
+        self.debug = debug
         self.conn: Optional[sqlite3.Connection] = None
 
     def connect(self) -> sqlite3.Connection:
