@@ -1,4 +1,11 @@
-"""Test class for the database model and query builder."""
+"""Demonstration script showcasing basic SQLiter functionality.
+
+This script provides a practical example of using SQLiter in a
+simple application scenario. It demonstrates setting up models,
+establishing a database connection, and performing various database
+operations including inserts, queries, and updates. This serves as
+both a functional test and a usage guide for the SQLiter library.
+"""
 
 from __future__ import annotations
 

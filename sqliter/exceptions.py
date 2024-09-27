@@ -1,4 +1,11 @@
-"""Define custom exceptions for the sqliter package."""
+"""Custom exception classes for SQLiter error handling.
+
+This module defines a hierarchy of exception classes specific to
+SQLiter operations. These exceptions provide detailed error information
+for various scenarios such as connection issues, invalid queries,
+and CRUD operation failures, enabling more precise error handling
+in applications using SQLiter.
+"""
 
 import os
 import sys
@@ -6,7 +13,15 @@ import traceback
 
 
 class SqliterError(Exception):
-    """Base class for all exceptions raised by the sqliter package."""
+    """Base exception class for all SQLiter-specific errors.
+
+    This class serves as the parent for all custom exceptions in SQLiter,
+    providing a consistent interface and message formatting.
+
+    Attributes:
+        message_template (str): A template string for the error message.
+        original_exception (Exception): The original exception that was caught.
+    """
 
     message_template: str = "An error occurred in the SQLiter package."
 
@@ -59,13 +74,13 @@ class SqliterError(Exception):
 
 
 class DatabaseConnectionError(SqliterError):
-    """Raised when the SQLite database connection fails."""
+    """Exception raised when a database connection cannot be established."""
 
     message_template = "Failed to connect to the database: '{}'"
 
 
 class InvalidOffsetError(SqliterError):
-    """Raised when an invalid offset value (0 or negative) is used."""
+    """Exception raised when an invalid offset value is provided."""
 
     message_template = (
         "Invalid offset value: '{}'. Offset must be a positive integer."
@@ -73,48 +88,48 @@ class InvalidOffsetError(SqliterError):
 
 
 class InvalidOrderError(SqliterError):
-    """Raised when an invalid order value is used."""
+    """Exception raised when an invalid order specification is provided."""
 
     message_template = "Invalid order value - {}"
 
 
 class TableCreationError(SqliterError):
-    """Raised when a table cannot be created in the database."""
+    """Exception raised when a table cannot be created in the database."""
 
     message_template = "Failed to create the table: '{}'"
 
 
 class RecordInsertionError(SqliterError):
-    """Raised when an error occurs during record insertion."""
+    """Exception raised when a record cannot be inserted into the database."""
 
     message_template = "Failed to insert record into table: '{}'"
 
 
 class RecordUpdateError(SqliterError):
-    """Raised when an error occurs during record update."""
+    """Exception raised when a record cannot be updated in the database."""
 
     message_template = "Failed to update record in table: '{}'"
 
 
 class RecordNotFoundError(SqliterError):
-    """Raised when a record with the specified primary key is not found."""
+    """Exception raised when a requested record is not found in the database."""
 
     message_template = "Failed to find a record for key '{}' "
 
 
 class RecordFetchError(SqliterError):
-    """Raised when an error occurs during record fetching."""
+    """Exception raised on an error fetching records from the database."""
 
     message_template = "Failed to fetch record from table: '{}'"
 
 
 class RecordDeletionError(SqliterError):
-    """Raised when an error occurs during record deletion."""
+    """Exception raised when a record cannot be deleted from the database."""
 
     message_template = "Failed to delete record from table: '{}'"
 
 
 class InvalidFilterError(SqliterError):
-    """Raised when an invalid filter field is used in a query."""
+    """Exception raised when an invalid filter is applied to a query."""
 
     message_template = "Failed to apply filter: invalid field '{}'"

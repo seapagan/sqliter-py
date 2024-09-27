@@ -1,4 +1,10 @@
-"""This is the main module for the sqliter package."""
+"""Core module for SQLiter, providing the main database interaction class.
+
+This module defines the SqliterDB class, which serves as the primary
+interface for all database operations in SQLiter. It handles connection
+management, table creation, and CRUD operations, bridging the gap between
+Pydantic models and SQLite database interactions.
+"""
 
 from __future__ import annotations
 
@@ -27,7 +33,17 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class SqliterDB:
-    """Class to manage SQLite database interactions."""
+    """Main class for interacting with SQLite databases.
+
+    This class provides methods for connecting to a SQLite database,
+    creating tables, and performing CRUD operations.
+
+    Arguements:
+        db_filename (str): The filename of the SQLite database.
+        auto_commit (bool): Whether to automatically commit transactions.
+        debug (bool): Whether to enable debug logging.
+        logger (Optional[logging.Logger]): Custom logger for debug output.
+    """
 
     def __init__(
         self,
@@ -38,7 +54,18 @@ class SqliterDB:
         debug: bool = False,
         logger: Optional[logging.Logger] = None,
     ) -> None:
-        """Initialize the class and options."""
+        """Initialize a new SqliterDB instance.
+
+        Args:
+            db_filename: The filename of the SQLite database.
+            memory: If True, create an in-memory database.
+            auto_commit: Whether to automatically commit transactions.
+            debug: Whether to enable debug logging.
+            logger: Custom logger for debug output.
+
+        Raises:
+            ValueError: If no filename is provided for a non-memory database.
+        """
         if memory:
             self.db_filename = ":memory:"
         elif db_filename:
@@ -58,10 +85,11 @@ class SqliterDB:
             self._setup_logger()
 
     def _setup_logger(self) -> None:
-        """Sets up the logger for SQL debugging.
+        """Set up the logger for debug output.
 
-        This uses any existing logger if it has handlers, otherwise it creates a
-        new logger with a custom handler and formatter.
+        This method configures a logger for the SqliterDB instance, either
+        using an existing logger or creating a new one specifically for
+        SQLiter.
         """
         # Check if the root logger is already configured
         root_logger = logging.getLogger()
@@ -86,7 +114,15 @@ class SqliterDB:
             self.logger.propagate = False
 
     def _log_sql(self, sql: str, values: list[Any]) -> None:
-        """Logs the SQL query and values if debugging is enabled."""
+        """Log the SQL query and its values if debug mode is enabled.
+
+        The values are inserted into the SQL query string to replace the
+        placeholders.
+
+        Args:
+            sql: The SQL query string.
+            values: The list of values to be inserted into the query.
+        """
         if self.debug and self.logger:
             formatted_sql = sql
             for value in values:
@@ -98,7 +134,14 @@ class SqliterDB:
             self.logger.debug("Executing SQL: %s", formatted_sql)
 
     def connect(self) -> sqlite3.Connection:
-        """Create or return a connection to the SQLite database."""
+        """Establish a connection to the SQLite database.
+
+        Returns:
+            The SQLite connection object.
+
+        Raises:
+            DatabaseConnectionError: If unable to connect to the database.
+        """
         if not self.conn:
             try:
                 self.conn = sqlite3.connect(self.db_filename)
@@ -107,19 +150,35 @@ class SqliterDB:
         return self.conn
 
     def close(self) -> None:
-        """Close the connection to the SQLite database."""
+        """Close the database connection.
+
+        This method commits any pending changes if auto_commit is True,
+        then closes the connection. If the connection is already closed or does
+        not exist, this method silently does nothing.
+        """
         if self.conn:
             self._maybe_commit()
             self.conn.close()
             self.conn = None
 
     def commit(self) -> None:
-        """Commit any pending transactions."""
+        """Commit the current transaction.
+
+        This method explicitly commits any pending changes to the database.
+        """
         if self.conn:
             self.conn.commit()
 
     def create_table(self, model_class: type[BaseDBModel]) -> None:
-        """Create a table based on the Pydantic model."""
+        """Create a table in the database based on the given model class.
+
+        Args:
+            model_class: The Pydantic model class representing the table.
+
+        Raises:
+            TableCreationError: If there's an error creating the table.
+            ValueError: If the primary key field is not found in the model.
+        """
         table_name = model_class.get_table_name()
         primary_key = model_class.get_primary_key()
         create_pk = model_class.should_create_pk()
@@ -162,12 +221,23 @@ class SqliterDB:
             raise TableCreationError(table_name) from exc
 
     def _maybe_commit(self) -> None:
-        """Commit changes if auto_commit is True."""
+        """Commit changes if auto_commit is enabled.
+
+        This method is called after operations that modify the database,
+        committing changes only if auto_commit is set to True.
+        """
         if self.auto_commit and self.conn:
             self.conn.commit()
 
     def insert(self, model_instance: BaseDBModel) -> None:
-        """Insert a new record into the table defined by the Pydantic model."""
+        """Insert a new record into the database.
+
+        Args:
+            model_instance: An instance of a Pydantic model to be inserted.
+
+        Raises:
+            RecordInsertionError: If there's an error inserting the record.
+        """
         model_class = type(model_instance)
         table_name = model_class.get_table_name()
 
@@ -194,7 +264,18 @@ class SqliterDB:
     def get(
         self, model_class: type[BaseDBModel], primary_key_value: str
     ) -> BaseDBModel | None:
-        """Retrieve a record by its PK and return a Pydantic instance."""
+        """Retrieve a single record from the database by its primary key.
+
+        Args:
+            model_class: The Pydantic model class representing the table.
+            primary_key_value: The value of the primary key to look up.
+
+        Returns:
+            An instance of the model class if found, None otherwise.
+
+        Raises:
+            RecordFetchError: If there's an error fetching the record.
+        """
         table_name = model_class.get_table_name()
         primary_key = model_class.get_primary_key()
 
@@ -222,7 +303,15 @@ class SqliterDB:
             return None
 
     def update(self, model_instance: BaseDBModel) -> None:
-        """Update an existing record using the Pydantic model."""
+        """Update an existing record in the database.
+
+        Args:
+            model_instance: An instance of a Pydantic model to be updated.
+
+        Raises:
+            RecordUpdateError: If there's an error updating the record.
+            RecordNotFoundError: If the record to update is not found.
+        """
         model_class = type(model_instance)
         table_name = model_class.get_table_name()
         primary_key = model_class.get_primary_key()
@@ -262,7 +351,17 @@ class SqliterDB:
     def delete(
         self, model_class: type[BaseDBModel], primary_key_value: str
     ) -> None:
-        """Delete a record by its primary key."""
+        """Delete a record from the database by its primary key.
+
+        Args:
+            model_class: The Pydantic model class representing the table.
+            primary_key_value: The value of the primary key of the record to
+                delete.
+
+        Raises:
+            RecordDeletionError: If there's an error deleting the record.
+            RecordNotFoundError: If the record to delete is not found.
+        """
         table_name = model_class.get_table_name()
         primary_key = model_class.get_primary_key()
 
@@ -287,18 +386,15 @@ class SqliterDB:
         fields: Optional[list[str]] = None,
         exclude: Optional[list[str]] = None,
     ) -> QueryBuilder:
-        """Start a query for the given model.
+        """Create a QueryBuilder instance for selecting records.
 
         Args:
-            model_class: The model class to query.
-            fields: Optional list of field names to select. If None, all fields
-                are selected.
-            exclude: Optional list of field names to exclude from the query
-                output.
+            model_class: The Pydantic model class representing the table.
+            fields: Optional list of fields to include in the query.
+            exclude: Optional list of fields to exclude from the query.
 
         Returns:
-            QueryBuilder: An instance of QueryBuilder for the given model and
-            fields.
+            A QueryBuilder instance for further query construction.
         """
         query_builder = QueryBuilder(self, model_class, fields)
 
@@ -310,7 +406,18 @@ class SqliterDB:
 
     # --- Context manager methods ---
     def __enter__(self) -> Self:
-        """Enter the runtime context for the 'with' statement."""
+        """Enter the runtime context for the SqliterDB instance.
+
+        This method is called when entering a 'with' statement. It ensures
+        that a database connection is established.
+
+        Note that this method should never be called explicitly, but will be
+        called by the 'with' statement when entering the context.
+
+        Returns:
+            The SqliterDB instance.
+
+        """
         self.connect()
         return self
 
@@ -320,7 +427,24 @@ class SqliterDB:
         exc_value: Optional[BaseException],
         traceback: Optional[TracebackType],
     ) -> None:
-        """Exit the runtime context and close the connection."""
+        """Exit the runtime context for the SqliterDB instance.
+
+        This method is called when exiting a 'with' statement. It handles
+        committing or rolling back transactions based on whether an exception
+        occurred, and closes the database connection.
+
+        Args:
+            exc_type: The type of the exception that caused the context to be
+                exited, or None if no exception was raised.
+            exc_value: The instance of the exception that caused the context
+                to be exited, or None if no exception was raised.
+            traceback: A traceback object encoding the stack trace, or None
+                if no exception was raised.
+
+        Note that this method should never be called explicitly, but will be
+        called by the 'with' statement when exiting the context.
+
+        """
         if self.conn:
             try:
                 if exc_type:

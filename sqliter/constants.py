@@ -1,5 +1,13 @@
-"""Define constants used in the library."""
+"""Constant values and mappings used throughout SQLiter.
 
+This module defines constant dictionaries that map SQLiter-specific
+concepts to their SQLite equivalents. It includes mappings for query
+operators and data types, which are crucial for translating between
+Pydantic models and SQLite database operations.
+"""
+
+# A dictionary mapping SQLiter filter operators to their corresponding SQL
+# operators.
 OPERATOR_MAPPING = {
     "__lt": "<",
     "__lte": "<=",
@@ -19,7 +27,7 @@ OPERATOR_MAPPING = {
     "__icontains": "LIKE",
 }
 
-# Mapping of Python types to SQLite types
+# A dictionary mapping Python types to their corresponding SQLite column types.
 SQLITE_TYPE_MAPPING = {
     int: "INTEGER",
     float: "REAL",

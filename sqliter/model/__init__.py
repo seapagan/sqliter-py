@@ -1,6 +1,7 @@
-"""This module defines the BaseDBModel class.
+"""This module provides the base model class for SQLiter database models.
 
-This should be subclassed by the user to interact with the database.
+It exports the BaseDBModel class, which is used to define database
+models in SQLiter applications.
 """
 
 from .model import BaseDBModel
