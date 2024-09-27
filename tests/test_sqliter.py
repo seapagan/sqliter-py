@@ -6,9 +6,22 @@ from sqliter import SqliterDB
 from sqliter.exceptions import (
     RecordFetchError,
     RecordNotFoundError,
+    TableCreationError,
 )
 from sqliter.model import BaseDBModel
 from tests.conftest import ComplexModel, DetailedPersonModel, ExampleModel
+
+
+class ExistOkModel(BaseDBModel):
+    """Just used to test table creation with an existing table."""
+
+    name: str
+    age: int
+
+    class Meta:
+        """Meta class for the model."""
+
+        table_name = "exist_ok_table"
 
 
 class TestSqliterDB:
@@ -793,3 +806,150 @@ class TestSqliterDB:
             db_reset.select(TestModel1).fetch_all()
         with pytest.raises(RecordFetchError):
             db_reset.select(TestModel2).fetch_all()
+
+    def test_create_table_exists_ok_true(self, db_mock) -> None:
+        """Test creating a table with exists_ok=True (default behavior)."""
+        # First creation should succeed
+        db_mock.create_table(ExistOkModel)
+
+        # Second creation should not raise an error
+        try:
+            db_mock.create_table(ExistOkModel)
+        except TableCreationError as e:
+            pytest.fail(f"create_table raised {type(e).__name__} unexpectedly!")
+
+    def test_create_table_exists_ok_false(self, db_mock) -> None:
+        """Test creating a table with exists_ok=False."""
+        # First creation should succeed
+        db_mock.create_table(ExistOkModel)
+
+        # Second creation should raise an error
+        with pytest.raises(TableCreationError):
+            db_mock.create_table(ExistOkModel, exists_ok=False)
+
+    def test_create_table_exists_ok_false_new_table(self) -> None:
+        """Test creating a new table with exists_ok=False."""
+        # Create a new database connection
+        new_db = SqliterDB(":memory:")
+
+        # Define a new model class specifically for this test
+        class UniqueTestModel(BaseDBModel):
+            name: str
+            age: int
+
+            class Meta:
+                table_name = "unique_test_table"
+
+        # Creation of a new table should succeed with exists_ok=False
+        try:
+            new_db.create_table(UniqueTestModel, exists_ok=False)
+        except TableCreationError as e:
+            pytest.fail(f"create_table raised {type(e).__name__} unexpectedly!")
+
+        # Clean up
+        new_db.close()
+
+    def test_create_table_sql_generation(self, db_mock, mocker) -> None:
+        """Test SQL generation for table creation based on exists_ok value."""
+        mock_cursor = mocker.MagicMock()
+        mocker.patch.object(
+            db_mock, "connect"
+        ).return_value.__enter__.return_value.cursor.return_value = mock_cursor
+
+        # Test with exists_ok=True
+        db_mock.create_table(ExistOkModel, exists_ok=True)
+        mock_cursor.execute.assert_called()
+        sql = mock_cursor.execute.call_args[0][0]
+        assert "CREATE TABLE IF NOT EXISTS" in sql
+
+        # Reset the mock
+        mock_cursor.reset_mock()
+
+        # Test with exists_ok=False
+        db_mock.create_table(ExistOkModel, exists_ok=False)
+        mock_cursor.execute.assert_called()
+        sql = mock_cursor.execute.call_args[0][0]
+        assert "CREATE TABLE" in sql
+        assert "IF NOT EXISTS" not in sql
+
+    def test_create_table_force(self) -> None:
+        """Test creating a table with force=True."""
+        # Create a new database
+        db = SqliterDB(":memory:")
+
+        # Define initial model
+        class InitialTestModel(BaseDBModel):
+            name: str
+            age: int
+
+            class Meta:
+                table_name = "force_test_table"
+
+        # First creation
+        db.create_table(InitialTestModel)
+
+        # Insert a record
+        initial_record = InitialTestModel(name="Alice", age=30)
+        db.insert(initial_record)
+
+        # Define modified model
+        class ModifiedTestModel(BaseDBModel):
+            name: str
+            email: str  # New field instead of age
+
+            class Meta:
+                table_name = "force_test_table"
+
+        # Recreate with force=True
+        db.create_table(ModifiedTestModel, force=True)
+
+        # Try to insert a record with the new structure
+        new_record = ModifiedTestModel(name="Bob", email="bob@example.com")
+        db.insert(new_record)
+
+        # Fetch and check if the new structure is in place
+        result = db.select(ModifiedTestModel).fetch_one()
+        assert result is not None
+        assert hasattr(result, "email")
+        assert not hasattr(result, "age")
+
+        # Verify that the old structure is gone by checking table info
+        with db.connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA table_info(force_test_table)")
+            columns = [column[1] for column in cursor.fetchall()]
+
+        assert "name" in columns
+        assert "email" in columns
+        assert "age" not in columns
+
+        # Verify that old data is gone
+        old_data = db.select(ModifiedTestModel).filter(name="Alice").fetch_one()
+        assert old_data is None
+
+        # Clean up
+        db.close()
+
+    def test_create_table_force_and_exists_ok(self, db_mock) -> None:
+        """Test interaction between force and exists_ok parameters."""
+        # force=True should take precedence over exists_ok=False
+        db_mock.create_table(ExistOkModel)
+        db_mock.create_table(ExistOkModel, exists_ok=False, force=True)
+        # This should not raise an error
+
+    def test_create_table_sql_generation_force(self, db_mock, mocker) -> None:
+        """Test SQL generation for table creation with force=True."""
+        mock_cursor = mocker.MagicMock()
+        mocker.patch.object(
+            db_mock, "connect"
+        ).return_value.__enter__.return_value.cursor.return_value = mock_cursor
+
+        db_mock.create_table(ExistOkModel, force=True)
+
+        # Check for DROP TABLE
+        drop_call = mock_cursor.execute.call_args_list[0]
+        assert "DROP TABLE IF EXISTS" in drop_call[0][0]
+
+        # Check for CREATE TABLE
+        create_call = mock_cursor.execute.call_args_list[1]
+        assert "CREATE TABLE" in create_call[0][0]

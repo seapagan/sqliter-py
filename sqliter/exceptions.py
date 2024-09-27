@@ -139,3 +139,9 @@ class TableDeletionError(SqliterError):
     """Raised when a table cannot be deleted from the database."""
 
     message_template = "Failed to delete the table: '{}'"
+
+
+class SqlExecutionError(SqliterError):
+    """Raised when an SQL execution fails."""
+
+    message_template = "Failed to execute SQL: '{}'"

@@ -21,6 +21,7 @@ from sqliter.exceptions import (
     RecordInsertionError,
     RecordNotFoundError,
     RecordUpdateError,
+    SqlExecutionError,
     TableCreationError,
     TableDeletionError,
 )
@@ -200,11 +201,21 @@ class SqliterDB:
         if self.conn:
             self.conn.commit()
 
-    def create_table(self, model_class: type[BaseDBModel]) -> None:
+    def create_table(
+        self,
+        model_class: type[BaseDBModel],
+        *,
+        exists_ok: bool = True,
+        force: bool = False,
+    ) -> None:
         """Create a table in the database based on the given model class.
 
         Args:
             model_class: The Pydantic model class representing the table.
+            exists_ok: If True, do not raise an error if the table already
+                exists. Default is True which is the original behavior.
+            force: If True, drop the table if it exists before creating.
+                Defaults to False.
 
         Raises:
             TableCreationError: If there's an error creating the table.
@@ -213,6 +224,10 @@ class SqliterDB:
         table_name = model_class.get_table_name()
         primary_key = model_class.get_primary_key()
         create_pk = model_class.should_create_pk()
+
+        if force:
+            drop_table_sql = f"DROP TABLE IF EXISTS {table_name}"
+            self._execute_sql(drop_table_sql)
 
         fields = []
 
@@ -237,8 +252,12 @@ class SqliterDB:
                 sqlite_type = infer_sqlite_type(field_info.annotation)
                 fields.append(f"{field_name} {sqlite_type}")
 
+        create_str = (
+            "CREATE TABLE IF NOT EXISTS" if exists_ok else "CREATE TABLE"
+        )
+
         create_table_sql = f"""
-        CREATE TABLE IF NOT EXISTS {table_name} (
+        {create_str} {table_name} (
             {", ".join(fields)}
         )
         """
@@ -253,6 +272,26 @@ class SqliterDB:
                 conn.commit()
         except sqlite3.Error as exc:
             raise TableCreationError(table_name) from exc
+
+    def _execute_sql(self, sql: str) -> None:
+        """Execute an SQL statement.
+
+        Args:
+            sql: The SQL statement to execute.
+
+        Raises:
+            SqlExecutionError: If the SQL execution fails.
+        """
+        if self.debug:
+            self._log_sql(sql, [])
+
+        try:
+            with self.connect() as conn:
+                cursor = conn.cursor()
+                cursor.execute(sql)
+                conn.commit()
+        except (sqlite3.Error, sqlite3.Warning) as exc:
+            raise SqlExecutionError(sql) from exc
 
     def drop_table(self, model_class: type[BaseDBModel]) -> None:
         """Drop the table associated with the given model class.
