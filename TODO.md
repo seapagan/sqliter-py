@@ -7,8 +7,6 @@
 - add an 'execute' method to the main class to allow executing arbitrary SQL
   queries which can be chained to the 'find_first' etc methods or just used
   directly.
-- add an 'exists_ok' (default True) parameter to the 'create_table' method so it
-  will raise an exception if the table already exists and this is set to False.
 - add a `rollback` method to the main class to allow manual rollbacks.
 - allow adding multiple indexes to each table as well as the primary key.
 - allow adding foreign keys and relationships to each table.
@@ -20,6 +18,11 @@
   need to be stored as a JSON string or pickled in the database (the latter
   would be more versatile). Also support `date` which can be either stored as a
   string or more useful as a Unix timestamp in an integer field.
+
+## Housekeeping
+
+- Tidy up the test suite - remove any duplicates, sort them into logical files
+  (many already are), try to reduce and centralize fixtures.
 
 ## Potential Filter Additions
 

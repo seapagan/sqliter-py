@@ -123,6 +123,15 @@ db.create_table(User, exists_ok=False)
 
 This will raise a `TableCreationError` if the table already exists.
 
+There is a complementary flag `force=True` which will drop the table if it
+exists and then recreate it:
+
+```python
+db.create_table(User, force=True)
+```
+
+This defaults to `False`.
+
 ### Dropping Tables
 
 ```python

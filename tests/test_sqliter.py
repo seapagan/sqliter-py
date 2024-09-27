@@ -1,5 +1,7 @@
 """Test suite for the 'sqliter' library."""
 
+import sqlite3
+
 import pytest
 
 from sqliter import SqliterDB
@@ -871,3 +873,85 @@ class TestSqliterDB:
         sql = mock_cursor.execute.call_args[0][0]
         assert "CREATE TABLE" in sql
         assert "IF NOT EXISTS" not in sql
+
+    def test_create_table_force(self) -> None:
+        """Test creating a table with force=True."""
+        # Create a new database
+        db = SqliterDB(":memory:")
+
+        # Define initial model
+        class InitialTestModel(BaseDBModel):
+            name: str
+            age: int
+
+            class Meta:
+                table_name = "force_test_table"
+
+        # First creation
+        db.create_table(InitialTestModel)
+
+        # Insert a record
+        initial_record = InitialTestModel(name="Alice", age=30)
+        db.insert(initial_record)
+
+        # Define modified model
+        class ModifiedTestModel(BaseDBModel):
+            name: str
+            email: str  # New field instead of age
+
+            class Meta:
+                table_name = "force_test_table"
+
+        # Recreate with force=True
+        db.create_table(ModifiedTestModel, force=True)
+
+        # Try to insert a record with the new structure
+        new_record = ModifiedTestModel(name="Bob", email="bob@example.com")
+        db.insert(new_record)
+
+        # Fetch and check if the new structure is in place
+        result = db.select(ModifiedTestModel).fetch_one()
+        assert result is not None
+        assert hasattr(result, "email")
+        assert not hasattr(result, "age")
+
+        # Verify that the old structure is gone by checking table info
+        with db.connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA table_info(force_test_table)")
+            columns = [column[1] for column in cursor.fetchall()]
+
+        assert "name" in columns
+        assert "email" in columns
+        assert "age" not in columns
+
+        # Verify that old data is gone
+        old_data = db.select(ModifiedTestModel).filter(name="Alice").fetch_one()
+        assert old_data is None
+
+        # Clean up
+        db.close()
+
+    def test_create_table_force_and_exists_ok(self, db_mock) -> None:
+        """Test interaction between force and exists_ok parameters."""
+        # force=True should take precedence over exists_ok=False
+        db_mock.create_table(ExistOkModel)
+        db_mock.create_table(ExistOkModel, exists_ok=False, force=True)
+        # This should not raise an error
+
+    def test_create_table_sql_generation_force(self, db_mock, mocker) -> None:
+        """Test SQL generation for table creation with force=True."""
+        mock_cursor = mocker.MagicMock()
+        mocker.patch.object(
+            db_mock, "connect"
+        ).return_value.__enter__.return_value.cursor.return_value = mock_cursor
+
+        db_mock.create_table(ExistOkModel, force=True)
+
+        # Check for DROP TABLE
+        drop_call = mock_cursor.execute.call_args_list[0]
+        assert "DROP TABLE IF EXISTS" in drop_call[0][0]
+
+        # Check for CREATE TABLE
+        create_call = mock_cursor.execute.call_args_list[1]
+        assert "CREATE TABLE" in create_call[0][0]
