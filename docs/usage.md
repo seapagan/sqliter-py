@@ -214,6 +214,14 @@ results = db.select(User).order("age", reverse=True).fetch_all()
 
 This will order the results by the `age` field in descending order.
 
+If you do not specify a field, the default is to order by the primary key field:
+
+```python
+results = db.select(User).order().fetch_all()
+```
+
+This will order the results by the primary key field in ascending order.
+
 > [!WARNING]
 >
 > Previously ordering was done using the `direction` parameter with `asc` or

@@ -447,7 +447,7 @@ class QueryBuilder:
 
     def order(
         self,
-        order_by_field: str,
+        order_by_field: Optional[str] = None,
         direction: Optional[str] = None,
         *,
         reverse: bool = False,
@@ -455,7 +455,7 @@ class QueryBuilder:
         """Order the query results by the specified field.
 
         Args:
-            order_by_field: The field to order by.
+            order_by_field: The field to order by [optional].
             direction: Deprecated. Use 'reverse' instead.
             reverse: If True, sort in descending order.
 
@@ -476,6 +476,9 @@ class QueryBuilder:
                 DeprecationWarning,
                 stacklevel=2,
             )
+
+        if order_by_field is None:
+            order_by_field = self.model_class.get_primary_key()
 
         if order_by_field not in self.model_class.model_fields:
             err = f"'{order_by_field}' does not exist in the model fields."

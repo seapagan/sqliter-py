@@ -24,8 +24,6 @@
   need to be stored as a JSON string or pickled in the database (the latter
   would be more versatile). Also support `date` which can be either stored as a
   string or more useful as a Unix timestamp in an integer field.
-- for the `order()` allow omitting the field name and just specifying the
-  direction. This will default to the primary key field.
 
 ## Potential Filter Additions
 

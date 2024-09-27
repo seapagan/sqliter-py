@@ -10,6 +10,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 **New Features**
 
+- Add `drop_table` method ([#31](https://github.com/seapagan/sqliter-py/pull/31)) by [seapagan](https://github.com/seapagan)
 - Add debug logging option ([#29](https://github.com/seapagan/sqliter-py/pull/29)) by [seapagan](https://github.com/seapagan)
 - Create relevant database fields depending on the Model types ([#27](https://github.com/seapagan/sqliter-py/pull/27)) by [seapagan](https://github.com/seapagan)
 
