@@ -194,3 +194,9 @@ def db_mock_complex_debug() -> SqliterDB:
         )
     )
     return db
+
+
+@pytest.fixture
+def temp_db_path(tmp_path) -> str:
+    """Fixture to create a temporary database file path."""
+    return str(tmp_path / "test_db.sqlite")

@@ -720,3 +720,76 @@ class TestSqliterDB:
             f"Expected 'INTEGER' type for primary key, but got "
             f"{primary_key_column[2]}"
         )
+
+    def test_reset_database_on_init(self, temp_db_path) -> None:
+        """Test that the database is reset when reset=True is passed."""
+
+        class TestModel(BaseDBModel):
+            name: str
+
+            class Meta:
+                table_name = "test_reset_table"
+
+        # Create a database and add some data
+        db = SqliterDB(temp_db_path)
+        db.create_table(TestModel)
+        db.insert(TestModel(name="Test Data"))
+        db.close()
+
+        # Create a new connection with reset=True
+        db_reset = SqliterDB(temp_db_path, reset=True)
+
+        # Verify the table no longer exists
+        with pytest.raises(RecordFetchError):
+            db_reset.select(TestModel).fetch_all()
+
+    def test_reset_database_preserves_connection(self, temp_db_path) -> None:
+        """Test that resetting the database doesn't break the connection."""
+
+        class TestModel(BaseDBModel):
+            name: str
+
+            class Meta:
+                table_name = "test_reset_table"
+
+        db = SqliterDB(temp_db_path, reset=True)
+
+        # Create a table after reset
+        db.create_table(TestModel)
+        db.insert(TestModel(name="New Data"))
+
+        # Verify data exists
+        result = db.select(TestModel).fetch_all()
+        assert len(result) == 1
+
+    def test_reset_database_with_multiple_tables(self, temp_db_path) -> None:
+        """Test that reset drops all tables in the database."""
+
+        class TestModel1(BaseDBModel):
+            name: str
+
+            class Meta:
+                table_name = "test_reset_table1"
+
+        class TestModel2(BaseDBModel):
+            age: int
+
+            class Meta:
+                table_name = "test_reset_table2"
+
+        # Create a database and add some data
+        db = SqliterDB(temp_db_path)
+        db.create_table(TestModel1)
+        db.create_table(TestModel2)
+        db.insert(TestModel1(name="Test Data"))
+        db.insert(TestModel2(age=25))
+        db.close()
+
+        # Reset the database
+        db_reset = SqliterDB(temp_db_path, reset=True)
+
+        # Verify both tables no longer exist
+        with pytest.raises(RecordFetchError):
+            db_reset.select(TestModel1).fetch_all()
+        with pytest.raises(RecordFetchError):
+            db_reset.select(TestModel2).fetch_all()

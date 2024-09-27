@@ -119,6 +119,9 @@ target-version = "py39" # minimum python version supported
 indent-style = "space"
 quote-style = "double"
 
+[tool.ruff.lint.pylint]
+max-args = 6
+
 [tool.ruff.lint.pep8-naming]
 classmethod-decorators = ["pydantic.validator", "pydantic.root_validator"]
 
