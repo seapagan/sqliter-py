@@ -133,3 +133,9 @@ class InvalidFilterError(SqliterError):
     """Exception raised when an invalid filter is applied to a query."""
 
     message_template = "Failed to apply filter: invalid field '{}'"
+
+
+class TableDeletionError(SqliterError):
+    """Raised when a table cannot be deleted from the database."""
+
+    message_template = "Failed to delete the table: '{}'"

@@ -17,6 +17,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - Add test coverage where missing ([#28](https://github.com/seapagan/sqliter-py/pull/28)) by [seapagan](https://github.com/seapagan)
 
+**Refactoring**
+
+- Perform some internal refactoring, mostly arranging the tests. ([#30](https://github.com/seapagan/sqliter-py/pull/30)) by [seapagan](https://github.com/seapagan)
+
 **Documentation**
 
 - Add a documentation website and trim down the README ([#25](https://github.com/seapagan/sqliter-py/pull/25)) by [seapagan](https://github.com/seapagan)

@@ -22,6 +22,7 @@ from sqliter.exceptions import (
     RecordNotFoundError,
     RecordUpdateError,
     TableCreationError,
+    TableDeletionError,
 )
 from sqliter.helpers import infer_sqlite_type
 from sqliter.query.query import QueryBuilder
@@ -212,6 +213,9 @@ class SqliterDB:
         )
         """
 
+        if self.debug:
+            self._log_sql(create_table_sql, [])
+
         try:
             with self.connect() as conn:
                 cursor = conn.cursor()
@@ -219,6 +223,29 @@ class SqliterDB:
                 conn.commit()
         except sqlite3.Error as exc:
             raise TableCreationError(table_name) from exc
+
+    def drop_table(self, model_class: type[BaseDBModel]) -> None:
+        """Drop the table associated with the given model class.
+
+        Args:
+            model_class: The model class for which to drop the table.
+
+        Raises:
+            TableDeletionError: If there's an error dropping the table.
+        """
+        table_name = model_class.get_table_name()
+        drop_table_sql = f"DROP TABLE IF EXISTS {table_name}"
+
+        if self.debug:
+            self._log_sql(drop_table_sql, [])
+
+        try:
+            with self.connect() as conn:
+                cursor = conn.cursor()
+                cursor.execute(drop_table_sql)
+                self.commit()
+        except sqlite3.Error as exc:
+            raise TableDeletionError(table_name) from exc
 
     def _maybe_commit(self) -> None:
         """Commit changes if auto_commit is enabled.

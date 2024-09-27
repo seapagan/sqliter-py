@@ -97,6 +97,22 @@ exception will be raised.
 db.create_table(User)
 ```
 
+> [!IMPORTANT]
+>
+> The Table is created **regardless** of the `auto_commit` setting.
+
+### Dropping Tables
+
+```python
+db.drop_table(User)
+```
+
+> [!IMPORTANT]
+>
+> The Table is dropped **regardless** of the `auto_commit` setting.
+
+## Data operations
+
 ### Inserting Records
 
 ```python

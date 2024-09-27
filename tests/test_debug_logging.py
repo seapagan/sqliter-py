@@ -244,3 +244,15 @@ class TestDebugLogging:
             'Executing SQL: SELECT "id", "name", "age", "is_active", "score", '
             '"nullable_field" FROM "complex_model"' in caplog.text
         )
+
+    def test_debug_output_drop_table(
+        self, db_mock_complex_debug: SqliterDB, caplog
+    ) -> None:
+        """Test debug output when dropping a table."""
+        with caplog.at_level(logging.DEBUG):
+            db_mock_complex_debug.drop_table(ComplexModel)
+
+        # Assert the SQL query for dropping the table was logged
+        assert (
+            "Executing SQL: DROP TABLE IF EXISTS complex_model" in caplog.text
+        )

@@ -9,7 +9,6 @@
 - add an 'execute' method to the main class to allow executing arbitrary SQL
   queries which can be chained to the 'find_first' etc methods or just used
   directly.
-- add a 'drop_table' method to the main class to allow dropping tables.
 - add a method to drop the entire database easiest way is prob to just delete
   and recreate the database file.
 - add an 'exists_ok' (default True) parameter to the 'create_table' method so it
@@ -21,16 +20,11 @@
   data.
 - add more tests where 'auto_commit' is set to False to ensure that commit is
   not called automatically.
-- the database is created with every field as TEXT. We should try to infer the
-  correct type from the Pydantic model and map it to the correct SQLite type.
-  The return model is created using the pydantic model, so these are converted
-  correctly anyway, but it would be nice to have the database schema match the
-  model schema.
 - support structures like, `list`, `dict`, `set` etc. in the model. This will
   need to be stored as a JSON string or pickled in the database (the latter
   would be more versatile). Also support `date` which can be either stored as a
   string or more useful as a Unix timestamp in an integer field.
-- for the `order()` allow ommitting the field name and just specifying the
+- for the `order()` allow omitting the field name and just specifying the
   direction. This will default to the primary key field.
 
 ## Potential Filter Additions
