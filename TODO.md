@@ -2,15 +2,11 @@
 
 ## General Plans and Ideas
 
-- add an option to the SQLiter constructor to delete the database file if it
-  already exists. Default to False.
 - add attributes to the BaseDBModel to read the table-name, file-name, is-memory
   etc.
 - add an 'execute' method to the main class to allow executing arbitrary SQL
   queries which can be chained to the 'find_first' etc methods or just used
   directly.
-- add a method to drop the entire database easiest way is prob to just delete
-  and recreate the database file.
 - add an 'exists_ok' (default True) parameter to the 'create_table' method so it
   will raise an exception if the table already exists and this is set to False.
 - add a `rollback` method to the main class to allow manual rollbacks.

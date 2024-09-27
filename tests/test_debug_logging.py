@@ -256,3 +256,10 @@ class TestDebugLogging:
         assert (
             "Executing SQL: DROP TABLE IF EXISTS complex_model" in caplog.text
         )
+
+    def test_reset_database_debug_logging(self, temp_db_path, caplog) -> None:
+        """Test that resetting the database logs debug information."""
+        with caplog.at_level(logging.DEBUG):
+            SqliterDB(temp_db_path, reset=True, debug=True)
+
+        assert "Database reset: 0 user-created tables dropped." in caplog.text

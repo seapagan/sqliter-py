@@ -91,6 +91,18 @@ exception will be raised.
 > db = SqliterDB(":memory:")
 > ```
 
+#### Resetting the Database
+
+If you want to reset the database when you create the SqliterDB object, you can
+pass `reset=True`:
+
+```python
+db = SqliterDB("your_database.db", reset=True)
+```
+
+This will effectively drop all user tables from the database. The file itself is
+not deleted, only the tables are dropped.
+
 ### Creating Tables
 
 ```python

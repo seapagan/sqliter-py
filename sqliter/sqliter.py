@@ -54,6 +54,7 @@ class SqliterDB:
         auto_commit: bool = True,
         debug: bool = False,
         logger: Optional[logging.Logger] = None,
+        reset: bool = False,
     ) -> None:
         """Initialize a new SqliterDB instance.
 
@@ -63,6 +64,8 @@ class SqliterDB:
             auto_commit: Whether to automatically commit transactions.
             debug: Whether to enable debug logging.
             logger: Custom logger for debug output.
+            reset: Whether to reset the database on initialization. This will
+                basically drop all existing tables.
 
         Raises:
             ValueError: If no filename is provided for a non-memory database.
@@ -81,9 +84,36 @@ class SqliterDB:
         self.debug = debug
         self.logger = logger
         self.conn: Optional[sqlite3.Connection] = None
+        self.reset = reset
 
         if self.debug:
             self._setup_logger()
+
+        if self.reset:
+            self._reset_database()
+
+    def _reset_database(self) -> None:
+        """Drop all user-created tables in the database."""
+        with self.connect() as conn:
+            cursor = conn.cursor()
+
+            # Get all table names, excluding SQLite system tables
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' "
+                "AND name NOT LIKE 'sqlite_%';"
+            )
+            tables = cursor.fetchall()
+
+            # Drop each user-created table
+            for table in tables:
+                cursor.execute(f"DROP TABLE IF EXISTS {table[0]}")
+
+            conn.commit()
+
+        if self.debug and self.logger:
+            self.logger.debug(
+                "Database reset: %s user-created tables dropped.", len(tables)
+            )
 
     def _setup_logger(self) -> None:
         """Set up the logger for debug output.
