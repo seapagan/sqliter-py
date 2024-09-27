@@ -6,9 +6,22 @@ from sqliter import SqliterDB
 from sqliter.exceptions import (
     RecordFetchError,
     RecordNotFoundError,
+    TableCreationError,
 )
 from sqliter.model import BaseDBModel
 from tests.conftest import ComplexModel, DetailedPersonModel, ExampleModel
+
+
+class ExistOkModel(BaseDBModel):
+    """Just used to test table creation with an existing table."""
+
+    name: str
+    age: int
+
+    class Meta:
+        """Meta class for the model."""
+
+        table_name = "exist_ok_table"
 
 
 class TestSqliterDB:
@@ -793,3 +806,68 @@ class TestSqliterDB:
             db_reset.select(TestModel1).fetch_all()
         with pytest.raises(RecordFetchError):
             db_reset.select(TestModel2).fetch_all()
+
+    def test_create_table_exists_ok_true(self, db_mock) -> None:
+        """Test creating a table with exists_ok=True (default behavior)."""
+        # First creation should succeed
+        db_mock.create_table(ExistOkModel)
+
+        # Second creation should not raise an error
+        try:
+            db_mock.create_table(ExistOkModel)
+        except TableCreationError as e:
+            pytest.fail(f"create_table raised {type(e).__name__} unexpectedly!")
+
+    def test_create_table_exists_ok_false(self, db_mock) -> None:
+        """Test creating a table with exists_ok=False."""
+        # First creation should succeed
+        db_mock.create_table(ExistOkModel)
+
+        # Second creation should raise an error
+        with pytest.raises(TableCreationError):
+            db_mock.create_table(ExistOkModel, exists_ok=False)
+
+    def test_create_table_exists_ok_false_new_table(self) -> None:
+        """Test creating a new table with exists_ok=False."""
+        # Create a new database connection
+        new_db = SqliterDB(":memory:")
+
+        # Define a new model class specifically for this test
+        class UniqueTestModel(BaseDBModel):
+            name: str
+            age: int
+
+            class Meta:
+                table_name = "unique_test_table"
+
+        # Creation of a new table should succeed with exists_ok=False
+        try:
+            new_db.create_table(UniqueTestModel, exists_ok=False)
+        except TableCreationError as e:
+            pytest.fail(f"create_table raised {type(e).__name__} unexpectedly!")
+
+        # Clean up
+        new_db.close()
+
+    def test_create_table_sql_generation(self, db_mock, mocker) -> None:
+        """Test SQL generation for table creation based on exists_ok value."""
+        mock_cursor = mocker.MagicMock()
+        mocker.patch.object(
+            db_mock, "connect"
+        ).return_value.__enter__.return_value.cursor.return_value = mock_cursor
+
+        # Test with exists_ok=True
+        db_mock.create_table(ExistOkModel, exists_ok=True)
+        mock_cursor.execute.assert_called()
+        sql = mock_cursor.execute.call_args[0][0]
+        assert "CREATE TABLE IF NOT EXISTS" in sql
+
+        # Reset the mock
+        mock_cursor.reset_mock()
+
+        # Test with exists_ok=False
+        db_mock.create_table(ExistOkModel, exists_ok=False)
+        mock_cursor.execute.assert_called()
+        sql = mock_cursor.execute.call_args[0][0]
+        assert "CREATE TABLE" in sql
+        assert "IF NOT EXISTS" not in sql

@@ -113,6 +113,16 @@ db.create_table(User)
 >
 > The Table is created **regardless** of the `auto_commit` setting.
 
+By default, if the table already exists, it will not be created again and no
+error will be raised. If you want to raise an exception if the table already
+exists, you can set `exists_ok=False`:
+
+```python
+db.create_table(User, exists_ok=False)
+```
+
+This will raise a `TableCreationError` if the table already exists.
+
 ### Dropping Tables
 
 ```python

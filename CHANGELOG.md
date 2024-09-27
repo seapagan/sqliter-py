@@ -10,6 +10,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 **New Features**
 
+- Add `reset=` to SqliterDB(), to drop all existing tables ([#33](https://github.com/seapagan/sqliter-py/pull/33)) by [seapagan](https://github.com/seapagan)
+- Order by primary key if no field specified to `order()` ([#32](https://github.com/seapagan/sqliter-py/pull/32)) by [seapagan](https://github.com/seapagan)
 - Add `drop_table` method ([#31](https://github.com/seapagan/sqliter-py/pull/31)) by [seapagan](https://github.com/seapagan)
 - Add debug logging option ([#29](https://github.com/seapagan/sqliter-py/pull/29)) by [seapagan](https://github.com/seapagan)
 - Create relevant database fields depending on the Model types ([#27](https://github.com/seapagan/sqliter-py/pull/27)) by [seapagan](https://github.com/seapagan)

@@ -200,11 +200,15 @@ class SqliterDB:
         if self.conn:
             self.conn.commit()
 
-    def create_table(self, model_class: type[BaseDBModel]) -> None:
+    def create_table(
+        self, model_class: type[BaseDBModel], *, exists_ok: bool = True
+    ) -> None:
         """Create a table in the database based on the given model class.
 
         Args:
             model_class: The Pydantic model class representing the table.
+            exists_ok: If True, do not raise an error if the table already
+                exists. Default is True which is the original behavior.
 
         Raises:
             TableCreationError: If there's an error creating the table.
@@ -237,8 +241,13 @@ class SqliterDB:
                 sqlite_type = infer_sqlite_type(field_info.annotation)
                 fields.append(f"{field_name} {sqlite_type}")
 
+        if exists_ok:
+            create_str = "CREATE TABLE IF NOT EXISTS"
+        else:
+            create_str = "CREATE TABLE"
+
         create_table_sql = f"""
-        CREATE TABLE IF NOT EXISTS {table_name} (
+        {create_str} {table_name} (
             {", ".join(fields)}
         )
         """
