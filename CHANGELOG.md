@@ -6,10 +6,11 @@ project since the first release, with the latest changes at the top.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [Unreleased](https://github.com/seapagan/sqliter-py/tree/HEAD)
+## [0.4.0](https://github.com/seapagan/sqliter-py/releases/tag/0.4.0) (September 27, 2024)
 
 **New Features**
 
+- Add `exists_ok` and `force` flags to `create_table` ([#34](https://github.com/seapagan/sqliter-py/pull/34)) by [seapagan](https://github.com/seapagan)
 - Add `reset=` to SqliterDB(), to drop all existing tables ([#33](https://github.com/seapagan/sqliter-py/pull/33)) by [seapagan](https://github.com/seapagan)
 - Order by primary key if no field specified to `order()` ([#32](https://github.com/seapagan/sqliter-py/pull/32)) by [seapagan](https://github.com/seapagan)
 - Add `drop_table` method ([#31](https://github.com/seapagan/sqliter-py/pull/31)) by [seapagan](https://github.com/seapagan)
@@ -28,7 +29,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - Add a documentation website and trim down the README ([#25](https://github.com/seapagan/sqliter-py/pull/25)) by [seapagan](https://github.com/seapagan)
 
-[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.3.0...HEAD) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.3.0...HEAD.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.3.0...HEAD.patch)
+[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.3.0...0.4.0) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.3.0...0.4.0.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.3.0...0.4.0.patch)
 
 ## [0.3.0](https://github.com/seapagan/sqliter-py/releases/tag/0.3.0) (September 23, 2024)
 
