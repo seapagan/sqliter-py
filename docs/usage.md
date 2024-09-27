@@ -124,7 +124,8 @@ db.create_table(User, exists_ok=False)
 This will raise a `TableCreationError` if the table already exists.
 
 There is a complementary flag `force=True` which will drop the table if it
-exists and then recreate it:
+exists and then recreate it. This may be useful if you are changing the table
+structure:
 
 ```python
 db.create_table(User, force=True)

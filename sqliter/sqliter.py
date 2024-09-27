@@ -21,6 +21,7 @@ from sqliter.exceptions import (
     RecordInsertionError,
     RecordNotFoundError,
     RecordUpdateError,
+    SqlExecutionError,
     TableCreationError,
     TableDeletionError,
 )
@@ -273,6 +274,14 @@ class SqliterDB:
             raise TableCreationError(table_name) from exc
 
     def _execute_sql(self, sql: str) -> None:
+        """Execute an SQL statement.
+
+        Args:
+            sql: The SQL statement to execute.
+
+        Raises:
+            SqlExecutionError: If the SQL execution fails.
+        """
         if self.debug:
             self._log_sql(sql, [])
 
@@ -281,8 +290,8 @@ class SqliterDB:
                 cursor = conn.cursor()
                 cursor.execute(sql)
                 conn.commit()
-        except sqlite3.Error as exc:
-            raise TableCreationError(sql) from exc
+        except (sqlite3.Error, sqlite3.Warning) as exc:
+            raise SqlExecutionError(sql) from exc
 
     def drop_table(self, model_class: type[BaseDBModel]) -> None:
         """Drop the table associated with the given model class.

@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from sqliter import SqliterDB
-from sqliter.exceptions import TableCreationError
+from sqliter.exceptions import SqlExecutionError
 
 
 class TestExecuteSQL:
@@ -39,7 +39,7 @@ class TestExecuteSQL:
         """Test SQL execution with an error."""
         # Missing closing parenthesis...
         invalid_sql = "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT"
-        with pytest.raises(TableCreationError):
+        with pytest.raises(SqlExecutionError):
             self.db._execute_sql(invalid_sql)
 
     @patch("sqliter.sqliter.SqliterDB._log_sql")
@@ -73,7 +73,7 @@ class TestExecuteSQL:
         CREATE TABLE test_multi (id INTEGER PRIMARY KEY, name TEXT);
         INSERT INTO test_multi (name) VALUES ('test');
         """
-        with pytest.raises(TableCreationError) as exc_info:
+        with pytest.raises(SqlExecutionError) as exc_info:
             self.db._execute_sql(sql)
 
         assert "You can only execute one statement at a time." in str(
@@ -86,7 +86,7 @@ class TestExecuteSQL:
             "CREATE TABLE test_params (id INTEGER PRIMARY KEY, name TEXT)"
         )
         sql = "INSERT INTO test_params (name) VALUES (?)"
-        with pytest.raises(TableCreationError):
+        with pytest.raises(SqlExecutionError):
             self.db._execute_sql(
                 sql
             )  # This should fail as _execute_sql doesn't support parameters
