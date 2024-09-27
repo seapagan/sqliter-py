@@ -1,4 +1,11 @@
-"""Define the 'QueryBuilder' class for building SQL queries."""
+"""Implements the query building and execution logic for SQLiter.
+
+This module defines the QueryBuilder class, which provides a fluent
+interface for constructing SQL queries. It supports operations such
+as filtering, ordering, limiting, and various data retrieval methods,
+allowing for flexible and expressive database queries without writing
+raw SQL.
+"""
 
 from __future__ import annotations
 
@@ -37,7 +44,21 @@ FilterValue = Union[
 
 
 class QueryBuilder:
-    """Functions to build and execute queries for a given model."""
+    """Builds and executes database queries for a specific model.
+
+    This class provides methods to construct SQL queries, apply filters,
+    set ordering, and execute the queries against the database.
+
+    Attributes:
+        db (SqliterDB): The database connection object.
+        model_class (type[BaseDBModel]): The Pydantic model class.
+        table_name (str): The name of the database table.
+        filters (list): List of applied filter conditions.
+        _limit (Optional[int]): The LIMIT clause value, if any.
+        _offset (Optional[int]): The OFFSET clause value, if any.
+        _order_by (Optional[str]): The ORDER BY clause, if any.
+        _fields (Optional[list[str]]): List of fields to select, if specified.
+    """
 
     def __init__(
         self,
@@ -45,13 +66,11 @@ class QueryBuilder:
         model_class: type[BaseDBModel],
         fields: Optional[list[str]] = None,
     ) -> None:
-        """Initialize the query builder.
-
-        Pass the database, model class, and optional fields.
+        """Initialize a new QueryBuilder instance.
 
         Args:
-            db: The SqliterDB instance.
-            model_class: The model class to query.
+            db: The database connection object.
+            model_class: The Pydantic model class for the table.
             fields: Optional list of field names to select. If None, all fields
                 are selected.
         """
@@ -68,7 +87,11 @@ class QueryBuilder:
             self._validate_fields()
 
     def _validate_fields(self) -> None:
-        """Validate that the specified fields exist in the model."""
+        """Validate that the specified fields exist in the model.
+
+        Raises:
+            ValueError: If any specified field is not in the model.
+        """
         if self._fields is None:
             return
         valid_fields = set(self.model_class.model_fields.keys())
@@ -80,7 +103,26 @@ class QueryBuilder:
             raise ValueError(err_message)
 
     def filter(self, **conditions: str | float | None) -> QueryBuilder:
-        """Add filter conditions to the query."""
+        """Apply filter conditions to the query.
+
+        This method allows adding one or more filter conditions to the query.
+        Each condition is specified as a keyword argument, where the key is
+        the field name and the value is the condition to apply.
+
+        Args:
+            **conditions: Arbitrary keyword arguments representing filter
+                conditions. The key is the field name, and the value is the
+                condition to apply. Supported operators include equality,
+                comparison, and special operators like __in, __isnull, etc.
+
+        Returns:
+            QueryBuilder: The current QueryBuilder instance for method
+            chaining.
+
+        Examples:
+            >>> query.filter(name="John", age__gt=30)
+            >>> query.filter(status__in=["active", "pending"])
+        """
         valid_fields = self.model_class.model_fields
 
         for field, value in conditions.items():
@@ -93,14 +135,34 @@ class QueryBuilder:
         return self
 
     def fields(self, fields: Optional[list[str]] = None) -> QueryBuilder:
-        """Select specific fields to return in the query."""
+        """Specify which fields to select in the query.
+
+        Args:
+            fields: List of field names to select. If None, all fields are
+                selected.
+
+        Returns:
+            The QueryBuilder instance for method chaining.
+        """
         if fields:
             self._fields = fields
             self._validate_fields()
         return self
 
     def exclude(self, fields: Optional[list[str]] = None) -> QueryBuilder:
-        """Exclude specific fields from the query output."""
+        """Specify which fields to exclude from the query results.
+
+        Args:
+            fields: List of field names to exclude. If None, no fields are
+                excluded.
+
+        Returns:
+            The QueryBuilder instance for method chaining.
+
+        Raises:
+            ValueError: If exclusion results in no fields being selected or if
+                invalid fields are specified.
+        """
         if fields:
             all_fields = set(self.model_class.model_fields.keys())
 
@@ -127,7 +189,17 @@ class QueryBuilder:
         return self
 
     def only(self, field: str) -> QueryBuilder:
-        """Return only the specified single field."""
+        """Specify a single field to select in the query.
+
+        Args:
+            field: The name of the field to select.
+
+        Returns:
+            The QueryBuilder instance for method chaining.
+
+        Raises:
+            ValueError: If the specified field is invalid.
+        """
         all_fields = set(self.model_class.model_fields.keys())
 
         # Validate that the field exists
@@ -142,6 +214,14 @@ class QueryBuilder:
     def _get_operator_handler(
         self, operator: str
     ) -> Callable[[str, Any, str], None]:
+        """Get the appropriate handler function for the given operator.
+
+        Args:
+            operator: The filter operator string.
+
+        Returns:
+            A callable that handles the specific operator type.
+        """
         handlers = {
             "__isnull": self._handle_null,
             "__notnull": self._handle_null,
@@ -164,12 +244,31 @@ class QueryBuilder:
     def _validate_field(
         self, field_name: str, valid_fields: dict[str, FieldInfo]
     ) -> None:
+        """Validate that a field exists in the model.
+
+        Args:
+            field_name: The name of the field to validate.
+            valid_fields: Dictionary of valid fields from the model.
+
+        Raises:
+            InvalidFilterError: If the field is not in the model.
+        """
         if field_name not in valid_fields:
             raise InvalidFilterError(field_name)
 
     def _handle_equality(
         self, field_name: str, value: FilterValue, operator: str
     ) -> None:
+        """Handle equality filter conditions.
+
+        Args:
+            field_name: The name of the field to filter on.
+            value: The value to compare against.
+            operator: The operator string (usually '__eq').
+
+        This method adds an equality condition to the filters list, handling
+        NULL values separately.
+        """
         if value is None:
             self.filters.append((f"{field_name} IS NULL", None, "__isnull"))
         else:
@@ -178,6 +277,16 @@ class QueryBuilder:
     def _handle_null(
         self, field_name: str, _: FilterValue, operator: str
     ) -> None:
+        """Handle IS NULL and IS NOT NULL filter conditions.
+
+        Args:
+            field_name: The name of the field to filter on. _: Placeholder for
+                unused value parameter.
+            operator: The operator string ('__isnull' or '__notnull').
+
+        This method adds an IS NULL or IS NOT NULL condition to the filters
+        list.
+        """
         condition = (
             f"{field_name} IS NOT NULL"
             if operator == "__notnull"
@@ -188,6 +297,18 @@ class QueryBuilder:
     def _handle_in(
         self, field_name: str, value: FilterValue, operator: str
     ) -> None:
+        """Handle IN and NOT IN filter conditions.
+
+        Args:
+            field_name: The name of the field to filter on.
+            value: A list of values to check against.
+            operator: The operator string ('__in' or '__not_in').
+
+        Raises:
+            TypeError: If the value is not a list.
+
+        This method adds an IN or NOT IN condition to the filters list.
+        """
         if not isinstance(value, list):
             err = f"{field_name} requires a list for '{operator}'"
             raise TypeError(err)
@@ -204,6 +325,19 @@ class QueryBuilder:
     def _handle_like(
         self, field_name: str, value: FilterValue, operator: str
     ) -> None:
+        """Handle LIKE and GLOB filter conditions.
+
+        Args:
+            field_name: The name of the field to filter on.
+            value: The pattern to match against.
+            operator: The operator string (e.g., '__startswith', '__contains').
+
+        Raises:
+            TypeError: If the value is not a string.
+
+        This method adds a LIKE or GLOB condition to the filters list, depending
+        on whether the operation is case-sensitive or not.
+        """
         if not isinstance(value, str):
             err = f"{field_name} requires a string value for '{operator}'"
             raise TypeError(err)
@@ -228,11 +362,29 @@ class QueryBuilder:
     def _handle_comparison(
         self, field_name: str, value: FilterValue, operator: str
     ) -> None:
+        """Handle comparison filter conditions.
+
+        Args:
+            field_name: The name of the field to filter on.
+            value: The value to compare against.
+            operator: The comparison operator string (e.g., '__lt', '__gte').
+
+        This method adds a comparison condition to the filters list.
+        """
         sql_operator = OPERATOR_MAPPING[operator]
         self.filters.append((f"{field_name} {sql_operator} ?", value, operator))
 
     # Helper method for parsing field and operator
     def _parse_field_operator(self, field: str) -> tuple[str, str]:
+        """Parse a field string to separate the field name and operator.
+
+        Args:
+            field: The field string, potentially including an operator.
+
+        Returns:
+            A tuple containing the field name and the operator (or '__eq' if
+            no operator was specified).
+        """
         for operator in OPERATOR_MAPPING:
             if field.endswith(operator):
                 return field[: -len(operator)], operator
@@ -240,7 +392,15 @@ class QueryBuilder:
 
     # Helper method for formatting string operators (like startswith)
     def _format_string_for_operator(self, operator: str, value: str) -> str:
-        # Mapping operators to their corresponding string format
+        """Format a string value based on the specified operator.
+
+        Args:
+            operator: The operator string (e.g., '__startswith', '__contains').
+            value: The original string value.
+
+        Returns:
+            The formatted string value suitable for the given operator.
+        """
         format_map = {
             "__startswith": f"{value}*",
             "__endswith": f"*{value}",
@@ -254,12 +414,29 @@ class QueryBuilder:
         return format_map.get(operator, value)
 
     def limit(self, limit_value: int) -> Self:
-        """Limit the number of results returned by the query."""
+        """Limit the number of results returned by the query.
+
+        Args:
+        limit_value: The maximum number of records to return.
+
+        Returns:
+            The QueryBuilder instance for method chaining.
+        """
         self._limit = limit_value
         return self
 
     def offset(self, offset_value: int) -> Self:
-        """Set an offset value for the query."""
+        """Set an offset value for the query.
+
+        Args:
+            offset_value: The number of records to skip.
+
+        Returns:
+            The QueryBuilder instance for method chaining.
+
+        Raises:
+            InvalidOffsetError: If the offset value is negative.
+        """
         if offset_value < 0:
             raise InvalidOffsetError(offset_value)
         self._offset = offset_value
@@ -278,19 +455,19 @@ class QueryBuilder:
         """Order the query results by the specified field.
 
         Args:
-            order_by_field (str): The field to order by.
-            direction (Optional[str]): The ordering direction ('ASC' or 'DESC').
-                This is deprecated in favor of 'reverse'.
-            reverse (bool): Whether to reverse the order (True for descending,
-                False for ascending).
-
-        Raises:
-            InvalidOrderError: If the field doesn't exist in the model fields
-                or if both 'direction' and 'reverse' are specified.
+            order_by_field: The field to order by.
+            direction: Deprecated. Use 'reverse' instead.
+            reverse: If True, sort in descending order.
 
         Returns:
-            QueryBuilder: The current query builder instance with updated
-                ordering.
+            The QueryBuilder instance for method chaining.
+
+        Raises:
+            InvalidOrderError: If the field doesn't exist or if both 'direction'
+                and 'reverse' are specified.
+
+        Warns:
+            DeprecationWarning: If 'direction' is used instead of 'reverse'.
         """
         if direction:
             warnings.warn(
@@ -331,7 +508,19 @@ class QueryBuilder:
         fetch_one: bool = False,
         count_only: bool = False,
     ) -> list[tuple[Any, ...]] | Optional[tuple[Any, ...]]:
-        """Helper function to execute the query with filters."""
+        """Execute the constructed SQL query.
+
+        Args:
+            fetch_one: If True, fetch only one result.
+            count_only: If True, return only the count of results.
+
+        Returns:
+            A list of tuples (all results), a single tuple (one result),
+            or None if no results are found.
+
+        Raises:
+            RecordFetchError: If there's an error executing the query.
+        """
         if count_only:
             fields = "COUNT(*)"
         elif self._fields:
@@ -374,7 +563,13 @@ class QueryBuilder:
             raise RecordFetchError(self.table_name) from exc
 
     def _parse_filter(self) -> tuple[list[Any], LiteralString]:
-        """Actually parse the filters."""
+        """Parse the filter conditions into SQL clauses and values.
+
+        Returns:
+            A tuple containing:
+            - A list of values to be used in the SQL query.
+            - A string representing the WHERE clause of the SQL query.
+        """
         where_clauses = []
         values = []
         for field, value, operator in self.filters:
@@ -393,7 +588,14 @@ class QueryBuilder:
         return values, where_clause
 
     def _convert_row_to_model(self, row: tuple[Any, ...]) -> BaseDBModel:
-        """Convert a result row tuple into a Pydantic model."""
+        """Convert a database row to a model instance.
+
+        Args:
+            row: A tuple representing a database row.
+
+        Returns:
+            An instance of the model class populated with the row data.
+        """
         if self._fields:
             return self.model_class.model_validate_partial(
                 {field: row[idx] for idx, field in enumerate(self._fields)}
@@ -418,7 +620,15 @@ class QueryBuilder:
     def _fetch_result(
         self, *, fetch_one: bool = False
     ) -> Union[list[BaseDBModel], Optional[BaseDBModel]]:
-        """Fetch one or all results and convert them to Pydantic models."""
+        """Fetch and convert query results to model instances.
+
+        Args:
+            fetch_one: If True, fetch only one result.
+
+        Returns:
+            A list of model instances, a single model instance, or None if no
+            results are found.
+        """
         result = self._execute_query(fetch_one=fetch_one)
 
         if not result:
@@ -437,30 +647,54 @@ class QueryBuilder:
         return [self._convert_row_to_model(row) for row in result]
 
     def fetch_all(self) -> list[BaseDBModel]:
-        """Fetch all results matching the filters."""
+        """Fetch all results of the query.
+
+        Returns:
+            A list of model instances representing all query results.
+        """
         return self._fetch_result(fetch_one=False)
 
     def fetch_one(self) -> Optional[BaseDBModel]:
-        """Fetch exactly one result."""
+        """Fetch a single result of the query.
+
+        Returns:
+            A single model instance or None if no result is found.
+        """
         return self._fetch_result(fetch_one=True)
 
     def fetch_first(self) -> Optional[BaseDBModel]:
-        """Fetch the first result of the query."""
+        """Fetch the first result of the query.
+
+        Returns:
+            The first model instance or None if no result is found.
+        """
         self._limit = 1
         return self._fetch_result(fetch_one=True)
 
     def fetch_last(self) -> Optional[BaseDBModel]:
-        """Fetch the last result of the query (based on the insertion order)."""
+        """Fetch the last result of the query.
+
+        Returns:
+            The last model instance or None if no result is found.
+        """
         self._limit = 1
         self._order_by = "rowid DESC"
         return self._fetch_result(fetch_one=True)
 
     def count(self) -> int:
-        """Return the count of records matching the filters."""
+        """Count the number of results for the current query.
+
+        Returns:
+            The number of results that match the current query conditions.
+        """
         result = self._execute_query(count_only=True)
 
         return int(result[0][0]) if result else 0
 
     def exists(self) -> bool:
-        """Return True if any record matches the filters."""
+        """Check if any results exist for the current query.
+
+        Returns:
+            True if at least one result exists, False otherwise.
+        """
         return self.count() > 0
