@@ -1,7 +1,5 @@
 """Test suite for the 'sqliter' library."""
 
-import sqlite3
-
 import pytest
 
 from sqliter import SqliterDB
