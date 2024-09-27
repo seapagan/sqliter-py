@@ -7,7 +7,6 @@ import pytest
 from sqliter.exceptions import (
     InvalidFilterError,
     InvalidOffsetError,
-    InvalidOrderError,
     RecordFetchError,
 )
 from sqliter.model import BaseDBModel
