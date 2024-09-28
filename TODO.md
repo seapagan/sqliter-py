@@ -18,6 +18,12 @@
   need to be `pickled` first then stored as a BLOB in the database . Also
   support `date` which can be stored as a Unix timestamp in an integer field.
 
+## Bugs
+
+- The primary key is not available on the returned model if `create_pk` is set
+  to True. We need to add this to the returned model. This means that we cant
+  delete or update the record without the primary key.
+
 ## Housekeeping
 
 - Tidy up the test suite - remove any duplicates, sort them into logical files
@@ -25,7 +31,8 @@
 
 ## Documentation
 
-- Nothing to add here yet.
+- Ad examples using the Primary Key to update() and delete() - this will need
+  the above bug fixed first.
 
 ## Potential Filter Additions
 
