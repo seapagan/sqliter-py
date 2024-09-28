@@ -37,4 +37,4 @@ db.update(user)
 db.delete(User, "John Doe")
 ```
 
-Follow on the next pages for more detailed information on how to use `SQLiter`.
+See the [Guide](guide/guide.md) for more detailed information on how to use `SQLiter`.

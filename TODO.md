@@ -14,15 +14,18 @@
   data.
 - add more tests where 'auto_commit' is set to False to ensure that commit is
   not called automatically.
-- support structures like, `list`, `dict`, `set` etc. in the model. This will
-  need to be stored as a JSON string or pickled in the database (the latter
-  would be more versatile). Also support `date` which can be either stored as a
-  string or more useful as a Unix timestamp in an integer field.
+- support structures like, `list`, `dict`, `set` etc. in the model. These will
+  need to be `pickled` first then stored as a BLOB in the database . Also
+  support `date` which can be stored as a Unix timestamp in an integer field.
 
 ## Housekeeping
 
 - Tidy up the test suite - remove any duplicates, sort them into logical files
   (many already are), try to reduce and centralize fixtures.
+
+## Documentation
+
+- Nothing to add here yet.
 
 ## Potential Filter Additions
 
