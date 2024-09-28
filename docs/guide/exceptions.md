@@ -21,7 +21,7 @@ class, `SqliterError`, to ensure consistency across error messages and behavior.
 - **`InvalidOrderError`**:
   - Raised when an invalid order value is used in queries, such as a
     non-existent field or an incorrect sorting direction.
-  - **Message**: "Invalid order value - {}"
+  - **Message**: "Invalid order value - '{}'"
 
 - **`TableCreationError`**:
   - Raised when a table cannot be created in the database.
@@ -50,3 +50,11 @@ class, `SqliterError`, to ensure consistency across error messages and behavior.
 - **`InvalidFilterError`**:
   - Raised when an invalid filter field is used in a query.
   - **Message**: "Failed to apply filter: invalid field '{}'".
+
+- **`TableDeletionError`**:
+  - Raised when a table cannot be deleted from the database.
+  - **Message**: "Failed to delete the table: '{}'."
+
+- **SqlExecutionError**
+  - Raised when an error occurs during SQL query execution.
+  - **Message**: "Failed to execute SQL: '{}'."

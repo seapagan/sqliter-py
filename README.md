@@ -28,10 +28,9 @@ Website](https://sqliter.grantramsay.dev)
 >
 > Also, structures like `list`, `dict`, `set` etc are not supported **at this
 > time** as field types, since SQLite does not have a native column type for
-> these. I will look at implementing these in the future, probably by
-> serializing them to JSON or pickling them and storing in a text field. For
-> now, you can actually do this manually when creating your Model (use `TEXT` or
-> `BLOB` fields), then serialize before saving after and retrieving data.
+> these. This is the **next planned enhancement**. These will need to be
+> `pickled` first then stored as a BLOB in the database . Also support `date`
+> which can be stored as a Unix timestamp in an integer field.
 >
 > See the [TODO](TODO.md) for planned features and improvements.
 
@@ -50,6 +49,7 @@ Website](https://sqliter.grantramsay.dev)
 - Transaction support
 - Custom exceptions for better error handling
 - Full type hinting and type checking
+- Detailed documentation and examples
 - No external dependencies other than Pydantic
 - Full test coverage
 - Can optionally output the raw SQL queries being executed for debugging
@@ -114,7 +114,7 @@ db.create_table(User)
 
 # Insert a record
 user = User(name="John Doe", age=30)
-db.insert(user)
+new_record = db.insert(user)
 
 # Query records
 results = db.select(User).filter(name="John Doe").fetch_all()
@@ -123,10 +123,10 @@ for user in results:
 
 # Update a record
 user.age = 31
-db.update(user)
+db.update(User, new_record)
 
 # Delete a record
-db.delete(User, "John Doe")
+db.delete(User, new_record.pk)
 ```
 
 See the [Usage](https://sqliter.grantramsay.dev/usage) section of the documentation

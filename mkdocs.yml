@@ -9,6 +9,9 @@ theme:
   features:
     - navigation.footer
     - navigation.expand
+    - navigation.tabs
+    - navigation.sections
+    - navigation.indexes
 
 extra:
   social:
@@ -60,12 +63,26 @@ extra_css:
   - css/extra.css
 
 nav:
-  - Introduction: index.md
-  - Installation: installation.md
-  - Quick Start: quickstart.md
-  - Usage: usage.md
-  - Exceptions: exceptions.md
-  - Future Plans: todo.md
-  - Contributing: contributing.md
-  - Changelog: changelog.md
+  - Home:
+      - Introduction: index.md
+      - Installation: installation.md
+      - Quick Start: quickstart.md
+  - Guide:
+      - Overview: guide/guide.md
+      - Models: guide/models.md
+      - Connect to a Database: guide/connecting.md
+      - Table Operations: guide/tables.md
+      - Data Operations: guide/data-ops.md
+      - Transactions: guide/transactions.md
+      - Filtering Results: guide/filtering.md
+      - Ordering: guide/ordering.md
+      - Field Control: guide/fields.md
+      - Exceptions: guide/exceptions.md
+      - Debug Logging: guide/debug.md
+  - Changelog:
+      - changelog/index.md
+  - Contributing:
+      - contributing/index.md
+  - TODO List:
+      - todo/index.md
   - License: license.md

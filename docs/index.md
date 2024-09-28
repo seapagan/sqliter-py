@@ -26,12 +26,11 @@ database-like format without needing to learn SQL or use a full ORM.
 >
 > Also, structures like `list`, `dict`, `set` etc are not supported **at this
 > time** as field types, since SQLite does not have a native column type for
-> these. I will look at implementing these in the future, probably by
-> serializing them to JSON or pickling them and storing in a text field. For
-> now, you can actually do this manually when creating your Model (use `TEXT` or
-> `BLOB` fields), then serialize before saving after and retrieving data.
+> these. This is the **next planned enhancement**. These will need to be
+> `pickled` first then stored as a BLOB in the database . Also support `date`
+> which can be stored as a Unix timestamp in an integer field.
 >
-> See the [TODO](todo.md) for planned features and improvements.
+> See the [TODO](todo/index.md) for planned features and improvements.
 
 ## Features
 
@@ -41,7 +40,12 @@ database-like format without needing to learn SQL or use a full ORM.
 - Transaction support
 - Custom exceptions for better error handling
 - Full type hinting and type checking
+- Detailed documentation and examples
 - No external dependencies other than Pydantic
 - Full test coverage
 - Can optionally output the raw SQL queries being executed for debugging
   purposes.
+
+## License
+
+This project is licensed under the terms of the [MIT license](license.md).
