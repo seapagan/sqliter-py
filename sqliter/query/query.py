@@ -146,6 +146,15 @@ class QueryBuilder:
         """
         if fields:
             self._fields = fields
+            # Ensure the primary key is included and placed first if create_pk
+            # is True
+            if self.model_class.should_create_pk():
+                primary_key = self.model_class.get_primary_key()
+                if primary_key in self._fields:
+                    self._fields.remove(
+                        primary_key
+                    )  # Remove if it's already there
+                self._fields.insert(0, primary_key)  # Add it at the beginning
             self._validate_fields()
         return self
 

@@ -29,8 +29,8 @@ class UserModel(BaseDBModel):
     class Meta:
         """Override the default options for the UserModel."""
 
-        create_pk: bool = False  # Disable auto-increment ID
-        primary_key: str = "slug"  # Use 'slug' as the primary key
+        create_pk: bool = True  # Disable auto-increment ID
+        # primary_key: str = "slug"  # Use 'slug' as the PK  # noqa: ERA001
         table_name: str = "users"  # Explicitly define the table name
 
 
@@ -41,7 +41,7 @@ def main() -> None:
         level=logging.DEBUG, format="%(levelname)-8s%(message)s"
     )
 
-    db = SqliterDB(memory=True, auto_commit=True, debug=True)
+    db = SqliterDB("poop.db", memory=False, auto_commit=True, debug=True)
     with db:
         db.create_table(UserModel)  # Create the users table
         user1 = UserModel(

@@ -492,6 +492,14 @@ class SqliterDB:
         Returns:
             A QueryBuilder instance for further query construction.
         """
+        # Ensure the primary key is included and placed first
+        if model_class.should_create_pk():
+            primary_key = model_class.get_primary_key()
+            if fields:
+                if primary_key in fields:
+                    fields.remove(primary_key)
+                fields.insert(0, primary_key)
+
         query_builder = QueryBuilder(self, model_class, fields)
 
         # If exclude is provided, apply the exclude method
