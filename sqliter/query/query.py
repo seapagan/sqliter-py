@@ -184,7 +184,7 @@ class QueryBuilder:
             self._fields = list(all_fields - set(fields))
 
             # Explicit check: raise an error if no fields remain
-            if not self._fields:
+            if self._fields == ["pk"]:
                 err = "Exclusion results in no fields being selected."
                 raise ValueError(err)
 

@@ -565,8 +565,8 @@ class TestQuery:
 
         # Create some mock tuples (mimicking database rows)
         mock_result = [
-            ("john", "John", "content"),
-            ("jane", "Jane", "content"),
+            ("1", "john", "John", "content"),
+            ("2", "jane", "Jane", "content"),
         ]
 
         # Mock the _execute_query method on the QueryBuilder instance
@@ -581,5 +581,5 @@ class TestQuery:
         assert not isinstance(result, list)
         assert isinstance(result, ExampleModel)
         assert result == ExampleModel(
-            slug="john", name="John", content="content"
+            pk=1, slug="john", name="John", content="content"
         )

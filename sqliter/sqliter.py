@@ -397,8 +397,8 @@ class SqliterDB:
             model_instance: An instance of a Pydantic model to be updated.
 
         Raises:
-            RecordUpdateError: If there's an error updating the record.
-            RecordNotFoundError: If the record to update is not found.
+            RecordUpdateError: If there's an error updating the record or if it
+            is not found.
         """
         model_class = type(model_instance)
         table_name = model_class.get_table_name()

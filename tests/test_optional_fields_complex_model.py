@@ -8,11 +8,11 @@ from tests.conftest import ComplexModel
 
 @pytest.fixture
 def db_mock_complex(db_mock: SqliterDB) -> SqliterDB:
-    """Ficture for a mock database with a complex model."""
+    """Fixture for a mock database with a complex model."""
     db_mock.create_table(ComplexModel)
     db_mock.insert(
         ComplexModel(
-            id=1,
+            pk=1,
             name="Alice",
             age=30.5,
             is_active=True,
@@ -22,7 +22,7 @@ def db_mock_complex(db_mock: SqliterDB) -> SqliterDB:
     )
     db_mock.insert(
         ComplexModel(
-            id=2,
+            pk=2,
             name="Bob",
             age=25.0,
             is_active=False,
@@ -41,7 +41,7 @@ class TestComplexModelPartialSelection:
         results = db_mock_complex.select(ComplexModel).fetch_all()
         assert len(results) == 2
         for result in results:
-            assert isinstance(result.id, int)
+            assert isinstance(result.pk, int)
             assert isinstance(result.name, str)
             assert isinstance(result.age, float)
             assert isinstance(result.is_active, bool)
@@ -53,13 +53,13 @@ class TestComplexModelPartialSelection:
 
     def test_select_subset_of_fields(self, db_mock_complex: SqliterDB) -> None:
         """Select a subset of fields and ensure their types are correct."""
-        fields = ["id", "name", "age", "is_active", "score"]
+        fields = ["pk", "name", "age", "is_active", "score"]
         results = db_mock_complex.select(
             ComplexModel, fields=fields
         ).fetch_all()
         assert len(results) == 2
         for result in results:
-            assert isinstance(result.id, int)
+            assert isinstance(result.pk, int)
             assert isinstance(result.name, str)
             assert isinstance(result.age, float)
             assert isinstance(result.is_active, bool)
@@ -71,13 +71,13 @@ class TestComplexModelPartialSelection:
         self, db_mock_complex: SqliterDB
     ) -> None:
         """Select a subset of fields and ensure their types are correct."""
-        fields = ["id", "age", "is_active", "score"]
+        fields = ["pk", "age", "is_active", "score"]
         results = db_mock_complex.select(
             ComplexModel, fields=fields
         ).fetch_all()
         assert len(results) == 2
         for result in results:
-            assert isinstance(result.id, int)
+            assert isinstance(result.pk, int)
             assert isinstance(result.age, float)
             assert isinstance(result.is_active, bool)
             assert isinstance(result.score, (int, float))
@@ -107,7 +107,7 @@ class TestComplexModelPartialSelection:
 
     def test_select_with_filtering(self, db_mock_complex: SqliterDB) -> None:
         """Select fields with a filter."""
-        fields = ["id", "name", "age"]
+        fields = ["pk", "name", "age"]
         results = (
             db_mock_complex.select(ComplexModel, fields=fields)
             .filter(age__gt=28)
@@ -119,7 +119,7 @@ class TestComplexModelPartialSelection:
 
     def test_select_with_ordering(self, db_mock_complex: SqliterDB) -> None:
         """Select fields with ordering."""
-        fields = ["id", "name", "age"]
+        fields = ["pk", "name", "age"]
         results = (
             db_mock_complex.select(ComplexModel, fields=fields)
             .order("age", direction="DESC")
