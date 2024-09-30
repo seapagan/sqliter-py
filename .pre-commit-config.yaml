@@ -30,6 +30,8 @@ repos:
     hooks:
       - id: mypy
         name: "run mypy"
+        additional_dependencies:
+          - pydantic
 
   - repo: https://github.com/astral-sh/uv-pre-commit
     # uv version.
