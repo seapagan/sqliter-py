@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, TypeVar
 
 from typing_extensions import Self
 
@@ -32,6 +32,8 @@ if TYPE_CHECKING:  # pragma: no cover
     from types import TracebackType
 
     from sqliter.model.model import BaseDBModel
+
+T = TypeVar("T", bound="BaseDBModel")
 
 
 class SqliterDB:
@@ -309,14 +311,14 @@ class SqliterDB:
         if self.auto_commit and self.conn:
             self.conn.commit()
 
-    def insert(self, model_instance: BaseDBModel) -> int | None:
+    def insert(self, model_instance: T) -> T:
         """Insert a new record into the database.
 
         Args:
             model_instance: The instance of the model class to insert.
 
         Returns:
-            The primary key (pk) of the newly inserted record.
+            The updated model instance with the primary key (pk) set.
 
         Raises:
             RecordInsertionError: If an error occurs during the insertion.
@@ -324,8 +326,12 @@ class SqliterDB:
         model_class = type(model_instance)
         table_name = model_class.get_table_name()
 
-        # Get the data from the model, excluding the 'pk' field
+        # Get the data from the model
         data = model_instance.model_dump()
+        # remove the primary key field if it exists, otherwise we'll get
+        # TypeErrors as multiple primary keys will exist
+        data.pop("pk")
+
         fields = ", ".join(data.keys())
         placeholders = ", ".join(
             ["?" if value is not None else "NULL" for value in data.values()]
@@ -346,8 +352,7 @@ class SqliterDB:
         except sqlite3.Error as exc:
             raise RecordInsertionError(table_name) from exc
         else:
-            # Return the primary key (pk) of the inserted row
-            return cursor.lastrowid
+            return model_class(pk=cursor.lastrowid, **data)
 
     def get(
         self, model_class: type[BaseDBModel], primary_key_value: int

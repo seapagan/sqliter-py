@@ -28,9 +28,7 @@ class BaseDBModel(BaseModel):
     representing database models.
     """
 
-    pk: Optional[int] = Field(
-        None, description="The mandatory primary key of the table."
-    )
+    pk: int = Field(0, description="The mandatory primary key of the table.")
 
     model_config = ConfigDict(
         extra="ignore",

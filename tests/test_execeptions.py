@@ -99,7 +99,7 @@ class TestExceptions:
             db_mock.update(example_model)
 
         # Verify that the exception message contains the table name
-        assert "Failed to find that record in the table (key 'None')" in str(
+        assert "Failed to find that record in the table (key '0')" in str(
             exc_info.value
         )
 

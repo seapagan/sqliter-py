@@ -64,7 +64,7 @@ def main() -> None:
         )
         try:
             db.insert(user1)
-            user2_id = db.insert(user2)
+            user2_instance = db.insert(user2)
             db.insert(user3)
         except RecordInsertionError as exc:
             logging.error(exc)  # noqa: TRY400
@@ -81,11 +81,11 @@ def main() -> None:
         )
         logging.info(all_reversed)
 
-        if user2_id is None:
+        if user2_instance is None:
             logging.error("User2 ID not found.")
         else:
-            fetched_user = db.get(UserModel, user2_id)
-            logging.info(fetched_user)
+            fetched_user = db.get(UserModel, user2_instance.pk)
+            logging.info("Fetched (%s)", fetched_user)
 
         count = db.select(UserModel).count()
         logging.info("Total Users: %s", count)
