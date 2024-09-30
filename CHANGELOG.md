@@ -6,7 +6,13 @@ project since the first release, with the latest changes at the top.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [Unreleased](https://github.com/seapagan/sqliter-py/tree/HEAD)
+## [0.5.0](https://github.com/seapagan/sqliter-py/releases/tag/0.5.0) (September 30, 2024)
+
+**Breaking Change!**
+
+This release removes the `create_pk` and `primary_key` attributes from the Model
+`Meta` Class. Now, an auto-incrementing primary key is created by default and
+the name of the primary key is always `pk`.
 
 **Closed Issues**
 
@@ -24,7 +30,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - Refactor web docs layout and improve content ([#36](https://github.com/seapagan/sqliter-py/pull/36)) by [seapagan](https://github.com/seapagan)
 
-[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.4.0...HEAD) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.4.0...HEAD.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.4.0...HEAD.patch)
+[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.4.0...0.5.0) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.4.0...0.5.0.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.4.0...0.5.0.patch)
 
 ## [0.4.0](https://github.com/seapagan/sqliter-py/releases/tag/0.4.0) (September 27, 2024)
 
