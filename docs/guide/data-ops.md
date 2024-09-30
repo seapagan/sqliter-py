@@ -56,12 +56,12 @@ See [Filtering Results](filtering.md) for more advanced filtering options.
 ## Updating Records
 
 You can update records in the database by modifying the fields of the model
-instance and then calling the `update()` method. You need to pass the model
-class and the instance to the method:
+instance and then calling the `update()` method. You just pass the model
+instance to the method:
 
 ```python
 user.age = 26
-db.update(User, user)
+db.update(user)
 ```
 
 ## Deleting Records
