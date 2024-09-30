@@ -334,3 +334,92 @@ class TestAdvancedFilters:
             str(exc_info.value)
             == "name requires a string value for '__contains'"
         )
+
+    def test_multiple_chained_filters(self, db_mock_adv) -> None:
+        """Test multiple chained filters."""
+        # Insert an additional record
+        db_mock_adv.insert(PersonModel(name="Alex", age=28))
+
+        results = (
+            db_mock_adv.select(PersonModel)
+            .filter(age__gt=25)
+            .filter(name__startswith="A")
+            .fetch_all()
+        )
+
+        assert len(results) == 1
+        assert results[0].name == "Alex"
+        assert results[0].age == 28
+
+    def test_all_records_with_multiple_inclusive_filters(
+        self, db_mock_adv
+    ) -> None:
+        """Test using multiple filters in same filter() call."""
+        results = (
+            db_mock_adv.select(PersonModel)
+            .filter(age__gte=25, name__isnull=False)
+            .fetch_all()
+        )
+
+        assert len(results) == 3  # Original assertion
+        assert {result.name for result in results} == {
+            "Alice",
+            "Bob",
+            "Charlie",
+        }
+
+    def test_name_isnull_and_notnull_filters(self, db_mock_adv) -> None:
+        """Test various filters with __isnull and __notnull."""
+        # Test __isnull=False
+        results = (
+            db_mock_adv.select(PersonModel)
+            .filter(name__isnull=False)
+            .fetch_all()
+        )
+        assert len(results) == 3
+        assert all(result.name is not None for result in results)
+
+        # Test __isnull=True (should return no results as all names are set)
+        results = (
+            db_mock_adv.select(PersonModel)
+            .filter(name__isnull=True)
+            .fetch_all()
+        )
+        assert len(results) == 0
+
+        # Test __notnull=True
+        results = (
+            db_mock_adv.select(PersonModel)
+            .filter(name__notnull=True)
+            .fetch_all()
+        )
+        assert len(results) == 3
+        assert all(result.name is not None for result in results)
+
+        # Test __notnull=False (should return no results as all names are set)
+        results = (
+            db_mock_adv.select(PersonModel)
+            .filter(name__notnull=False)
+            .fetch_all()
+        )
+        assert len(results) == 0
+
+        # Add a record with null name to test opposite cases
+        db_mock_adv.insert(PersonModel(name=None, age=40))
+
+        # Now test __isnull=True and __notnull=False with the new record
+        results = (
+            db_mock_adv.select(PersonModel)
+            .filter(name__isnull=True)
+            .fetch_all()
+        )
+        assert len(results) == 1
+        assert results[0].name is None
+
+        results = (
+            db_mock_adv.select(PersonModel)
+            .filter(name__notnull=False)
+            .fetch_all()
+        )
+        assert len(results) == 1
+        assert results[0].name is None
