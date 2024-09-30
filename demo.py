@@ -81,8 +81,11 @@ def main() -> None:
         )
         logging.info(all_reversed)
 
-        fetched_user = db.get(UserModel, user2_id)
-        logging.info(fetched_user)
+        if user2_id is None:
+            logging.error("User2 ID not found.")
+        else:
+            fetched_user = db.get(UserModel, user2_id)
+            logging.info(fetched_user)
 
         count = db.select(UserModel).count()
         logging.info("Total Users: %s", count)
