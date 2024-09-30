@@ -129,8 +129,11 @@ class QueryBuilder:
             field_name, operator = self._parse_field_operator(field)
             self._validate_field(field_name, valid_fields)
 
-            handler = self._get_operator_handler(operator)
-            handler(field_name, value, operator)
+            if operator in ["__isnull", "__notnull"]:
+                self._handle_null(field_name, value, operator)
+            else:
+                handler = self._get_operator_handler(operator)
+                handler(field_name, value, operator)
 
         return self
 
@@ -280,7 +283,7 @@ class QueryBuilder:
             self.filters.append((field_name, value, operator))
 
     def _handle_null(
-        self, field_name: str, _: FilterValue, operator: str
+        self, field_name: str, value: Union[str, float, None], operator: str
     ) -> None:
         """Handle IS NULL and IS NOT NULL filter conditions.
 
@@ -288,15 +291,14 @@ class QueryBuilder:
             field_name: The name of the field to filter on. _: Placeholder for
                 unused value parameter.
             operator: The operator string ('__isnull' or '__notnull').
+            value: The value to check for.
 
         This method adds an IS NULL or IS NOT NULL condition to the filters
         list.
         """
-        condition = (
-            f"{field_name} IS NOT NULL"
-            if operator == "__notnull"
-            else f"{field_name} IS NULL"
-        )
+        is_null = operator == "__isnull"
+        check_null = bool(value) if is_null else not bool(value)
+        condition = f"{field_name} IS {'NOT ' if not check_null else ''}NULL"
         self.filters.append((condition, None, operator))
 
     def _handle_in(
