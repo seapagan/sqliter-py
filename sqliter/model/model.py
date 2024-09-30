@@ -10,9 +10,9 @@ in SQLiter applications.
 from __future__ import annotations
 
 import re
-from typing import Any, Optional, TypeVar, Union, get_args, get_origin
+from typing import Any, Optional, TypeVar, Union, cast, get_args, get_origin
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 T = TypeVar("T", bound="BaseDBModel")
 
@@ -27,6 +27,8 @@ class BaseDBModel(BaseModel):
     This should not be used directly, but should be inherited by subclasses
     representing database models.
     """
+
+    pk: int = Field(0, description="The mandatory primary key of the table.")
 
     model_config = ConfigDict(
         extra="ignore",
@@ -44,10 +46,6 @@ class BaseDBModel(BaseModel):
             table_name (Optional[str]): The name of the database table.
         """
 
-        create_pk: bool = (
-            True  # Whether to create an auto-increment primary key
-        )
-        primary_key: str = "id"  # Default primary key name
         table_name: Optional[str] = (
             None  # Table name, defaults to class name if not set
         )
@@ -89,7 +87,7 @@ class BaseDBModel(BaseModel):
                 else:
                     converted_obj[field_name] = field_type(value)
 
-        return cls.model_construct(**converted_obj)
+        return cast(T, cls.model_construct(**converted_obj))
 
     @classmethod
     def get_table_name(cls) -> str:
@@ -127,18 +125,10 @@ class BaseDBModel(BaseModel):
 
     @classmethod
     def get_primary_key(cls) -> str:
-        """Get the primary key field name for the model.
-
-        Returns:
-            The name of the primary key field.
-        """
-        return getattr(cls.Meta, "primary_key", "id")
+        """Returns the mandatory primary key, always 'pk'."""
+        return "pk"
 
     @classmethod
     def should_create_pk(cls) -> bool:
-        """Determine if a primary key should be automatically created.
-
-        Returns:
-            True if a primary key should be created, False otherwise.
-        """
-        return getattr(cls.Meta, "create_pk", True)
+        """Returns True since the primary key is always created."""
+        return True

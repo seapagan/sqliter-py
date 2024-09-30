@@ -39,7 +39,7 @@ class TestDebugLogging:
 
         # Assert the SQL query was printed
         assert (
-            'Executing SQL: SELECT "id", "name", "age", "is_active", "score", '
+            'Executing SQL: SELECT "pk", "name", "age", "is_active", "score", '
             '"nullable_field" FROM "complex_model" WHERE age = 30.5'
             in caplog.text
         )
@@ -55,7 +55,7 @@ class TestDebugLogging:
 
         # Assert the SQL query was printed with the string properly quoted
         assert (
-            'Executing SQL: SELECT "id", "name", "age", "is_active", "score", '
+            'Executing SQL: SELECT "pk", "name", "age", "is_active", "score", '
             '"nullable_field" FROM "complex_model" WHERE name = \'Alice\''
             in caplog.text
         )
@@ -71,7 +71,7 @@ class TestDebugLogging:
 
         # Assert the SQL query was printed with multiple conditions
         assert (
-            'Executing SQL: SELECT "id", "name", "age", "is_active", "score", '
+            'Executing SQL: SELECT "pk", "name", "age", "is_active", "score", '
             '"nullable_field" FROM "complex_model" WHERE name = \'Alice\' AND '
             "age = 30.5" in caplog.text
         )
@@ -87,7 +87,7 @@ class TestDebugLogging:
 
         # Assert the SQL query was printed with ORDER and LIMIT
         assert (
-            'Executing SQL: SELECT "id", "name", "age", "is_active", "score", '
+            'Executing SQL: SELECT "pk", "name", "age", "is_active", "score", '
             '"nullable_field" FROM "complex_model" ORDER BY "age" DESC LIMIT 1'
             in caplog.text
         )
@@ -99,7 +99,7 @@ class TestDebugLogging:
         with caplog.at_level(logging.DEBUG):
             db_mock_complex_debug.insert(
                 ComplexModel(
-                    id=4,
+                    pk=4,
                     name="David",
                     age=40.0,
                     is_active=True,
@@ -114,7 +114,7 @@ class TestDebugLogging:
 
         # Assert the SQL query was printed with IS NULL
         assert (
-            'Executing SQL: SELECT "id", "name", "age", "is_active", "score", '
+            'Executing SQL: SELECT "pk", "name", "age", "is_active", "score", '
             '"nullable_field" FROM "complex_model" WHERE age IS NULL'
             in caplog.text
         )
@@ -130,7 +130,8 @@ class TestDebugLogging:
 
         # Assert the SQL query only selects the 'name' field
         assert (
-            'Executing SQL: SELECT "name" FROM "complex_model"' in caplog.text
+            'Executing SQL: SELECT "name", "pk" FROM "complex_model"'
+            in caplog.text
         )
 
     def test_debug_sql_output_with_fields_multiple(
@@ -144,7 +145,7 @@ class TestDebugLogging:
 
         # Assert the SQL query only selects the 'name' and 'age' fields
         assert (
-            'Executing SQL: SELECT "name", "age" FROM "complex_model"'
+            'Executing SQL: SELECT "name", "age", "pk" FROM "complex_model"'
             in caplog.text
         )
 
@@ -159,7 +160,7 @@ class TestDebugLogging:
 
         # Assert the SQL query selects 'name' and 'score' and applies the filter
         assert (
-            'Executing SQL: SELECT "name", "score" FROM "complex_model" '
+            'Executing SQL: SELECT "name", "score", "pk" FROM "complex_model" '
             "WHERE score > 85" in caplog.text
         )
 
@@ -198,7 +199,7 @@ class TestDebugLogging:
 
         # Assert that log output was captured with the manually passed logger
         assert (
-            'Executing SQL: SELECT "id", "name", "age", "is_active", "score", '
+            'Executing SQL: SELECT "pk", "name", "age", "is_active", "score", '
             in caplog.text
         )
 
@@ -227,7 +228,7 @@ class TestDebugLogging:
 
         # Assert that the SQL query was logged despite no matching records
         assert (
-            'Executing SQL: SELECT "id", "name", "age", "is_active", "score", '
+            'Executing SQL: SELECT "pk", "name", "age", "is_active", "score", '
             '"nullable_field" FROM "complex_model" WHERE age = 100'
             in caplog.text
         )
@@ -241,7 +242,7 @@ class TestDebugLogging:
 
         # Assert that the SQL query was logged for a full table scan
         assert (
-            'Executing SQL: SELECT "id", "name", "age", "is_active", "score", '
+            'Executing SQL: SELECT "pk", "name", "age", "is_active", "score", '
             '"nullable_field" FROM "complex_model"' in caplog.text
         )
 

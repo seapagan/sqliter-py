@@ -145,6 +145,8 @@ class QueryBuilder:
             The QueryBuilder instance for method chaining.
         """
         if fields:
+            if "pk" not in fields:
+                fields.append("pk")
             self._fields = fields
             self._validate_fields()
         return self
@@ -164,6 +166,9 @@ class QueryBuilder:
                 invalid fields are specified.
         """
         if fields:
+            if "pk" in fields:
+                err = "The primary key 'pk' cannot be excluded."
+                raise ValueError(err)
             all_fields = set(self.model_class.model_fields.keys())
 
             # Check for invalid fields before subtraction
@@ -179,7 +184,7 @@ class QueryBuilder:
             self._fields = list(all_fields - set(fields))
 
             # Explicit check: raise an error if no fields remain
-            if not self._fields:
+            if self._fields == ["pk"]:
                 err = "Exclusion results in no fields being selected."
                 raise ValueError(err)
 
@@ -208,7 +213,7 @@ class QueryBuilder:
             raise ValueError(err)
 
         # Set self._fields to just the single field
-        self._fields = [field]
+        self._fields = [field, "pk"]
         return self
 
     def _get_operator_handler(
@@ -527,6 +532,8 @@ class QueryBuilder:
         if count_only:
             fields = "COUNT(*)"
         elif self._fields:
+            if "pk" not in self._fields:
+                self._fields.append("pk")
             fields = ", ".join(f'"{field}"' for field in self._fields)
         else:
             fields = ", ".join(

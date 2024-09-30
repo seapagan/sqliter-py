@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Optional, Union
 
@@ -14,6 +15,12 @@ if TYPE_CHECKING:
     from collections.abc import Generator
 
 memory_db = ":memory:"
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_configure(config) -> None:
+    """Clear the screen before running tests."""
+    os.system("cls" if os.name == "nt" else "clear")  # noqa: S605
 
 
 @contextmanager
@@ -39,8 +46,6 @@ class ExampleModel(BaseDBModel):
     class Meta:
         """Configuration for the model."""
 
-        create_pk: bool = False
-        primary_key: str = "slug"
         table_name: str = "test_table"
 
 
@@ -53,9 +58,7 @@ class PersonModel(BaseDBModel):
     class Meta:
         """Configuration for the model."""
 
-        create_pk = False
         table_name = "person_table"
-        primary_key = "name"
 
 
 class DetailedPersonModel(BaseDBModel):
@@ -72,14 +75,11 @@ class DetailedPersonModel(BaseDBModel):
         """Configuration for the model."""
 
         table_name = "detailed_person_table"
-        primary_key = "name"
-        create_pk = False
 
 
 class ComplexModel(BaseDBModel):
     """Model to test complex field types."""
 
-    id: int
     name: str
     age: float
     is_active: bool
@@ -90,8 +90,6 @@ class ComplexModel(BaseDBModel):
         """Configuration for the model."""
 
         table_name = "complex_model"
-        primary_key = "id"
-        create_pk = False
 
 
 @pytest.fixture

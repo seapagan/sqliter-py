@@ -41,7 +41,9 @@ def main() -> None:
         level=logging.DEBUG, format="%(levelname)-8s%(message)s"
     )
 
-    db = SqliterDB(memory=True, auto_commit=True, debug=True)
+    db = SqliterDB(
+        "demo.db", memory=False, auto_commit=True, debug=True, reset=True
+    )
     with db:
         db.create_table(UserModel)  # Create the users table
         user1 = UserModel(
@@ -62,7 +64,7 @@ def main() -> None:
         )
         try:
             db.insert(user1)
-            db.insert(user2)
+            user2_instance = db.insert(user2)
             db.insert(user3)
         except RecordInsertionError as exc:
             logging.error(exc)  # noqa: TRY400
@@ -79,8 +81,11 @@ def main() -> None:
         )
         logging.info(all_reversed)
 
-        fetched_user = db.get(UserModel, "jdoe2")
-        logging.info(fetched_user)
+        if user2_instance is None:
+            logging.error("User2 ID not found.")
+        else:
+            fetched_user = db.get(UserModel, user2_instance.pk)
+            logging.info("Fetched (%s)", fetched_user)
 
         count = db.select(UserModel).count()
         logging.info("Total Users: %s", count)

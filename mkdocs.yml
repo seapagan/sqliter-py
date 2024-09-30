@@ -12,6 +12,7 @@ theme:
     - navigation.tabs
     - navigation.sections
     - navigation.indexes
+    - content.code.copy
 
 extra:
   social:

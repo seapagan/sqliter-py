@@ -1,8 +1,40 @@
-# Defining Models
+# Models
 
-Models in SQLiter use Pydantic to encapsulate the logic. All models should
-inherit from SQLiter's `BaseDBModel`. You can define your
-models like this:
+Each individual table in your database should be represented by a model. This
+model should inherit from `BaseDBModel` and define the fields that should be
+stored in the table. Under the hood, the model is a Pydantic model, so you can
+use all the features of Pydantic models, such as default values, type hints, and
+validation.
+
+## Defining Models
+
+Models are defined like this:
+
+```python
+from sqliter.model import BaseDBModel
+
+class User(BaseDBModel):
+    name: str
+    age: int
+    email: str
+```
+
+You can create as many Models as you need, each representing a different table
+in your database. The fields in the model will be used to create the columns in
+the table.
+
+> [!IMPORTANT]
+>
+> - Type-hints are **REQUIRED** for each field in the model.
+> - The Model **automatically** creates an **auto-incrementing integer primary
+> key** for each table called `pk`, you do not need to define it yourself.
+
+### Custom Table Name
+
+By default, the table name will be the same as the model name, converted to
+'snake_case' and pluralized (e.g., `User` -> `users`). Also, any 'Model' suffix
+will be removed (e.g., `UserModel` -> `users`). To override this behavior, you
+can specify the `table_name` in the `Meta` class manually as below:
 
 ```python
 from sqliter.model import BaseDBModel
@@ -13,21 +45,8 @@ class User(BaseDBModel):
     email: str
 
     class Meta:
-        table_name = "users"
-        primary_key = "name"  # Default is "id"
-        create_pk = False  # disable auto-creating an incrementing primary key - default is True
+        table_name = "people"
 ```
-
-For a standard database with an auto-incrementing integer `id` primary key, you
-do not need to specify the `primary_key` or `create_pk` fields. If you want to
-specify a different primary key field name, you can do so using the
-`primary_key` field in the `Meta` class.
-
-If `table_name` is not specified, the table name will be the same as the model
-name, converted to 'snake_case' and pluralized (e.g., `User` -> `users`). Also,
-any 'Model' suffix will be removed (e.g., `UserModel` -> `users`). To override
-this behavior, you can specify the `table_name` in the `Meta` class manually as
-above.
 
 > [!NOTE]
 >
@@ -36,3 +55,27 @@ above.
 > you need more advanced pluralization, you can install the `extras` package as
 > mentioned in the [installation](../installation.md#optional-dependencies). Of
 > course, you can always specify the `table_name` manually in this case!
+
+## Model Classmethods
+
+There are 2 useful methods you can call on your models. Note that they are
+**Class Methods** so should be called on the Model class itself, not an
+instance of the model:
+
+### `get_table_name()`
+
+This method returns the actual table name for the model either specified or
+automatically generated. This is useful if you need to do any raw SQL queries.
+
+```python
+table_name = User.get_table_name()
+```
+
+### `get_primary_key()`
+
+This simply returns the name of the primary key for that table. At the moment,
+this will always return the string `pk` but this may change in the future.
+
+```python
+primary_key = User.get_primary_key()
+```

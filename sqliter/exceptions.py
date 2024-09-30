@@ -114,7 +114,7 @@ class RecordUpdateError(SqliterError):
 class RecordNotFoundError(SqliterError):
     """Exception raised when a requested record is not found in the database."""
 
-    message_template = "Failed to find a record for key '{}' "
+    message_template = "Failed to find that record in the table (key '{}') "
 
 
 class RecordFetchError(SqliterError):

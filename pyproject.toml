@@ -144,9 +144,10 @@ known-first-party = ["sqliter"]
 keep-runtime-typing = true
 
 [tool.mypy]
+plugins = ["pydantic.mypy"]
+
 python_version = "3.9"
 exclude = ["docs"]
-
 [[tool.mypy.overrides]]
 disable_error_code = ["method-assign", "no-untyped-def", "attr-defined"]
 module = "tests.*"

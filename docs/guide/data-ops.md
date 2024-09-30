@@ -8,7 +8,16 @@ into the correct table:
 
 ```python
 user = User(name="Jane Doe", age=25, email="jane@example.com")
-db.insert(user)
+result = db.insert(user)
+```
+
+The `result` variable will contain a new instance of the model, with the primary
+key value set to the newly-created primary key in the database. You should use
+this instance to access the primary key value and other fields:
+
+```python
+print(f"New record inserted with primary key: {result.pk}")
+print(f"Name: {result.name}, Age: {result.age}, Email: {result.email}")
 ```
 
 > [!IMPORTANT]
@@ -46,6 +55,10 @@ See [Filtering Results](filtering.md) for more advanced filtering options.
 
 ## Updating Records
 
+You can update records in the database by modifying the fields of the model
+instance and then calling the `update()` method. You just pass the model
+instance to the method:
+
 ```python
 user.age = 26
 db.update(user)
@@ -53,8 +66,11 @@ db.update(user)
 
 ## Deleting Records
 
+To delete a record from the database, you need to pass the model class and the
+primary key value of the record you want to delete:
+
 ```python
-db.delete(User, "Jane Doe")
+db.delete(User, user.pk)
 ```
 
 ## Commit your changes

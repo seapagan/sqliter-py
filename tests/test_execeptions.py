@@ -55,6 +55,7 @@ class TestExceptions:
             exc_info.value
         )
 
+    # @pytest.mark.skip(reason="This is no longer a valid test case.")
     def test_insert_duplicate_primary_key(self, db_mock) -> None:
         """Test that exception raised when inserting duplicate primary key."""
         # Create a model instance with a unique primary key
@@ -63,11 +64,11 @@ class TestExceptions:
         )
 
         # Insert the record for the first time, should succeed
-        db_mock.insert(example_model)
+        result = db_mock.insert(example_model)
 
         # Try inserting the same record again, which should raise our exception
         with pytest.raises(RecordInsertionError) as exc_info:
-            db_mock.insert(example_model)
+            db_mock.insert(result)
 
         # Verify that the exception message contains the table name
         assert "Failed to insert record into table: 'test_table'" in str(
@@ -98,7 +99,9 @@ class TestExceptions:
             db_mock.update(example_model)
 
         # Verify that the exception message contains the table name
-        assert "Failed to find a record for key 'test'" in str(exc_info.value)
+        assert "Failed to find that record in the table (key '0')" in str(
+            exc_info.value
+        )
 
     def test_update_exception_error(self, db_mock, mocker) -> None:
         """Test an exception is raised when updating a record with an error."""
