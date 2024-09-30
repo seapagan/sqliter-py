@@ -223,28 +223,12 @@ class SqliterDB:
         """
         table_name = model_class.get_table_name()
         primary_key = model_class.get_primary_key()
-        create_pk = model_class.should_create_pk()
 
         if force:
             drop_table_sql = f"DROP TABLE IF EXISTS {table_name}"
             self._execute_sql(drop_table_sql)
 
-        fields = []
-
-        # Always add the primary key field first
-        if create_pk:
-            fields.append(f"{primary_key} INTEGER PRIMARY KEY AUTOINCREMENT")
-        else:
-            field_info = model_class.model_fields.get(primary_key)
-            if field_info is not None:
-                sqlite_type = infer_sqlite_type(field_info.annotation)
-                fields.append(f"{primary_key} {sqlite_type} PRIMARY KEY")
-            else:
-                err = (
-                    f"Primary key field '{primary_key}' not found in model "
-                    "fields."
-                )
-                raise ValueError(err)
+        fields = [f'"{primary_key}" INTEGER PRIMARY KEY AUTOINCREMENT']
 
         # Add remaining fields
         for field_name, field_info in model_class.model_fields.items():
@@ -325,18 +309,22 @@ class SqliterDB:
         if self.auto_commit and self.conn:
             self.conn.commit()
 
-    def insert(self, model_instance: BaseDBModel) -> None:
+    def insert(self, model_instance: BaseDBModel) -> int | None:
         """Insert a new record into the database.
 
         Args:
-            model_instance: An instance of a Pydantic model to be inserted.
+            model_instance: The instance of the model class to insert.
+
+        Returns:
+            The primary key (pk) of the newly inserted record.
 
         Raises:
-            RecordInsertionError: If there's an error inserting the record.
+            RecordInsertionError: If an error occurs during the insertion.
         """
         model_class = type(model_instance)
         table_name = model_class.get_table_name()
 
+        # Get the data from the model, excluding the 'pk' field
         data = model_instance.model_dump()
         fields = ", ".join(data.keys())
         placeholders = ", ".join(
@@ -354,11 +342,15 @@ class SqliterDB:
                 cursor = conn.cursor()
                 cursor.execute(insert_sql, values)
                 self._maybe_commit()
+
         except sqlite3.Error as exc:
             raise RecordInsertionError(table_name) from exc
+        else:
+            # Return the primary key (pk) of the inserted row
+            return cursor.lastrowid
 
     def get(
-        self, model_class: type[BaseDBModel], primary_key_value: str
+        self, model_class: type[BaseDBModel], primary_key_value: int
     ) -> BaseDBModel | None:
         """Retrieve a single record from the database by its primary key.
 
@@ -410,6 +402,7 @@ class SqliterDB:
         """
         model_class = type(model_instance)
         table_name = model_class.get_table_name()
+
         primary_key = model_class.get_primary_key()
 
         fields = ", ".join(
