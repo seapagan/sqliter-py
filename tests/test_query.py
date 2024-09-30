@@ -583,3 +583,11 @@ class TestQuery:
         assert result == ExampleModel(
             pk=1, slug="john", name="John", content="content"
         )
+
+    def test_exclude_pk_raises_valueerror(self) -> None:
+        """Test that excluding the primary key raises a ValueError."""
+        match_str = "The primary key 'pk' cannot be excluded."
+
+        db = SqliterDB(memory=True)
+        with pytest.raises(ValueError, match=match_str):
+            db.select(ExampleModel).exclude(["pk"])
