@@ -1,13 +1,15 @@
+"""Specific tests for the Model and it's methods."""
+
 from typing import Optional
 
 import pytest
 
 from sqliter.model.model import BaseDBModel
 
-"""Test the Model and it's methods."""
-
 
 class TestBaseDBModel:
+    """Test the Model and it's methods."""
+
     def test_should_create_pk(self) -> None:
         """Test that 'should_create_pk' returns True."""
         assert BaseDBModel.should_create_pk() is True
