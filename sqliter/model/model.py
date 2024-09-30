@@ -10,7 +10,7 @@ in SQLiter applications.
 from __future__ import annotations
 
 import re
-from typing import Any, Optional, TypeVar, Union, get_args, get_origin
+from typing import Any, Optional, TypeVar, Union, cast, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -87,7 +87,7 @@ class BaseDBModel(BaseModel):
                 else:
                     converted_obj[field_name] = field_type(value)
 
-        return cls.model_construct(**converted_obj)
+        return cast(T, cls.model_construct(**converted_obj))
 
     @classmethod
     def get_table_name(cls) -> str:
