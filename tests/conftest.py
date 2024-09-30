@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Optional, Union
 
@@ -14,6 +15,12 @@ if TYPE_CHECKING:
     from collections.abc import Generator
 
 memory_db = ":memory:"
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_configure(config) -> None:
+    """Clear the screen before running tests."""
+    os.system("cls" if os.name == "nt" else "clear")  # noqa: S605
 
 
 @contextmanager
