@@ -51,10 +51,10 @@ class TestSqliterDB:
         test_model = ExampleModel(
             slug="test", name="Test License", content="Test Content"
         )
-        db.insert(test_model)
+        result = db.insert(test_model)
 
         # Ensure the record exists
-        fetched_license = db.get(ExampleModel, "test")
+        fetched_license = db.get(ExampleModel, result.pk)
         assert fetched_license is not None
 
         # Close the connection
@@ -65,7 +65,7 @@ class TestSqliterDB:
 
         # Ensure the data is lost
         with pytest.raises(RecordFetchError):
-            db.get(ExampleModel, "test")
+            db.get(ExampleModel, result.pk)
 
     def test_create_table(self, db_mock) -> None:
         """Test table creation."""
@@ -73,8 +73,8 @@ class TestSqliterDB:
             cursor = conn.cursor()
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
             tables = cursor.fetchall()
-            assert len(tables) == 1
-            assert tables[0][0] == "test_table"
+            assert len(tables) == 2
+            assert ("test_table",) in tables
 
     def test_close_connection(self, db_mock) -> None:
         """Test closing the connection."""
@@ -95,15 +95,13 @@ class TestSqliterDB:
 
         assert mock_conn.commit.called
 
-    def test_create_table_with_auto_increment(self, db_mock) -> None:
+    def test_create_table_with_default_auto_increment(self, db_mock) -> None:
         """Test table creation with auto-incrementing primary key."""
 
         class AutoIncrementModel(BaseDBModel):
             name: str
 
             class Meta:
-                create_pk: bool = True  # Enable auto-increment ID
-                primary_key: str = "id"  # Default primary key is 'id'
                 table_name: str = "auto_increment_table"
 
         # Create the table
@@ -116,112 +114,9 @@ class TestSqliterDB:
             table_info = cursor.fetchall()
 
         # Check that the first column is 'id' and it's an auto-incrementing int
-        assert table_info[0][1] == "id"  # Column name
+        assert table_info[0][1] == "pk"  # Column name
         assert table_info[0][2] == "INTEGER"  # Column type
         assert table_info[0][5] == 1  # Primary key flag
-
-    def test_create_table_with_custom_primary_key(self, db_mock) -> None:
-        """Test table creation with a custom primary key."""
-
-        class CustomPKModel(BaseDBModel):
-            code: str
-            description: str
-
-            class Meta:
-                create_pk: bool = False  # Disable auto-increment ID
-                primary_key: str = "code"  # Use 'code' as the primary key
-                table_name: str = "custom_pk_table"
-
-        # Create the table
-        db_mock.create_table(CustomPKModel)
-
-        # Verify that the table was created with 'code' as the primary key
-        with db_mock.connect() as conn:
-            cursor = conn.cursor()
-            cursor.execute("PRAGMA table_info(custom_pk_table);")
-            table_info = cursor.fetchall()
-
-        # Check that the primary key is the 'code' column
-        primary_key_column = next(col for col in table_info if col[1] == "code")
-        assert primary_key_column[1] == "code"  # Column name
-        assert primary_key_column[5] == 1  # Primary key flag
-
-    def test_create_table_with_custom_auto_increment_pk(self, db_mock) -> None:
-        """Test table creation with a custom auto-incrementing primary key."""
-
-        class CustomAutoIncrementPKModel(BaseDBModel):
-            name: str
-
-            class Meta:
-                create_pk: bool = True  # Enable auto-increment ID
-                primary_key: str = (
-                    "custom_id"  # Use 'custom_id' as the primary key
-                )
-                table_name: str = "custom_auto_increment_pk_table"
-
-        # Create the table
-        db_mock.create_table(CustomAutoIncrementPKModel)
-
-        # Check the table schema using PRAGMA
-        with db_mock.connect() as conn:
-            cursor = conn.cursor()
-            cursor.execute("PRAGMA table_info(custom_auto_increment_pk_table);")
-            table_info = cursor.fetchall()
-
-        # Check that the 'custom_id' column is INTEGER and a primary key
-        primary_key_column = next(
-            col for col in table_info if col[1] == "custom_id"
-        )
-        assert primary_key_column[1] == "custom_id"  # Column name
-        assert primary_key_column[2] == "INTEGER"  # Column type
-        assert primary_key_column[5] == 1  # Primary key flag
-
-        # Insert rows to verify that the custom primary key auto-increments
-        model_instance1 = CustomAutoIncrementPKModel(name="First Entry")
-        model_instance2 = CustomAutoIncrementPKModel(name="Second Entry")
-
-        db_mock.insert(model_instance1)
-        db_mock.insert(model_instance2)
-
-        # Fetch the inserted rows and check the 'custom_id' values
-        with db_mock.connect() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT custom_id, name FROM custom_auto_increment_pk_table;"
-            )
-            results = cursor.fetchall()
-
-        # Check that the custom_id column auto-incremented
-        assert results[0][0] == 1
-        assert results[1][0] == 2
-        assert results[0][1] == "First Entry"
-        assert results[1][1] == "Second Entry"
-
-    def test_create_table_missing_primary_key(self) -> None:
-        """Test create_table raises ValueError when primary key is missing."""
-
-        # Define a model that doesn't have the expected primary key
-        class NoPKModel(BaseDBModel):
-            # Intentionally omitting the primary key field, e.g., 'id' or 'slug'
-            name: str
-            age: int
-
-            class Meta:
-                create_pk = False
-
-        # Initialize your SqliterDB instance (adjust if needed)
-        db = SqliterDB(memory=True)  # Assuming memory=True uses an in-memory DB
-
-        # Use pytest.raises to check if ValueError is raised
-        with pytest.raises(
-            ValueError,
-            match="Primary key field 'id' not found in model fields.",
-        ) as exc_info:
-            db.create_table(NoPKModel)
-
-        # Check that the error message matches the expected output
-        assert "Primary key field" in str(exc_info.value)
-        assert "not found in model fields" in str(exc_info.value)
 
     def test_default_table_name(self, db_mock) -> None:
         """Test the default table name generation.
@@ -282,18 +177,19 @@ class TestSqliterDB:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM test_table WHERE slug = ?", ("mit",))
             result = cursor.fetchone()
-            assert result[0] == "mit"
-            assert result[1] == "MIT License"
-            assert result[2] == "MIT License Content"
+            assert result[0] == 1
+            assert result[1] == "mit"
+            assert result[2] == "MIT License"
+            assert result[3] == "MIT License Content"
 
     def test_fetch_license(self, db_mock) -> None:
         """Test fetching a license by primary key."""
         test_model = ExampleModel(
             slug="gpl", name="GPL License", content="GPL License Content"
         )
-        db_mock.insert(test_model)
+        result = db_mock.insert(test_model)
 
-        fetched_license = db_mock.get(ExampleModel, "gpl")
+        fetched_license = db_mock.get(ExampleModel, result.pk)
         assert fetched_license is not None
         assert fetched_license.slug == "gpl"
         assert fetched_license.name == "GPL License"
@@ -304,14 +200,14 @@ class TestSqliterDB:
         test_model = ExampleModel(
             slug="mit", name="MIT License", content="MIT License Content"
         )
-        db_mock.insert(test_model)
+        result = db_mock.insert(test_model)
 
         # Update license content
-        test_model.content = "Updated MIT License Content"
-        db_mock.update(test_model)
+        result.content = "Updated MIT License Content"
+        db_mock.update(result)
 
         # Fetch and check if updated
-        fetched_license = db_mock.get(ExampleModel, "mit")
+        fetched_license = db_mock.get(ExampleModel, result.pk)
         assert fetched_license.content == "Updated MIT License Content"
 
     def test_delete(self, db_mock) -> None:
@@ -319,13 +215,13 @@ class TestSqliterDB:
         test_model = ExampleModel(
             slug="mit", name="MIT License", content="MIT License Content"
         )
-        db_mock.insert(test_model)
+        result = db_mock.insert(test_model)
 
         # Delete the record
-        db_mock.delete(ExampleModel, "mit")
+        db_mock.delete(ExampleModel, result.pk)
 
         # Ensure it no longer exists
-        fetched_license = db_mock.get(ExampleModel, "mit")
+        fetched_license = db_mock.get(ExampleModel, result.pk)
         assert fetched_license is None
 
     def test_select_filter(self, db_mock) -> None:
@@ -455,14 +351,14 @@ class TestSqliterDB:
         example_model = ExampleModel(
             slug="test", name="Test License", content="Test Content"
         )
-        db_mock.insert(example_model)
+        result = db_mock.insert(example_model)
 
         # Update the record's content
-        example_model.content = "Updated Content"
-        db_mock.update(example_model)
+        result.content = "Updated Content"
+        db_mock.update(result)
 
         # Fetch the updated record and verify the changes
-        updated_record = db_mock.get(ExampleModel, "test")
+        updated_record = db_mock.get(ExampleModel, result.pk)
         assert updated_record is not None
         assert updated_record.content == "Updated Content"
 
@@ -480,7 +376,7 @@ class TestSqliterDB:
             db_mock.update(example_model)
 
         # Check that the correct error message is raised
-        assert "Failed to find a record for key 'nonexistent'" in str(
+        assert "Failed to find that record in the table (key '0')" in str(
             exc_info.value
         )
 
@@ -510,13 +406,13 @@ class TestSqliterDB:
         test_model = ExampleModel(
             slug="test", name="Test License", content="Test Content"
         )
-        db_mock.insert(test_model)
+        result = db_mock.insert(test_model)
 
         # Now delete the record
-        db_mock.delete(ExampleModel, "test")
+        db_mock.delete(ExampleModel, result.pk)
 
         # Fetch the deleted record to confirm it's gone
-        result = db_mock.get(ExampleModel, "test")
+        result = db_mock.get(ExampleModel, result.pk)
         assert result is None
 
     def test_transaction_commit_success(self, db_mock, mocker) -> None:
@@ -685,7 +581,7 @@ class TestSqliterDB:
 
         # Expected types in SQLite (INTEGER, REAL, TEXT, etc.)
         expected_types = {
-            "id": "INTEGER",
+            "pk": "INTEGER",
             "name": "TEXT",
             "age": "REAL",
             "price": "REAL",
@@ -727,7 +623,7 @@ class TestSqliterDB:
         # Assert that the primary key is the 'id' field and is an INTEGER
         assert primary_key_column is not None, "Primary key not found"
         assert (
-            primary_key_column[1] == "id"
+            primary_key_column[1] == "pk"
         ), f"Expected 'id' as primary key, but got {primary_key_column[1]}"
         assert primary_key_column[2] == "INTEGER", (
             f"Expected 'INTEGER' type for primary key, but got "
