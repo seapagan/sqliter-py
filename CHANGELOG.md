@@ -6,6 +6,26 @@ project since the first release, with the latest changes at the top.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [Unreleased](https://github.com/seapagan/sqliter-py/tree/HEAD)
+
+**Closed Issues**
+
+- Auto-generated primary key not returned by the Model ([#37](https://github.com/seapagan/sqliter-py/issues/37)) by [seapagan](https://github.com/seapagan)
+
+**Breaking Changes**
+
+- Always create a `pk` primary auto-incrementing key ([#39](https://github.com/seapagan/sqliter-py/pull/39)) by [seapagan](https://github.com/seapagan)
+
+**Bug Fixes**
+
+- Fix `null` filter when combined with others and add tests ([#40](https://github.com/seapagan/sqliter-py/pull/40)) by [seapagan](https://github.com/seapagan)
+
+**Documentation**
+
+- Refactor web docs layout and improve content ([#36](https://github.com/seapagan/sqliter-py/pull/36)) by [seapagan](https://github.com/seapagan)
+
+[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.4.0...HEAD) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.4.0...HEAD.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.4.0...HEAD.patch)
+
 ## [0.4.0](https://github.com/seapagan/sqliter-py/releases/tag/0.4.0) (September 27, 2024)
 
 **New Features**
