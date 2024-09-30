@@ -24,7 +24,10 @@ Website](https://sqliter.grantramsay.dev)
 
 > [!CAUTION]
 > This project is still in the early stages of development and is lacking some
-> planned functionality. Please use with caution.
+> planned functionality. Please use with caution - Classes and methods may
+> change until a stable release is made. I'll try to keep this to an absolute
+> minimum and the releases and documentation will be very clear about any
+> breaking changes.
 >
 > Also, structures like `list`, `dict`, `set` etc are not supported **at this
 > time** as field types, since SQLite does not have a native column type for
@@ -45,7 +48,7 @@ Website](https://sqliter.grantramsay.dev)
 
 - Table creation based on Pydantic models
 - CRUD operations (Create, Read, Update, Delete)
-- Basic query building with filtering, ordering, and pagination
+- Chained Query building with filtering, ordering, and pagination
 - Transaction support
 - Custom exceptions for better error handling
 - Full type hinting and type checking
@@ -114,7 +117,7 @@ db.create_table(User)
 
 # Insert a record
 user = User(name="John Doe", age=30)
-db.insert(user)
+new_user = db.insert(user)
 
 # Query records
 results = db.select(User).filter(name="John Doe").fetch_all()
@@ -123,10 +126,10 @@ for user in results:
 
 # Update a record
 user.age = 31
-db.update(user)
+db.update(User,user)
 
 # Delete a record
-db.delete(User, "John Doe")
+db.delete(User, new_user.pk)
 ```
 
 See the [Usage](https://sqliter.grantramsay.dev/usage) section of the documentation

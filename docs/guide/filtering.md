@@ -8,6 +8,17 @@ records, and can be combined with other methods like `order()`, `limit()`, and
 result = db.select(User).filter(age__lte=30).limit(10).fetch_all()
 ```
 
+It is possible to both add multiple filters in the same call, and to chain
+multiple filter calls together:
+
+```python
+result = db.select(User).filter(age__gte=20, age__lte=30).fetch_all()
+```
+
+```python
+result = db.select(User).filter(age__gte=20).filter(age__lte=30).fetch_all()
+```
+
 ## Basic Filters
 
 - `__eq`: Equal to (default if no operator is specified)

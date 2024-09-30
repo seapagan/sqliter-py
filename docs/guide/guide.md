@@ -41,8 +41,11 @@ Inserting records is straightforward with SQLiter:
 
 ```python
 user = User(name="John Doe", age=30, email="john@example.com")
-db.insert(user)
+new_record = db.insert(user)
 ```
+
+If successful, `new_record` will contain a model the same as was passed to it,
+but including the newly-created primary key value.
 
 ## Basic Queries
 
@@ -109,20 +112,33 @@ returned.
 
 ## Updating Records
 
-Records can be updated seamlessly:
+Records can be updated seamlessly. Simply modify the fields of the model
+instance and call the `update()` method, passing the model class and the updated
+instance:
 
 ```python
 user.age = 31
-db.update(user)
+db.update(User, user)
 ```
 
 ## Deleting Records
 
-Deleting records is simple as well:
+Deleting records is simple as well. You just need to pass the Model that defines
+your table and the primary key value of the record you want to delete:
 
 ```python
-db.delete(User, "John Doe")
+db.delete(User, 1)
 ```
+
+> [!NOTE]
+>
+> You can get the primary key value from the record or model instance itself,
+> e.g., `new_record.pk` and pass that as the second argument to the `delete()`
+> method:
+>
+> ```python
+> db.delete(User, new_record.pk)
+> ```
 
 ## Advanced Query Features
 
