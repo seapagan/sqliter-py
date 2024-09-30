@@ -330,7 +330,8 @@ class SqliterDB:
         data = model_instance.model_dump()
         # remove the primary key field if it exists, otherwise we'll get
         # TypeErrors as multiple primary keys will exist
-        data.pop("pk")
+        if data.get("pk", None) == 0:
+            data.pop("pk")
 
         fields = ", ".join(data.keys())
         placeholders = ", ".join(
@@ -352,6 +353,7 @@ class SqliterDB:
         except sqlite3.Error as exc:
             raise RecordInsertionError(table_name) from exc
         else:
+            data.pop("pk", None)
             return model_class(pk=cursor.lastrowid, **data)
 
     def get(
