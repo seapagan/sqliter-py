@@ -125,8 +125,8 @@ for user in results:
     print(f"User: {user.name}, Age: {user.age}")
 
 # Update a record
-user.age = 31
-db.update(User,user)
+new_user.age = 31
+db.update(new_user)
 
 # Delete a record
 db.delete(User, new_user.pk)

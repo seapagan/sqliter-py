@@ -26,7 +26,7 @@ db.create_table(User)
 
 # Insert a record
 user = User(name="John Doe", age=30)
-new_record = db.insert(user)
+new_user = db.insert(user)
 
 # Query records
 results = db.select(User).filter(name="John Doe").fetch_all()
@@ -34,15 +34,15 @@ for user in results:
     print(f"User: {user.name}, Age: {user.age}, Admin: {user.admin}")
 
 # Update a record
-user.age = 31
-db.update(User, user)
+new_user.age = 31
+db.update(new_user)
 
 results = db.select(User).filter(name="John Doe").fetch_one()
 
 print("Updated age:", results.age)
 
 # Delete a record
-db.delete(User, new_record.pk)
+db.delete(User, new_user.pk)
 ```
 
 See the [Guide](guide/guide.md) for more detailed information on how to use `SQLiter`.

@@ -113,12 +113,11 @@ returned.
 ## Updating Records
 
 Records can be updated seamlessly. Simply modify the fields of the model
-instance and call the `update()` method, passing the model class and the updated
-instance:
+instance and pass that to the `update()` method:
 
 ```python
 user.age = 31
-db.update(User, user)
+db.update(user)
 ```
 
 ## Deleting Records
