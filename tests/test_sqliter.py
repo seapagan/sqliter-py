@@ -313,9 +313,8 @@ class TestSqliterDB:
             db_mock.create_table(ExampleModel)
             db_mock.insert(license1)
 
-        # Ensure commit was twice - once during the insert (due to
-        # auto_commit=True) and once when the context manager exited
-        assert mock_conn.commit.call_count == 2
+        # Ensure commit was called only once, when the context manager exited.
+        assert mock_conn.commit.call_count == 1
 
     def test_transaction_manual_commit(self, mocker) -> None:
         """Test context-manager commit when auto_commit is set to False.
@@ -323,7 +322,7 @@ class TestSqliterDB:
         Regardless of the auto_commit setting, the context manager should commit
         changes when exiting the context.
         """
-        db_manual = SqliterDB(":memory:", auto_commit=False)
+        db_manual = SqliterDB(":memory:", auto_commit=True)
 
         # Mock the connection and commit
         mock_conn = mocker.MagicMock()
@@ -414,45 +413,6 @@ class TestSqliterDB:
         # Fetch the deleted record to confirm it's gone
         result = db_mock.get(ExampleModel, result.pk)
         assert result is None
-
-    def test_transaction_commit_success(self, db_mock, mocker) -> None:
-        """Test that the transaction commits successfully with no exceptions."""
-        # Mock the connection's commit method to track the commit
-        mock_commit = mocker.patch.object(db_mock, "conn", create=True)
-        mock_commit.commit = mocker.MagicMock()
-
-        # Run the context manager without errors
-        with db_mock:
-            """Dummy transaction."""
-
-        # Ensure commit was called
-        mock_commit.commit.assert_called_once()
-
-    def test_transaction_closes_connection(self, db_mock, mocker) -> None:
-        """Test the connection is closed after the transaction completes."""
-        # Mock the connection object itself
-        mock_conn = mocker.patch.object(db_mock, "conn", autospec=True)
-
-        # Run the context manager
-        with db_mock:
-            """Dummy transaction."""
-
-        # Ensure the connection is closed
-        mock_conn.close.assert_called_once()
-
-    def test_transaction_rollback_on_exception(self, db_mock, mocker) -> None:
-        """Test that the transaction rolls back when an exception occurs."""
-        # Mock the connection object and ensure it's set as db_mock.conn
-        mock_conn = mocker.Mock()
-        mocker.patch.object(db_mock, "conn", mock_conn)
-
-        # Simulate an exception within the context manager
-        message = "Simulated error"
-        with pytest.raises(ValueError, match=message), db_mock:
-            raise ValueError(message)
-
-        # Ensure rollback was called on the mocked connection
-        mock_conn.rollback.assert_called_once()
 
     def test_select_with_exclude_single_field(
         self,

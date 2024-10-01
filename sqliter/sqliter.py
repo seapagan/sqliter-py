@@ -89,6 +89,8 @@ class SqliterDB:
         self.conn: Optional[sqlite3.Connection] = None
         self.reset = reset
 
+        self._in_transaction = False
+
         if self.debug:
             self._setup_logger()
 
@@ -308,7 +310,7 @@ class SqliterDB:
         This method is called after operations that modify the database,
         committing changes only if auto_commit is set to True.
         """
-        if self.auto_commit and self.conn:
+        if not self._in_transaction and self.auto_commit and self.conn:
             self.conn.commit()
 
     def insert(self, model_instance: T) -> T:
@@ -515,6 +517,7 @@ class SqliterDB:
 
         """
         self.connect()
+        self._in_transaction = True
         return self
 
     def __exit__(
@@ -552,3 +555,4 @@ class SqliterDB:
                 # Close the connection and reset the instance variable
                 self.conn.close()
                 self.conn = None
+                self._in_transaction = False
