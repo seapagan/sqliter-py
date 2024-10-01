@@ -7,6 +7,10 @@
 - add an 'execute' method to the main class to allow executing arbitrary SQL
   queries which can be chained to the 'find_first' etc methods or just used
   directly.
+- add a `delete` method to the QueryBuilder class to allow deleting
+  single/multiple records from the database based on the query. This is in
+  addition to the `delete` method in the main class which deletes a single
+  record based on the primary key.
 - add a `rollback` method to the main class to allow manual rollbacks.
 - allow adding multiple indexes to each table as well as the primary key.
 - allow adding foreign keys and relationships to each table.
@@ -18,12 +22,6 @@
   need to be `pickled` first then stored as a BLOB in the database . Also
   support `date` which can be stored as a Unix timestamp in an integer field.
 
-## Bugs
-
-- The primary key is not available on the returned model if `create_pk` is set
-  to True. We need to add this to the returned model. This means that we cant
-  delete or update the record without the primary key.
-
 ## Housekeeping
 
 - Tidy up the test suite - remove any duplicates, sort them into logical files
@@ -31,8 +29,7 @@
 
 ## Documentation
 
-- Ad examples using the Primary Key to update() and delete() - this will need
-  the above bug fixed first.
+- Nothing at the moment.
 
 ## Potential Filter Additions
 
