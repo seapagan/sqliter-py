@@ -29,6 +29,53 @@ the table.
 > - The Model **automatically** creates an **auto-incrementing integer primary
 > key** for each table called `pk`, you do not need to define it yourself.
 
+### Adding Indexes
+
+You can add indexes to your table by specifying the `indexes` attribute in the
+`Meta` class. This should be a list of strings, each string being the name of an
+existing field in the model that should be indexed.
+
+```python
+from sqliter.model import BaseDBModel
+
+class User(BaseDBModel):
+    name: str
+    age: int
+    email: str
+
+    class Meta:
+        indexes = ["name", "email"]
+```
+
+This is in addition to the primary key index (`pk`) that is automatically
+created.
+
+### Adding Unique Indexes
+
+You can add unique indexes to your table by specifying the `unique_indexes`
+attribute in the `Meta` class. This should be a list of strings, each string
+being the name of an existing field in the model that should be indexed.
+
+```python
+from sqliter.model import BaseDBModel
+
+class User(BaseDBModel):
+    name: str
+    age: int
+    email: str
+
+    class Meta:
+        unique_indexes = ["email"]
+```
+
+These will ensure that all values in this field are unique. This is in addition
+to the primary key index (`pk`) that is automatically created.
+
+> [!TIP]
+>
+> You can specify both `indexes` and `unique_indexes` in the `Meta` class if you
+> need to.
+
 ### Custom Table Name
 
 By default, the table name will be the same as the model name, converted to

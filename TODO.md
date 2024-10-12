@@ -12,7 +12,6 @@
   addition to the `delete` method in the main class which deletes a single
   record based on the primary key.
 - add a `rollback` method to the main class to allow manual rollbacks.
-- allow adding multiple indexes to each table as well as the primary key.
 - allow adding foreign keys and relationships to each table.
 - add a migration system to allow updating the database schema without losing
   data.

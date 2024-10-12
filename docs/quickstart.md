@@ -14,10 +14,6 @@ class User(BaseDBModel):
     age: int
     admin: Optional[bool] = False
 
-    class Meta:
-        create_pk = False
-        primary_key = "name"
-
 # Create a database connection
 db = SqliterDB("example.db")
 
