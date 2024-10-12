@@ -47,6 +47,8 @@ Website](https://sqliter.grantramsay.dev)
 ## Features
 
 - Table creation based on Pydantic models
+- Automatic primary key generation
+- User defined indexes on any field
 - CRUD operations (Create, Read, Update, Delete)
 - Chained Query building with filtering, ordering, and pagination
 - Transaction support
@@ -70,16 +72,16 @@ virtual environments (`uv` is used for developing this project and in the CI):
 uv add sqliter-py
 ```
 
-With `pip`:
-
-```bash
-pip install sqliter-py
-```
-
-Or with `Poetry`:
+With `Poetry`:
 
 ```bash
 poetry add sqliter-py
+```
+
+Or with `pip`:
+
+```bash
+pip install sqliter-py
 ```
 
 ### Optional Dependencies
@@ -88,9 +90,9 @@ Currently by default, the only external dependency is Pydantic. However, there
 are some optional dependencies that can be installed to enable additional
 features:
 
-- `inflect`: For pluralizing table names (if not specified). This just offers a
-  more-advanced pluralization than the default method used. In most cases you
-  will not need this.
+- `inflect`: For pluralizing the auto-generated table names (if not explicitly
+  set in the Model) This just offers a more-advanced pluralization than the
+  default method used. In most cases you will not need this.
 
 See [Installing Optional
 Dependencies](https://sqliter.grantramsay.dev/installation#optional-dependencies)

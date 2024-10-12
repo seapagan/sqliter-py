@@ -10,7 +10,16 @@ in SQLiter applications.
 from __future__ import annotations
 
 import re
-from typing import Any, Optional, TypeVar, Union, cast, get_args, get_origin
+from typing import (
+    Any,
+    ClassVar,
+    Optional,
+    TypeVar,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+)
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -41,14 +50,24 @@ class BaseDBModel(BaseModel):
         """Metadata class for configuring database-specific attributes.
 
         Attributes:
-            create_pk (bool): Whether to create a primary key field.
-            primary_key (str): The name of the primary key field.
-            table_name (Optional[str]): The name of the database table.
+            table_name (Optional[str]): The name of the database table. If not
+                specified, the table name will be inferred from the model class
+                name and converted to snake_case.
+            indexes (ClassVar[list[Union[str, tuple[str]]]]): A list of fields
+                or tuples of fields for which regular (non-unique) indexes
+                should be created. Indexes improve query performance on these
+                fields.
+            unique_indexes (ClassVar[list[Union[str, tuple[str]]]]): A list of
+                fields or tuples of fields for which unique indexes should be
+                created. Unique indexes enforce that all values in these fields
+                are distinct across the table.
         """
 
         table_name: Optional[str] = (
             None  # Table name, defaults to class name if not set
         )
+        indexes: ClassVar[list[Union[str, tuple[str]]]] = []
+        unique_indexes: ClassVar[list[Union[str, tuple[str]]]] = []
 
     @classmethod
     def model_validate_partial(cls: type[T], obj: dict[str, Any]) -> T:

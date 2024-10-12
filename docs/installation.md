@@ -10,16 +10,16 @@ virtual environments (`uv` is used for developing this project and in the CI):
 uv add sqliter-py
 ```
 
-With `pip`:
-
-```bash
-pip install sqliter-py
-```
-
-Or with `Poetry`:
+With `Poetry`:
 
 ```bash
 poetry add sqliter-py
+```
+
+Or with `pip`:
+
+```bash
+pip install sqliter-py
 ```
 
 ## Optional Dependencies
@@ -38,14 +38,14 @@ These can be installed using `uv`:
 uv add 'sqliter-py[extras]'
 ```
 
+With `Poetry`:
+
+```bash
+poetry add 'sqliter-py[extras]'
+```
+
 Or with `pip`:
 
 ```bash
 pip install 'sqliter-py[extras]'
-```
-
-Or with `Poetry`:
-
-```bash
-poetry add 'sqliter-py[extras]'
 ```

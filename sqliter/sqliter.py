@@ -10,12 +10,13 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from typing import TYPE_CHECKING, Any, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
 
 from typing_extensions import Self
 
 from sqliter.exceptions import (
     DatabaseConnectionError,
+    InvalidIndexError,
     RecordDeletionError,
     RecordFetchError,
     RecordInsertionError,
@@ -260,6 +261,65 @@ class SqliterDB:
                 conn.commit()
         except sqlite3.Error as exc:
             raise TableCreationError(table_name) from exc
+
+        # Create regular indexes
+        if hasattr(model_class.Meta, "indexes"):
+            self._create_indexes(
+                model_class, model_class.Meta.indexes, unique=False
+            )
+
+        # Create unique indexes
+        if hasattr(model_class.Meta, "unique_indexes"):
+            self._create_indexes(
+                model_class, model_class.Meta.unique_indexes, unique=True
+            )
+
+    def _create_indexes(
+        self,
+        model_class: type[BaseDBModel],
+        indexes: list[Union[str, tuple[str]]],
+        *,
+        unique: bool = False,
+    ) -> None:
+        """Helper method to create regular or unique indexes.
+
+        Args:
+            model_class: The model class defining the table.
+            indexes: List of fields or tuples of fields to create indexes for.
+            unique: If True, creates UNIQUE indexes; otherwise, creates regular
+                indexes.
+
+        Raises:
+            InvalidIndexError: If any fields specified for indexing do not exist
+                in the model.
+        """
+        valid_fields = set(
+            model_class.model_fields.keys()
+        )  # Get valid fields from the model
+
+        for index in indexes:
+            # Handle multiple fields in tuple form
+            fields = list(index) if isinstance(index, tuple) else [index]
+
+            # Check if all fields exist in the model
+            invalid_fields = [
+                field for field in fields if field not in valid_fields
+            ]
+            if invalid_fields:
+                raise InvalidIndexError(invalid_fields, model_class.__name__)
+
+            # Build the SQL string
+            index_name = "_".join(fields)
+            index_postfix = "_unique" if unique else ""
+            index_type = " UNIQUE " if unique else " "
+
+            create_index_sql = (
+                f"CREATE{index_type}INDEX IF NOT EXISTS "
+                f"idx_{model_class.get_table_name()}"
+                f"_{index_name}{index_postfix} "
+                f"ON {model_class.get_table_name()} ({', '.join(fields)})"
+            )
+            self._execute_sql(create_index_sql)
 
     def _execute_sql(self, sql: str) -> None:
         """Execute an SQL statement.

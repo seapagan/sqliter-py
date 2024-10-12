@@ -145,3 +145,24 @@ class SqlExecutionError(SqliterError):
     """Raised when an SQL execution fails."""
 
     message_template = "Failed to execute SQL: '{}'"
+
+
+class InvalidIndexError(SqliterError):
+    """Exception raised when an invalid index field is specified.
+
+    This error is triggered if one or more fields specified for an index
+    do not exist in the model's fields.
+
+    Attributes:
+        invalid_fields (list[str]): The list of fields that were invalid.
+        model_class (str): The name of the model where the error occurred.
+    """
+
+    message_template = "Invalid fields for indexing in model '{}': {}"
+
+    def __init__(self, invalid_fields: list[str], model_class: str) -> None:
+        """Tidy up the error message by joining the invalid fields."""
+        # Join invalid fields into a comma-separated string
+        invalid_fields_str = ", ".join(invalid_fields)
+        # Pass the formatted message to the parent class
+        super().__init__(model_class, invalid_fields_str)
