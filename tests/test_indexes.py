@@ -5,7 +5,7 @@ from typing import ClassVar
 import pytest
 from pytest_mock import MockerFixture
 
-from sqliter.exceptions import InvalidIndexError
+from sqliter.exceptions import InvalidIndexError, TableCreationError
 from sqliter.model import BaseDBModel
 from sqliter.sqliter import SqliterDB
 
@@ -229,3 +229,106 @@ class TestIndexes:
 
         error_message: str = str(exc_info.value)
         assert "non_existent_field" in error_message
+
+    def test_multiple_valid_composite_indexes(self) -> None:
+        """Test that multiple valid composite indexes are created."""
+        db = SqliterDB(":memory:")
+
+        class UserModel(BaseDBModel):
+            slug: str
+            email: str
+            name: str
+
+            class Meta:
+                table_name = "users"
+                indexes: ClassVar[list[tuple[str, str]]] = [
+                    ("email", "name"),  # Valid composite index
+                    ("slug", "email"),  # Another valid composite index
+                ]
+
+        db.create_table(UserModel)
+
+        index_names: list[str] = get_index_names(db)
+        assert "idx_users_email_name" in index_names
+        assert "idx_users_slug_email" in index_names
+
+    def test_index_with_empty_field_in_tuple(self) -> None:
+        """Test that an index with an empty field in a tuple raises an error."""
+        db = SqliterDB(":memory:")
+
+        class UserModel(BaseDBModel):
+            slug: str
+            email: str
+
+            class Meta:
+                table_name = "users"
+                indexes: ClassVar[list[tuple[str, str]]] = [
+                    ("email", ""),  # Invalid composite index
+                ]
+
+        with pytest.raises(InvalidIndexError) as exc_info:
+            db.create_table(UserModel)
+
+        error_message: str = str(exc_info.value)
+        assert "Invalid fields" in error_message
+
+    def test_duplicate_index_fields(self) -> None:
+        """Test that duplicate index fields are handled properly."""
+        db = SqliterDB(":memory:")
+
+        class UserModel(BaseDBModel):
+            slug: str
+            email: str
+
+            class Meta:
+                table_name = "users"
+                indexes: ClassVar[list[str]] = [
+                    "email",  # First occurrence
+                    "email",  # Duplicate
+                ]
+
+        db.create_table(UserModel)
+
+        # Check that only one index was created
+        index_names: list[str] = get_index_names(db)
+        assert index_names.count("idx_users_email") == 1
+
+    def test_index_with_reserved_keyword_as_field_name(self) -> None:
+        """Test that fields using reserved SQL keywords raise an error."""
+        db = SqliterDB(":memory:")
+
+        class UserModel(BaseDBModel):
+            select: str  # 'select' is a reserved SQL keyword
+            email: str
+
+            class Meta:
+                table_name = "users"
+                indexes: ClassVar[list[str]] = [
+                    "select"
+                ]  # Invalid due to keyword
+
+        with pytest.raises(TableCreationError) as exc_info:
+            db.create_table(UserModel)
+
+        error_message: str = str(exc_info.value)
+        assert "select" in error_message
+
+    def test_mixed_valid_and_invalid_fields_in_composite_index(self) -> None:
+        """Test an index with both valid and invalid fields raises an error."""
+        db = SqliterDB(":memory:")
+
+        class UserModel(BaseDBModel):
+            slug: str
+            email: str
+
+            class Meta:
+                table_name = "users"
+                indexes: ClassVar[list[tuple[str, str]]] = [
+                    ("email", "invalid_field")  # Mixed valid and invalid
+                ]
+
+        with pytest.raises(InvalidIndexError) as exc_info:
+            db.create_table(UserModel)
+
+        error_message: str = str(exc_info.value)
+        assert "invalid_field" in error_message
