@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from typing import TYPE_CHECKING, Any, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
 
 from typing_extensions import Self
 
@@ -260,6 +260,56 @@ class SqliterDB:
                 conn.commit()
         except sqlite3.Error as exc:
             raise TableCreationError(table_name) from exc
+
+        # Create regular indexes
+        if hasattr(model_class.Meta, "indexes"):
+            self._create_indexes(
+                model_class, model_class.Meta.indexes, unique=False
+            )
+
+        # Create unique indexes
+        if hasattr(model_class.Meta, "unique_indexes"):
+            self._create_indexes(
+                model_class, model_class.Meta.unique_indexes, unique=True
+            )
+
+    def _create_indexes(
+        self,
+        model_class: type[BaseDBModel],
+        indexes: list[Union[str, tuple[str]]],
+        *,
+        unique: bool = False,
+    ) -> None:
+        """Helper method to create regular or unique indexes.
+
+        Args:
+            model_class: The model class defining the table.
+            indexes: List of fields or tuples of fields to create indexes for.
+            unique: If True, creates UNIQUE indexes; otherwise, creates regular
+                indexes.
+        """
+        for index in indexes:
+            # Handle multiple fields in tuple form
+            if isinstance(index, tuple):
+                index_name = "_".join(index)
+                fields = list(index)  # Ensure fields is a list of strings
+            else:
+                index_name = index
+                fields = [index]  # Wrap single field in a list
+
+            # Add '_unique' postfix to index name for unique indexes
+            index_postfix = "_unique" if unique else ""
+            index_type = (
+                "UNIQUE" if unique else ""
+            )  # Add UNIQUE for unique indexes
+
+            create_index_sql = (
+                f"CREATE {index_type} INDEX IF NOT EXISTS "
+                f"idx_{model_class.get_table_name()}"
+                f"_{index_name}{index_postfix} "
+                f"ON {model_class.get_table_name()} ({', '.join(fields)})"
+            )
+            self._execute_sql(create_index_sql)
 
     def _execute_sql(self, sql: str) -> None:
         """Execute an SQL statement.
