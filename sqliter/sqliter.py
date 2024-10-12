@@ -16,6 +16,7 @@ from typing_extensions import Self
 
 from sqliter.exceptions import (
     DatabaseConnectionError,
+    InvalidIndexError,
     RecordDeletionError,
     RecordFetchError,
     RecordInsertionError,
@@ -287,21 +288,30 @@ class SqliterDB:
             indexes: List of fields or tuples of fields to create indexes for.
             unique: If True, creates UNIQUE indexes; otherwise, creates regular
                 indexes.
+
+        Raises:
+            InvalidIndexError: If any fields specified for indexing do not exist
+                in the model.
         """
+        valid_fields = set(
+            model_class.model_fields.keys()
+        )  # Get valid fields from the model
+
         for index in indexes:
             # Handle multiple fields in tuple form
-            if isinstance(index, tuple):
-                index_name = "_".join(index)
-                fields = list(index)  # Ensure fields is a list of strings
-            else:
-                index_name = index
-                fields = [index]  # Wrap single field in a list
+            fields = list(index) if isinstance(index, tuple) else [index]
 
-            # Add '_unique' postfix to index name for unique indexes
+            # Check if all fields exist in the model
+            invalid_fields = [
+                field for field in fields if field not in valid_fields
+            ]
+            if invalid_fields:
+                raise InvalidIndexError(invalid_fields, model_class.__name__)
+
+            # Build the SQL string
+            index_name = "_".join(fields)
             index_postfix = "_unique" if unique else ""
-            index_type = (
-                "UNIQUE" if unique else ""
-            )  # Add UNIQUE for unique indexes
+            index_type = "UNIQUE" if unique else ""
 
             create_index_sql = (
                 f"CREATE {index_type} INDEX IF NOT EXISTS "
