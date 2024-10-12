@@ -6,8 +6,7 @@ import pytest
 
 from sqliter import SqliterDB
 from sqliter.exceptions import RecordInsertionError, RecordUpdateError
-from sqliter.model import BaseDBModel
-from sqliter.model.unique import Unique
+from sqliter.model import BaseDBModel, Unique
 
 
 class TestUnique:
