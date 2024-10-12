@@ -5,7 +5,7 @@ from typing import Annotated, Union
 import pytest
 
 from sqliter import SqliterDB
-from sqliter.exceptions import RecordInsertionError
+from sqliter.exceptions import RecordInsertionError, RecordUpdateError
 from sqliter.model import BaseDBModel
 from sqliter.model.unique import Unique
 
@@ -172,3 +172,90 @@ class TestUnique:
             "alice@example.com",
             "bob@example.com",
         }
+
+    def test_unique_constraint_multiple_fields(self) -> None:
+        """Test that multiple fields with unique constraints are respected."""
+
+        class User(BaseDBModel):
+            username: Annotated[str, Unique()]
+            email: Annotated[str, Unique()]
+
+        db = SqliterDB(":memory:")
+        db.create_table(User)
+
+        # Insert a user successfully
+        user1 = User(username="Alice", email="alice@example.com")
+        db.insert(user1)
+
+        # Attempt to insert a user with the same username (should fail)
+        user2 = User(username="Alice", email="bob@example.com")
+        with pytest.raises(RecordInsertionError):
+            db.insert(user2)
+
+        # Attempt to insert a user with the same email (should fail)
+        user3 = User(username="Bob", email="alice@example.com")
+        with pytest.raises(RecordInsertionError):
+            db.insert(user3)
+
+    def test_unique_constraint_case_sensitivity(self) -> None:
+        """Test that the unique constraint is case-sensitive for text fields."""
+
+        class User(BaseDBModel):
+            email: Annotated[str, Unique()]
+
+        db = SqliterDB(":memory:")
+        db.create_table(User)
+
+        # Insert user with lowercase email
+        user1 = User(email="alice@example.com")
+        db.insert(user1)
+
+        # Attempt to insert user with same email but different case (should
+        # pass)
+        user2 = User(email="ALICE@example.com")
+        db.insert(user2)
+
+        users = db.select(User).fetch_all()
+        assert len(users) == 2
+
+    def test_unique_constraint_empty_string_vs_null(self) -> None:
+        """Test SQLite diffs between empty strings & null for unique."""
+
+        class User(BaseDBModel):
+            email: Annotated[Union[str, None], Unique()]
+
+        db = SqliterDB(":memory:")
+        db.create_table(User)
+
+        # Insert user with a NULL email
+        user1 = User(email=None)
+        db.insert(user1)
+
+        # Insert user with an empty string as email (should pass)
+        user2 = User(email="")
+        db.insert(user2)
+
+        # Verify both users were inserted
+        users = db.select(User).fetch_all()
+        assert len(users) == 2
+
+    def test_unique_constraint_on_update(self) -> None:
+        """Test modifying a record to violate the unique constraint fails."""
+
+        class User(BaseDBModel):
+            email: Annotated[str, Unique()]
+            name: str
+
+        db = SqliterDB(":memory:")
+        db.create_table(User)
+
+        # Insert two users
+        user1 = User(name="Alice", email="alice@example.com")
+        user2 = User(name="Bob", email="bob@example.com")
+        db.insert(user1)
+        user2 = db.insert(user2)
+
+        # Attempt to update user2's email to match user1's email (should fail)
+        user2.email = "alice@example.com"
+        with pytest.raises(RecordUpdateError):
+            db.update(user2)
