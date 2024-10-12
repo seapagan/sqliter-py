@@ -8,6 +8,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased](https://github.com/seapagan/sqliter-py/tree/HEAD)
 
+**New Features**
+
+- Add ability to mark a field as UNIQUE ([#46](https://github.com/seapagan/sqliter-py/pull/46)) by [seapagan](https://github.com/seapagan)
+- Implement user-defined indexes ([#45](https://github.com/seapagan/sqliter-py/pull/45)) by [seapagan](https://github.com/seapagan)
+
 **Bug Fixes**
 
 - Ensure context-manager ignores the `auto_commit` setting. ([#43](https://github.com/seapagan/sqliter-py/pull/43)) by [seapagan](https://github.com/seapagan)

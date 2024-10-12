@@ -2,6 +2,8 @@
 
 ## General Plans and Ideas
 
+- add (optional) `created_at` and `updated_at` fields to the BaseDBModel class
+  which will be automatically updated when a record is created or updated.
 - add attributes to the BaseDBModel to read the table-name, file-name, is-memory
   etc.
 - add an 'execute' method to the main class to allow executing arbitrary SQL
