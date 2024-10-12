@@ -311,10 +311,10 @@ class SqliterDB:
             # Build the SQL string
             index_name = "_".join(fields)
             index_postfix = "_unique" if unique else ""
-            index_type = "UNIQUE" if unique else ""
+            index_type = " UNIQUE " if unique else " "
 
             create_index_sql = (
-                f"CREATE {index_type} INDEX IF NOT EXISTS "
+                f"CREATE{index_type}INDEX IF NOT EXISTS "
                 f"idx_{model_class.get_table_name()}"
                 f"_{index_name}{index_postfix} "
                 f"ON {model_class.get_table_name()} ({', '.join(fields)})"

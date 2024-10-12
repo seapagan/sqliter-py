@@ -158,18 +158,11 @@ class InvalidIndexError(SqliterError):
         model_class (str): The name of the model where the error occurred.
     """
 
-    message_template = (
-        "Invalid fields for indexing in model '{model_class}': {invalid_fields}"
-    )
+    message_template = "Invalid fields for indexing in model '{}': {}"
 
     def __init__(self, invalid_fields: list[str], model_class: str) -> None:
-        """Initialize the exception with invalid fields and model name.
-
-        Args:
-            invalid_fields (list[str]): List of the invalid fields.
-            model_class (str): Name of the model class where the error occurred.
-        """
-        formatted_message = self.message_template.format(
-            model_class=model_class, invalid_fields=", ".join(invalid_fields)
-        )
-        super().__init__(formatted_message)
+        """Tidy up the error message by joining the invalid fields."""
+        # Join invalid fields into a comma-separated string
+        invalid_fields_str = ", ".join(invalid_fields)
+        # Pass the formatted message to the parent class
+        super().__init__(model_class, invalid_fields_str)
