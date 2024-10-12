@@ -9,10 +9,6 @@
     <span class=n>age</span><span class=p>:</span> <span class=nb>int</span>
     <span class=n>admin</span><span class=p>:</span> <span class=n>Optional</span><span class=p>[</span><span class=nb>bool</span><span class=p>]</span> <span class=o>=</span> <span class=kc>False</span>
 
-    <span class=k>class</span> <span class=nc>Meta</span><span class=p>:</span>
-        <span class=n>create_pk</span> <span class=o>=</span> <span class=kc>False</span>
-        <span class=n>primary_key</span> <span class=o>=</span> <span class=s2>&quot;name&quot;</span>
-
 <span class=c1># Create a database connection</span>
 <span class=n>db</span> <span class=o>=</span> <span class=n>SqliterDB</span><span class=p>(</span><span class=s2>&quot;example.db&quot;</span><span class=p>)</span>
 
