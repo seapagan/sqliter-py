@@ -40,6 +40,7 @@ database-like format without needing to learn SQL or use a full ORM.
 - Table creation based on Pydantic models
 - Automatic primary key generation
 - User defined indexes on any field
+- Set any field as UNIQUE
 - CRUD operations (Create, Read, Update, Delete)
 - Chained Query building with filtering, ordering, and pagination
 - Transaction support

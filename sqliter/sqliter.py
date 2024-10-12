@@ -27,6 +27,7 @@ from sqliter.exceptions import (
     TableDeletionError,
 )
 from sqliter.helpers import infer_sqlite_type
+from sqliter.model.unique import Unique
 from sqliter.query.query import QueryBuilder
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -239,7 +240,12 @@ class SqliterDB:
         for field_name, field_info in model_class.model_fields.items():
             if field_name != primary_key:
                 sqlite_type = infer_sqlite_type(field_info.annotation)
-                fields.append(f"{field_name} {sqlite_type}")
+                unique_constraint = (
+                    "UNIQUE" if isinstance(field_info, Unique) else ""
+                )
+                fields.append(
+                    f"{field_name} {sqlite_type} {unique_constraint}".strip()
+                )
 
         create_str = (
             "CREATE TABLE IF NOT EXISTS" if exists_ok else "CREATE TABLE"

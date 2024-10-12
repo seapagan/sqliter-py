@@ -5,7 +5,7 @@ Thank you for your interest in contributing to SQLiter! We welcome
 all contributions, big or small.
 
 If you are not sure where to start, please take a look at the [open
-issues](https://github.com/seapagan/sqliter/issues). If you have an
+issues](https://github.com/seapagan/sqliter-py/issues). If you have an
 idea for a new feature or would like to report a bug, please open a new issue.
 
 We also welcome contributions to the documentation. If you find any errors or
@@ -34,8 +34,8 @@ If you already have a Python version installed, uv will use this.
 
 Before you start contributing, please make sure you have read and understood our
 [Code of
-Conduct](https://github.com/seapagan/sqliter/blob/main/CODE_OF_CONDUCT.md) and
-[License](https://github.com/seapagan/sqliter/blob/main/LICENSE).
+Conduct](https://github.com/seapagan/sqliter-py/blob/main/CODE_OF_CONDUCT.md) and
+[License](https://github.com/seapagan/sqliter-py/blob/main/LICENSE).
 
 To get started, follow these steps:
 
@@ -182,14 +182,14 @@ Here are some guidelines to follow when contributing to SQLiter:
 - Make sure your code passes all tests before submitting a pull request.
 - Document your code using
   [docstrings](https://www.python.org/dev/peps/pep-0257/).
-- Use [GitHub issues](https://github.com/seapagan/sqliter/issues)
+- Use [GitHub issues](https://github.com/seapagan/sqliter-py/issues)
   to report bugs or suggest new features.
 
 ## Contact
 
 If you have any questions or need help with contributing, please contact me
 **@seapagan** on GitHub. You can also use the [GitHub
-Discussions](https://github.com/seapagan/sqliter/discussions)
+Discussions](https://github.com/seapagan/sqliter-py/discussions)
 feature.
 
 Happy contributing!

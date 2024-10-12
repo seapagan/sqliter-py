@@ -76,6 +76,41 @@ to the primary key index (`pk`) that is automatically created.
 > You can specify both `indexes` and `unique_indexes` in the `Meta` class if you
 > need to.
 
+### Unique Fields
+
+You can also specify that a field should be all unique values by using the
+`Unique()` method from the `sqliter.model` module. This will ensure that all
+values in this field are unique.
+
+```python
+from typing import Annotated
+from sqliter.model import BaseDBModel, Unique
+
+class User(BaseDBModel):
+    name: str
+    age: int
+    email: Annotated[str, Unique()]
+```
+
+This will raise either a `RecordInsertionError` or `RecordUpdateError` if you
+try to insert or update a record with a duplicate value in the chosen field.
+
+> [!TIP]
+>
+> Using `Annotated` is optional, but without it your code wil not pass
+> type-checking with `mypy`. It will work fine at runtime but is not recommended:
+>
+> ```python
+>     email: str = Unique()
+>
+>```
+>
+> This will give the following Mypy error:
+>
+> ```pre
+> error: Incompatible types in assignment (expression has type "Unique", variable has type "str")  [assignment]
+>```
+
 ### Custom Table Name
 
 By default, the table name will be the same as the model name, converted to

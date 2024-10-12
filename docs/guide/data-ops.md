@@ -23,8 +23,8 @@ print(f"Name: {result.name}, Age: {result.age}, Email: {result.email}")
 > [!IMPORTANT]
 >
 > The `insert()` method will raise a `RecordInsertionError` if you try to insert
-> a record with a primary key that already exists in the table. Also, if the
-> table does not exist, a `RecordInsertionError` will be raised.
+> a record with a primary key that already exists in the table or if the table
+> does not exist.
 
 ## Querying Records
 
@@ -63,6 +63,16 @@ instance to the method:
 user.age = 26
 db.update(user)
 ```
+
+> [!IMPORTANT]
+>
+> The model you pass must have a primary key value set, otherwise an error will
+> be raised. In other words, you use the instance of a model returned by the
+> `insert()` method to update the record as it has the primary key value set,
+> not the original instance you passed to `insert()`.
+>
+> You can also set the primary key value on the model instance manually before
+> calling `update()` if you have that.
 
 ## Deleting Records
 
