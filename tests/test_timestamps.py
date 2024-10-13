@@ -64,7 +64,9 @@ class TestTimestamps:
         )
 
         # Perform the insert operation
-        returned_instance = db_mock.insert(new_instance)
+        returned_instance = db_mock.insert(
+            new_instance, timestamp_override=True
+        )
 
         # Assert that the user-provided timestamps are respected
         assert returned_instance.created_at == 1111111111
@@ -106,7 +108,9 @@ class TestTimestamps:
         )
 
         # Perform the insert operation
-        returned_instance = db_mock.insert(new_instance)
+        returned_instance = db_mock.insert(
+            new_instance, timestamp_override=True
+        )
 
         # Assert that created_at is respected, and updated_at is set to the
         # current time
@@ -150,8 +154,87 @@ class TestTimestamps:
         )
 
         # Perform the insert operation
-        returned_instance = db_mock.insert(new_instance)
+        returned_instance = db_mock.insert(
+            new_instance, timestamp_override=True
+        )
 
         # Assert that timestamps are not modified
         assert returned_instance.created_at == 1111111111
         assert returned_instance.updated_at == 1111111111
+
+    def test_override_but_no_timestamps_provided(self, db_mock, mocker) -> None:
+        """Test missing timestamps always set to current time.
+
+        Even with `timestamp_override=True`.
+        """
+        # Mock time.time() to return a fixed timestamp
+        mocker.patch("time.time", return_value=1234567890)
+
+        # User provides `0` for both timestamps, expecting them to be overridden
+        new_instance = ExampleModel(
+            slug="test",
+            name="Test",
+            content="Test content",
+            created_at=0,  # Should default to current time
+            updated_at=0,  # Should default to current time
+        )
+
+        # Perform the insert with timestamp_override=True
+        returned_instance = db_mock.insert(
+            new_instance, timestamp_override=True
+        )
+
+        # Assert that both timestamps are set to the current time, ignoring the
+        # `0`
+        assert returned_instance.created_at == 1234567890
+        assert returned_instance.updated_at == 1234567890
+
+    def test_partial_override_with_zero(self, db_mock, mocker) -> None:
+        """Test changing `updated_at` only on create.
+
+        When `timestamp_override=True
+        """
+        # Mock time.time() to return a fixed timestamp
+        mocker.patch("time.time", return_value=1234567890)
+
+        # User provides `created_at`, but leaves `updated_at` as 0
+        new_instance = ExampleModel(
+            slug="test",
+            name="Test",
+            content="Test content",
+            created_at=1111111111,  # Provided by the user
+            updated_at=0,  # Should be set to current time
+        )
+
+        # Perform the insert operation with timestamp_override=True
+        returned_instance = db_mock.insert(
+            new_instance, timestamp_override=True
+        )
+
+        # Assert that `created_at` is respected, and `updated_at` is set to the
+        # current time
+        assert returned_instance.created_at == 1111111111
+        assert returned_instance.updated_at == 1234567890
+
+    def test_insert_with_override_disabled(self, db_mock, mocker) -> None:
+        """Test that timestamp_override=False ignores provided timestamps."""
+        # Mock time.time() to return a fixed timestamp
+        mocker.patch("time.time", return_value=1234567890)
+
+        # User provides both timestamps, but they should be ignored
+        new_instance = ExampleModel(
+            slug="test",
+            name="Test",
+            content="Test content",
+            created_at=1111111111,  # Should be ignored
+            updated_at=1111111111,  # Should be ignored
+        )
+
+        # Perform the insert with timestamp_override=False (default)
+        returned_instance = db_mock.insert(
+            new_instance, timestamp_override=False
+        )
+
+        # Assert that both timestamps are set to the mocked current time
+        assert returned_instance.created_at == 1234567890
+        assert returned_instance.updated_at == 1234567890
