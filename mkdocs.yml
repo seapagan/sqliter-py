@@ -72,6 +72,7 @@ nav:
       - Overview: guide/guide.md
       - Models: guide/models.md
       - Connect to a Database: guide/connecting.md
+      - Properties: guide/properties.md
       - Table Operations: guide/tables.md
       - Data Operations: guide/data-ops.md
       - Transactions: guide/transactions.md
