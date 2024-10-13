@@ -76,7 +76,6 @@ class BaseDBModel(BaseModel):
         )
         indexes: ClassVar[list[Union[str, tuple[str]]]] = []
         unique_indexes: ClassVar[list[Union[str, tuple[str]]]] = []
-        auto_timestamps: bool = True
 
     @classmethod
     def model_validate_partial(cls: type[T], obj: dict[str, Any]) -> T:

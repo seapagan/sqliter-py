@@ -561,19 +561,22 @@ class TestQuery:
 
     def test_fetch_result_with_list_of_tuples(self, mocker) -> None:
         """Test _fetch_result when _execute_query returns list of tuples."""
+        # ensure we get a dependable timestamp
+        mocker.patch("time.time", return_value=1234567890)
+
         db = SqliterDB(memory=True)
 
         # Create some mock tuples (mimicking database rows)
         mock_result = [
-            ("1", "123456", "123456", "john", "John", "content"),
-            ("2", "123456", "123456", "jane", "Jane", "content"),
+            ("1", "1234567890", "1234567890", "john", "John", "content"),
+            ("2", "1234567890", "1234567890", "jane", "Jane", "content"),
         ]
 
         # Mock the _execute_query method on the QueryBuilder instance
         query = db.select(ExampleModel)
         mocker.patch.object(query, "_execute_query", return_value=mock_result)
 
-        # Perform the fetch (this will internally call _fetch_result)
+        # Perform the fetch_one (this will internally call _fetch_result)
         result = query.fetch_one()
 
         # Assert that the result is the first tuple in the list and correct type
@@ -581,7 +584,12 @@ class TestQuery:
         assert not isinstance(result, list)
         assert isinstance(result, ExampleModel)
         assert result == ExampleModel(
-            pk=1, slug="john", name="John", content="content"
+            pk=1,
+            updated_at=1234567890,
+            created_at=1234567890,
+            slug="john",
+            name="John",
+            content="content",
         )
 
     def test_exclude_pk_raises_valueerror(self) -> None:
