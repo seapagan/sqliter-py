@@ -51,6 +51,8 @@ class SqliterDB:
         logger (Optional[logging.Logger]): Custom logger for debug output.
     """
 
+    MEMORY_DB = ":memory:"
+
     def __init__(
         self,
         db_filename: Optional[str] = None,
@@ -76,7 +78,7 @@ class SqliterDB:
             ValueError: If no filename is provided for a non-memory database.
         """
         if memory:
-            self.db_filename = ":memory:"
+            self.db_filename = self.MEMORY_DB
         elif db_filename:
             self.db_filename = db_filename
         else:
@@ -98,6 +100,54 @@ class SqliterDB:
 
         if self.reset:
             self._reset_database()
+
+    @property
+    def filename(self) -> Optional[str]:
+        """Returns the filename of the current database or None if in-memory."""
+        return None if self.db_filename == self.MEMORY_DB else self.db_filename
+
+    @property
+    def is_memory(self) -> bool:
+        """Returns True if the database is in-memory."""
+        return self.db_filename == self.MEMORY_DB
+
+    @property
+    def is_autocommit(self) -> bool:
+        """Returns True if auto-commit is enabled."""
+        return self.auto_commit
+
+    @property
+    def is_connected(self) -> bool:
+        """Returns True if the database is connected, False otherwise."""
+        return self.conn is not None
+
+    @property
+    def table_names(self) -> list[str]:
+        """Returns a list of all table names in the database.
+
+        Temporarily connects to the database if not connected and restores
+        the connection state afterward.
+        """
+        was_connected = self.is_connected
+        if not was_connected:
+            self.connect()
+
+        if self.conn is None:
+            err_msg = "Failed to establish a database connection."
+            raise DatabaseConnectionError(err_msg)
+
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' "
+            "AND name NOT LIKE 'sqlite_%';"
+        )
+        tables = [row[0] for row in cursor.fetchall()]
+
+        # Restore the connection state
+        if not was_connected:
+            self.close()
+
+        return tables
 
     def _reset_database(self) -> None:
         """Drop all user-created tables in the database."""
