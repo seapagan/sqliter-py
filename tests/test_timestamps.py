@@ -1,5 +1,7 @@
 """Class to test the `created_at` and `updated_at` timestamps."""
 
+from datetime import datetime, timezone
+
 from tests.conftest import ExampleModel
 
 
@@ -238,3 +240,24 @@ class TestTimestamps:
         # Assert that both timestamps are set to the mocked current time
         assert returned_instance.created_at == 1234567890
         assert returned_instance.updated_at == 1234567890
+
+    def test_time_is_in_utc(self, db_mock, mocker) -> None:
+        """Test that timestamps generated with time.time() are in UTC."""
+        # Mock time.time() to return a fixed timestamp
+        mocker.patch("time.time", return_value=1234567890)
+
+        # Insert a new instance
+        new_instance = ExampleModel(
+            slug="test", name="Test", content="Test content"
+        )
+        returned_instance = db_mock.insert(new_instance)
+
+        # Convert created_at to UTC datetime and verify the conversion
+        created_at_utc = datetime.fromtimestamp(
+            returned_instance.created_at, tz=timezone.utc
+        )
+
+        # Assert that the datetime is correctly interpreted as UTC
+        assert created_at_utc == datetime(
+            2009, 2, 13, 23, 31, 30, tzinfo=timezone.utc
+        )
