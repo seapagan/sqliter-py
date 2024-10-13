@@ -65,3 +65,9 @@ db = SqliterDB("your_database.db", reset=True)
 
 This will effectively drop all user tables from the database. The file itself is
 not deleted, only the tables are dropped.
+
+## Database Properties
+
+The `SqliterDB` class provides several properties to access information about
+the database instance once it has been created. See the
+[Properties](properties.md) page (next) for more details.
