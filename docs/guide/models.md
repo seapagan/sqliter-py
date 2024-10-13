@@ -28,6 +28,10 @@ the table.
 > - Type-hints are **REQUIRED** for each field in the model.
 > - The Model **automatically** creates an **auto-incrementing integer primary
 > key** for each table called `pk`, you do not need to define it yourself.
+> - The Model **automatically** creates a `created_at` and `updated_at` field
+> which is an integer Unix timestamp **IN UTC** when the record was created or
+> last updated. You can convert this timestamp to any format and timezone that
+> you need.
 
 ### Adding Indexes
 

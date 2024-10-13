@@ -4,8 +4,6 @@ Items marked with :fire: are high priority.
 
 ## General Plans and Ideas
 
-- :fire: add (optional) `created_at` and `updated_at` fields to the BaseDBModel class
-  which will be automatically updated when a record is created or updated.
 - add an 'execute' method to the main class to allow executing arbitrary SQL
   queries which can be chained to the 'find_first' etc methods or just used
   directly.
@@ -22,6 +20,12 @@ Items marked with :fire: are high priority.
 - :fire: support structures like, `list`, `dict`, `set` etc. in the model. These will
   need to be `pickled` first then stored as a BLOB in the database . Also
   support `date` which can be stored as a Unix timestamp in an integer field.
+- on update, check if the model has actually changed before sending the update
+  to the database. This will prevent unnecessary updates and leave the
+  `updated_at` correct. However, this will always require a query to the
+  database to check the current values and so in large batch updates this could
+  have a considerable performance impact. Probably best to gate this behind a
+  flag.
 
 ## Housekeeping
 

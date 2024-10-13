@@ -430,11 +430,18 @@ class SqliterDB:
         if not self._in_transaction and self.auto_commit and self.conn:
             self.conn.commit()
 
-    def insert(self, model_instance: T) -> T:
+    def insert(
+        self, model_instance: T, *, timestamp_override: bool = False
+    ) -> T:
         """Insert a new record into the database.
 
         Args:
             model_instance: The instance of the model class to insert.
+            timestamp_override: If True, override the created_at and updated_at
+                timestamps with provided values. Default is False. If the values
+                are not provided, they will be set to the current time as
+                normal. Without this flag, the timestamps will always be set to
+                the current time, even if provided.
 
         Returns:
             The updated model instance with the primary key (pk) set.
@@ -447,8 +454,18 @@ class SqliterDB:
 
         # Always set created_at and updated_at timestamps
         current_timestamp = int(time.time())
-        model_instance.created_at = current_timestamp
-        model_instance.updated_at = current_timestamp
+
+        # Handle the case where timestamp_override is False
+        if not timestamp_override:
+            # Always override both timestamps with the current time
+            model_instance.created_at = current_timestamp
+            model_instance.updated_at = current_timestamp
+        else:
+            # Respect provided values, but set to current time if they are 0
+            if model_instance.created_at == 0:
+                model_instance.created_at = current_timestamp
+            if model_instance.updated_at == 0:
+                model_instance.updated_at = current_timestamp
 
         # Get the data from the model
         data = model_instance.model_dump()

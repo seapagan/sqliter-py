@@ -20,6 +20,31 @@ print(f"New record inserted with primary key: {result.pk}")
 print(f"Name: {result.name}, Age: {result.age}, Email: {result.email}")
 ```
 
+### Overriding the Timestamps
+
+By default, SQLiter will automatically set the `created_at` and `updated_at`
+fields to the current Unix timestamp in UTC when a record is inserted. If you
+want to override this behavior, you can set the `created_at` and `updated_at`
+fields manually before calling `insert()`:
+
+```python
+import time
+
+user.created_at = int(time.time())
+user.updated_at = int(time.time())
+```
+
+However, by default **this is disabled**. Any model passed to `insert()` will
+have the `created_at` and `updated_at` fields set automatically and ignore any
+values passed in these 2 fields.
+
+If you want to enable this feature, you can set the `timestamp_override` flag to `True`
+when inserting the record:
+
+```python
+result = db.insert(user, timestamp_override=True)
+```
+
 > [!IMPORTANT]
 >
 > The `insert()` method will raise a `RecordInsertionError` if you try to insert
@@ -73,6 +98,16 @@ db.update(user)
 >
 > You can also set the primary key value on the model instance manually before
 > calling `update()` if you have that.
+
+On suffescul update, the `updated_at` field will be set to the current Unix
+timestamp in UTC by default.
+
+> [!WARNING]
+>
+> Unlike with the `insert()` method, you **CANNOT** override the `updated_at`
+> field when calling `update()`. It will always be set to the current Unix
+> timestamp in UTC. This is to ensure that the `updated_at` field is always
+> accurate.
 
 ## Deleting Records
 

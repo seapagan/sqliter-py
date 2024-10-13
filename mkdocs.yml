@@ -74,7 +74,7 @@ nav:
       - Connect to a Database: guide/connecting.md
       - Properties: guide/properties.md
       - Table Operations: guide/tables.md
-      - Data Operations: guide/data-ops.md
+      - Data Operations: guide/data-operations.md
       - Transactions: guide/transactions.md
       - Filtering Results: guide/filtering.md
       - Ordering: guide/ordering.md
