@@ -38,6 +38,14 @@ class BaseDBModel(BaseModel):
     """
 
     pk: int = Field(0, description="The mandatory primary key of the table.")
+    created_at: int = Field(
+        default=0,
+        description="Unix timestamp when the record was created.",
+    )
+    updated_at: int = Field(
+        default=0,
+        description="Unix timestamp when the record was last updated.",
+    )
 
     model_config = ConfigDict(
         extra="ignore",

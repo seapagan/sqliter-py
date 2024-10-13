@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+import time
 from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
 
 from typing_extensions import Self
@@ -444,6 +445,11 @@ class SqliterDB:
         model_class = type(model_instance)
         table_name = model_class.get_table_name()
 
+        # Always set created_at and updated_at timestamps
+        current_timestamp = int(time.time())
+        model_instance.created_at = current_timestamp
+        model_instance.updated_at = current_timestamp
+
         # Get the data from the model
         data = model_instance.model_dump()
         # remove the primary key field if it exists, otherwise we'll get
@@ -529,6 +535,10 @@ class SqliterDB:
         table_name = model_class.get_table_name()
 
         primary_key = model_class.get_primary_key()
+
+        # Set updated_at timestamp
+        current_timestamp = int(time.time())
+        model_instance.updated_at = current_timestamp
 
         fields = ", ".join(
             f"{field} = ?"

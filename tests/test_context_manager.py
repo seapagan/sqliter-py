@@ -116,8 +116,8 @@ class TestContextManager:
         # Assert that the data was committed
         assert result is not None, "Data was not committed."
         assert (
-            result[1] == "test"
-        ), f"Expected slug to be 'test', but got {result[0]}"
+            result[3] == "test"
+        ), f"Expected slug to be 'test', but got {result[3]}"
 
         # Close the new connection
         new_conn.close()

@@ -178,9 +178,9 @@ class TestSqliterDB:
             cursor.execute("SELECT * FROM test_table WHERE slug = ?", ("mit",))
             result = cursor.fetchone()
             assert result[0] == 1
-            assert result[1] == "mit"
-            assert result[2] == "MIT License"
-            assert result[3] == "MIT License Content"
+            assert result[3] == "mit"
+            assert result[4] == "MIT License"
+            assert result[5] == "MIT License Content"
 
     def test_fetch_license(self, db_mock) -> None:
         """Test fetching a license by primary key."""
@@ -454,6 +454,8 @@ class TestSqliterDB:
             db_mock_detailed.select(
                 DetailedPersonModel,
                 exclude=[
+                    "created_at",
+                    "updated_at",
                     "name",
                     "age",
                     "email",
@@ -542,6 +544,8 @@ class TestSqliterDB:
         # Expected types in SQLite (INTEGER, REAL, TEXT, etc.)
         expected_types = {
             "pk": "INTEGER",
+            "created_at": "INTEGER",
+            "updated_at": "INTEGER",
             "name": "TEXT",
             "age": "REAL",
             "price": "REAL",
