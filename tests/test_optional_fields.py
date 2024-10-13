@@ -415,6 +415,8 @@ class TestOptionalFields:
                     "address",
                     "phone",
                     "occupation",
+                    "created_at",
+                    "updated_at",
                 ]
             ).fetch_all()
 

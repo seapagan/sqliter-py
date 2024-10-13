@@ -565,8 +565,8 @@ class TestQuery:
 
         # Create some mock tuples (mimicking database rows)
         mock_result = [
-            ("1", "john", "John", "content"),
-            ("2", "jane", "Jane", "content"),
+            ("1", "123456", "123456", "john", "John", "content"),
+            ("2", "123456", "123456", "jane", "Jane", "content"),
         ]
 
         # Mock the _execute_query method on the QueryBuilder instance
