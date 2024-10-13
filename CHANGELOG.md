@@ -10,7 +10,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 **New Features**
 
+- Add `created_at` and `updated_at` timestamps to the BaseDBModel ([#49](https://github.com/seapagan/sqliter-py/pull/49)) by [seapagan](https://github.com/seapagan)
 - Add some useful properties to the SqliterDB class instance ([#48](https://github.com/seapagan/sqliter-py/pull/48)) by [seapagan](https://github.com/seapagan)
+
+**Bug Fixes**
+
+- Fix missing commits from the previous PR (#49) ([#50](https://github.com/seapagan/sqliter-py/pull/50)) by [seapagan](https://github.com/seapagan)
 
 [`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.6.0...HEAD) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.6.0...HEAD.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.6.0...HEAD.patch)
 

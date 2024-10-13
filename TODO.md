@@ -17,9 +17,13 @@ Items marked with :fire: are high priority.
   data.
 - add more tests where 'auto_commit' is set to False to ensure that commit is
   not called automatically.
-- :fire: support structures like, `list`, `dict`, `set` etc. in the model. These will
-  need to be `pickled` first then stored as a BLOB in the database . Also
-  support `date` which can be stored as a Unix timestamp in an integer field.
+- :fire: support structures like, `list`, `dict`, `set` etc. in the model. These
+  will need to be `pickled` first then stored as a BLOB in the database . Also
+  support `datetime` which can be stored as a Unix timestamp in an integer
+  field.
+- :fire: in addition to the above (or perhaps before), add a `BLOB` field type
+  to allow storing binary data, mapping to the `bytes` type in Python. This
+  would be useful for storing images, files etc.
 - on update, check if the model has actually changed before sending the update
   to the database. This will prevent unnecessary updates and leave the
   `updated_at` correct. However, this will always require a query to the
