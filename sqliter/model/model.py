@@ -38,6 +38,14 @@ class BaseDBModel(BaseModel):
     """
 
     pk: int = Field(0, description="The mandatory primary key of the table.")
+    created_at: int = Field(
+        default=0,
+        description="Unix timestamp when the record was created.",
+    )
+    updated_at: int = Field(
+        default=0,
+        description="Unix timestamp when the record was last updated.",
+    )
 
     model_config = ConfigDict(
         extra="ignore",
@@ -68,6 +76,7 @@ class BaseDBModel(BaseModel):
         )
         indexes: ClassVar[list[Union[str, tuple[str]]]] = []
         unique_indexes: ClassVar[list[Union[str, tuple[str]]]] = []
+        auto_timestamps: bool = True
 
     @classmethod
     def model_validate_partial(cls: type[T], obj: dict[str, Any]) -> T:
