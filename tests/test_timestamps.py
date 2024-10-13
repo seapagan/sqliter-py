@@ -48,3 +48,110 @@ class TestTimestamps:
         assert (
             returned_instance.updated_at == 1234567891
         )  # Should be updated to the new timestamp
+
+    def test_insert_with_provided_timestamps(self, db_mock, mocker) -> None:
+        """Test that user-provided timestamps are respected on insert."""
+        # Mock time.time() to return a fixed timestamp
+        mocker.patch("time.time", return_value=1234567890)
+
+        # User-provided timestamps
+        new_instance = ExampleModel(
+            slug="test",
+            name="Test",
+            content="Test content",
+            created_at=1111111111,  # User-provided
+            updated_at=1111111111,  # User-provided
+        )
+
+        # Perform the insert operation
+        returned_instance = db_mock.insert(new_instance)
+
+        # Assert that the user-provided timestamps are respected
+        assert returned_instance.created_at == 1111111111
+        assert returned_instance.updated_at == 1111111111
+
+    def test_insert_with_default_timestamps(self, db_mock, mocker) -> None:
+        """Test that timestamps are set when created_at and updated_at are 0."""
+        # Mock time.time() to return a fixed timestamp
+        mocker.patch("time.time", return_value=1234567890)
+
+        # Create instance with default (0) timestamps
+        new_instance = ExampleModel(
+            slug="test",
+            name="Test",
+            content="Test content",
+            created_at=0,
+            updated_at=0,
+        )
+
+        # Perform the insert operation
+        returned_instance = db_mock.insert(new_instance)
+
+        # Assert that timestamps are set to the mocked time
+        assert returned_instance.created_at == 1234567890
+        assert returned_instance.updated_at == 1234567890
+
+    def test_insert_with_mixed_timestamps(self, db_mock, mocker) -> None:
+        """Test a mix of user-provided and default timestamps work on insert."""
+        # Mock time.time() to return a fixed timestamp
+        mocker.patch("time.time", return_value=1234567890)
+
+        # Provide only created_at, leave updated_at as 0
+        new_instance = ExampleModel(
+            slug="test",
+            name="Test",
+            content="Test content",
+            created_at=1111111111,  # User-provided
+            updated_at=0,  # Default to current time
+        )
+
+        # Perform the insert operation
+        returned_instance = db_mock.insert(new_instance)
+
+        # Assert that created_at is respected, and updated_at is set to the
+        # current time
+        assert returned_instance.created_at == 1111111111
+        assert returned_instance.updated_at == 1234567890
+
+    def test_update_timestamps_on_change(self, db_mock, mocker) -> None:
+        """Test that only `updated_at` changes on update."""
+        # Mock time.time() to return a fixed timestamp for the insert
+        mocker.patch("time.time", return_value=1234567890)
+
+        # Insert a new record
+        new_instance = ExampleModel(
+            slug="test", name="Test", content="Test content"
+        )
+        returned_instance = db_mock.insert(new_instance)
+
+        # Mock time.time() to return a new timestamp for the update
+        mocker.patch("time.time", return_value=1234567891)
+
+        # Update the record
+        returned_instance.name = "Updated Test"
+        db_mock.update(returned_instance)
+
+        # Assert that created_at stays the same and updated_at is changed
+        assert returned_instance.created_at == 1234567890
+        assert returned_instance.updated_at == 1234567891
+
+    def test_no_change_if_timestamps_already_set(self, db_mock, mocker) -> None:
+        """Test timestamps are not modified if already set during insert."""
+        # Mock time.time() to return a fixed timestamp
+        mocker.patch("time.time", return_value=1234567890)
+
+        # User provides both timestamps
+        new_instance = ExampleModel(
+            slug="test",
+            name="Test",
+            content="Test content",
+            created_at=1111111111,  # Already set
+            updated_at=1111111111,  # Already set
+        )
+
+        # Perform the insert operation
+        returned_instance = db_mock.insert(new_instance)
+
+        # Assert that timestamps are not modified
+        assert returned_instance.created_at == 1111111111
+        assert returned_instance.updated_at == 1111111111

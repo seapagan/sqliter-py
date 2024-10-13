@@ -447,8 +447,12 @@ class SqliterDB:
 
         # Always set created_at and updated_at timestamps
         current_timestamp = int(time.time())
-        model_instance.created_at = current_timestamp
-        model_instance.updated_at = current_timestamp
+        # Respect user-provided values for created_at and updated_at, but set
+        # them if they are 0 (the default value if none is provided)
+        if model_instance.created_at == 0:
+            model_instance.created_at = current_timestamp
+        if model_instance.updated_at == 0:
+            model_instance.updated_at = current_timestamp
 
         # Get the data from the model
         data = model_instance.model_dump()
