@@ -54,7 +54,7 @@ class SqliterDB:
 
     MEMORY_DB = ":memory:"
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         db_filename: Optional[str] = None,
         *,
@@ -63,6 +63,7 @@ class SqliterDB:
         debug: bool = False,
         logger: Optional[logging.Logger] = None,
         reset: bool = False,
+        return_local_time: bool = True,
     ) -> None:
         """Initialize a new SqliterDB instance.
 
@@ -74,6 +75,7 @@ class SqliterDB:
             logger: Custom logger for debug output.
             reset: Whether to reset the database on initialization. This will
                 basically drop all existing tables.
+            return_local_time: Whether to return local time for datetime fields.
 
         Raises:
             ValueError: If no filename is provided for a non-memory database.
@@ -93,6 +95,7 @@ class SqliterDB:
         self.logger = logger
         self.conn: Optional[sqlite3.Connection] = None
         self.reset = reset
+        self.return_local_time = return_local_time
 
         self._in_transaction = False
 
