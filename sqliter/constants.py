@@ -6,8 +6,11 @@ operators and data types, which are crucial for translating between
 Pydantic models and SQLite database operations.
 """
 
+import datetime
+
 # A dictionary mapping SQLiter filter operators to their corresponding SQL
 # operators.
+
 OPERATOR_MAPPING = {
     "__lt": "<",
     "__lte": "<=",
@@ -34,4 +37,6 @@ SQLITE_TYPE_MAPPING = {
     str: "TEXT",
     bool: "INTEGER",  # SQLite stores booleans as integers (0 or 1)
     bytes: "BLOB",
+    datetime.datetime: "INTEGER",  # Store as Unix timestamp
+    datetime.date: "INTEGER",  # Store as Unix timestamp
 }
