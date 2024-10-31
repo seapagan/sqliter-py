@@ -472,6 +472,11 @@ class SqliterDB:
 
         # Get the data from the model
         data = model_instance.model_dump()
+
+        # Serialize the data
+        for field_name, value in list(data.items()):
+            data[field_name] = model_instance.serialize_field(value)
+
         # remove the primary key field if it exists, otherwise we'll get
         # TypeErrors as multiple primary keys will exist
         if data.get("pk", None) == 0:
@@ -549,28 +554,27 @@ class SqliterDB:
 
         Raises:
             RecordUpdateError: If there's an error updating the record or if it
-            is not found.
+                is not found.
         """
         model_class = type(model_instance)
         table_name = model_class.get_table_name()
-
         primary_key = model_class.get_primary_key()
 
         # Set updated_at timestamp
         current_timestamp = int(time.time())
         model_instance.updated_at = current_timestamp
 
-        fields = ", ".join(
-            f"{field} = ?"
-            for field in model_class.model_fields
-            if field != primary_key
-        )
-        values = tuple(
-            getattr(model_instance, field)
-            for field in model_class.model_fields
-            if field != primary_key
-        )
-        primary_key_value = getattr(model_instance, primary_key)
+        # Get the data and serialize any datetime/date fields
+        data = model_instance.model_dump()
+        for field_name, value in list(data.items()):
+            data[field_name] = model_instance.serialize_field(value)
+
+        # Remove the primary key from the update data
+        primary_key_value = data.pop(primary_key)
+
+        # Create the SQL using the processed data
+        fields = ", ".join(f"{field} = ?" for field in data)
+        values = tuple(data.values())
 
         update_sql = f"""
             UPDATE {table_name}

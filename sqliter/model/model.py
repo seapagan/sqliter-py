@@ -168,7 +168,8 @@ class BaseDBModel(BaseModel):
         """Returns True since the primary key is always created."""
         return True
 
-    def _serialize_field(self, value: SerializableField) -> SerializableField:
+    @classmethod
+    def serialize_field(cls, value: SerializableField) -> SerializableField:
         """Serialize datetime or date fields to Unix timestamp.
 
         Args:
@@ -184,8 +185,9 @@ class BaseDBModel(BaseModel):
 
     # Deserialization after fetching from the database
 
-    def _deserialize_field(
-        self,
+    @classmethod
+    def deserialize_field(
+        cls,
         field_name: str,
         value: SerializableField,
         *,
@@ -203,7 +205,8 @@ class BaseDBModel(BaseModel):
             A datetime or date object if the field type is datetime or date,
             otherwise returns the value as-is.
         """
-        field_type = self.__annotations__.get(field_name)
+        field_type = cls.__annotations__.get(field_name)
+
         if field_type in (datetime.datetime, datetime.date) and isinstance(
             value, int
         ):

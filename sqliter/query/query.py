@@ -35,7 +35,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from pydantic.fields import FieldInfo
 
     from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
+    from sqliter.model import BaseDBModel, SerializableField
 
 # Define a type alias for the possible value types
 FilterValue = Union[
@@ -609,14 +609,32 @@ class QueryBuilder:
             An instance of the model class populated with the row data.
         """
         if self._fields:
-            return self.model_class.model_validate_partial(
-                {field: row[idx] for idx, field in enumerate(self._fields)}
-            )
-        return self.model_class(
-            **{
-                field: row[idx]
-                for idx, field in enumerate(self.model_class.model_fields)
+            data = {
+                field: self._deserialize(field, row[idx])
+                for idx, field in enumerate(self._fields)
             }
+            return self.model_class.model_validate_partial(data)
+
+        data = {
+            field: self._deserialize(field, row[idx])
+            for idx, field in enumerate(self.model_class.model_fields)
+        }
+        return self.model_class(**data)
+
+    def _deserialize(
+        self, field_name: str, value: SerializableField
+    ) -> SerializableField:
+        """Deserialize a field value if needed.
+
+        Args:
+            field_name: Name of the field being deserialized.
+            value: Value from the database.
+
+        Returns:
+            The deserialized value.
+        """
+        return self.model_class.deserialize_field(
+            field_name, value, return_local_time=self.db.return_local_time
         )
 
     @overload
