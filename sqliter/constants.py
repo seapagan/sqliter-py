@@ -10,7 +10,6 @@ import datetime
 
 # A dictionary mapping SQLiter filter operators to their corresponding SQL
 # operators.
-
 OPERATOR_MAPPING = {
     "__lt": "<",
     "__lte": "<=",

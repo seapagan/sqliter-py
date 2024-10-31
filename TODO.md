@@ -20,11 +20,10 @@ Items marked with :fire: are high priority.
 - :fire: support structures like, `list`, `dict`, `set`, `tuple` etc. in the
   model. These will need to be `pickled` first then stored as a BLOB in the
   database
-- :fire: in addition to the above (or perhaps before), add a `BLOB` field type
-  to allow storing binary data, mapping to the `bytes` type in Python. This
-  would be useful for storing images, files etc.
-- similarly - perhaps add a `JSON` field type to allow storing JSON data in a
-  field, and an `Object` field type to allow storing arbitrary Python objects?
+- :fire: similarly - perhaps add a `JSON` field type to allow storing JSON data
+  in a field, and an `Object` field type to allow storing arbitrary Python
+  objects? Perhaps a `Binary` field type to allow storing arbitrary binary data?
+  (just uses the existing `bytes` mapping but more explicit)
 - on update, check if the model has actually changed before sending the update
   to the database. This will prevent unnecessary updates and leave the
   `updated_at` correct. However, this will always require a query to the
