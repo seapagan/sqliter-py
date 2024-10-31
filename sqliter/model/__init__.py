@@ -5,7 +5,7 @@ models in SQLiter applications, and the Unique class, which is used to
 define unique constraints on model fields.
 """
 
-from .model import BaseDBModel
+from .model import BaseDBModel, SerializableField
 from .unique import Unique
 
-__all__ = ["BaseDBModel", "Unique"]
+__all__ = ["BaseDBModel", "Unique", "SerializableField"]

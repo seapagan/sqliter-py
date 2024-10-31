@@ -9,11 +9,13 @@ in SQLiter applications.
 
 from __future__ import annotations
 
+import datetime
 import re
 from typing import (
     Any,
     ClassVar,
     Optional,
+    Protocol,
     TypeVar,
     Union,
     cast,
@@ -23,7 +25,13 @@ from typing import (
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from sqliter.helpers import from_unix_timestamp, to_unix_timestamp
+
 T = TypeVar("T", bound="BaseDBModel")
+
+
+class SerializableField(Protocol):
+    """Protocol for fields that can be serialized or deserialized."""
 
 
 class BaseDBModel(BaseModel):
@@ -159,3 +167,50 @@ class BaseDBModel(BaseModel):
     def should_create_pk(cls) -> bool:
         """Returns True since the primary key is always created."""
         return True
+
+    @classmethod
+    def serialize_field(cls, value: SerializableField) -> SerializableField:
+        """Serialize datetime or date fields to Unix timestamp.
+
+        Args:
+            field_name: The name of the field.
+            value: The value of the field.
+
+        Returns:
+            An integer Unix timestamp if the field is a datetime or date.
+        """
+        if isinstance(value, (datetime.datetime, datetime.date)):
+            return to_unix_timestamp(value)
+        return value  # Return value as-is for non-datetime fields
+
+    # Deserialization after fetching from the database
+
+    @classmethod
+    def deserialize_field(
+        cls,
+        field_name: str,
+        value: SerializableField,
+        *,
+        return_local_time: bool,
+    ) -> object:
+        """Deserialize fields from Unix timestamp to datetime or date.
+
+        Args:
+            field_name: The name of the field being deserialized.
+            value: The Unix timestamp value fetched from the database.
+            return_local_time: Flag to control whether the datetime is localized
+                to the user's timezone.
+
+        Returns:
+            A datetime or date object if the field type is datetime or date,
+            otherwise returns the value as-is.
+        """
+        field_type = cls.__annotations__.get(field_name)
+
+        if field_type in (datetime.datetime, datetime.date) and isinstance(
+            value, int
+        ):
+            return from_unix_timestamp(
+                value, field_type, localize=return_local_time
+            )
+        return value  # Return value as-is for non-datetime fields
