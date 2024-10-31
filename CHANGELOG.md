@@ -5,8 +5,7 @@ project since the first release, with the latest changes at the top.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-
-## [Unreleased](https://github.com/seapagan/sqliter-py/tree/HEAD)
+## [0.7.0](https://github.com/seapagan/sqliter-py/releases/tag/0.7.0) (October 31, 2024)
 
 **New Features**
 
@@ -18,7 +17,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - Fix missing commits from the previous PR (#49) ([#50](https://github.com/seapagan/sqliter-py/pull/50)) by [seapagan](https://github.com/seapagan)
 
-[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.6.0...HEAD) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.6.0...HEAD.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.6.0...HEAD.patch)
+[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.6.0...0.7.0) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.6.0...0.7.0.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.6.0...0.7.0.patch)
 
 ## [0.6.0](https://github.com/seapagan/sqliter-py/releases/tag/0.6.0) (October 12, 2024)
 
@@ -124,7 +123,8 @@ the name of the primary key is always `pk`.
 ## [0.1.1](https://github.com/seapagan/sqliter-py/releases/tag/0.1.1) (September 12, 2024)
 
 Just a documentation fix - README was old version
-[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.1.0...0.1.1) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.1.0...0.1.1.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.1.0...0.1.1.patch)
+
+[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.1.0...0.1.1) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.1.0...0.1.1.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.1.0...0.1.1.patch)
 
 ## [0.1.0](https://github.com/seapagan/sqliter-py/releases/tag/0.1.0) (September 12, 2024)
 

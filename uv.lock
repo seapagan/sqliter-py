@@ -1397,7 +1397,7 @@ wheels = [
 
 [[package]]
 name = "sqliter-py"
-version = "0.6.0"
+version = "0.7.0"
 source = { editable = "." }
 dependencies = [
     { name = "pydantic" },
@@ -1408,7 +1408,7 @@ extras = [
     { name = "inflect" },
 ]
 
-[package.dev-dependencies]
+[package.dependency-groups]
 dev = [
     { name = "github-changelog-md" },
     { name = "mdx-truly-sane-lists" },
@@ -1437,7 +1437,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.9.0" },
 ]
 
-[package.metadata.requires-dev]
+[package.metadata.dependency-groups]
 dev = [
     { name = "github-changelog-md", specifier = ">=0.9.5" },
     { name = "mdx-truly-sane-lists", specifier = ">=1.3" },
