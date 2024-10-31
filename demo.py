@@ -27,10 +27,8 @@ class UserModel(BaseDBModel):
     admin: bool = False
 
     class Meta:
-        """Override the default options for the UserModel."""
+        """Override the table name for the UserModel."""
 
-        create_pk: bool = False  # Disable auto-increment ID
-        primary_key: str = "slug"  # Use 'slug' as the primary key
         table_name: str = "users"  # Explicitly define the table name
 
 
