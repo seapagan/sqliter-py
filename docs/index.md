@@ -30,14 +30,14 @@ database-like format without needing to learn SQL or use a full ORM.
 > Also, structures like `list`, `dict`, `set` etc are not supported **at this
 > time** as field types, since SQLite does not have a native column type for
 > these. This is the **next planned enhancement**. These will need to be
-> `pickled` first then stored as a BLOB in the database . Also support `date`
-> which can be stored as a Unix timestamp in an integer field.
+> `pickled` first then stored as a BLOB in the database.
 >
 > See the [TODO](todo/index.md) for planned features and improvements.
 
 ## Features
 
 - Table creation based on Pydantic models
+- Supports `date` and `datetime` fields. list/dict/set fields are planned.
 - Automatic primary key generation
 - User defined indexes on any field
 - Set any field as UNIQUE

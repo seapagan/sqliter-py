@@ -33,6 +33,22 @@ the table.
 > last updated. You can convert this timestamp to any format and timezone that
 > you need.
 
+### Field Types
+
+The following field types are currently supported:
+
+- `str`
+- `int`
+- `float`
+- `bool`
+- `date`
+- `datetime`
+- `bytes`
+
+More field types are planned for the near future, since I have the
+serialization/ deserialization locked in. This will include `list`, `dict`,
+`set`, and possibly `JSON` and `Object` fields.
+
 ### Adding Indexes
 
 You can add indexes to your table by specifying the `indexes` attribute in the
