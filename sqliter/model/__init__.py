@@ -8,4 +8,4 @@ define unique constraints on model fields.
 from .model import BaseDBModel, SerializableField
 from .unique import Unique
 
-__all__ = ["BaseDBModel", "Unique", "SerializableField"]
+__all__ = ["BaseDBModel", "SerializableField", "Unique"]
