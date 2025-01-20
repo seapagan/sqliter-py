@@ -40,9 +40,9 @@ class TestSqliterDBProperties:
     def test_is_autocommit_property_false(self) -> None:
         """Test 'is_autocommit' prop returns False when auto-commit disabled."""
         db = SqliterDB(memory=True, auto_commit=False)
-        assert (
-            db.is_autocommit is False
-        ), "Expected False for auto-commit disabled"
+        assert db.is_autocommit is False, (
+            "Expected False for auto-commit disabled"
+        )
 
     def test_is_connected_property_when_connected(self) -> None:
         """Test the 'is_connected' property when the database is connected."""
@@ -71,9 +71,9 @@ class TestSqliterDBProperties:
 
         # Verify that the table exists while the connection is still open
         table_names = db.table_names
-        assert (
-            "test_table" in table_names
-        ), f"Expected 'test_table', got {table_names}"
+        assert "test_table" in table_names, (
+            f"Expected 'test_table', got {table_names}"
+        )
 
         # Explicitly close the connection afterwards
         db.close()
@@ -94,9 +94,9 @@ class TestSqliterDBProperties:
 
         # Check the table names while the connection is still open
         table_names = db.table_names
-        assert (
-            "another_table" in table_names
-        ), f"Expected 'another_table', got {table_names}"
+        assert "another_table" in table_names, (
+            f"Expected 'another_table', got {table_names}"
+        )
 
         # Close the connection explicitly after the check
         db.close()
@@ -127,9 +127,9 @@ class TestSqliterDBProperties:
             # Ensure that accessing table_names does NOT raise an error Since
             # it's file-based, the table should still exist after reconnecting
             table_names = db.table_names
-            assert (
-                "test_table" in table_names
-            ), f"Expected 'test_table', got {table_names}"
+            assert "test_table" in table_names, (
+                f"Expected 'test_table', got {table_names}"
+            )
 
     def test_table_names_connection_failure(self, mocker) -> None:
         """Test 'table_names' raises exception if the connection fails."""
