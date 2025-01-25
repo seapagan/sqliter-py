@@ -7,6 +7,7 @@ import pytest
 from sqliter.exceptions import (
     InvalidFilterError,
     InvalidOffsetError,
+    RecordDeletionError,
     RecordFetchError,
 )
 from sqliter.model import BaseDBModel
@@ -599,3 +600,332 @@ class TestQuery:
         db = SqliterDB(memory=True)
         with pytest.raises(ValueError, match=match_str):
             db.select(ExampleModel).exclude(["pk"])
+
+    def test_delete_all_records(self, db_mock) -> None:
+        """Test that delete() removes all records when no filters are applied."""
+
+        # Define a simple model for the test
+        class DeleteTestModel(BaseDBModel):
+            name: str
+
+            class Meta:
+                table_name: str = "delete_test_table"
+
+        # Create the table and insert some test data
+        db_mock.create_table(DeleteTestModel)
+        db_mock.insert(DeleteTestModel(name="John"))
+        db_mock.insert(DeleteTestModel(name="Jane"))
+        db_mock.insert(DeleteTestModel(name="Bob"))
+
+        # Delete all records
+        deleted_count = db_mock.select(DeleteTestModel).delete()
+
+        # Assert that all records were deleted
+        assert deleted_count == 3
+        assert db_mock.select(DeleteTestModel).count() == 0
+
+    def test_delete_filtered_records(self, db_mock) -> None:
+        """Test that delete() removes only records matching the filter."""
+
+        # Define a simple model for the test
+        class DeleteTestModel(BaseDBModel):
+            name: str
+            age: int
+
+            class Meta:
+                table_name: str = "delete_test_table"
+
+        # Create the table and insert test data
+        db_mock.create_table(DeleteTestModel)
+        db_mock.insert(DeleteTestModel(name="John", age=25))
+        db_mock.insert(DeleteTestModel(name="Jane", age=30))
+        db_mock.insert(DeleteTestModel(name="Bob", age=35))
+
+        # Delete records where age > 30
+        deleted_count = (
+            db_mock.select(DeleteTestModel).filter(age__gt=30).delete()
+        )
+
+        # Assert that only one record was deleted
+        assert deleted_count == 1
+        assert db_mock.select(DeleteTestModel).count() == 2
+
+        # Verify remaining records
+        remaining = db_mock.select(DeleteTestModel).order().fetch_all()
+        assert len(remaining) == 2
+        assert remaining[0].name == "John"
+        assert remaining[1].name == "Jane"
+
+    def test_delete_no_matches(self, db_mock) -> None:
+        """Test that delete() returns 0 when no records match the filter."""
+
+        # Define a simple model for the test
+        class DeleteTestModel(BaseDBModel):
+            name: str
+
+            class Meta:
+                table_name: str = "delete_test_table"
+
+        # Create the table and insert a test record
+        db_mock.create_table(DeleteTestModel)
+        db_mock.insert(DeleteTestModel(name="John"))
+
+        # Try to delete records with a filter that won't match
+        deleted_count = (
+            db_mock.select(DeleteTestModel).filter(name="NonExistent").delete()
+        )
+
+        # Assert that no records were deleted
+        assert deleted_count == 0
+        assert db_mock.select(DeleteTestModel).count() == 1
+
+    def test_delete_with_complex_filters(self, db_mock) -> None:
+        """Test deleting records with multiple filter conditions."""
+
+        # Define a model for the test
+        class ComplexDeleteModel(BaseDBModel):
+            name: str
+            age: int
+            status: str
+
+            class Meta:
+                table_name: str = "complex_delete_table"
+
+        # Create the table and insert test data
+        db_mock.create_table(ComplexDeleteModel)
+        db_mock.insert(ComplexDeleteModel(name="John", age=25, status="active"))
+        db_mock.insert(
+            ComplexDeleteModel(name="Jane", age=30, status="inactive")
+        )
+        db_mock.insert(ComplexDeleteModel(name="Bob", age=35, status="active"))
+        db_mock.insert(
+            ComplexDeleteModel(name="Alice", age=28, status="active")
+        )
+
+        # Delete records with multiple conditions:
+        # age > 25 AND status = 'active'
+        deleted_count = (
+            db_mock.select(ComplexDeleteModel)
+            .filter(age__gt=25, status="active")
+            .delete()
+        )
+
+        # Assert correct number of records were deleted
+        assert deleted_count == 2  # Both Bob and Alice meet both conditions
+        assert db_mock.select(ComplexDeleteModel).count() == 2
+
+        # Verify the correct records were deleted
+        remaining_names = [
+            record.name
+            for record in db_mock.select(ComplexDeleteModel).order().fetch_all()
+        ]
+        assert "Bob" not in remaining_names
+        assert "Alice" not in remaining_names
+        assert set(remaining_names) == {"John", "Jane"}
+
+    def test_delete_with_null_values(self, db_mock) -> None:
+        """Test deleting records with NULL value conditions."""
+
+        # Define a model for the test
+        class NullDeleteModel(BaseDBModel):
+            name: str
+            optional_field: Optional[str] = None
+
+            class Meta:
+                table_name: str = "null_delete_table"
+
+        # Create the table and insert test data
+        db_mock.create_table(NullDeleteModel)
+        db_mock.insert(NullDeleteModel(name="John", optional_field="value"))
+        db_mock.insert(NullDeleteModel(name="Jane", optional_field=None))
+        db_mock.insert(NullDeleteModel(name="Bob", optional_field="other"))
+        db_mock.insert(NullDeleteModel(name="Alice", optional_field=None))
+
+        # Delete records where optional_field is NULL
+        deleted_count = (
+            db_mock.select(NullDeleteModel).filter(optional_field=None).delete()
+        )
+
+        # Assert correct number of records were deleted
+        assert deleted_count == 2  # Jane and Alice had NULL values
+        assert db_mock.select(NullDeleteModel).count() == 2
+
+        # Verify the correct records remain
+        remaining = db_mock.select(NullDeleteModel).order().fetch_all()
+        assert len(remaining) == 2
+        assert all(record.optional_field is not None for record in remaining)
+        assert {record.name for record in remaining} == {"John", "Bob"}
+
+    def test_delete_database_error(self, db_mock) -> None:
+        """Test that database errors during delete are handled properly."""
+
+        # Define a model for the test
+        class ErrorDeleteModel(BaseDBModel):
+            name: str
+
+            class Meta:
+                table_name: str = "error_delete_table"
+
+        # Create the table and insert a test record
+        db_mock.create_table(ErrorDeleteModel)
+        db_mock.insert(ErrorDeleteModel(name="John"))
+
+        # Drop the table to simulate a database error
+        db_mock.drop_table(ErrorDeleteModel)
+
+        # Attempt to delete from the non-existent table should raise RecordDeletionError
+        with pytest.raises(RecordDeletionError) as exc:
+            db_mock.select(ErrorDeleteModel).delete()
+
+        # Verify the error message
+        assert "error_delete_table" in str(exc.value)
+
+    def test_delete_ignores_limit_offset(self, db_mock) -> None:
+        """Test that delete operation ignores LIMIT and OFFSET clauses."""
+
+        # Define a model for the test
+        class LimitOffsetModel(BaseDBModel):
+            name: str
+
+            class Meta:
+                table_name: str = "limit_offset_table"
+
+        # Create the table and insert test data
+        db_mock.create_table(LimitOffsetModel)
+        for name in ["A", "B", "C", "D", "E"]:
+            db_mock.insert(LimitOffsetModel(name=name))
+
+        # Try to delete with LIMIT and OFFSET - these should be ignored
+        deleted_count = (
+            db_mock.select(LimitOffsetModel).limit(2).offset(1).delete()
+        )
+
+        # Assert that ALL records were deleted, ignoring LIMIT/OFFSET
+        assert deleted_count == 5
+        assert db_mock.select(LimitOffsetModel).count() == 0
+
+    def test_delete_with_auto_commit(self, db_mock, mocker) -> None:
+        """Test delete behavior with auto_commit enabled and disabled."""
+
+        # Create a model for the test
+        class AutoCommitModel(BaseDBModel):
+            name: str
+
+            class Meta:
+                table_name: str = "auto_commit_table"
+
+        # Create the table and insert test data with auto_commit disabled
+        db_mock.auto_commit = False
+        db_mock.create_table(AutoCommitModel)
+        db_mock.insert(AutoCommitModel(name="Test1"))
+        db_mock.insert(AutoCommitModel(name="Test2"))
+        db_mock.commit()  # Commit the initial data
+
+        # Mock the _maybe_commit method to track calls
+        mock_commit = mocker.patch.object(db_mock, "_maybe_commit")
+
+        # Delete records
+        deleted_count = db_mock.select(AutoCommitModel).delete()
+        assert deleted_count == 2
+
+        # Verify _maybe_commit was called (delete calls it internally)
+        mock_commit.assert_called_once()
+
+        # Test with auto_commit enabled
+        db_mock.auto_commit = True
+        db_mock.insert(AutoCommitModel(name="Test3"))
+        db_mock.insert(AutoCommitModel(name="Test4"))
+
+        # Reset the mock to verify next call
+        mock_commit.reset_mock()
+
+        deleted_count = db_mock.select(AutoCommitModel).delete()
+        assert deleted_count == 2
+        # Verify _maybe_commit was called with auto_commit=True
+        mock_commit.assert_called_once()
+        # Records should be gone
+        assert db_mock.select(AutoCommitModel).count() == 0
+
+    def test_delete_ignores_order(self, db_mock) -> None:
+        """Test that delete operation ignores ORDER BY clause."""
+
+        # Define a model for the test
+        class OrderModel(BaseDBModel):
+            name: str
+            value: int
+
+            class Meta:
+                table_name: str = "order_table"
+
+        # Create the table and insert test data
+        db_mock.create_table(OrderModel)
+        db_mock.insert(OrderModel(name="A", value=3))
+        db_mock.insert(OrderModel(name="B", value=1))
+        db_mock.insert(OrderModel(name="C", value=2))
+
+        # Delete with ORDER BY - should be ignored
+        deleted_count = (
+            db_mock.select(OrderModel)
+            .filter(value__gt=1)
+            .order("value", reverse=True)
+            .delete()
+        )
+
+        # Assert correct records were deleted regardless of order
+        assert deleted_count == 2
+        remaining = db_mock.select(OrderModel).fetch_all()
+        assert len(remaining) == 1
+        assert remaining[0].name == "B"
+        assert remaining[0].value == 1
+
+    def test_delete_empty_table(self, db_mock) -> None:
+        """Test deleting from an empty table."""
+
+        # Define a model for the test
+        class EmptyModel(BaseDBModel):
+            name: str
+
+            class Meta:
+                table_name: str = "empty_table"
+
+        # Create an empty table
+        db_mock.create_table(EmptyModel)
+
+        # Attempt to delete from empty table
+        deleted_count = db_mock.select(EmptyModel).delete()
+
+        # Should return 0 and not raise any errors
+        assert deleted_count == 0
+        assert db_mock.select(EmptyModel).count() == 0
+
+    def test_delete_with_debug_logging(self, db_mock, mocker) -> None:
+        """Test that delete operation logs SQL when debug is enabled."""
+
+        # Define a model for the test
+        class DebugModel(BaseDBModel):
+            name: str
+
+            class Meta:
+                table_name: str = "debug_table"
+
+        # Create the table and insert test data
+        db_mock.create_table(DebugModel)
+        db_mock.insert(DebugModel(name="Test1"))
+        db_mock.insert(DebugModel(name="Test2"))
+
+        # Enable debug mode and mock the _log_sql method
+        db_mock.debug = True
+        mock_log = mocker.patch.object(db_mock, "_log_sql")
+
+        # Delete with a filter to generate more complex SQL
+        deleted_count = db_mock.select(DebugModel).filter(name="Test1").delete()
+
+        # Verify debug logging was called with correct SQL
+        mock_log.assert_called_once()
+        sql_arg = mock_log.call_args[0][0]
+        assert 'DELETE FROM "debug_table"' in sql_arg
+        assert "WHERE" in sql_arg
+
+        # Verify the delete operation still worked
+        assert deleted_count == 1
+        assert db_mock.select(DebugModel).count() == 1

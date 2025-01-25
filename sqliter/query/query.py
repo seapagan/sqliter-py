@@ -28,6 +28,7 @@ from sqliter.exceptions import (
     InvalidFilterError,
     InvalidOffsetError,
     InvalidOrderError,
+    RecordDeletionError,
     RecordFetchError,
 )
 
@@ -728,3 +729,34 @@ class QueryBuilder:
             True if at least one result exists, False otherwise.
         """
         return self.count() > 0
+
+    def delete(self) -> int:
+        """Delete records that match the current query conditions.
+
+        Returns:
+            The number of records deleted.
+
+        Raises:
+            RecordDeletionError: If there's an error deleting the records.
+        """
+        sql = f'DELETE FROM "{self.table_name}"'  # noqa: S608 # nosec
+
+        # Build the WHERE clause with special handling for None (NULL in SQL)
+        values, where_clause = self._parse_filter()
+
+        if self.filters:
+            sql += f" WHERE {where_clause}"
+
+        # Print the raw SQL and values if debug is enabled
+        if self.db.debug:
+            self.db._log_sql(sql, values)  # noqa: SLF001
+
+        try:
+            with self.db.connect() as conn:
+                cursor = conn.cursor()
+                cursor.execute(sql, values)
+                deleted_count = cursor.rowcount
+                self.db._maybe_commit()  # noqa: SLF001
+                return deleted_count
+        except sqlite3.Error as exc:
+            raise RecordDeletionError(self.table_name) from exc
