@@ -7,10 +7,6 @@ Items marked with :fire: are high priority.
 - add an 'execute' method to the main class to allow executing arbitrary SQL
   queries which can be chained to the 'find_first' etc methods or just used
   directly.
-- add a `delete` method to the QueryBuilder class to allow deleting
-  single/multiple records from the database based on the query. This is in
-  addition to the `delete` method in the main class which deletes a single
-  record based on the primary key.
 - add a `rollback` method to the main class to allow manual rollbacks.
 - :fire: allow adding foreign keys and relationships to each table.
 - add a migration system to allow updating the database schema without losing

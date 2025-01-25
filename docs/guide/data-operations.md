@@ -111,12 +111,47 @@ timestamp in UTC by default.
 
 ## Deleting Records
 
-To delete a record from the database, you need to pass the model class and the
-primary key value of the record you want to delete:
+SQLiter provides two ways to delete records:
+
+### Single Record Deletion
+
+To delete a single record from the database by its primary key, use the `delete()` method directly on the database instance:
 
 ```python
 db.delete(User, user.pk)
 ```
+
+> [!IMPORTANT]
+>
+> The single record deletion method will raise:
+>
+> - `RecordNotFoundError` if the record with the specified primary key is not found
+> - `RecordDeletionError` if there's an error during the deletion process
+
+### Query-Based Deletion
+
+You can also use a query to delete records that match specific criteria. The `delete()` method will delete all records returned by the query and return an integer with the count of records deleted:
+
+```python
+# Delete all users over 30
+deleted_count = db.select(User).filter(age__gt=30).delete()
+
+# Delete inactive users in a specific age range
+deleted_count = db.select(User).filter(
+    age__gte=25,
+    age__lt=40,
+    status="inactive"
+).delete()
+
+# Delete all records from a table
+deleted_count = db.select(User).delete()
+```
+
+> [!NOTE]
+>
+> The query-based delete operation ignores any `limit()`, `offset()`, or `order()`
+> clauses that might be in the query chain. It will always delete ALL records
+> that match the filter conditions.
 
 ## Commit your changes
 
