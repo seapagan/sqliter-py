@@ -602,7 +602,7 @@ class TestQuery:
             db.select(ExampleModel).exclude(["pk"])
 
     def test_delete_all_records(self, db_mock) -> None:
-        """Test that delete() removes all records when no filters are applied."""
+        """Test delete() removes all records when no filters are applied."""
 
         # Define a simple model for the test
         class DeleteTestModel(BaseDBModel):
@@ -773,7 +773,7 @@ class TestQuery:
         # Drop the table to simulate a database error
         db_mock.drop_table(ErrorDeleteModel)
 
-        # Attempt to delete from the non-existent table should raise RecordDeletionError
+        # Delete from the non-existent table should raise RecordDeletionError
         with pytest.raises(RecordDeletionError) as exc:
             db_mock.select(ErrorDeleteModel).delete()
 
