@@ -37,8 +37,11 @@ results = db.select(User).filter(name="John Doe").fetch_one()
 
 print("Updated age:", results.age)
 
-# Delete a record
+# Delete a record by primary key
 db.delete(User, new_user.pk)
+
+# Delete all records returned from a query:
+delete_count = db.select(User).filter(age__gt=30).delete()
 ```
 
 See the [Guide](guide/guide.md) for more detailed information on how to use `SQLiter`.

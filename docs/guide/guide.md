@@ -1,4 +1,3 @@
-
 # SQLiter Overview
 
 SQLiter is a lightweight Python library designed to simplify database operations
@@ -122,12 +121,21 @@ db.update(user)
 
 ## Deleting Records
 
-Deleting records is simple as well. You just need to pass the Model that defines
-your table and the primary key value of the record you want to delete:
+SQLiter provides two ways to delete records:
+
+### Single Record Deletion
+
+To delete a single record by its primary key:
 
 ```python
 db.delete(User, 1)
 ```
+
+> [!IMPORTANT]
+>
+> The single record deletion method will raise:
+> - `RecordNotFoundError` if the record with the specified primary key is not found
+> - `RecordDeletionError` if there's an error during the deletion process
 
 > [!NOTE]
 >
@@ -138,6 +146,28 @@ db.delete(User, 1)
 > ```python
 > db.delete(User, new_record.pk)
 > ```
+
+### Query-Based Deletion
+
+You can also delete multiple records that match specific criteria using a query. The `delete()` method will delete all records that match the query and return the number of records deleted:
+
+```python
+# Delete all users over 30
+deleted_count = db.select(User).filter(age__gt=30).delete()
+
+# Delete inactive users in a specific age range
+deleted_count = db.select(User).filter(
+    age__gte=25,
+    age__lt=40,
+    status="inactive"
+).delete()
+```
+
+> [!NOTE]
+>
+> The query-based delete operation ignores any `limit()`, `offset()`, or `order()`
+> clauses that might be in the query chain. It will always delete ALL records
+> that match the filter conditions.
 
 ## Advanced Query Features
 

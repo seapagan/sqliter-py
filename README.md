@@ -131,8 +131,11 @@ for user in results:
 new_user.age = 31
 db.update(new_user)
 
-# Delete a record
+# Delete a record by primary key
 db.delete(User, new_user.pk)
+
+# Delete all records returned from a query:
+delete_count = db.select(User).filter(age__gt=30).delete()
 ```
 
 See the [Usage](https://sqliter.grantramsay.dev/usage) section of the documentation
