@@ -21,6 +21,7 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Software Development",
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
@@ -29,7 +30,7 @@ classifiers = [
 extras = ["inflect==7.0.0"]
 
 [project.urls]
-# "HomeHage" = "https://xxxxxx"
+"Homepage" = "http://sqliter.grantramsay.dev"
 "Pull Requests" = "https://github.com/seapagan/sqliter-py/pulls"
 "Bug Tracker" = "https://github.com/seapagan/sqliter-py/issues"
 "Changelog" = "https://github.com/seapagan/sqliter-py/blob/main/CHANGELOG.md"
