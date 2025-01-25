@@ -586,9 +586,9 @@ class TestSqliterDB:
 
         # Assert that the primary key is the 'id' field and is an INTEGER
         assert primary_key_column is not None, "Primary key not found"
-        assert (
-            primary_key_column[1] == "pk"
-        ), f"Expected 'id' as primary key, but got {primary_key_column[1]}"
+        assert primary_key_column[1] == "pk", (
+            f"Expected 'id' as primary key, but got {primary_key_column[1]}"
+        )
         assert primary_key_column[2] == "INTEGER", (
             f"Expected 'INTEGER' type for primary key, but got "
             f"{primary_key_column[2]}"
