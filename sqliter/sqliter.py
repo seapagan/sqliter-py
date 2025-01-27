@@ -549,8 +549,12 @@ class SqliterDB:
                 # Deserialize each field before creating the model instance
                 deserialized_data = {}
                 for field_name, value in result_dict.items():
-                    deserialized_data[field_name] = model_class.deserialize_field(
-                        field_name, value, return_local_time=self.return_local_time
+                    deserialized_data[field_name] = (
+                        model_class.deserialize_field(
+                            field_name,
+                            value,
+                            return_local_time=self.return_local_time,
+                        )
                     )
                 return model_class(**deserialized_data)
         except sqlite3.Error as exc:

@@ -211,10 +211,18 @@ class BaseDBModel(BaseModel):
         if value is None:
             return None
 
-        field_type = cls.model_fields[field_name].annotation
+        # Get field type if it exists in model_fields
+        field_info = cls.model_fields.get(field_name)
+        if field_info is None:
+            # If field doesn't exist in model, return value as-is
+            return value
 
-        if field_type in (datetime.datetime, datetime.date) and isinstance(
-            value, int
+        field_type = field_info.annotation
+
+        if (
+            isinstance(field_type, type)
+            and issubclass(field_type, (datetime.datetime, datetime.date))
+            and isinstance(value, int)
         ):
             return from_unix_timestamp(
                 value, field_type, localize=return_local_time
@@ -223,7 +231,7 @@ class BaseDBModel(BaseModel):
         origin_type = get_origin(field_type) or field_type
         if origin_type in (list, dict, set, tuple) and isinstance(value, bytes):
             try:
-                return pickle.loads(value)
+                return pickle.loads(value)  # noqa: S301
             except pickle.UnpicklingError:
                 return value
 
