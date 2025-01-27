@@ -25,6 +25,7 @@ class UserModel(BaseDBModel):
     name: str
     content: Optional[str]
     admin: bool = False
+    list_of_str: list[str]
 
     class Meta:
         """Override the table name for the UserModel."""
@@ -49,16 +50,19 @@ def main() -> None:
             name="John Doe",
             content="This is information about John Doe.",
             admin=True,
+            list_of_str=["a", "b", "c"],
         )
         user2 = UserModel(
             slug="jdoe2",
             name="Jane Doe",
             content="This is information about Jane Doe.",
+            list_of_str=["x", "y", "z"],
         )
         user3 = UserModel(
             slug="jb",
             name="Yogie Bear",
             content=None,
+            list_of_str=[],
         )
         try:
             db.insert(user1)

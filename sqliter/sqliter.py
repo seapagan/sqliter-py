@@ -503,7 +503,13 @@ class SqliterDB:
             raise RecordInsertionError(table_name) from exc
         else:
             data.pop("pk", None)
-            return model_class(pk=cursor.lastrowid, **data)
+            # Deserialize each field before creating the model instance
+            deserialized_data = {}
+            for field_name, value in data.items():
+                deserialized_data[field_name] = model_class.deserialize_field(
+                    field_name, value, return_local_time=self.return_local_time
+                )
+            return model_class(pk=cursor.lastrowid, **deserialized_data)
 
     def get(
         self, model_class: type[BaseDBModel], primary_key_value: int
@@ -540,7 +546,13 @@ class SqliterDB:
                     field: result[idx]
                     for idx, field in enumerate(model_class.model_fields)
                 }
-                return model_class(**result_dict)
+                # Deserialize each field before creating the model instance
+                deserialized_data = {}
+                for field_name, value in result_dict.items():
+                    deserialized_data[field_name] = model_class.deserialize_field(
+                        field_name, value, return_local_time=self.return_local_time
+                    )
+                return model_class(**deserialized_data)
         except sqlite3.Error as exc:
             raise RecordFetchError(table_name) from exc
         else:

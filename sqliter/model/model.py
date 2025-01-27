@@ -208,7 +208,10 @@ class BaseDBModel(BaseModel):
             A datetime or date object if the field type is datetime or date,
             otherwise returns the value as-is.
         """
-        field_type = cls.__annotations__.get(field_name)
+        if value is None:
+            return None
+
+        field_type = cls.model_fields[field_name].annotation
 
         if field_type in (datetime.datetime, datetime.date) and isinstance(
             value, int
@@ -217,6 +220,11 @@ class BaseDBModel(BaseModel):
                 value, field_type, localize=return_local_time
             )
 
-        if field_type in (list, dict, set, tuple) and isinstance(value, bytes):
-            return pickle.loads(value)  # noqa: S301
-        return value  # Return value as-is for other fields
+        origin_type = get_origin(field_type) or field_type
+        if origin_type in (list, dict, set, tuple) and isinstance(value, bytes):
+            try:
+                return pickle.loads(value)
+            except pickle.UnpicklingError:
+                return value
+
+        return value
