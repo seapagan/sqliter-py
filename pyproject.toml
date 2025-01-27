@@ -105,6 +105,7 @@ lint.ignore = [
   "FBT002",
   "FBT003",
   "B006",
+  "S301",   # in this library we use 'pickle' for saving and loading list etc
 ] # These rules are too strict even for us 😝
 lint.extend-ignore = [
   "COM812",

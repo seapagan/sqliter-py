@@ -20,6 +20,12 @@ Items marked with :fire: are high priority.
   in a field, and an `Object` field type to allow storing arbitrary Python
   objects? Perhaps a `Binary` field type to allow storing arbitrary binary data?
   (just uses the existing `bytes` mapping but more explicit)
+- Consider performance optimizations for field validation:
+  - Benchmark shows ~50% overhead for field assignments with validation
+  - Potential solutions:
+    - Add a "fast mode" configuration option
+    - Create bulk update methods that temporarily disable validation
+    - Optimize validation for specific field types
 - on update, check if the model has actually changed before sending the update
   to the database. This will prevent unnecessary updates and leave the
   `updated_at` correct. However, this will always require a query to the

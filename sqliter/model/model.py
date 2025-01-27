@@ -59,7 +59,7 @@ class BaseDBModel(BaseModel):
     model_config = ConfigDict(
         extra="ignore",
         populate_by_name=True,
-        validate_assignment=False,
+        validate_assignment=True,
         from_attributes=True,
     )
 
@@ -231,7 +231,7 @@ class BaseDBModel(BaseModel):
         origin_type = get_origin(field_type) or field_type
         if origin_type in (list, dict, set, tuple) and isinstance(value, bytes):
             try:
-                return pickle.loads(value)  # noqa: S301
+                return pickle.loads(value)
             except pickle.UnpicklingError:
                 return value
 
