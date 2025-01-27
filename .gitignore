@@ -220,3 +220,5 @@ pyrightconfig.json
 repopack-output.xml
 .envrc
 demo-db
+.planning
+.aider*
