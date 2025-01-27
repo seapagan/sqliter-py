@@ -10,6 +10,7 @@ in SQLiter applications.
 from __future__ import annotations
 
 import datetime
+import pickle
 import re
 from typing import (
     Any,
@@ -181,7 +182,9 @@ class BaseDBModel(BaseModel):
         """
         if isinstance(value, (datetime.datetime, datetime.date)):
             return to_unix_timestamp(value)
-        return value  # Return value as-is for non-datetime fields
+        if isinstance(value, (list, dict, set, tuple)):
+            return pickle.dumps(value)
+        return value  # Return value as-is for other fields
 
     # Deserialization after fetching from the database
 
@@ -213,4 +216,7 @@ class BaseDBModel(BaseModel):
             return from_unix_timestamp(
                 value, field_type, localize=return_local_time
             )
-        return value  # Return value as-is for non-datetime fields
+
+        if field_type in (list, dict, set, tuple) and isinstance(value, bytes):
+            return pickle.loads(value)  # noqa: S301
+        return value  # Return value as-is for other fields
