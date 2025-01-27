@@ -10,7 +10,7 @@ both a functional test and a usage guide for the SQLiter library.
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import ClassVar, Optional
 
 from sqliter import SqliterDB
 from sqliter.exceptions import RecordInsertionError
@@ -26,6 +26,7 @@ class UserModel(BaseDBModel):
     content: Optional[str]
     admin: bool = False
     list_of_str: list[str]
+    a_set: ClassVar[set[str]] = set()
 
     class Meta:
         """Override the table name for the UserModel."""
@@ -51,6 +52,7 @@ def main() -> None:
             content="This is information about John Doe.",
             admin=True,
             list_of_str=["a", "b", "c"],
+            a_set={"x", "y", "z"},
         )
         user2 = UserModel(
             slug="jdoe2",
@@ -63,6 +65,7 @@ def main() -> None:
             name="Yogie Bear",
             content=None,
             list_of_str=[],
+            a_set={"apple", "banana", "cherry"},
         )
         try:
             db.insert(user1)
