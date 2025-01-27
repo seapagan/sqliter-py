@@ -13,13 +13,10 @@ Items marked with :fire: are high priority.
   data.
 - add more tests where 'auto_commit' is set to False to ensure that commit is
   not called automatically.
-- :fire: support structures like, `list`, `dict`, `set`, `tuple` etc. in the
-  model. These will need to be `pickled` first then stored as a BLOB in the
-  database
-- :fire: similarly - perhaps add a `JSON` field type to allow storing JSON data
-  in a field, and an `Object` field type to allow storing arbitrary Python
-  objects? Perhaps a `Binary` field type to allow storing arbitrary binary data?
-  (just uses the existing `bytes` mapping but more explicit)
+- :fire: perhaps add a `JSON` field type to allow storing JSON data in a field,
+  and an `Object` field type to allow storing arbitrary Python objects? Perhaps
+  a `Binary` field type to allow storing arbitrary binary data? (just uses the
+  existing `bytes` mapping but more explicit)
 - Consider performance optimizations for field validation:
   - Benchmark shows ~50% overhead for field assignments with validation
   - Potential solutions:

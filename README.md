@@ -19,8 +19,7 @@ time).
 The ideal use case is more for Python CLI tools that need to store data in a
 database-like format without needing to learn SQL or use a full ORM.
 
-Full documentation is available on the [Documentation
-Website](https://sqliter.grantramsay.dev)
+Full documentation is available on the [Website](https://sqliter.grantramsay.dev)
 
 > [!CAUTION]
 > This project is still in the early stages of development and is lacking some
@@ -28,11 +27,6 @@ Website](https://sqliter.grantramsay.dev)
 > change until a stable release is made. I'll try to keep this to an absolute
 > minimum and the releases and documentation will be very clear about any
 > breaking changes.
->
-> Also, structures like `list`, `dict`, `set` etc are not supported **at this
-> time** as field types, since SQLite does not have a native column type for
-> these. This is the **next planned enhancement**. These will need to be
-> `pickled` first then stored as a BLOB in the database.
 >
 > See the [TODO](TODO.md) for planned features and improvements.
 
@@ -46,7 +40,8 @@ Website](https://sqliter.grantramsay.dev)
 ## Features
 
 - Table creation based on Pydantic models
-- Supports `date` and `datetime` fields. List/Dict/Set fields are planned.
+- Supports `date` and `datetime` fields
+- Support for complex data types (`list`, `dict`, `set`, `tuple`) stored as BLOBs
 - Automatic primary key generation
 - User defined indexes on any field
 - Set any field as UNIQUE

@@ -37,6 +37,8 @@ the table.
 
 The following field types are currently supported:
 
+Basic Types:
+
 - `str`
 - `int`
 - `float`
@@ -45,9 +47,14 @@ The following field types are currently supported:
 - `datetime`
 - `bytes`
 
-More field types are planned for the near future, since I have the
-serialization/ deserialization locked in. This will include `list`, `dict`,
-`set`, and possibly `JSON` and `Object` fields.
+Complex Types:
+
+- `list[T]` - Lists of any type T
+- `dict[K, V]` - Dictionaries with keys of type K and values of type V
+- `set[T]` - Sets of any type T
+- `tuple[T, ...]` - Tuples of any type T
+
+Complex types are automatically serialized and stored as BLOBs in the database. For more details on using complex types, see the [Fields Guide](fields.md#complex-data-types).
 
 ### Adding Indexes
 

@@ -27,11 +27,6 @@ database-like format without needing to learn SQL or use a full ORM.
 > minimum and the releases and documentation will be very clear about any
 > breaking changes.
 >
-> Also, structures like `list`, `dict`, `set` etc are not supported **at this
-> time** as field types, since SQLite does not have a native column type for
-> these. This is the **next planned enhancement**. These will need to be
-> `pickled` first then stored as a BLOB in the database.
->
 > See the [TODO](todo/index.md) for planned features and improvements.
 
 ## Features
