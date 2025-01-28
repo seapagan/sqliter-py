@@ -6,10 +6,11 @@ project since the first release, with the latest changes at the top.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [Unreleased](https://github.com/seapagan/sqliter-py/tree/HEAD)
+## [0.8.0](https://github.com/seapagan/sqliter-py/releases/tag/0.8.0) (January 28, 2025)
 
 **New Features**
 
+- Implement list, dict, tuple and set as valid field types ([#63](https://github.com/seapagan/sqliter-py/pull/63)) by [seapagan](https://github.com/seapagan)
 - Add delete() method to QueryBuilder with comprehensive test coverage ([#61](https://github.com/seapagan/sqliter-py/pull/61)) by [seapagan](https://github.com/seapagan)
 
 **Dependency Updates**
@@ -17,7 +18,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Update astral-sh/setup-uv action to v5 ([#59](https://github.com/seapagan/sqliter-py/pull/59)) by [renovate[bot]](https://github.com/apps/renovate)
 - Update astral-sh/setup-uv action to v4 ([#57](https://github.com/seapagan/sqliter-py/pull/57)) by [renovate[bot]](https://github.com/apps/renovate)
 
-[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.7.0...HEAD) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.7.0...HEAD.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.7.0...HEAD.patch)
+[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.7.0...0.8.0) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.7.0...0.8.0.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.7.0...0.8.0.patch)
 
 ## [0.7.0](https://github.com/seapagan/sqliter-py/releases/tag/0.7.0) (October 31, 2024)
 
