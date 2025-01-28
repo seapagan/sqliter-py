@@ -375,3 +375,194 @@ class TestComplexTypes:
         assert loaded.tuple_field == ("new", 100, False)
 
         db.close()
+
+    def test_complex_nested_list(self, tmp_path: str) -> None:
+        """Test storing and retrieving a deeply nested list structure."""
+
+        class NestedListModel(BaseDBModel):
+            complex_list: list[Any]
+
+        # Create a complex nested list with various Python types
+        nested_list = [
+            [1, 2, [3, 4, {"key": [5, 6, (7, 8)]}]],
+            {"nested_dict": [9, 10, set([11, 12])]},
+            (13, [14, {15, 16}]),
+            [{"a": 1, "b": [2, 3, {"c": 4}]}, set([5, 6, 7])],
+            [[[[1, 2], 3], 4], 5],  # Deep nesting
+        ]
+
+        model = NestedListModel(complex_list=nested_list)
+        db = SqliterDB(f"{tmp_path}/test_nested_list.db")
+        db.create_table(NestedListModel)
+
+        # Test insert and retrieve
+        saved = db.insert(model)
+        loaded = db.get(NestedListModel, saved.pk)
+        assert loaded is not None
+        assert loaded.complex_list == nested_list
+        assert isinstance(loaded.complex_list[0], list)
+        assert isinstance(loaded.complex_list[1], dict)
+        assert isinstance(loaded.complex_list[2], tuple)
+        assert isinstance(loaded.complex_list[2][1], list)
+        assert isinstance(loaded.complex_list[3][1], set)
+
+        # Test update with even more complex structure
+        new_nested_list = [
+            *nested_list,
+            {"more": [set([1, 2]), (3, 4), [{"deep": {"deeper": [5, 6]}}]]},
+        ]
+        saved.complex_list = new_nested_list
+        db.update(saved)
+
+        loaded = db.get(NestedListModel, saved.pk)
+        assert loaded is not None
+        assert loaded.complex_list == new_nested_list
+        db.close()
+
+    def test_complex_nested_dict(self, tmp_path: str) -> None:
+        """Test storing and retrieving a deeply nested dictionary structure."""
+
+        class NestedDictModel(BaseDBModel):
+            complex_dict: dict[str, Any]
+
+        # Create a complex nested dictionary
+        nested_dict = {
+            "simple": "value",
+            "numbers": [1, 2, 3],
+            "nested": {
+                "list": [4, 5, {"key": "value"}],
+                "tuple": (6, 7, [8, 9]),
+                "set": {10, 11, 12},
+                "dict": {
+                    "deep": {
+                        "deeper": {
+                            "deepest": [{"a": 1}, set([2, 3]), (4, [5, {6, 7}])]
+                        }
+                    }
+                },
+            },
+            "mixed": [{"a": (1, 2)}, set([3, 4]), [5, {"b": 6}]],
+        }
+
+        model = NestedDictModel(complex_dict=nested_dict)
+        db = SqliterDB(f"{tmp_path}/test_nested_dict.db")
+        db.create_table(NestedDictModel)
+
+        # Test insert and retrieve
+        saved = db.insert(model)
+        loaded = db.get(NestedDictModel, saved.pk)
+        assert loaded is not None
+        assert loaded.complex_dict == nested_dict
+        assert isinstance(loaded.complex_dict["numbers"], list)
+        assert isinstance(loaded.complex_dict["nested"]["tuple"], tuple)
+        assert isinstance(loaded.complex_dict["nested"]["set"], set)
+        assert isinstance(
+            loaded.complex_dict["nested"]["dict"]["deep"]["deeper"]["deepest"][
+                1
+            ],
+            set,
+        )
+
+        # Test update with modified structure
+        new_nested_dict = {
+            **nested_dict,
+            "additional": {
+                "complex": [
+                    set([1, 2]),
+                    (3, {"nested": [4, 5, {6, 7}]}),
+                    {"more": {"levels": {"here": [8, 9, 10]}}},
+                ]
+            },
+        }
+        saved.complex_dict = new_nested_dict
+        db.update(saved)
+
+        loaded = db.get(NestedDictModel, saved.pk)
+        assert loaded is not None
+        assert loaded.complex_dict == new_nested_dict
+        db.close()
+
+    def test_complex_nested_set(self, tmp_path: str) -> None:
+        """Test storing and retrieving complex structures within a set."""
+
+        class NestedSetModel(BaseDBModel):
+            # Note: Set itself can only contain immutable items
+            complex_set: set[tuple[Any, ...]]
+
+        # Create a complex set with nested immutable structures
+        nested_set = {
+            (1, 2, (3, 4)),
+            ("string", (5, 6, (7, 8))),
+            (9, (10, (11, (12, 13)))),
+            ("mixed", (14, "str", (15, 16))),
+            (17, (tuple(range(18, 21)), "end")),
+        }
+
+        model = NestedSetModel(complex_set=nested_set)
+        db = SqliterDB(f"{tmp_path}/test_nested_set.db")
+        db.create_table(NestedSetModel)
+
+        # Test insert and retrieve
+        saved = db.insert(model)
+        loaded = db.get(NestedSetModel, saved.pk)
+        assert loaded is not None
+        assert loaded.complex_set == nested_set
+        assert all(isinstance(item, tuple) for item in loaded.complex_set)
+
+        # Test update with modified structure
+        new_nested_set = {
+            *nested_set,
+            (22, (23, (24, (25, 26)))),
+            ("deep", ("nesting", ("here", ("too", "!")))),
+        }
+        saved.complex_set = new_nested_set
+        db.update(saved)
+
+        loaded = db.get(NestedSetModel, saved.pk)
+        assert loaded is not None
+        assert loaded.complex_set == new_nested_set
+        db.close()
+
+    def test_complex_nested_tuple(self, tmp_path: str) -> None:
+        """Test storing and retrieving a deeply nested tuple structure."""
+
+        class NestedTupleModel(BaseDBModel):
+            complex_tuple: tuple[Any, ...]
+
+        # Create a complex nested tuple
+        nested_tuple = (
+            1,
+            (2, 3, (4, 5)),
+            [6, 7, (8, 9)],
+            {"key": (10, 11, [12, 13])},
+            (14, {"nested": (15, [16, {"deep": (17, 18)}])}),
+            (19, (20, (21, (22, (23, 24))))),
+            [{"a": (1, 2)}, set([3, 4]), (5, [6, 7])],
+        )
+
+        model = NestedTupleModel(complex_tuple=nested_tuple)
+        db = SqliterDB(f"{tmp_path}/test_nested_tuple.db")
+        db.create_table(NestedTupleModel)
+
+        # Test insert and retrieve
+        saved = db.insert(model)
+        loaded = db.get(NestedTupleModel, saved.pk)
+        assert loaded is not None
+        assert loaded.complex_tuple == nested_tuple
+        assert isinstance(loaded.complex_tuple[1], tuple)
+        assert isinstance(loaded.complex_tuple[2], list)
+        assert isinstance(loaded.complex_tuple[3], dict)
+        assert isinstance(loaded.complex_tuple[4][1]["nested"], tuple)
+
+        # Test update with modified structure
+        new_nested_tuple = (
+            *nested_tuple,
+            (25, (26, [27, {"complex": (28, {29, 30})}])),
+        )
+        saved.complex_tuple = new_nested_tuple
+        db.update(saved)
+
+        loaded = db.get(NestedTupleModel, saved.pk)
+        assert loaded is not None
+        assert loaded.complex_tuple == new_nested_tuple
+        db.close()
