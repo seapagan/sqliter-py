@@ -235,3 +235,143 @@ class TestComplexTypes:
         assert loaded.tuple_field == ("test", 42, True)
 
         db.close()
+
+    def test_update_list_field(
+        self, model_instance: ComplexTypesModel, tmp_path: str
+    ) -> None:
+        """Test updating a record's list field."""
+        db_path = f"{tmp_path}/test_update_list.db"
+        db = SqliterDB(db_path)
+        db.create_table(ComplexTypesModel)
+
+        # Save initial record
+        saved = db.insert(model_instance)
+        assert saved.list_field == ["a", "b", "c"]
+
+        # Update the list field
+        saved.list_field = ["x", "y", "z"]
+        db.update(saved)
+
+        # Read back and verify
+        loaded = db.get(ComplexTypesModel, saved.pk)
+        assert loaded is not None
+        assert isinstance(loaded.list_field, list)
+        assert loaded.list_field == ["x", "y", "z"]
+
+        db.close()
+
+    def test_update_dict_field(
+        self, model_instance: ComplexTypesModel, tmp_path: str
+    ) -> None:
+        """Test updating a record's dictionary field."""
+        db_path = f"{tmp_path}/test_update_dict.db"
+        db = SqliterDB(db_path)
+        db.create_table(ComplexTypesModel)
+
+        # Save initial record
+        saved = db.insert(model_instance)
+        assert saved.dict_field == {"key1": "value1", "key2": 123, "key3": True}
+
+        # Update the dict field
+        new_dict = {
+            "new_key1": "new_value1",
+            "new_key2": 456,
+            "new_key3": False,
+        }
+        saved.dict_field = new_dict
+        db.update(saved)
+
+        # Read back and verify
+        loaded = db.get(ComplexTypesModel, saved.pk)
+        assert loaded is not None
+        assert isinstance(loaded.dict_field, dict)
+        assert loaded.dict_field == new_dict
+
+        db.close()
+
+    def test_update_set_field(
+        self, model_instance: ComplexTypesModel, tmp_path: str
+    ) -> None:
+        """Test updating a record's set field."""
+        db_path = f"{tmp_path}/test_update_set.db"
+        db = SqliterDB(db_path)
+        db.create_table(ComplexTypesModel)
+
+        # Save initial record
+        saved = db.insert(model_instance)
+        assert saved.set_field == {1, 2, 3}
+
+        # Update the set field
+        new_set = {4, 5, 6}
+        saved.set_field = new_set
+        db.update(saved)
+
+        # Read back and verify
+        loaded = db.get(ComplexTypesModel, saved.pk)
+        assert loaded is not None
+        assert isinstance(loaded.set_field, set)
+        assert loaded.set_field == new_set
+
+        db.close()
+
+    def test_update_tuple_field(
+        self, model_instance: ComplexTypesModel, tmp_path: str
+    ) -> None:
+        """Test updating a record's tuple field."""
+        db_path = f"{tmp_path}/test_update_tuple.db"
+        db = SqliterDB(db_path)
+        db.create_table(ComplexTypesModel)
+
+        # Save initial record
+        saved = db.insert(model_instance)
+        assert saved.tuple_field == ("test", 42, True)
+
+        # Update the tuple field
+        new_tuple = ("updated", 99, False)
+        saved.tuple_field = new_tuple
+        db.update(saved)
+
+        # Read back and verify
+        loaded = db.get(ComplexTypesModel, saved.pk)
+        assert loaded is not None
+        assert isinstance(loaded.tuple_field, tuple)
+        assert loaded.tuple_field == new_tuple
+
+        db.close()
+
+    def test_update_multiple_complex_fields(
+        self, model_instance: ComplexTypesModel, tmp_path: str
+    ) -> None:
+        """Test updating multiple complex fields simultaneously."""
+        db_path = f"{tmp_path}/test_update_multiple.db"
+        db = SqliterDB(db_path)
+        db.create_table(ComplexTypesModel)
+
+        # Save initial record
+        saved = db.insert(model_instance)
+
+        # Update all complex fields
+        saved.list_field = ["x", "y", "z"]
+        saved.dict_field = {"new": "value"}
+        saved.set_field = {7, 8, 9}
+        saved.tuple_field = ("new", 100, False)
+        db.update(saved)
+
+        # Read back and verify
+        loaded = db.get(ComplexTypesModel, saved.pk)
+        assert loaded is not None
+
+        # Verify all fields were updated correctly
+        assert isinstance(loaded.list_field, list)
+        assert loaded.list_field == ["x", "y", "z"]
+
+        assert isinstance(loaded.dict_field, dict)
+        assert loaded.dict_field == {"new": "value"}
+
+        assert isinstance(loaded.set_field, set)
+        assert loaded.set_field == {7, 8, 9}
+
+        assert isinstance(loaded.tuple_field, tuple)
+        assert loaded.tuple_field == ("new", 100, False)
+
+        db.close()
