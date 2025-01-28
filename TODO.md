@@ -4,6 +4,11 @@ Items marked with :fire: are high priority.
 
 ## General Plans and Ideas
 
+- :fire: look at potential local caching solutions to reduce the number of
+  queries made to the database. This should not use any external service like
+  Redis, but should be a simple in-memory cache that is cleared when the
+  database instance is closed. This should also allow updates to be optimized if
+  the data has not changed. Cache should be optional and configurable.
 - add an 'execute' method to the main class to allow executing arbitrary SQL
   queries which can be chained to the 'find_first' etc methods or just used
   directly.
