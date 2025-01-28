@@ -17,16 +17,16 @@ class TestDebugLogging:
     def test_sqliterdb_debug_set_false(self) -> None:
         """Test that the default value for the debug flag is False."""
         db = SqliterDB(":memory:", debug=False)  # Set debug argument to False
-        assert (
-            db.debug is False
-        ), "The debug flag should be False when explicitly passed as False."
+        assert db.debug is False, (
+            "The debug flag should be False when explicitly passed as False."
+        )
 
     def test_sqliterdb_debug_set_true(self) -> None:
         """Test that the debug flag can be set to True."""
         db = SqliterDB(":memory:", debug=True)  # Set debug argument to True
-        assert (
-            db.debug is True
-        ), "The debug flag should be True when explicitly passed as True."
+        assert db.debug is True, (
+            "The debug flag should be True when explicitly passed as True."
+        )
 
     def test_debug_sql_output_basic_query(
         self, db_mock_complex_debug: SqliterDB, caplog
