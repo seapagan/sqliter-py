@@ -271,3 +271,35 @@ class TestDebugLogging:
             SqliterDB(temp_db_path, reset=True, debug=True)
 
         assert "Database reset: 0 user-created tables dropped." in caplog.text
+
+    def test_setup_logger_else_clause(self, mocker) -> None:
+        """Test the else clause configuration for the logger setup."""
+        # Mock the root logger's hasHandlers BEFORE creating the instance
+        mocker.patch.object(
+            logging.getLogger(), "hasHandlers", return_value=False
+        )
+
+        # Now create the instance which will trigger _setup_logger
+        instance = SqliterDB(":memory:", debug=True)
+
+        # Verify the else clause configuration
+        logger = instance.logger
+        assert logger is not None
+
+        assert logger.name == "sqliter"
+        assert len(logger.handlers) == 1
+
+        handler = logger.handlers[0]
+        assert isinstance(handler, logging.StreamHandler)
+        assert handler.formatter is not None
+        assert handler.formatter._fmt == "%(levelname)-8s%(message)s"
+        assert logger.level == logging.DEBUG
+        assert logger.propagate is False
+
+        logging.getLogger().hasHandlers.assert_called_once()
+
+        # Cleanup - crucial to prevent test pollution
+        for hdlr in logger.handlers[:]:
+            logger.removeHandler(hdlr)
+        logger.setLevel(logging.NOTSET)
+        logger.propagate = True

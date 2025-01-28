@@ -10,6 +10,7 @@ in SQLiter applications.
 from __future__ import annotations
 
 import datetime
+import pickle
 import re
 from typing import (
     Any,
@@ -58,7 +59,7 @@ class BaseDBModel(BaseModel):
     model_config = ConfigDict(
         extra="ignore",
         populate_by_name=True,
-        validate_assignment=False,
+        validate_assignment=True,
         from_attributes=True,
     )
 
@@ -181,7 +182,9 @@ class BaseDBModel(BaseModel):
         """
         if isinstance(value, (datetime.datetime, datetime.date)):
             return to_unix_timestamp(value)
-        return value  # Return value as-is for non-datetime fields
+        if isinstance(value, (list, dict, set, tuple)):
+            return pickle.dumps(value)
+        return value  # Return value as-is for other fields
 
     # Deserialization after fetching from the database
 
@@ -205,12 +208,31 @@ class BaseDBModel(BaseModel):
             A datetime or date object if the field type is datetime or date,
             otherwise returns the value as-is.
         """
-        field_type = cls.__annotations__.get(field_name)
+        if value is None:
+            return None
 
-        if field_type in (datetime.datetime, datetime.date) and isinstance(
-            value, int
+        # Get field type if it exists in model_fields
+        field_info = cls.model_fields.get(field_name)
+        if field_info is None:
+            # If field doesn't exist in model, return value as-is
+            return value
+
+        field_type = field_info.annotation
+
+        if (
+            isinstance(field_type, type)
+            and issubclass(field_type, (datetime.datetime, datetime.date))
+            and isinstance(value, int)
         ):
             return from_unix_timestamp(
                 value, field_type, localize=return_local_time
             )
-        return value  # Return value as-is for non-datetime fields
+
+        origin_type = get_origin(field_type) or field_type
+        if origin_type in (list, dict, set, tuple) and isinstance(value, bytes):
+            try:
+                return pickle.loads(value)
+            except pickle.UnpicklingError:
+                return value
+
+        return value

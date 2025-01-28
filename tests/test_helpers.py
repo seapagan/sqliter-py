@@ -19,9 +19,11 @@ class TestHelpers:
         # Test with None
         assert infer_sqlite_type(None) == "TEXT"
 
+        # test with collection types
+        assert infer_sqlite_type(list) == "BLOB"
+        assert infer_sqlite_type(dict) == "BLOB"
+        assert infer_sqlite_type(tuple) == "BLOB"
+        assert infer_sqlite_type(set) == "BLOB"
+
         # Test with an unsupported type
-        assert infer_sqlite_type(list) == "TEXT"
-        assert infer_sqlite_type(dict) == "TEXT"
-        assert infer_sqlite_type(tuple) == "TEXT"
-        assert infer_sqlite_type(set) == "TEXT"
         assert infer_sqlite_type(Union) == "TEXT"

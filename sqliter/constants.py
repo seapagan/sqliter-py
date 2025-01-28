@@ -38,4 +38,8 @@ SQLITE_TYPE_MAPPING = {
     bytes: "BLOB",
     datetime.datetime: "INTEGER",  # Store as Unix timestamp
     datetime.date: "INTEGER",  # Store as Unix timestamp
+    list: "BLOB",
+    dict: "BLOB",
+    set: "BLOB",
+    tuple: "BLOB",
 }
