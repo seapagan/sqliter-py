@@ -1,4 +1,5 @@
 """Test serialization and deserialization of complex data types."""
+# ruff: noqa: C405  # Allow set([...]) syntax in tests to verify we both handle both forms
 
 import pickle
 from typing import Any, ClassVar, Union
