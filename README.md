@@ -41,7 +41,8 @@ Full documentation is available on the [Website](https://sqliter.grantramsay.dev
 
 - Table creation based on Pydantic models
 - Supports `date` and `datetime` fields
-- Support for complex data types (`list`, `dict`, `set`, `tuple`) stored as BLOBs
+- Support for complex data types (`list`, `dict`, `set`, `tuple`) stored as
+  BLOBs
 - Automatic primary key generation
 - User defined indexes on any field
 - Set any field as UNIQUE
@@ -133,8 +134,9 @@ db.delete(User, new_user.pk)
 delete_count = db.select(User).filter(age__gt=30).delete()
 ```
 
-See the [Usage](https://sqliter.grantramsay.dev/usage) section of the documentation
-for more detailed information on how to use SQLiter, and advanced features.
+See the [Guide](https://sqliter.grantramsay.dev/guide/guide/) section of the
+documentation for more detailed information on how to use SQLiter, and advanced
+features.
 
 ## Contributing
 

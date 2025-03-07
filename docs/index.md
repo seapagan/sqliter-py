@@ -32,7 +32,9 @@ database-like format without needing to learn SQL or use a full ORM.
 ## Features
 
 - Table creation based on Pydantic models
-- Supports `date` and `datetime` fields. list/dict/set fields are planned.
+- Supports `date` and `datetime` fields.
+- Support for complex data types (`list`, `dict`, `set`, `tuple`) stored as
+  BLOBs
 - Automatic primary key generation
 - User defined indexes on any field
 - Set any field as UNIQUE
