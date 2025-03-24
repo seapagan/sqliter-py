@@ -234,7 +234,7 @@ class TestOptionalFields:
 
         result = TestModel.model_validate_partial(obj)
 
-        assert cast(str, result.field_a) == invalid_value
+        assert cast("str", result.field_a) == invalid_value
 
     def test_fields_operator_all_fields_explicitly(
         self, db_mock_detailed: SqliterDB
