@@ -17,7 +17,6 @@ from typing import (
     ClassVar,
     Optional,
     Protocol,
-    TypeVar,
     Union,
     cast,
     get_args,
@@ -25,10 +24,9 @@ from typing import (
 )
 
 from pydantic import BaseModel, ConfigDict, Field
+from typing_extensions import Self
 
 from sqliter.helpers import from_unix_timestamp, to_unix_timestamp
-
-T = TypeVar("T", bound="BaseDBModel")
 
 
 class SerializableField(Protocol):
@@ -87,7 +85,7 @@ class BaseDBModel(BaseModel):
         unique_indexes: ClassVar[list[Union[str, tuple[str]]]] = []
 
     @classmethod
-    def model_validate_partial(cls: type[T], obj: dict[str, Any]) -> T:
+    def model_validate_partial(cls, obj: dict[str, Any]) -> Self:
         """Validate and create a model instance from partial data.
 
         This method allows for the creation of a model instance even when
@@ -123,7 +121,7 @@ class BaseDBModel(BaseModel):
                 else:
                     converted_obj[field_name] = field_type(value)
 
-        return cast(T, cls.model_construct(**converted_obj))
+        return cast("Self", cls.model_construct(**converted_obj))
 
     @classmethod
     def get_table_name(cls) -> str:

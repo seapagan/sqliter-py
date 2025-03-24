@@ -40,6 +40,7 @@ def main() -> None:
     logging.basicConfig(
         level=logging.DEBUG, format="%(levelname)-8s%(message)s"
     )
+    logger = logging.getLogger(__name__)
 
     db = SqliterDB(
         "demo.db", memory=False, auto_commit=True, debug=True, reset=True
@@ -73,28 +74,28 @@ def main() -> None:
             user2_instance = db.insert(user2)
             db.insert(user3)
         except RecordInsertionError as exc:
-            logging.error(exc)  # noqa: TRY400
+            logger.error(exc)  # noqa: TRY400
 
         # Example queries
         users = db.select(UserModel).filter(name="John Doe").fetch_all()
-        logging.info(users)
+        logger.info(users)
 
         all_users = db.select(UserModel).fetch_all()
-        logging.info(all_users)
+        logger.info(all_users)
 
         all_reversed = (
             db.select(UserModel).order("name", reverse=True).fetch_all()
         )
-        logging.info(all_reversed)
+        logger.info(all_reversed)
 
         if user2_instance is None:
-            logging.error("User2 ID not found.")
+            logger.error("User2 ID not found.")
         else:
             fetched_user = db.get(UserModel, user2_instance.pk)
-            logging.info("Fetched (%s)", fetched_user)
+            logger.info("Fetched (%s)", fetched_user)
 
         count = db.select(UserModel).count()
-        logging.info("Total Users: %s", count)
+        logger.info("Total Users: %s", count)
 
 
 if __name__ == "__main__":
