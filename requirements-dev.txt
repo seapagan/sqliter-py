@@ -26,7 +26,7 @@ colorama==0.4.6
     #   pytest
 coverage==7.6.10
     # via pytest-cov
-cryptography==44.0.0
+cryptography==44.0.2
     # via pyjwt
 csscompressor==0.9.5
     # via mkdocs-minify-plugin
@@ -56,7 +56,7 @@ importlib-metadata==8.5.0 ; python_full_version < '3.10'
     #   pytest-randomly
 iniconfig==2.0.0
     # via pytest
-jinja2==3.1.5
+jinja2==3.1.6
     # via
     #   mkdocs
     #   mkdocs-material
