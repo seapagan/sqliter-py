@@ -2,11 +2,14 @@
 #    uv export --no-hashes --no-dev --no-emit-project --output-file=requirements.txt
 annotated-types==0.7.0
     # via pydantic
-pydantic==2.10.4
+pydantic==2.11.5
     # via sqliter-py
-pydantic-core==2.27.2
+pydantic-core==2.33.2
     # via pydantic
-typing-extensions==4.12.2
+typing-extensions==4.13.2
     # via
     #   pydantic
     #   pydantic-core
+    #   typing-inspection
+typing-inspection==0.4.1
+    # via pydantic

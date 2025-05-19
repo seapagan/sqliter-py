@@ -164,7 +164,11 @@ class TestSqliterDB:
         table_name = PersonModel.get_table_name()
 
         # Here, we assume that inflect will pluralize 'person' to 'people'
-        assert table_name == "people"
+        assert table_name == "people", (
+            f"Expected table name to be 'people', but got '{table_name}' - "
+            "Make sure you installed the 'extras' using 'uv sync --all-extras'"
+            ", or ignore this failure."
+        )
 
     def test_insert_license(self, db_mock) -> None:
         """Test inserting a license into the database."""
