@@ -5,13 +5,12 @@ project since the first release, with the latest changes at the top.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-
 ## [v0.9.1](https://github.com/seapagan/sqliter-py/releases/tag/v0.9.1) (December 09, 2025)
 
 **Dependency Updates**
 
-- Bump requests from 2.32.3 to 2.32.4 ([#85](https://github.com/seapagan/sqliter-py/pull/85)) by [dependabot[bot]](https://github.com/apps/dependabot)
-- Bump urllib3 from 2.4.0 to 2.6.0 ([#83](https://github.com/seapagan/sqliter-py/pull/83)) by [dependabot[bot]](https://github.com/apps/dependabot)
+- Bump requests from 2.32.3 to 2.32.5 ([#85](https://github.com/seapagan/sqliter-py/pull/85)) by [dependabot[bot]](https://github.com/apps/dependabot)
+- Bump urllib3 from 2.4.0 to 2.6.1 ([#83](https://github.com/seapagan/sqliter-py/pull/83)) by [dependabot[bot]](https://github.com/apps/dependabot)
 
 [`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.9.0...v0.9.1) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.9.0...v0.9.1.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.9.0...v0.9.1.patch)
 
@@ -171,7 +170,8 @@ the name of the primary key is always `pk`.
 ## [0.1.1](https://github.com/seapagan/sqliter-py/releases/tag/0.1.1) (September 12, 2024)
 
 Just a documentation fix - README was old version
-[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.1.0...0.1.1) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.1.0...0.1.1.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.1.0...0.1.1.patch)
+
+[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.1.0...0.1.1) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.1.0...0.1.1.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.1.0...0.1.1.patch)
 
 ## [0.1.0](https://github.com/seapagan/sqliter-py/releases/tag/0.1.0) (September 12, 2024)
 
