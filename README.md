@@ -22,6 +22,10 @@ database-like format without needing to learn SQL or use a full ORM.
 Full documentation is available on the [Website](https://sqliter.grantramsay.dev)
 
 > [!CAUTION]
+>
+> Currently NOT compatible with Python 3.14 (I need to refactor some code d/t
+> changes in the latest Pydantic versions, this is a priority.)
+>
 > This project is still in the early stages of development and is lacking some
 > planned functionality. Please use with caution - Classes and methods may
 > change until a stable release is made. I'll try to keep this to an absolute
