@@ -1644,7 +1644,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "inflect", marker = "extra == 'extras'", specifier = "==7.0.0" },
-    { name = "pydantic", specifier = ">=2.9.0" },
+    { name = "pydantic", specifier = "==2.11.5" },
 ]
 provides-extras = ["extras"]
 
