@@ -1,6 +1,7 @@
 """Test cases for date and time conversion functions."""
 
 from datetime import date, datetime, timedelta, timezone
+from typing import Optional
 
 import pytest
 
@@ -155,7 +156,6 @@ class TestDates:
 
     def test_datetime_different_timezones(self, db_mock) -> None:
         """Test handling of datetimes in different timezones."""
-        from datetime import timedelta, timezone
 
         class TimezoneModel(BaseDBModel):
             name: str
@@ -229,7 +229,6 @@ class TestDates:
 
     def test_optional_date_fields(self, db_mock) -> None:
         """Test handling of Optional[date] and Optional[datetime] fields."""
-        from typing import Optional
 
         class OptionalDateModel(BaseDBModel):
             name: str
