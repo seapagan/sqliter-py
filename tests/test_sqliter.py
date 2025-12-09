@@ -453,7 +453,7 @@ class TestSqliterDB:
     ) -> None:
         """Test select with excluding all fields raises error."""
         with pytest.raises(
-            ValueError, match="Exclusion results in no fields being selected."
+            ValueError, match=r"Exclusion results in no fields being selected."
         ):
             db_mock_detailed.select(
                 DetailedPersonModel,

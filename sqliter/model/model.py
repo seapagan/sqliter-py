@@ -145,7 +145,7 @@ class BaseDBModel(BaseModel):
 
         # Pluralize the table name
         try:
-            import inflect
+            import inflect  # noqa: PLC0415
 
             p = inflect.engine()
             return p.plural(snake_case_name)
