@@ -6,6 +6,25 @@ project since the first release, with the latest changes at the top.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [v0.9.0](https://github.com/seapagan/sqliter-py/releases/tag/v0.9.0) (December 09, 2025)
+
+**New Features**
+
+- Mark as typed library and update deps ([#81](https://github.com/seapagan/sqliter-py/pull/81)) by [seapagan](https://github.com/seapagan)
+- Update ruff and fix linting issues; improve logging in demo ([#70](https://github.com/seapagan/sqliter-py/pull/70)) by [seapagan](https://github.com/seapagan)
+
+**Dependency Updates**
+
+- Bump urllib3 from 2.4.0 to 2.6.0 ([#80](https://github.com/seapagan/sqliter-py/pull/80)) by [dependabot[bot]](https://github.com/apps/dependabot)
+- Chore(deps): update actions/checkout action to v6 ([#79](https://github.com/seapagan/sqliter-py/pull/79)) by [renovate[bot]](https://github.com/apps/renovate)
+- Chore(deps): update astral-sh/setup-uv action to v7 ([#78](https://github.com/seapagan/sqliter-py/pull/78)) by [renovate[bot]](https://github.com/apps/renovate)
+- Bump requests from 2.32.3 to 2.32.4 ([#75](https://github.com/seapagan/sqliter-py/pull/75)) by [dependabot[bot]](https://github.com/apps/dependabot)
+- Chore(deps): update astral-sh/setup-uv action to v6 ([#72](https://github.com/seapagan/sqliter-py/pull/72)) by [renovate[bot]](https://github.com/apps/renovate)
+- Bump jinja2 from 3.1.5 to 3.1.6 ([#68](https://github.com/seapagan/sqliter-py/pull/68)) by [dependabot[bot]](https://github.com/apps/dependabot)
+- Bump cryptography from 44.0.0 to 44.0.1 ([#66](https://github.com/seapagan/sqliter-py/pull/66)) by [dependabot[bot]](https://github.com/apps/dependabot)
+
+[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.8.0...v0.9.0) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.8.0...v0.9.0.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.8.0...v0.9.0.patch)
+
 ## [0.8.0](https://github.com/seapagan/sqliter-py/releases/tag/0.8.0) (January 28, 2025)
 
 **New Features**
