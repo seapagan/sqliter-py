@@ -129,9 +129,9 @@ pprintpp==0.4.0
 pre-commit==4.2.0
 pycparser==2.22
     # via cffi
-pydantic==2.11.5
+pydantic==2.12.5
     # via sqliter-py
-pydantic-core==2.33.2
+pydantic-core==2.41.5
     # via pydantic
 pygithub==2.6.1
     # via github-changelog-md
@@ -207,7 +207,7 @@ tomli==2.2.1 ; python_full_version <= '3.11'
     #   pytest-watcher
 typer==0.12.5
     # via github-changelog-md
-typing-extensions==4.13.2
+typing-extensions==4.15.0
     # via
     #   exceptiongroup
     #   mypy
@@ -217,7 +217,7 @@ typing-extensions==4.13.2
     #   rich
     #   typer
     #   typing-inspection
-typing-inspection==0.4.1
+typing-inspection==0.4.2
     # via pydantic
 urllib3==2.4.0
     # via
