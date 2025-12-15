@@ -9,7 +9,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
 authors = [{ name = "Grant Ramsay", email = "grant@gnramsay.com" }]
-dependencies = ["pydantic==2.11.5"]
+dependencies = ["pydantic>=2.12.5"]
 
 classifiers = [
   "Development Status :: 4 - Beta",
