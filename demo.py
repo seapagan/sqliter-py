@@ -59,6 +59,7 @@ def main() -> None:
         "demo.db", memory=False, auto_commit=True, debug=True, reset=True
     )
     with db:
+        logger.info("=== Creating and inserting users ===")
         db.create_table(UserModel)  # Create the users table
         user1 = UserModel(
             slug="jdoe",
@@ -89,6 +90,7 @@ def main() -> None:
         except RecordInsertionError as exc:
             logger.error(exc)  # noqa: TRY400
 
+        logger.info("=== Querying users ===")
         # Example queries
         users = db.select(UserModel).filter(name="John Doe").fetch_all()
         logger.info(users)
@@ -101,17 +103,19 @@ def main() -> None:
         )
         logger.info(all_reversed)
 
+        logger.info("=== Fetching specific user ===")
         if user2_instance is None:
             logger.error("User2 ID not found.")
         else:
             fetched_user = db.get(UserModel, user2_instance.pk)
             logger.info("Fetched (%s)", fetched_user)
 
+        logger.info("=== Counting users ===")
         count = db.select(UserModel).count()
         logger.info("Total Users: %s", count)
 
         # Demonstrate unique constraint
-        logger.info("\n=== Demonstrating unique constraint ===")
+        logger.info("=== Demonstrating unique constraint ===")
         db.create_table(AccountModel)
 
         # Insert first account - should succeed
