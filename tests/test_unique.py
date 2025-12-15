@@ -1,12 +1,13 @@
 """Test the Unique constraint."""
 
+import warnings
 from typing import Annotated, Union
 
 import pytest
 
 from sqliter import SqliterDB
 from sqliter.exceptions import RecordInsertionError, RecordUpdateError
-from sqliter.model import BaseDBModel, unique
+from sqliter.model import BaseDBModel, Unique, unique
 
 
 class TestUnique:
@@ -258,3 +259,43 @@ class TestUnique:
         user2.email = "alice@example.com"
         with pytest.raises(RecordUpdateError):
             db.update(user2)
+
+    def test_unique_alias_backward_compatibility(self) -> None:
+        """Test that the deprecated Unique alias still works."""
+
+        class User(BaseDBModel):
+            name: str
+            email: Annotated[str, Unique()]
+
+        db = SqliterDB(":memory:")
+        db.create_table(User)
+
+        # Insert a user successfully
+        user1 = User(name="Alice", email="alice@example.com")
+        db.insert(user1)
+
+        # Attempt to insert a user with the same email (should fail)
+        user2 = User(name="Bob", email="alice@example.com")
+        with pytest.raises(RecordInsertionError) as excinfo:
+            db.insert(user2)
+
+        assert "UNIQUE constraint failed: users.email" in str(excinfo.value)
+
+        # Verify that only one user was inserted
+        users = db.select(User).fetch_all()
+        assert len(users) == 1
+
+    def test_unique_alias_deprecation_warning(self) -> None:
+        """Test that using Unique alias triggers a deprecation warning."""
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+
+            # This should trigger a deprecation warning
+            class User(BaseDBModel):
+                email: Annotated[str, Unique()]
+
+            # Check that a warning was issued
+            assert len(w) >= 1
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "Use 'unique' instead" in str(w[0].message)
+            assert "future version" in str(w[0].message)
