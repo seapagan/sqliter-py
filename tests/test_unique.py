@@ -6,7 +6,7 @@ import pytest
 
 from sqliter import SqliterDB
 from sqliter.exceptions import RecordInsertionError, RecordUpdateError
-from sqliter.model import BaseDBModel, Unique
+from sqliter.model import BaseDBModel, unique
 
 
 class TestUnique:
@@ -17,7 +17,7 @@ class TestUnique:
 
         class User(BaseDBModel):
             name: str
-            email: Annotated[str, Unique()]
+            email: Annotated[str, unique()]
 
         db = SqliterDB(":memory:")
         db.create_table(User)
@@ -44,7 +44,7 @@ class TestUnique:
         """Test the Unique constraint on multiple fields."""
 
         class User(BaseDBModel):
-            name: Annotated[str, Unique()]
+            name: Annotated[str, unique()]
             email: str
 
         db = SqliterDB(":memory:")
@@ -71,7 +71,7 @@ class TestUnique:
         """Test that the correct SQL for the Unique constraint is generated."""
 
         class User(BaseDBModel):
-            name: Annotated[str, Unique()]
+            name: Annotated[str, unique()]
             email: str
 
         # Mock the cursor to capture executed SQL
@@ -100,7 +100,7 @@ class TestUnique:
 
         class User(BaseDBModel):
             name: str
-            email: Annotated[str, Unique()]
+            email: Annotated[str, unique()]
 
         db = SqliterDB(":memory:")
         db.create_table(User)
@@ -127,7 +127,7 @@ class TestUnique:
 
         class User(BaseDBModel):
             name: str
-            email: Annotated[Union[str, None], Unique()]
+            email: Annotated[Union[str, None], unique()]
 
         db = SqliterDB(":memory:")
         db.create_table(User)
@@ -151,7 +151,7 @@ class TestUnique:
 
         class User(BaseDBModel):
             name: str
-            email: Annotated[str, Unique()]
+            email: Annotated[str, unique()]
 
         db = SqliterDB(":memory:")
         db.create_table(User)
@@ -176,8 +176,8 @@ class TestUnique:
         """Test that multiple fields with unique constraints are respected."""
 
         class User(BaseDBModel):
-            username: Annotated[str, Unique()]
-            email: Annotated[str, Unique()]
+            username: Annotated[str, unique()]
+            email: Annotated[str, unique()]
 
         db = SqliterDB(":memory:")
         db.create_table(User)
@@ -200,7 +200,7 @@ class TestUnique:
         """Test that the unique constraint is case-sensitive for text fields."""
 
         class User(BaseDBModel):
-            email: Annotated[str, Unique()]
+            email: Annotated[str, unique()]
 
         db = SqliterDB(":memory:")
         db.create_table(User)
@@ -221,7 +221,7 @@ class TestUnique:
         """Test SQLite diffs between empty strings & null for unique."""
 
         class User(BaseDBModel):
-            email: Annotated[Union[str, None], Unique()]
+            email: Annotated[Union[str, None], unique()]
 
         db = SqliterDB(":memory:")
         db.create_table(User)
@@ -242,7 +242,7 @@ class TestUnique:
         """Test modifying a record to violate the unique constraint fails."""
 
         class User(BaseDBModel):
-            email: Annotated[str, Unique()]
+            email: Annotated[str, unique()]
             name: str
 
         db = SqliterDB(":memory:")

@@ -6,6 +6,6 @@ define unique constraints on model fields.
 """
 
 from .model import BaseDBModel, SerializableField
-from .unique import Unique
+from .unique import unique
 
-__all__ = ["BaseDBModel", "SerializableField", "Unique"]
+__all__ = ["BaseDBModel", "SerializableField", "unique"]
