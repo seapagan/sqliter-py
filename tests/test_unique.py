@@ -301,3 +301,27 @@ class TestUnique:
             assert issubclass(w[0].category, DeprecationWarning)
             assert "Use 'unique' instead" in str(w[0].message)
             assert "future version" in str(w[0].message)
+
+    def test_unique_with_non_dict_json_schema_extra(self) -> None:
+        """Test that unique handles non-dict json_schema_extra correctly."""
+
+        # Pass a non-dict value for json_schema_extra (e.g., a list)
+        # This should trigger line 23 which converts it to an empty dict
+        class User(BaseDBModel):
+            name: str
+            email: Annotated[
+                str, unique(json_schema_extra=["not", "a", "dict"])
+            ]
+
+        db = SqliterDB(":memory:")
+        db.create_table(User)
+
+        # Verify the unique constraint still works despite the non-dict input
+        user1 = User(name="Alice", email="alice@example.com")
+        db.insert(user1)
+
+        user2 = User(name="Bob", email="alice@example.com")
+        with pytest.raises(RecordInsertionError) as excinfo:
+            db.insert(user2)
+
+        assert "UNIQUE constraint failed: users.email" in str(excinfo.value)
