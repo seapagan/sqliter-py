@@ -260,6 +260,7 @@ class TestUnique:
         with pytest.raises(RecordUpdateError):
             db.update(user2)
 
+    @pytest.mark.filterwarnings("ignore::DeprecationWarning")
     def test_unique_alias_backward_compatibility(self) -> None:
         """Test that the deprecated Unique alias still works."""
 
@@ -285,6 +286,7 @@ class TestUnique:
         users = db.select(User).fetch_all()
         assert len(users) == 1
 
+    @pytest.mark.filterwarnings("ignore::DeprecationWarning")
     def test_unique_alias_deprecation_warning(self) -> None:
         """Test that using Unique alias triggers a deprecation warning."""
         with warnings.catch_warnings(record=True) as w:
