@@ -2,18 +2,27 @@
 
 from typing import Any
 
-from pydantic.fields import FieldInfo
+from pydantic import Field
 
 
-class Unique(FieldInfo):
-    """A custom field type for unique constraints in SQLiter."""
+def unique(default: Any = ..., **kwargs: Any) -> Any:  # noqa: ANN401
+    """A custom field type for unique constraints in SQLiter.
 
-    def __init__(self, default: Any = ..., **kwargs: Any) -> None:  # noqa: ANN401
-        """Initialize a Unique field.
+    Args:
+        default: The default value for the field.
+        **kwargs: Additional keyword arguments to pass to Field.
 
-        Args:
-            default: The default value for the field.
-            **kwargs: Additional keyword arguments to pass to FieldInfo.
-        """
-        super().__init__(default=default, **kwargs)
-        self.unique = True
+    Returns:
+        A Field with unique metadata attached.
+    """
+    # Extract any existing json_schema_extra from kwargs
+    existing_extra = kwargs.pop("json_schema_extra", {})
+
+    # Ensure it's a dict
+    if not isinstance(existing_extra, dict):
+        existing_extra = {}
+
+    # Add our unique marker to json_schema_extra
+    existing_extra["unique"] = True
+
+    return Field(default=default, json_schema_extra=existing_extra, **kwargs)

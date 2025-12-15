@@ -1,12 +1,13 @@
 """Test the Unique constraint."""
 
+import warnings
 from typing import Annotated, Union
 
 import pytest
 
 from sqliter import SqliterDB
 from sqliter.exceptions import RecordInsertionError, RecordUpdateError
-from sqliter.model import BaseDBModel, Unique
+from sqliter.model import BaseDBModel, Unique, unique
 
 
 class TestUnique:
@@ -17,7 +18,7 @@ class TestUnique:
 
         class User(BaseDBModel):
             name: str
-            email: Annotated[str, Unique()]
+            email: Annotated[str, unique()]
 
         db = SqliterDB(":memory:")
         db.create_table(User)
@@ -44,7 +45,7 @@ class TestUnique:
         """Test the Unique constraint on multiple fields."""
 
         class User(BaseDBModel):
-            name: Annotated[str, Unique()]
+            name: Annotated[str, unique()]
             email: str
 
         db = SqliterDB(":memory:")
@@ -71,7 +72,7 @@ class TestUnique:
         """Test that the correct SQL for the Unique constraint is generated."""
 
         class User(BaseDBModel):
-            name: Annotated[str, Unique()]
+            name: Annotated[str, unique()]
             email: str
 
         # Mock the cursor to capture executed SQL
@@ -100,7 +101,7 @@ class TestUnique:
 
         class User(BaseDBModel):
             name: str
-            email: Annotated[str, Unique()]
+            email: Annotated[str, unique()]
 
         db = SqliterDB(":memory:")
         db.create_table(User)
@@ -127,7 +128,7 @@ class TestUnique:
 
         class User(BaseDBModel):
             name: str
-            email: Annotated[Union[str, None], Unique()]
+            email: Annotated[Union[str, None], unique()]
 
         db = SqliterDB(":memory:")
         db.create_table(User)
@@ -151,7 +152,7 @@ class TestUnique:
 
         class User(BaseDBModel):
             name: str
-            email: Annotated[str, Unique()]
+            email: Annotated[str, unique()]
 
         db = SqliterDB(":memory:")
         db.create_table(User)
@@ -176,8 +177,8 @@ class TestUnique:
         """Test that multiple fields with unique constraints are respected."""
 
         class User(BaseDBModel):
-            username: Annotated[str, Unique()]
-            email: Annotated[str, Unique()]
+            username: Annotated[str, unique()]
+            email: Annotated[str, unique()]
 
         db = SqliterDB(":memory:")
         db.create_table(User)
@@ -200,7 +201,7 @@ class TestUnique:
         """Test that the unique constraint is case-sensitive for text fields."""
 
         class User(BaseDBModel):
-            email: Annotated[str, Unique()]
+            email: Annotated[str, unique()]
 
         db = SqliterDB(":memory:")
         db.create_table(User)
@@ -221,7 +222,7 @@ class TestUnique:
         """Test SQLite diffs between empty strings & null for unique."""
 
         class User(BaseDBModel):
-            email: Annotated[Union[str, None], Unique()]
+            email: Annotated[Union[str, None], unique()]
 
         db = SqliterDB(":memory:")
         db.create_table(User)
@@ -242,7 +243,7 @@ class TestUnique:
         """Test modifying a record to violate the unique constraint fails."""
 
         class User(BaseDBModel):
-            email: Annotated[str, Unique()]
+            email: Annotated[str, unique()]
             name: str
 
         db = SqliterDB(":memory:")
@@ -258,3 +259,74 @@ class TestUnique:
         user2.email = "alice@example.com"
         with pytest.raises(RecordUpdateError):
             db.update(user2)
+
+    @pytest.mark.filterwarnings("ignore::DeprecationWarning")
+    def test_unique_alias_backward_compatibility(self) -> None:
+        """Test that the deprecated Unique alias still works."""
+
+        class User(BaseDBModel):
+            name: str
+            email: Annotated[str, Unique()]
+
+        db = SqliterDB(":memory:")
+        db.create_table(User)
+
+        # Insert a user successfully
+        user1 = User(name="Alice", email="alice@example.com")
+        db.insert(user1)
+
+        # Attempt to insert a user with the same email (should fail)
+        user2 = User(name="Bob", email="alice@example.com")
+        with pytest.raises(RecordInsertionError) as excinfo:
+            db.insert(user2)
+
+        assert "UNIQUE constraint failed: users.email" in str(excinfo.value)
+
+        # Verify that only one user was inserted
+        users = db.select(User).fetch_all()
+        assert len(users) == 1
+
+    @pytest.mark.filterwarnings("ignore::DeprecationWarning")
+    def test_unique_alias_deprecation_warning(self) -> None:
+        """Test that using Unique alias triggers a deprecation warning."""
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+
+            # This should trigger a deprecation warning
+            class User(BaseDBModel):
+                email: Annotated[str, Unique()]
+
+            # dont need to do this for the test, but it stops Codacy linter
+            # complaining.
+            db = SqliterDB(":memory:")
+            db.create_table(User)
+
+            # Check that a warning was issued
+            assert len(w) >= 1
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "Use 'unique' instead" in str(w[0].message)
+            assert "future version" in str(w[0].message)
+
+    def test_unique_with_non_dict_json_schema_extra(self) -> None:
+        """Test that unique handles non-dict json_schema_extra correctly."""
+
+        # Pass a non-dict value for json_schema_extra (e.g., a list)
+        # This should trigger line 23 which converts it to an empty dict
+        class User(BaseDBModel):
+            name: str
+            email: Annotated[
+                str, unique(json_schema_extra=["not", "a", "dict"])
+            ]
+
+        db = SqliterDB(":memory:")
+        db.create_table(User)
+
+        # Verify the unique constraint still works despite the non-dict input
+        user1 = User(name="Alice", email="alice@example.com")
+        db.insert(user1)
+
+        user2 = User(name="Bob", email="alice@example.com")
+        with pytest.raises(RecordInsertionError) as excinfo:
+            db.insert(user2)
+
+        assert "UNIQUE constraint failed: users.email" in str(excinfo.value)

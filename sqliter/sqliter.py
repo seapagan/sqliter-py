@@ -28,7 +28,6 @@ from sqliter.exceptions import (
     TableDeletionError,
 )
 from sqliter.helpers import infer_sqlite_type
-from sqliter.model.unique import Unique
 from sqliter.query.query import QueryBuilder
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -294,9 +293,16 @@ class SqliterDB:
         for field_name, field_info in model_class.model_fields.items():
             if field_name != primary_key:
                 sqlite_type = infer_sqlite_type(field_info.annotation)
-                unique_constraint = (
-                    "UNIQUE" if isinstance(field_info, Unique) else ""
-                )
+                unique_constraint = ""
+                if (
+                    (
+                        hasattr(field_info, "json_schema_extra")
+                        and field_info.json_schema_extra
+                    )
+                    and isinstance(field_info.json_schema_extra, dict)
+                    and field_info.json_schema_extra.get("unique", False)
+                ):
+                    unique_constraint = "UNIQUE"
                 fields.append(
                     f"{field_name} {sqlite_type} {unique_constraint}".strip()
                 )

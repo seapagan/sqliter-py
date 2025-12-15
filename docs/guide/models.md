@@ -105,18 +105,27 @@ to the primary key index (`pk`) that is automatically created.
 
 ### Unique Fields
 
+> [!CAUTION]
+>
+> In version 0.9.1 and below, this flag was `Unique()` with a capital 'U'. This
+> has now been deprecated and the current `unique()` with a lower case 'u' is
+> the supported command.
+>
+> The old functionality still works but will raise a deprecation warning and
+> will probably be removed in future versions.
+
 You can also specify that a field should be all unique values by using the
-`Unique()` method from the `sqliter.model` module. This will ensure that all
+`unique()` method from the `sqliter.model` module. This will ensure that all
 values in this field are unique.
 
 ```python
 from typing import Annotated
-from sqliter.model import BaseDBModel, Unique
+from sqliter.model import BaseDBModel, unique
 
 class User(BaseDBModel):
     name: str
     age: int
-    email: Annotated[str, Unique()]
+    email: Annotated[str, unique()]
 ```
 
 This will raise either a `RecordInsertionError` or `RecordUpdateError` if you
@@ -128,15 +137,18 @@ try to insert or update a record with a duplicate value in the chosen field.
 > type-checking with `mypy`. It will work fine at runtime but is not recommended:
 >
 > ```python
->     email: str = Unique()
+>     email: str = unique()
 >
 >```
 >
 > This will give the following Mypy error:
 >
 > ```pre
-> error: Incompatible types in assignment (expression has type "Unique", variable has type "str")  [assignment]
+> error: Incompatible types in assignment (expression has type "unique", variable has type "str")  [assignment]
 >```
+>
+> If you DONT use a static type checker (`mypy`, `ty` or similar) then you can
+> leave off the `Annotated`.
 
 ### Custom Table Name
 
