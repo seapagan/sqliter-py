@@ -295,13 +295,14 @@ class SqliterDB:
                 sqlite_type = infer_sqlite_type(field_info.annotation)
                 unique_constraint = ""
                 if (
-                    hasattr(field_info, "json_schema_extra")
-                    and field_info.json_schema_extra
+                    (
+                        hasattr(field_info, "json_schema_extra")
+                        and field_info.json_schema_extra
+                    )
+                    and isinstance(field_info.json_schema_extra, dict)
+                    and field_info.json_schema_extra.get("unique", False)
                 ):
-                    if isinstance(
-                        field_info.json_schema_extra, dict
-                    ) and field_info.json_schema_extra.get("unique", False):
-                        unique_constraint = "UNIQUE"
+                    unique_constraint = "UNIQUE"
                 fields.append(
                     f"{field_name} {sqlite_type} {unique_constraint}".strip()
                 )
