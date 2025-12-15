@@ -296,6 +296,11 @@ class TestUnique:
             class User(BaseDBModel):
                 email: Annotated[str, Unique()]
 
+            # dont need to do this for the test, but it stops Codacy linter
+            # complaining.
+            db = SqliterDB(":memory:")
+            db.create_table(User)
+
             # Check that a warning was issued
             assert len(w) >= 1
             assert issubclass(w[0].category, DeprecationWarning)
