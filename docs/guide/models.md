@@ -105,6 +105,15 @@ to the primary key index (`pk`) that is automatically created.
 
 ### Unique Fields
 
+> [!CAUTION]
+>
+> In version 0.9.1 and below, this flag was `Unique()` with a capital 'U'. This
+> has now been deprecated and the current `unique()` with a lower case 'u' is
+> the supported command.
+>
+> The old functionality still works but will raise a deprecation warning and
+> will probably be removed in future versions.
+
 You can also specify that a field should be all unique values by using the
 `unique()` method from the `sqliter.model` module. This will ensure that all
 values in this field are unique.
@@ -140,14 +149,6 @@ try to insert or update a record with a duplicate value in the chosen field.
 >
 > If you DONT use a static type checker (`mypy`, `ty` or similar) then you can
 > leave off the `Annotated`.
-
-> [!CAUTION]
->
-> In version 0.9.1 and below, this flag was `Unique()` with a capital 'U'. This
-> has now been deprecated to the current `unique()` with a lower case 'u'.
->
-> The old functionality still works but will raise a deprecation warning and
-> will probably be removed in future versions.
 
 ### Custom Table Name
 
