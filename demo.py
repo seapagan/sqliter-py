@@ -10,11 +10,11 @@ both a functional test and a usage guide for the SQLiter library.
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Annotated, Optional
 
 from sqliter import SqliterDB
 from sqliter.exceptions import RecordInsertionError
-from sqliter.model import BaseDBModel
+from sqliter.model import BaseDBModel, unique
 
 
 # User model inheriting from the 'BaseDBModel' class
@@ -32,6 +32,19 @@ class UserModel(BaseDBModel):
         """Override the table name for the UserModel."""
 
         table_name: str = "users"  # Explicitly define the table name
+
+
+# Account model demonstrating unique constraint
+class AccountModel(BaseDBModel):
+    """Model demonstrating unique constraint on email field."""
+
+    username: str
+    email: Annotated[str, unique()]  # Email must be unique
+
+    class Meta:
+        """Override the table name for the AccountModel."""
+
+        table_name: str = "accounts"
 
 
 def main() -> None:
@@ -96,6 +109,30 @@ def main() -> None:
 
         count = db.select(UserModel).count()
         logger.info("Total Users: %s", count)
+
+        # Demonstrate unique constraint
+        logger.info("\n=== Demonstrating unique constraint ===")
+        db.create_table(AccountModel)
+
+        # Insert first account - should succeed
+        account1 = AccountModel(username="alice", email="alice@example.com")
+        db.insert(account1)
+        logger.info("✓ Inserted account with unique email: alice@example.com")
+
+        # Insert second account with different email - should succeed
+        account2 = AccountModel(username="bob", email="bob@example.com")
+        db.insert(account2)
+        logger.info("✓ Inserted account with unique email: bob@example.com")
+
+        # Try to insert account with duplicate email - should fail
+        try:
+            account3 = AccountModel(
+                username="charlie", email="alice@example.com"
+            )
+            db.insert(account3)
+            logger.error("✗ Should have failed - duplicate email!")
+        except RecordInsertionError as exc:
+            logger.info("✓ Correctly prevented duplicate email: %s", exc)
 
 
 if __name__ == "__main__":
