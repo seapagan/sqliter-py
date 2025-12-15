@@ -50,7 +50,7 @@ module-root = ""
 dev = [
   "mock>=5.1.0",
   "mypy>=1.11.2",
-  "pytest>=8.3.2",
+  "pytest>=8.3.2,<9.0",
   "pytest-mock>=3.14.0",
   "ruff>=0.6.4",
   "pytest-sugar>=1.0.0",
@@ -148,6 +148,7 @@ plugins = ["pydantic.mypy"]
 
 python_version = "3.9"
 exclude = ["docs"]
+
 [[tool.mypy.overrides]]
 disable_error_code = ["method-assign", "no-untyped-def", "attr-defined"]
 module = "tests.*"
