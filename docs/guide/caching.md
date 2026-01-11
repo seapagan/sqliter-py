@@ -109,13 +109,17 @@ This requires that filter values be **comparable** with each other.
 **❌ This will fail:**
 
 ```python
-# Incomparable types for the same field
+# First query succeeds
 db.select(User).filter(name="Alice", age=30).fetch_all()
+
+# Second query fails at fetch time when generating cache key
 db.select(User).filter(name=42, age=30).fetch_all()  # ValueError!
 ```
 
-The second query fails because Python cannot sort mixed types (strings vs
-numbers) when generating the cache key.
+The second query fails when `fetch_all()` is called because Python cannot
+sort mixed types (strings vs numbers) when generating the cache key. The
+`filter()` call itself succeeds - the error occurs during cache key
+generation.
 
 **✓ Correct usage:**
 
