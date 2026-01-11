@@ -12,13 +12,8 @@ import logging
 import sqlite3
 import sys
 import time
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Optional,
-    TypeVar,
-    Union,
-)
+from collections import OrderedDict
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
 
 from typing_extensions import Self
 
@@ -120,16 +115,16 @@ class SqliterDB:
         self._cache_max_size = cache_max_size
         self._cache_ttl = cache_ttl
         self._cache_max_memory_mb = cache_max_memory_mb
-        self._cache: dict[
+        self._cache: OrderedDict[
             str,
-            dict[
+            OrderedDict[
                 str,
                 tuple[
                     Union[BaseDBModel, list[BaseDBModel], None],
                     Optional[float],
                 ],
             ],
-        ] = {}  # {table_name: {cache_key: (result, expiration_timestamp)}}
+        ] = OrderedDict()  # table_name -> {cache_key -> (result, expiration)}
         self._cache_memory_usage: dict[
             str, int
         ] = {}  # {table_name: memory_in_bytes}
@@ -309,6 +304,8 @@ class SqliterDB:
             del self._cache[table_name][cache_key]
             return None
 
+        # Mark as recently used (LRU)
+        self._cache[table_name].move_to_end(cache_key)
         self._cache_hits += 1
         return result
 
@@ -331,7 +328,7 @@ class SqliterDB:
             return
 
         if table_name not in self._cache:
-            self._cache[table_name] = {}
+            self._cache[table_name] = OrderedDict()
             self._cache_memory_usage[table_name] = 0
 
         # Estimate size of the result
@@ -347,11 +344,11 @@ class SqliterDB:
                 current_table_memory + result_size > max_bytes
                 and self._cache[table_name]
             ):
-                # Remove oldest entry
-                oldest_key = next(iter(self._cache[table_name]))
-                oldest_result, _ = self._cache[table_name][oldest_key]
+                # Remove least recently used entry
+                (_, (oldest_result, _)) = self._cache[table_name].popitem(
+                    last=False
+                )
                 oldest_size = self._estimate_size(oldest_result)
-                del self._cache[table_name][oldest_key]
                 current_table_memory -= oldest_size
                 self._cache_memory_usage[table_name] = current_table_memory
 
@@ -368,11 +365,9 @@ class SqliterDB:
 
         # Enforce LRU by size
         if len(self._cache[table_name]) > self._cache_max_size:
-            # Remove oldest entry (first inserted)
-            oldest_key = next(iter(self._cache[table_name]))
-            oldest_result, _ = self._cache[table_name][oldest_key]
+            # Remove least recently used entry
+            _, (oldest_result, _) = self._cache[table_name].popitem(last=False)
             oldest_size = self._estimate_size(oldest_result)
-            del self._cache[table_name][oldest_key]
             self._cache_memory_usage[table_name] -= oldest_size
 
     def _cache_invalidate_table(self, table_name: str) -> None:

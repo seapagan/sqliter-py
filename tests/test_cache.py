@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from typing import Any
 from unittest.mock import patch
 
 from sqliter import SqliterDB
@@ -529,7 +530,7 @@ class TestCacheMemoryLimit:
 
         # The eviction loop should have been triggered
         # With 1MB limit and 200KB per entry, only ~4-5 entries should fit
-        table_cache = db._cache.get(LargeData.get_table_name(), {})
+        table_cache: Any = db._cache.get(LargeData.get_table_name(), {})
         assert len(table_cache) < 20  # Many entries were evicted
         assert len(table_cache) >= 0  # Cache exists
 
