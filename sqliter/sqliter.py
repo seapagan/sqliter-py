@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+import sys
 import time
+from collections import OrderedDict
 from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
 
 from typing_extensions import Self
@@ -63,6 +65,10 @@ class SqliterDB:
         logger: Optional[logging.Logger] = None,
         reset: bool = False,
         return_local_time: bool = True,
+        cache_enabled: bool = False,
+        cache_max_size: int = 1000,
+        cache_ttl: Optional[int] = None,
+        cache_max_memory_mb: Optional[int] = None,
     ) -> None:
         """Initialize a new SqliterDB instance.
 
@@ -75,6 +81,12 @@ class SqliterDB:
             reset: Whether to reset the database on initialization. This will
                 basically drop all existing tables.
             return_local_time: Whether to return local time for datetime fields.
+            cache_enabled: Whether to enable query result caching. Default is
+                False.
+            cache_max_size: Maximum number of cached queries per table (LRU).
+            cache_ttl: Optional time-to-live for cache entries in seconds.
+            cache_max_memory_mb: Optional maximum memory usage for cache in
+                megabytes. When exceeded, oldest entries are evicted.
 
         Raises:
             ValueError: If no filename is provided for a non-memory database.
@@ -97,6 +109,38 @@ class SqliterDB:
         self.return_local_time = return_local_time
 
         self._in_transaction = False
+
+        # Initialize cache
+        self._cache_enabled = cache_enabled
+        self._cache_max_size = cache_max_size
+        self._cache_ttl = cache_ttl
+        self._cache_max_memory_mb = cache_max_memory_mb
+
+        # Validate cache parameters
+        if self._cache_max_size <= 0:
+            msg = "cache_max_size must be greater than 0"
+            raise ValueError(msg)
+        if self._cache_ttl is not None and self._cache_ttl < 0:
+            msg = "cache_ttl must be non-negative"
+            raise ValueError(msg)
+        if (
+            self._cache_max_memory_mb is not None
+            and self._cache_max_memory_mb <= 0
+        ):
+            msg = "cache_max_memory_mb must be greater than 0"
+            raise ValueError(msg)
+        self._cache: OrderedDict[
+            str,
+            OrderedDict[
+                str,
+                tuple[
+                    Union[BaseDBModel, list[BaseDBModel], None],
+                    Optional[float],
+                ],
+            ],
+        ] = OrderedDict()  # {table: {cache_key: (result, expiration)}}
+        self._cache_hits = 0
+        self._cache_misses = 0
 
         if self.debug:
             self._setup_logger()
@@ -240,6 +284,190 @@ class SqliterDB:
                 raise DatabaseConnectionError(self.db_filename) from exc
         return self.conn
 
+    def _cache_get(
+        self,
+        table_name: str,
+        cache_key: str,
+    ) -> tuple[bool, Optional[Union[BaseDBModel, list[BaseDBModel]]]]:
+        """Get cached result if valid and not expired.
+
+        Args:
+            table_name: The name of the table.
+            cache_key: The cache key for the query.
+
+        Returns:
+            A tuple of (hit, result) where hit is True if cache hit,
+            False if miss. Result is the cached value (which may be None
+            or an empty list) on a hit, or None on a miss.
+        """
+        if not self._cache_enabled:
+            return False, None
+        if table_name not in self._cache:
+            self._cache_misses += 1
+            return False, None
+        if cache_key not in self._cache[table_name]:
+            self._cache_misses += 1
+            return False, None
+
+        result, expiration = self._cache[table_name][cache_key]
+
+        # Check TTL expiration
+        if expiration is not None and time.time() > expiration:
+            self._cache_misses += 1
+            del self._cache[table_name][cache_key]
+            return False, None
+
+        # Mark as recently used (LRU)
+        self._cache[table_name].move_to_end(cache_key)
+        self._cache_hits += 1
+        return True, result
+
+    def _cache_set(
+        self,
+        table_name: str,
+        cache_key: str,
+        result: Union[BaseDBModel, list[BaseDBModel], None],
+        ttl: Optional[int] = None,
+    ) -> None:
+        """Store result in cache with optional expiration.
+
+        Args:
+            table_name: The name of the table.
+            cache_key: The cache key for the query.
+            result: The result to cache.
+            ttl: Optional TTL override for this specific entry.
+        """
+        if not self._cache_enabled:
+            return
+
+        if table_name not in self._cache:
+            self._cache[table_name] = OrderedDict()
+
+        # Calculate expiration (use query-specific TTL if provided)
+        expiration = None
+        effective_ttl = ttl if ttl is not None else self._cache_ttl
+        if effective_ttl is not None:
+            expiration = time.time() + effective_ttl
+
+        self._cache[table_name][cache_key] = (result, expiration)
+        # Mark as most-recently-used
+        self._cache[table_name].move_to_end(cache_key)
+
+        # Enforce memory limit if set
+        if self._cache_max_memory_mb is not None:
+            max_bytes = self._cache_max_memory_mb * 1024 * 1024
+            # Evict LRU entries until under the memory limit
+            while (
+                table_name in self._cache
+                and self._get_table_memory_usage(table_name) > max_bytes
+            ):
+                self._cache[table_name].popitem(last=False)
+
+        # Enforce LRU by size
+        if len(self._cache[table_name]) > self._cache_max_size:
+            self._cache[table_name].popitem(last=False)
+
+    def _cache_invalidate_table(self, table_name: str) -> None:
+        """Clear all cached queries for a specific table.
+
+        Args:
+            table_name: The name of the table to invalidate.
+        """
+        if not self._cache_enabled:
+            return
+        self._cache.pop(table_name, None)
+
+    def _get_table_memory_usage(  # noqa: C901
+        self, table_name: str
+    ) -> int:
+        """Calculate the actual memory usage for a table's cache.
+
+        This method recalculates memory usage on-demand by measuring the
+        size of all cached entries including tuple and dict overhead.
+
+        Args:
+            table_name: The name of the table.
+
+        Returns:
+            The memory usage in bytes.
+        """
+        if table_name not in self._cache:
+            return 0
+
+        total = 0
+        seen: dict[int, int] = {}
+
+        for key, (result, _expiration) in self._cache[table_name].items():
+            # Measure the tuple (result, expiration)
+            total += sys.getsizeof((result, _expiration))
+
+            # Measure the dict key (cache_key string)
+            total += sys.getsizeof(key)
+
+            # Dict entry overhead (approximately 72 bytes for a dict entry)
+            total += 72
+
+            # Recursively measure the result object
+            def measure_size(obj: Any) -> int:  # noqa: C901, ANN401
+                """Recursively measure object size with memoization."""
+                obj_id = id(obj)
+                if obj_id in seen:
+                    return 0  # Already counted
+
+                size = sys.getsizeof(obj)
+                seen[obj_id] = size
+
+                # Handle lists
+                if isinstance(obj, list):
+                    for item in obj:
+                        size += measure_size(item)
+
+                # Handle Pydantic models - measure their fields
+                elif hasattr(type(obj), "model_fields"):
+                    for field_name in type(obj).model_fields:
+                        field_value = getattr(obj, field_name, None)
+                        if field_value is not None:
+                            size += measure_size(field_value)
+                    # Also measure __dict__ if present
+                    if hasattr(obj, "__dict__"):
+                        size += measure_size(obj.__dict__)
+
+                # Handle dicts
+                elif isinstance(obj, dict):
+                    for k, v in obj.items():
+                        size += measure_size(k)
+                        size += measure_size(v)
+
+                # Handle sets and tuples
+                elif isinstance(obj, (set, tuple)):
+                    for item in obj:
+                        size += measure_size(item)
+
+                return size
+
+            total += measure_size(result)
+
+        return total
+
+    def get_cache_stats(self) -> dict[str, int | float]:
+        """Get cache performance statistics.
+
+        Returns:
+            A dictionary containing cache statistics with keys:
+            - hits: Number of cache hits
+            - misses: Number of cache misses
+            - total: Total number of cache lookups
+            - hit_rate: Cache hit rate as a percentage (0-100)
+        """
+        total = self._cache_hits + self._cache_misses
+        hit_rate = (self._cache_hits / total * 100) if total > 0 else 0.0
+        return {
+            "hits": self._cache_hits,
+            "misses": self._cache_misses,
+            "total": total,
+            "hit_rate": round(hit_rate, 2),
+        }
+
     def close(self) -> None:
         """Close the database connection.
 
@@ -251,6 +479,9 @@ class SqliterDB:
             self._maybe_commit()
             self.conn.close()
             self.conn = None
+        self._cache.clear()
+        self._cache_hits = 0
+        self._cache_misses = 0
 
     def commit(self) -> None:
         """Commit the current transaction.
@@ -508,6 +739,7 @@ class SqliterDB:
         except sqlite3.Error as exc:
             raise RecordInsertionError(table_name) from exc
         else:
+            self._cache_invalidate_table(table_name)
             data.pop("pk", None)
             # Deserialize each field before creating the model instance
             deserialized_data = {}
@@ -614,6 +846,7 @@ class SqliterDB:
                     raise RecordNotFoundError(primary_key_value)
 
                 self._maybe_commit()
+                self._cache_invalidate_table(table_name)
 
         except sqlite3.Error as exc:
             raise RecordUpdateError(table_name) from exc
@@ -647,6 +880,7 @@ class SqliterDB:
                 if cursor.rowcount == 0:
                     raise RecordNotFoundError(primary_key_value)
                 self._maybe_commit()
+                self._cache_invalidate_table(table_name)
         except sqlite3.Error as exc:
             raise RecordDeletionError(table_name) from exc
 
@@ -728,3 +962,7 @@ class SqliterDB:
                 self.conn.close()
                 self.conn = None
                 self._in_transaction = False
+        # Clear cache when exiting context
+        self._cache.clear()
+        self._cache_hits = 0
+        self._cache_misses = 0

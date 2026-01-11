@@ -9,6 +9,8 @@ raw SQL.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import sqlite3
 import warnings
 from typing import (
@@ -83,6 +85,8 @@ class QueryBuilder:
         self._offset: Optional[int] = None
         self._order_by: Optional[str] = None
         self._fields: Optional[list[str]] = fields
+        self._bypass_cache: bool = False
+        self._query_cache_ttl: Optional[int] = None
 
         if self._fields:
             self._validate_fields()
@@ -638,6 +642,89 @@ class QueryBuilder:
             field_name, value, return_local_time=self.db.return_local_time
         )
 
+    def bypass_cache(self) -> Self:
+        """Bypass the cache for this specific query.
+
+        When called, the query will always hit the database regardless of
+        the global cache setting. This is useful for queries that require
+        fresh data.
+
+        Returns:
+            The QueryBuilder instance for method chaining.
+
+        Example:
+            >>> db.select(User).filter(name="Alice").bypass_cache().fetch_one()
+        """
+        self._bypass_cache = True
+        return self
+
+    def cache_ttl(self, ttl: int) -> Self:
+        """Set a custom TTL (time-to-live) for this specific query.
+
+        When called, the cached result of this query will expire after the
+        specified number of seconds, overriding the global cache_ttl setting.
+
+        Args:
+            ttl: Time-to-live in seconds for the cached result.
+
+        Returns:
+            The QueryBuilder instance for method chaining.
+
+        Raises:
+            ValueError: If ttl is negative.
+
+        Example:
+            >>> db.select(User).cache_ttl(60).fetch_all()
+        """
+        if ttl < 0:
+            msg = "TTL must be non-negative"
+            raise ValueError(msg)
+        self._query_cache_ttl = ttl
+        return self
+
+    def _make_cache_key(self, *, fetch_one: bool) -> str:
+        """Generate a cache key from the current query state.
+
+        Args:
+            fetch_one: Whether this is a fetch_one or fetch_all query.
+
+        Returns:
+            A SHA256 hash representing the current query state.
+
+        Raises:
+            ValueError: If filters contain incomparable types that prevent
+                cache key generation (e.g., filtering the same field with
+                both string and numeric values).
+        """
+        # Sort filters for consistent cache keys
+        # Note: This requires filter values to be comparable. Avoid filtering
+        # the same field with incompatible types (e.g., name="Alice" and
+        # name=42 in the same query).
+        try:
+            sorted_filters = sorted(self.filters)
+        except TypeError as exc:
+            msg = (
+                "Cannot generate cache key: filters contain incomparable "
+                "types. Avoid filtering the same field with incompatible "
+                "value types (e.g., strings and numbers)."
+            )
+            raise ValueError(msg) from exc
+
+        # Create a deterministic representation of the query
+        key_parts = {
+            "table": self.table_name,
+            "filters": sorted_filters,
+            "limit": self._limit,
+            "offset": self._offset,
+            "order_by": self._order_by,
+            "fields": tuple(sorted(self._fields)) if self._fields else None,
+            "fetch_one": fetch_one,
+        }
+
+        # Hash the key parts
+        key_json = json.dumps(key_parts, sort_keys=True, default=str)
+        return hashlib.sha256(key_json.encode()).hexdigest()
+
     @overload
     def _fetch_result(
         self, *, fetch_one: Literal[True]
@@ -660,12 +747,32 @@ class QueryBuilder:
             A list of model instances, a single model instance, or None if no
             results are found.
         """
+        # Check cache first (unless bypass is enabled)
+        if not self._bypass_cache:
+            cache_key = self._make_cache_key(fetch_one=fetch_one)
+            hit, cached = self.db._cache_get(self.table_name, cache_key)  # noqa: SLF001
+            if hit:
+                return cached
+
         result = self._execute_query(fetch_one=fetch_one)
 
         if not result:
-            if fetch_one:
-                return None
-            return []
+            if not self._bypass_cache:
+                if fetch_one:
+                    # Cache empty result
+                    self.db._cache_set(  # noqa: SLF001
+                        self.table_name,
+                        cache_key,
+                        None,
+                        ttl=self._query_cache_ttl,
+                    )
+                    return None
+                # Cache empty list
+                self.db._cache_set(  # noqa: SLF001
+                    self.table_name, cache_key, [], ttl=self._query_cache_ttl
+                )
+                return []
+            return None if fetch_one else []
 
         if fetch_one:
             # Ensure we pass a tuple, not a list, to _convert_row_to_model
@@ -673,9 +780,27 @@ class QueryBuilder:
                 result = result[
                     0
                 ]  # Get the first (and only) result if it's wrapped in a list.
-            return self._convert_row_to_model(result)
+            single_result = self._convert_row_to_model(result)
+            # Cache single result (unless bypass is enabled)
+            if not self._bypass_cache:
+                self.db._cache_set(  # noqa: SLF001
+                    self.table_name,
+                    cache_key,
+                    single_result,
+                    ttl=self._query_cache_ttl,
+                )
+            return single_result
 
-        return [self._convert_row_to_model(row) for row in result]
+        list_results = [self._convert_row_to_model(row) for row in result]
+        # Cache list result (unless bypass is enabled)
+        if not self._bypass_cache:
+            self.db._cache_set(  # noqa: SLF001
+                self.table_name,
+                cache_key,
+                list_results,
+                ttl=self._query_cache_ttl,
+            )
+        return list_results
 
     def fetch_all(self) -> list[BaseDBModel]:
         """Fetch all results of the query.
@@ -757,6 +882,7 @@ class QueryBuilder:
                 cursor.execute(sql, values)
                 deleted_count = cursor.rowcount
                 self.db._maybe_commit()  # noqa: SLF001
+                self.db._cache_invalidate_table(self.table_name)  # noqa: SLF001
                 return deleted_count
         except sqlite3.Error as exc:
             raise RecordDeletionError(self.table_name) from exc
