@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+import sys
 import time
 from typing import (
     TYPE_CHECKING,
@@ -72,6 +73,7 @@ class SqliterDB:
         cache_enabled: bool = False,
         cache_max_size: int = 1000,
         cache_ttl: Optional[int] = None,
+        cache_max_memory_mb: Optional[int] = None,
     ) -> None:
         """Initialize a new SqliterDB instance.
 
@@ -88,6 +90,8 @@ class SqliterDB:
                 False.
             cache_max_size: Maximum number of cached queries per table (LRU).
             cache_ttl: Optional time-to-live for cache entries in seconds.
+            cache_max_memory_mb: Optional maximum memory usage for cache in
+                megabytes. When exceeded, oldest entries are evicted.
 
         Raises:
             ValueError: If no filename is provided for a non-memory database.
@@ -115,6 +119,7 @@ class SqliterDB:
         self._cache_enabled = cache_enabled
         self._cache_max_size = cache_max_size
         self._cache_ttl = cache_ttl
+        self._cache_max_memory_mb = cache_max_memory_mb
         self._cache: dict[
             str,
             dict[
@@ -125,6 +130,9 @@ class SqliterDB:
                 ],
             ],
         ] = {}  # {table_name: {cache_key: (result, expiration_timestamp)}}
+        self._cache_memory_usage: dict[
+            str, int
+        ] = {}  # {table_name: memory_in_bytes}
         self._cache_hits = 0
         self._cache_misses = 0
 
@@ -322,6 +330,28 @@ class SqliterDB:
 
         if table_name not in self._cache:
             self._cache[table_name] = {}
+            self._cache_memory_usage[table_name] = 0
+
+        # Estimate size of the result
+        result_size = self._estimate_size(result)
+
+        # Enforce memory limit if set
+        if self._cache_max_memory_mb is not None:
+            max_bytes = self._cache_max_memory_mb * 1024 * 1024
+            current_table_memory = self._cache_memory_usage.get(table_name, 0)
+
+            # Evict entries until there's enough space
+            while (
+                current_table_memory + result_size > max_bytes
+                and self._cache[table_name]
+            ):
+                # Remove oldest entry
+                oldest_key = next(iter(self._cache[table_name]))
+                oldest_result, _ = self._cache[table_name][oldest_key]
+                oldest_size = self._estimate_size(oldest_result)
+                del self._cache[table_name][oldest_key]
+                current_table_memory -= oldest_size
+                self._cache_memory_usage[table_name] = current_table_memory
 
         # Calculate expiration
         expiration = None
@@ -329,12 +359,18 @@ class SqliterDB:
             expiration = time.time() + self._cache_ttl
 
         self._cache[table_name][cache_key] = (result, expiration)
+        self._cache_memory_usage[table_name] = (
+            self._cache_memory_usage.get(table_name, 0) + result_size
+        )
 
         # Enforce LRU by size
         if len(self._cache[table_name]) > self._cache_max_size:
             # Remove oldest entry (first inserted)
             oldest_key = next(iter(self._cache[table_name]))
+            oldest_result, _ = self._cache[table_name][oldest_key]
+            oldest_size = self._estimate_size(oldest_result)
             del self._cache[table_name][oldest_key]
+            self._cache_memory_usage[table_name] -= oldest_size
 
     def _cache_invalidate_table(self, table_name: str) -> None:
         """Clear all cached queries for a specific table.
@@ -345,6 +381,44 @@ class SqliterDB:
         if not self._cache_enabled:
             return
         self._cache.pop(table_name, None)
+        self._cache_memory_usage.pop(table_name, None)
+
+    def _estimate_size(
+        self, obj: Union[BaseDBModel, list[BaseDBModel], None]
+    ) -> int:
+        """Estimate the memory size of a cached object.
+
+        Args:
+            obj: The object to estimate size for.
+
+        Returns:
+            Estimated size in bytes.
+        """
+        if obj is None:
+            return sys.getsizeof(None)
+
+        # Get the base size of the object
+        size = sys.getsizeof(obj)
+
+        # If it's a list, add size of all elements
+        if isinstance(obj, list):
+            for item in obj:
+                size += sys.getsizeof(item)
+                # Recursively get size of model fields
+                if hasattr(item, "model_fields"):
+                    for field_name in item.model_fields:
+                        field_value = getattr(item, field_name, None)
+                        if field_value is not None:
+                            size += sys.getsizeof(field_value)
+
+        # If it's a single model, get size of its fields
+        elif hasattr(obj, "model_fields"):
+            for field_name in obj.model_fields:
+                field_value = getattr(obj, field_name, None)
+                if field_value is not None:
+                    size += sys.getsizeof(field_value)
+
+        return size
 
     def get_cache_stats(self) -> dict[str, int | float]:
         """Get cache performance statistics.
@@ -377,6 +451,7 @@ class SqliterDB:
             self.conn.close()
             self.conn = None
         self._cache.clear()
+        self._cache_memory_usage.clear()
 
     def commit(self) -> None:
         """Commit the current transaction.
@@ -859,3 +934,4 @@ class SqliterDB:
                 self._in_transaction = False
         # Clear cache when exiting context
         self._cache.clear()
+        self._cache_memory_usage.clear()
