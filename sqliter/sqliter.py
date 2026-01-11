@@ -17,7 +17,6 @@ from typing import (
     Optional,
     TypeVar,
     Union,
-    cast,
 )
 
 from typing_extensions import Self
@@ -117,8 +116,17 @@ class SqliterDB:
         self._cache_max_size = cache_max_size
         self._cache_ttl = cache_ttl
         self._cache: dict[
-            str, dict[str, tuple[Any, Optional[float]]]
+            str,
+            dict[
+                str,
+                tuple[
+                    Union[BaseDBModel, list[BaseDBModel], None],
+                    Optional[float],
+                ],
+            ],
         ] = {}  # {table_name: {cache_key: (result, expiration_timestamp)}}
+        self._cache_hits = 0
+        self._cache_misses = 0
 
         if self.debug:
             self._setup_logger()
@@ -279,18 +287,22 @@ class SqliterDB:
         if not self._cache_enabled:
             return None
         if table_name not in self._cache:
+            self._cache_misses += 1
             return None
         if cache_key not in self._cache[table_name]:
+            self._cache_misses += 1
             return None
 
         result, expiration = self._cache[table_name][cache_key]
 
         # Check TTL expiration
         if expiration is not None and time.time() > expiration:
+            self._cache_misses += 1
             del self._cache[table_name][cache_key]
             return None
 
-        return cast("Union[BaseDBModel, list[BaseDBModel], None]", result)
+        self._cache_hits += 1
+        return result
 
     def _cache_set(
         self,
@@ -333,6 +345,25 @@ class SqliterDB:
         if not self._cache_enabled:
             return
         self._cache.pop(table_name, None)
+
+    def get_cache_stats(self) -> dict[str, int | float]:
+        """Get cache performance statistics.
+
+        Returns:
+            A dictionary containing cache statistics with keys:
+            - hits: Number of cache hits
+            - misses: Number of cache misses
+            - total: Total number of cache lookups
+            - hit_rate: Cache hit rate as a percentage (0-100)
+        """
+        total = self._cache_hits + self._cache_misses
+        hit_rate = (self._cache_hits / total * 100) if total > 0 else 0.0
+        return {
+            "hits": self._cache_hits,
+            "misses": self._cache_misses,
+            "total": total,
+            "hit_rate": round(hit_rate, 2),
+        }
 
     def close(self) -> None:
         """Close the database connection.

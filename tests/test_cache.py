@@ -351,3 +351,142 @@ class TestCacheWithFields:
         assert len(db._cache[User.get_table_name()]) == 2
 
         db.close()
+
+
+class TestCacheStatistics:
+    """Test cache statistics tracking."""
+
+    def test_cache_stats_initial_state(self, tmp_path) -> None:
+        """Cache stats start at zero."""
+        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db.create_table(User)
+
+        stats = db.get_cache_stats()
+        assert stats["hits"] == 0
+        assert stats["misses"] == 0
+        assert stats["total"] == 0
+        assert stats["hit_rate"] == 0.0
+
+        db.close()
+
+    def test_cache_stats_track_hits(self, tmp_path) -> None:
+        """Cache stats track hits correctly."""
+        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db.create_table(User)
+        db.insert(User(name="Alice", age=30))
+
+        # First query - cache miss
+        db.select(User).filter(name="Alice").fetch_all()
+        stats = db.get_cache_stats()
+        assert stats["hits"] == 0
+        assert stats["misses"] == 1
+
+        # Second query - cache hit
+        db.select(User).filter(name="Alice").fetch_all()
+        stats = db.get_cache_stats()
+        assert stats["hits"] == 1
+        assert stats["misses"] == 1
+        assert stats["hit_rate"] == 50.0
+
+        db.close()
+
+    def test_cache_stats_track_misses(self, tmp_path) -> None:
+        """Cache stats track misses correctly."""
+        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db.create_table(User)
+        db.insert(User(name="Alice", age=30))
+
+        # Three different queries - all misses
+        db.select(User).filter(name="Alice").fetch_all()
+        db.select(User).filter(name="Bob").fetch_all()
+        db.select(User).filter(age=30).fetch_all()
+
+        stats = db.get_cache_stats()
+        assert stats["hits"] == 0
+        assert stats["misses"] == 3
+        assert stats["hit_rate"] == 0.0
+
+        db.close()
+
+    def test_cache_stats_with_invalidation(self, tmp_path) -> None:
+        """Cache stats continue after invalidation."""
+        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db.create_table(User)
+        db.insert(User(name="Alice", age=30))
+
+        # Query - miss
+        db.select(User).fetch_all()
+        # Query - hit
+        db.select(User).fetch_all()
+
+        stats_before = db.get_cache_stats()
+        assert stats_before["hits"] == 1
+
+        # Invalidate cache
+        db.insert(User(name="Bob", age=25))
+
+        # Query - miss again (was invalidated)
+        db.select(User).fetch_all()
+
+        stats_after = db.get_cache_stats()
+        assert stats_after["hits"] == 1
+        assert stats_after["misses"] == 2
+
+        db.close()
+
+    def test_cache_stats_disabled_cache(self, tmp_path) -> None:
+        """Cache stats don't increment when cache is disabled."""
+        db = SqliterDB(tmp_path / "test.db", cache_enabled=False)
+        db.create_table(User)
+        db.insert(User(name="Alice", age=30))
+
+        # Queries with cache disabled
+        db.select(User).fetch_all()
+        db.select(User).fetch_all()
+
+        stats = db.get_cache_stats()
+        assert stats["hits"] == 0
+        assert stats["misses"] == 0
+        assert stats["total"] == 0
+
+        db.close()
+
+    def test_cache_stats_with_ttl_expiration(self, tmp_path) -> None:
+        """Expired cache entries count as misses."""
+        db = SqliterDB(tmp_path / "test.db", cache_enabled=True, cache_ttl=1)
+        db.create_table(User)
+        db.insert(User(name="Alice", age=30))
+
+        # Query - miss
+        db.select(User).fetch_all()
+        stats = db.get_cache_stats()
+        assert stats["misses"] == 1
+
+        # Wait for TTL to expire
+        time.sleep(2)
+
+        # Query after expiration - should be a cache miss
+        db.select(User).fetch_all()
+        stats = db.get_cache_stats()
+        assert stats["misses"] == 2
+        assert stats["hits"] == 0
+
+        db.close()
+
+    def test_cache_stats_hit_rate_calculation(self, tmp_path) -> None:
+        """Hit rate is calculated correctly."""
+        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db.create_table(User)
+        db.insert(User(name="Alice", age=30))
+
+        # Execute 10 queries: 1 unique, 9 repeats
+        for _ in range(10):
+            db.select(User).filter(name="Alice").fetch_all()
+
+        stats = db.get_cache_stats()
+        assert stats["total"] == 10
+        assert stats["hits"] == 9
+        assert stats["misses"] == 1
+        assert stats["hit_rate"] == 90.0
+
+        db.close()
