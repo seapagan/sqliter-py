@@ -8,7 +8,7 @@ backrefs==5.8
     # via mkdocs-material
 certifi==2025.4.26
     # via requests
-cffi==1.17.1
+cffi==2.0.0 ; platform_python_implementation != 'PyPy'
     # via
     #   cryptography
     #   pynacl
@@ -115,7 +115,7 @@ poethepoet==0.34.0
 pprintpp==0.4.0
     # via pytest-clarity
 prek==0.2.27
-pycparser==2.22
+pycparser==2.22 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
     # via cffi
 pydantic==2.12.5
     # via sqliter-py
@@ -130,9 +130,9 @@ pygments==2.19.1
     #   rich
 pyjwt==2.10.1
     # via pygithub
-pymdown-extensions==10.15
+pymdown-extensions==10.20
     # via mkdocs-material
-pynacl==1.5.0
+pynacl==1.6.2
     # via pygithub
 pytest==8.4.2
     # via
@@ -207,7 +207,7 @@ typing-extensions==4.15.0
     #   typing-inspection
 typing-inspection==0.4.2
     # via pydantic
-urllib3==2.6.1
+urllib3==2.6.3
     # via
     #   pygithub
     #   requests
