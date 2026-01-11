@@ -138,10 +138,7 @@ class SqliterDB:
                     Optional[float],
                 ],
             ],
-        ] = OrderedDict()  # table_name -> {cache_key -> (result, expiration)}
-        self._cache_memory_usage: dict[
-            str, int
-        ] = {}  # {table_name: memory_in_bytes}
+        ] = OrderedDict()  # {table: {cache_key: (result, expiration)}}
         self._cache_hits = 0
         self._cache_misses = 0
 
@@ -317,12 +314,7 @@ class SqliterDB:
         # Check TTL expiration
         if expiration is not None and time.time() > expiration:
             self._cache_misses += 1
-            # Keep memory accounting accurate by subtracting expired entry size
-            expired_size = self._estimate_size(result)
             del self._cache[table_name][cache_key]
-            self._cache_memory_usage[table_name] = max(
-                0, self._cache_memory_usage.get(table_name, 0) - expired_size
-            )
             return False, None
 
         # Mark as recently used (LRU)
@@ -350,28 +342,6 @@ class SqliterDB:
 
         if table_name not in self._cache:
             self._cache[table_name] = OrderedDict()
-            self._cache_memory_usage[table_name] = 0
-
-        # Estimate size of the result
-        result_size = self._estimate_size(result)
-
-        # Enforce memory limit if set
-        if self._cache_max_memory_mb is not None:
-            max_bytes = self._cache_max_memory_mb * 1024 * 1024
-            current_table_memory = self._cache_memory_usage.get(table_name, 0)
-
-            # Evict entries until there's enough space
-            while (
-                current_table_memory + result_size > max_bytes
-                and self._cache[table_name]
-            ):
-                # Remove least recently used entry
-                (_, (oldest_result, _)) = self._cache[table_name].popitem(
-                    last=False
-                )
-                oldest_size = self._estimate_size(oldest_result)
-                current_table_memory -= oldest_size
-                self._cache_memory_usage[table_name] = current_table_memory
 
         # Calculate expiration (use query-specific TTL if provided)
         expiration = None
@@ -379,27 +349,23 @@ class SqliterDB:
         if effective_ttl is not None:
             expiration = time.time() + effective_ttl
 
-        # If overwriting an existing key, adjust memory accounting first
-        if cache_key in self._cache[table_name]:
-            old_result, _ = self._cache[table_name][cache_key]
-            old_size = self._estimate_size(old_result)
-            self._cache_memory_usage[table_name] = max(
-                0, self._cache_memory_usage.get(table_name, 0) - old_size
-            )
-
         self._cache[table_name][cache_key] = (result, expiration)
         # Mark as most-recently-used
         self._cache[table_name].move_to_end(cache_key)
-        self._cache_memory_usage[table_name] = (
-            self._cache_memory_usage.get(table_name, 0) + result_size
-        )
+
+        # Enforce memory limit if set
+        if self._cache_max_memory_mb is not None:
+            max_bytes = self._cache_max_memory_mb * 1024 * 1024
+            # Evict LRU entries until under the memory limit
+            while (
+                table_name in self._cache
+                and self._get_table_memory_usage(table_name) > max_bytes
+            ):
+                self._cache[table_name].popitem(last=False)
 
         # Enforce LRU by size
         if len(self._cache[table_name]) > self._cache_max_size:
-            # Remove least recently used entry
-            _, (oldest_result, _) = self._cache[table_name].popitem(last=False)
-            oldest_size = self._estimate_size(oldest_result)
-            self._cache_memory_usage[table_name] -= oldest_size
+            self._cache[table_name].popitem(last=False)
 
     def _cache_invalidate_table(self, table_name: str) -> None:
         """Clear all cached queries for a specific table.
@@ -410,44 +376,78 @@ class SqliterDB:
         if not self._cache_enabled:
             return
         self._cache.pop(table_name, None)
-        self._cache_memory_usage.pop(table_name, None)
 
-    def _estimate_size(
-        self, obj: Union[BaseDBModel, list[BaseDBModel], None]
+    def _get_table_memory_usage(  # noqa: C901
+        self, table_name: str
     ) -> int:
-        """Estimate the memory size of a cached object.
+        """Calculate the actual memory usage for a table's cache.
+
+        This method recalculates memory usage on-demand by measuring the
+        size of all cached entries including tuple and dict overhead.
 
         Args:
-            obj: The object to estimate size for.
+            table_name: The name of the table.
 
         Returns:
-            Estimated size in bytes.
+            The memory usage in bytes.
         """
-        if obj is None:
-            return sys.getsizeof(None)
+        if table_name not in self._cache:
+            return 0
 
-        # Get the base size of the object
-        size = sys.getsizeof(obj)
+        total = 0
+        seen: dict[int, int] = {}
 
-        # If it's a list, add size of all elements
-        if isinstance(obj, list):
-            for item in obj:
-                size += sys.getsizeof(item)
-                # Recursively get size of model fields
-                if hasattr(item, "model_fields"):
-                    for field_name in item.model_fields:
-                        field_value = getattr(item, field_name, None)
+        for key, (result, _expiration) in self._cache[table_name].items():
+            # Measure the tuple (result, expiration)
+            total += sys.getsizeof((result, _expiration))
+
+            # Measure the dict key (cache_key string)
+            total += sys.getsizeof(key)
+
+            # Dict entry overhead (approximately 72 bytes for a dict entry)
+            total += 72
+
+            # Recursively measure the result object
+            def measure_size(obj: Any) -> int:  # noqa: C901, ANN401
+                """Recursively measure object size with memoization."""
+                obj_id = id(obj)
+                if obj_id in seen:
+                    return 0  # Already counted
+
+                size = sys.getsizeof(obj)
+                seen[obj_id] = size
+
+                # Handle lists
+                if isinstance(obj, list):
+                    for item in obj:
+                        size += measure_size(item)
+
+                # Handle Pydantic models - measure their fields
+                elif hasattr(type(obj), "model_fields"):
+                    for field_name in type(obj).model_fields:
+                        field_value = getattr(obj, field_name, None)
                         if field_value is not None:
-                            size += sys.getsizeof(field_value)
+                            size += measure_size(field_value)
+                    # Also measure __dict__ if present
+                    if hasattr(obj, "__dict__"):
+                        size += measure_size(obj.__dict__)
 
-        # If it's a single model, get size of its fields
-        elif hasattr(obj, "model_fields"):
-            for field_name in obj.model_fields:
-                field_value = getattr(obj, field_name, None)
-                if field_value is not None:
-                    size += sys.getsizeof(field_value)
+                # Handle dicts
+                elif isinstance(obj, dict):
+                    for k, v in obj.items():
+                        size += measure_size(k)
+                        size += measure_size(v)
 
-        return size
+                # Handle sets and tuples
+                elif isinstance(obj, (set, tuple)):
+                    for item in obj:
+                        size += measure_size(item)
+
+                return size
+
+            total += measure_size(result)
+
+        return total
 
     def get_cache_stats(self) -> dict[str, int | float]:
         """Get cache performance statistics.
@@ -480,7 +480,6 @@ class SqliterDB:
             self.conn.close()
             self.conn = None
         self._cache.clear()
-        self._cache_memory_usage.clear()
         self._cache_hits = 0
         self._cache_misses = 0
 
@@ -965,6 +964,5 @@ class SqliterDB:
                 self._in_transaction = False
         # Clear cache when exiting context
         self._cache.clear()
-        self._cache_memory_usage.clear()
         self._cache_hits = 0
         self._cache_misses = 0

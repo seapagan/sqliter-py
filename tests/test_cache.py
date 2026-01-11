@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import time
+from collections import OrderedDict
 from typing import Any
-from unittest.mock import patch
 
 import pytest
 
@@ -560,6 +560,28 @@ class TestCacheStatistics:
 class TestCacheMemoryLimit:
     """Test memory-based cache limiting."""
 
+    def test_memory_usage_with_set_fields(self, tmp_path) -> None:
+        """Memory usage calculation works with set fields."""
+
+        class ModelWithSet(BaseDBModel):
+            name: str
+            tags: set[str]
+
+        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db.create_table(ModelWithSet)
+        db.insert(
+            ModelWithSet(name="test", tags={"python", "database", "caching"})
+        )
+
+        # Cache the query - this should trigger set measurement
+        db.select(ModelWithSet).fetch_all()
+
+        # Memory usage should be calculable
+        memory_usage = db._get_table_memory_usage(ModelWithSet.get_table_name())
+        assert memory_usage > 0
+
+        db.close()
+
     def test_memory_limit_enforcement(self, tmp_path) -> None:
         """Cache enforces memory limit by evicting entries."""
 
@@ -570,49 +592,49 @@ class TestCacheMemoryLimit:
 
         # Set a very low memory limit (1MB)
         db = SqliterDB(
-            tmp_path / "test.db", cache_enabled=True, cache_max_memory_mb=1
+            tmp_path / "test.db",
+            cache_enabled=True,
+            cache_max_memory_mb=1,
         )
         db.create_table(LargeData)
 
-        # Insert data
-        for i in range(20):
-            db.insert(LargeData(name=f"User{i}", data=f"data{i}"))
+        # Insert data with large payloads
+        large_data = "x" * 50000  # 50KB of data per entry
+        for i in range(50):
+            db.insert(LargeData(name=f"User{i}", data=large_data))
 
-        # Mock _estimate_size to return large values to trigger eviction
-        call_count = [0]
+        # Cache queries - eviction should be triggered due to memory limit
+        for i in range(50):
+            db.select(LargeData).filter(name=f"User{i}").fetch_all()
 
-        def mock_estimate_size(obj) -> int:
-            # Return 200KB for each object to force eviction
-            call_count[0] += 1
-            return 200_000
+        table_cache: OrderedDict[Any, Any] = db._cache.get(
+            LargeData.get_table_name(), OrderedDict()
+        )
+        # With 1MB limit and ~50KB per entry, only ~15-20 entries should fit
+        assert len(table_cache) < 50  # Many entries were evicted
 
-        # Patch and cache queries - eviction loop should be triggered
-        with patch.object(db, "_estimate_size", side_effect=mock_estimate_size):
-            for i in range(20):
-                db.select(LargeData).filter(name=f"User{i}").fetch_all()
-
-        # The eviction loop should have been triggered
-        # With 1MB limit and 200KB per entry, only ~4-5 entries should fit
-        table_cache: Any = db._cache.get(LargeData.get_table_name(), {})
-        assert len(table_cache) < 20  # Many entries were evicted
-        assert len(table_cache) >= 0  # Cache exists
+        # Verify memory usage is under the limit
+        memory_usage = db._get_table_memory_usage(LargeData.get_table_name())
+        max_bytes = 1 * 1024 * 1024  # 1MB
+        # Should be at or slightly over limit (eviction check after insert)
+        assert memory_usage <= max_bytes + 100000  # Allow buffer
 
         db.close()
 
     def test_memory_usage_tracking(self, tmp_path) -> None:
-        """Memory usage is tracked per table."""
+        """Memory usage is calculated on-demand per table."""
         db = SqliterDB(
             tmp_path / "test.db", cache_enabled=True, cache_max_memory_mb=1
         )
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
-        # Initial memory usage should be 0
-        assert db._cache_memory_usage.get(User.get_table_name(), 0) == 0
+        # Initial memory usage should be 0 (no cached entries)
+        assert db._get_table_memory_usage(User.get_table_name()) == 0
 
-        # After caching, memory usage should be tracked
+        # After caching, memory usage should be > 0
         db.select(User).filter(name="Alice").fetch_all()
-        assert db._cache_memory_usage.get(User.get_table_name(), 0) > 0
+        assert db._get_table_memory_usage(User.get_table_name()) > 0
 
         db.close()
 
@@ -620,7 +642,7 @@ class TestCacheMemoryLimit:
         self,
         tmp_path,
     ) -> None:
-        """Memory tracking is cleared when cache is invalidated."""
+        """Memory usage is 0 when cache is invalidated."""
         db = SqliterDB(
             tmp_path / "test.db", cache_enabled=True, cache_max_memory_mb=1
         )
@@ -629,19 +651,19 @@ class TestCacheMemoryLimit:
 
         # Cache a query
         db.select(User).filter(name="Alice").fetch_all()
-        initial_memory = db._cache_memory_usage.get(User.get_table_name(), 0)
+        initial_memory = db._get_table_memory_usage(User.get_table_name())
         assert initial_memory > 0
 
-        # Invalidate cache (this should also clear memory tracking)
+        # Invalidate cache (this clears all cached entries)
         db.insert(User(name="Bob", age=25))
 
-        # Memory tracking should be cleared
-        assert db._cache_memory_usage.get(User.get_table_name(), 0) == 0
+        # Memory usage should be 0 (cache was cleared)
+        assert db._get_table_memory_usage(User.get_table_name()) == 0
 
         db.close()
 
     def test_memory_tracking_cleared_on_close(self, tmp_path) -> None:
-        """Memory tracking is cleared when connection is closed."""
+        """Memory usage is 0 when connection is closed."""
         db = SqliterDB(
             tmp_path / "test.db", cache_enabled=True, cache_max_memory_mb=1
         )
@@ -650,16 +672,16 @@ class TestCacheMemoryLimit:
 
         # Cache a query
         db.select(User).filter(name="Alice").fetch_all()
-        assert db._cache_memory_usage.get(User.get_table_name(), 0) > 0
+        assert db._get_table_memory_usage(User.get_table_name()) > 0
 
         # Close connection
         db.close()
 
-        # Memory tracking should be cleared
-        assert db._cache_memory_usage.get(User.get_table_name(), 0) == 0
+        # Memory usage should be 0 (cache was cleared)
+        assert db._get_table_memory_usage(User.get_table_name()) == 0
 
     def test_memory_tracking_cleared_on_context_exit(self, tmp_path) -> None:
-        """Memory tracking is cleared when exiting context manager."""
+        """Memory usage is 0 when exiting context manager."""
         with SqliterDB(
             tmp_path / "test.db", cache_enabled=True, cache_max_memory_mb=1
         ) as db:
@@ -668,10 +690,10 @@ class TestCacheMemoryLimit:
 
             # Cache a query
             db.select(User).filter(name="Alice").fetch_all()
-            assert db._cache_memory_usage.get(User.get_table_name(), 0) > 0
+            assert db._get_table_memory_usage(User.get_table_name()) > 0
 
-        # After exiting context, memory tracking should be cleared
-        assert db._cache_memory_usage.get(User.get_table_name(), 0) == 0
+        # After exiting context, memory usage should be 0
+        assert db._get_table_memory_usage(User.get_table_name()) == 0
 
     def test_memory_limit_with_both_limits(self, tmp_path) -> None:
         """Both cache_max_size and cache_max_memory_mb are respected."""
@@ -718,8 +740,8 @@ class TestCacheMemoryLimit:
 
         # Should respect cache_max_size only (5 entries max)
         assert len(db._cache[User.get_table_name()]) == 5
-        # Memory tracking should still work
-        assert db._cache_memory_usage.get(User.get_table_name(), 0) >= 0
+        # Memory usage should still be calculable
+        assert db._get_table_memory_usage(User.get_table_name()) >= 0
 
         db.close()
 
@@ -1042,34 +1064,44 @@ class TestEmptyResultCaching:
         self,
         tmp_path,
     ) -> None:
-        """Overwriting an existing cache key should update memory accounting."""
+        """Overwriting an existing cache key updates LRU position."""
         db = SqliterDB(
-            tmp_path / "test.db", cache_enabled=True, cache_max_memory_mb=1
+            tmp_path / "test.db", cache_enabled=True, cache_max_size=3
         )
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
         db.insert(User(name="Bob", age=25))
+        db.insert(User(name="Charlie", age=35))
 
-        # Query and cache the result
-        result1 = db.select(User).filter(name="Alice").fetch_one()
-        assert result1 is not None
-        initial_memory = db._cache_memory_usage[User.get_table_name()]
+        # Cache 3 queries to fill the cache
+        db.select(User).filter(name="Alice").fetch_one()
+        db.select(User).filter(name="Bob").fetch_one()
+        db.select(User).filter(name="Charlie").fetch_one()
 
-        # Get the cache key for this query
+        table_name = User.get_table_name()
+        initial_count = len(db._cache[table_name])
+        assert initial_count == 3
+
+        # Get the cache key for the first query (LRU entry)
         query = db.select(User).filter(name="Alice")
         cache_key = query._make_cache_key(fetch_one=True)
-        table_name = User.get_table_name()
+
+        # Get the current result to overwrite with
+        result = db.select(User).filter(name="Alice").fetch_one()
 
         # Manually call _cache_set with the same key to test overwrite
-        # This simulates updating a cached entry
-        db._cache_set(table_name, cache_key, result1, ttl=None)
+        db._cache_set(table_name, cache_key, result, ttl=None)
 
-        # Memory should not have doubled (overwrite, not add)
-        final_memory = db._cache_memory_usage[table_name]
-        # Should be approximately the same size (not double)
-        assert final_memory < initial_memory * 1.5  # Allow 50% margin
+        # Should still have only 3 cached entries (not 4)
+        assert len(db._cache[table_name]) == 3
 
-        # Should still have only 1 cached entry
-        assert len(db._cache[table_name]) == 1
+        # The overwritten entry should now be the MRU (most recently used)
+        # Get the last key in the OrderedDict (MRU)
+        mru_key = next(reversed(db._cache[table_name]))
+        assert mru_key == cache_key
+
+        # Memory usage should be reasonable (not double-counted)
+        memory_usage = db._get_table_memory_usage(table_name)
+        assert memory_usage > 0
 
         db.close()
