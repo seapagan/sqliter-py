@@ -11,7 +11,14 @@ from __future__ import annotations
 import logging
 import sqlite3
 import time
-from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Optional,
+    TypeVar,
+    Union,
+    cast,
+)
 
 from typing_extensions import Self
 
@@ -63,6 +70,9 @@ class SqliterDB:
         logger: Optional[logging.Logger] = None,
         reset: bool = False,
         return_local_time: bool = True,
+        cache_enabled: bool = False,
+        cache_max_size: int = 1000,
+        cache_ttl: Optional[int] = None,
     ) -> None:
         """Initialize a new SqliterDB instance.
 
@@ -75,6 +85,10 @@ class SqliterDB:
             reset: Whether to reset the database on initialization. This will
                 basically drop all existing tables.
             return_local_time: Whether to return local time for datetime fields.
+            cache_enabled: Whether to enable query result caching. Default is
+                False.
+            cache_max_size: Maximum number of cached queries per table (LRU).
+            cache_ttl: Optional time-to-live for cache entries in seconds.
 
         Raises:
             ValueError: If no filename is provided for a non-memory database.
@@ -97,6 +111,14 @@ class SqliterDB:
         self.return_local_time = return_local_time
 
         self._in_transaction = False
+
+        # Initialize cache
+        self._cache_enabled = cache_enabled
+        self._cache_max_size = cache_max_size
+        self._cache_ttl = cache_ttl
+        self._cache: dict[
+            str, dict[str, tuple[Any, Optional[float]]]
+        ] = {}  # {table_name: {cache_key: (result, expiration_timestamp)}}
 
         if self.debug:
             self._setup_logger()
@@ -240,6 +262,78 @@ class SqliterDB:
                 raise DatabaseConnectionError(self.db_filename) from exc
         return self.conn
 
+    def _cache_get(
+        self,
+        table_name: str,
+        cache_key: str,
+    ) -> Optional[Union[BaseDBModel, list[BaseDBModel], None]]:
+        """Get cached result if valid and not expired.
+
+        Args:
+            table_name: The name of the table.
+            cache_key: The cache key for the query.
+
+        Returns:
+            The cached result if valid, None otherwise.
+        """
+        if not self._cache_enabled:
+            return None
+        if table_name not in self._cache:
+            return None
+        if cache_key not in self._cache[table_name]:
+            return None
+
+        result, expiration = self._cache[table_name][cache_key]
+
+        # Check TTL expiration
+        if expiration is not None and time.time() > expiration:
+            del self._cache[table_name][cache_key]
+            return None
+
+        return cast("Union[BaseDBModel, list[BaseDBModel], None]", result)
+
+    def _cache_set(
+        self,
+        table_name: str,
+        cache_key: str,
+        result: Union[BaseDBModel, list[BaseDBModel], None],
+    ) -> None:
+        """Store result in cache with optional expiration.
+
+        Args:
+            table_name: The name of the table.
+            cache_key: The cache key for the query.
+            result: The result to cache.
+        """
+        if not self._cache_enabled:
+            return
+
+        if table_name not in self._cache:
+            self._cache[table_name] = {}
+
+        # Calculate expiration
+        expiration = None
+        if self._cache_ttl is not None:
+            expiration = time.time() + self._cache_ttl
+
+        self._cache[table_name][cache_key] = (result, expiration)
+
+        # Enforce LRU by size
+        if len(self._cache[table_name]) > self._cache_max_size:
+            # Remove oldest entry (first inserted)
+            oldest_key = next(iter(self._cache[table_name]))
+            del self._cache[table_name][oldest_key]
+
+    def _cache_invalidate_table(self, table_name: str) -> None:
+        """Clear all cached queries for a specific table.
+
+        Args:
+            table_name: The name of the table to invalidate.
+        """
+        if not self._cache_enabled:
+            return
+        self._cache.pop(table_name, None)
+
     def close(self) -> None:
         """Close the database connection.
 
@@ -251,6 +345,7 @@ class SqliterDB:
             self._maybe_commit()
             self.conn.close()
             self.conn = None
+        self._cache.clear()
 
     def commit(self) -> None:
         """Commit the current transaction.
@@ -508,6 +603,7 @@ class SqliterDB:
         except sqlite3.Error as exc:
             raise RecordInsertionError(table_name) from exc
         else:
+            self._cache_invalidate_table(table_name)
             data.pop("pk", None)
             # Deserialize each field before creating the model instance
             deserialized_data = {}
@@ -614,6 +710,7 @@ class SqliterDB:
                     raise RecordNotFoundError(primary_key_value)
 
                 self._maybe_commit()
+                self._cache_invalidate_table(table_name)
 
         except sqlite3.Error as exc:
             raise RecordUpdateError(table_name) from exc
@@ -647,6 +744,7 @@ class SqliterDB:
                 if cursor.rowcount == 0:
                     raise RecordNotFoundError(primary_key_value)
                 self._maybe_commit()
+                self._cache_invalidate_table(table_name)
         except sqlite3.Error as exc:
             raise RecordDeletionError(table_name) from exc
 
@@ -728,3 +826,5 @@ class SqliterDB:
                 self.conn.close()
                 self.conn = None
                 self._in_transaction = False
+        # Clear cache when exiting context
+        self._cache.clear()

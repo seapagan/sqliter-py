@@ -9,6 +9,8 @@ raw SQL.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import sqlite3
 import warnings
 from typing import (
@@ -638,6 +640,26 @@ class QueryBuilder:
             field_name, value, return_local_time=self.db.return_local_time
         )
 
+    def _make_cache_key(self) -> str:
+        """Generate a cache key from the current query state.
+
+        Returns:
+            A SHA256 hash representing the current query state.
+        """
+        # Create a deterministic representation of the query
+        key_parts = {
+            "table": self.table_name,
+            "filters": sorted(self.filters),  # Sort for consistency
+            "limit": self._limit,
+            "offset": self._offset,
+            "order_by": self._order_by,
+            "fields": tuple(sorted(self._fields)) if self._fields else None,
+        }
+
+        # Hash the key parts
+        key_json = json.dumps(key_parts, sort_keys=True, default=str)
+        return hashlib.sha256(key_json.encode()).hexdigest()
+
     @overload
     def _fetch_result(
         self, *, fetch_one: Literal[True]
@@ -660,11 +682,26 @@ class QueryBuilder:
             A list of model instances, a single model instance, or None if no
             results are found.
         """
+        # Check cache first
+        cache_key = self._make_cache_key()
+        if cached := self.db._cache_get(  # noqa: SLF001
+            self.table_name, cache_key
+        ):
+            return cached
+
         result = self._execute_query(fetch_one=fetch_one)
 
         if not result:
             if fetch_one:
+                # Cache empty result
+                self.db._cache_set(  # noqa: SLF001
+                    self.table_name, cache_key, None
+                )
                 return None
+            # Cache empty list
+            self.db._cache_set(  # noqa: SLF001
+                self.table_name, cache_key, []
+            )
             return []
 
         if fetch_one:
@@ -673,9 +710,19 @@ class QueryBuilder:
                 result = result[
                     0
                 ]  # Get the first (and only) result if it's wrapped in a list.
-            return self._convert_row_to_model(result)
+            single_result = self._convert_row_to_model(result)
+            # Cache single result
+            self.db._cache_set(  # noqa: SLF001
+                self.table_name, cache_key, single_result
+            )
+            return single_result
 
-        return [self._convert_row_to_model(row) for row in result]
+        list_results = [self._convert_row_to_model(row) for row in result]
+        # Cache list result
+        self.db._cache_set(  # noqa: SLF001
+            self.table_name, cache_key, list_results
+        )
+        return list_results
 
     def fetch_all(self) -> list[BaseDBModel]:
         """Fetch all results of the query.
@@ -757,6 +804,7 @@ class QueryBuilder:
                 cursor.execute(sql, values)
                 deleted_count = cursor.rowcount
                 self.db._maybe_commit()  # noqa: SLF001
+                self.db._cache_invalidate_table(self.table_name)  # noqa: SLF001
                 return deleted_count
         except sqlite3.Error as exc:
             raise RecordDeletionError(self.table_name) from exc
