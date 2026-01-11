@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import time
 from collections import OrderedDict
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 
@@ -82,21 +82,28 @@ class TestCacheHitOnRepeatedQuery:
     """Test cache hits on repeated queries."""
 
     def test_cache_hit_on_repeated_query(self, tmp_path) -> None:
-        """Same query returns cached result."""
+        """Repeated queries return cached result and increment hit counter."""
         db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
         # First query - hits DB
         result1 = db.select(User).filter(name="Alice").fetch_all()
+        stats = db.get_cache_stats()
+        assert stats["hits"] == 0
+        assert stats["misses"] == 1
 
         # Second query - hits cache
         result2 = db.select(User).filter(name="Alice").fetch_all()
+        stats = db.get_cache_stats()
+        assert stats["hits"] == 1
+        assert stats["misses"] == 1
 
-        # Should return same cached object
-        assert result1 is result2
+        # Results should be equivalent (same content)
         assert len(result1) == 1
-        assert result1[0].name == "Alice"
+        assert len(result2) == 1
+        assert result1[0].name == result2[0].name
+        assert result1[0].age == result2[0].age
 
         db.close()
 
@@ -226,16 +233,16 @@ class TestCacheTtlExpiration:
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
-        # Query to populate cache
-        result1 = db.select(User).fetch_all()
-        assert len(result1) == 1
+        # Query to populate cache at time=0
+        with patch("sqliter.sqliter.time.time", return_value=0):
+            result1 = db.select(User).fetch_all()
+            assert len(result1) == 1
 
-        # Wait for TTL to expire
-        time.sleep(2)
-
-        # Query should hit DB again (cache expired)
-        result2 = db.select(User).fetch_all()
-        assert len(result2) == 1
+        # Mock time advancing past TTL (time=100, TTL was 1 second)
+        with patch("sqliter.sqliter.time.time", return_value=100):
+            # Query should hit DB again (cache expired)
+            result2 = db.select(User).fetch_all()
+            assert len(result2) == 1
 
         db.close()
 
@@ -522,19 +529,25 @@ class TestCacheStatistics:
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
-        # Query - miss
-        db.select(User).fetch_all()
+        # Query at time=0 - miss
+        with patch("sqliter.sqliter.time.time", return_value=0):
+            db.select(User).fetch_all()
         stats = db.get_cache_stats()
         assert stats["misses"] == 1
 
-        # Wait for TTL to expire
-        time.sleep(2)
+        # Query at time=0.5 - hit
+        with patch("sqliter.sqliter.time.time", return_value=0.5):
+            db.select(User).fetch_all()
+        stats = db.get_cache_stats()
+        assert stats["hits"] == 1
+        assert stats["misses"] == 1
 
-        # Query after expiration - should be a cache miss
-        db.select(User).fetch_all()
+        # Query at time=100 (past TTL) - should be a cache miss
+        with patch("sqliter.sqliter.time.time", return_value=100):
+            db.select(User).fetch_all()
         stats = db.get_cache_stats()
         assert stats["misses"] == 2
-        assert stats["hits"] == 0
+        assert stats["hits"] == 1
 
         db.close()
 
@@ -854,14 +867,14 @@ class TestQueryLevelTtl:
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
-        # Query with 1 second TTL
-        db.select(User).filter(name="Alice").cache_ttl(1).fetch_all()
+        # Query with 1 second TTL at time=0
+        with patch("sqliter.sqliter.time.time", return_value=0):
+            db.select(User).filter(name="Alice").cache_ttl(1).fetch_all()
 
-        # Wait 2 seconds
-        time.sleep(2)
-
-        # Query should miss (query-level TTL expired)
-        db.select(User).filter(name="Alice").fetch_all()
+        # Query at time=5 (past query-level TTL of 1, but global TTL is 10)
+        with patch("sqliter.sqliter.time.time", return_value=5):
+            # Query should miss (query-level TTL expired)
+            db.select(User).filter(name="Alice").fetch_all()
         stats = db.get_cache_stats()
         assert stats["misses"] == 2  # Initial miss + expiration miss
 
@@ -874,14 +887,14 @@ class TestQueryLevelTtl:
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
-        # Query with 10 second TTL
-        db.select(User).filter(name="Alice").cache_ttl(10).fetch_all()
+        # Query with 10 second TTL at time=0
+        with patch("sqliter.sqliter.time.time", return_value=0):
+            db.select(User).filter(name="Alice").cache_ttl(10).fetch_all()
 
-        # Wait 2 seconds
-        time.sleep(2)
-
-        # Query should hit (query-level TTL still valid)
-        db.select(User).filter(name="Alice").fetch_all()
+        # Query at time=2 (past global TTL of 1, but query-level TTL is 10)
+        with patch("sqliter.sqliter.time.time", return_value=2):
+            # Query should hit (query-level TTL still valid)
+            db.select(User).filter(name="Alice").fetch_all()
         stats = db.get_cache_stats()
         assert stats["hits"] == 1  # Cache hit after 2 seconds
 
@@ -894,14 +907,14 @@ class TestQueryLevelTtl:
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
-        # Query with 1 second TTL
-        db.select(User).filter(name="Alice").cache_ttl(1).fetch_all()
+        # Query with 1 second TTL at time=0
+        with patch("sqliter.sqliter.time.time", return_value=0):
+            db.select(User).filter(name="Alice").cache_ttl(1).fetch_all()
 
-        # Wait 2 seconds
-        time.sleep(2)
-
-        # Query should miss (query-level TTL expired)
-        db.select(User).filter(name="Alice").fetch_all()
+        # Query at time=5 (past query-level TTL)
+        with patch("sqliter.sqliter.time.time", return_value=5):
+            # Query should miss (query-level TTL expired)
+            db.select(User).filter(name="Alice").fetch_all()
         stats = db.get_cache_stats()
         assert stats["misses"] == 2
 
@@ -937,21 +950,20 @@ class TestQueryLevelTtl:
         db.insert(User(name="Alice", age=30))
         db.insert(User(name="Bob", age=25))
 
-        # Query with 1 second TTL
-        db.select(User).filter(name="Alice").cache_ttl(1).fetch_all()
-
-        # Query with 5 second TTL
-        db.select(User).filter(name="Bob").cache_ttl(5).fetch_all()
+        # Query with 1 second TTL at time=0
+        with patch("sqliter.sqliter.time.time", return_value=0):
+            db.select(User).filter(name="Alice").cache_ttl(1).fetch_all()
+            # Query with 5 second TTL
+            db.select(User).filter(name="Bob").cache_ttl(5).fetch_all()
 
         # Both should be cached
         assert len(db._cache[User.get_table_name()]) == 2
 
-        # Wait 2 seconds
-        time.sleep(2)
-
-        # Alice query should miss, Bob query should hit
-        db.select(User).filter(name="Alice").fetch_all()
-        db.select(User).filter(name="Bob").fetch_all()
+        # Query at time=2 (Alice TTL expired, Bob TTL still valid)
+        with patch("sqliter.sqliter.time.time", return_value=2):
+            # Alice query should miss, Bob query should hit
+            db.select(User).filter(name="Alice").fetch_all()
+            db.select(User).filter(name="Bob").fetch_all()
         stats = db.get_cache_stats()
         # Alice: initial miss + expiration miss = 2 misses
         # Bob: initial miss + hit = 1 hit
