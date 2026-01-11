@@ -684,11 +684,30 @@ class QueryBuilder:
 
         Returns:
             A SHA256 hash representing the current query state.
+
+        Raises:
+            ValueError: If filters contain incomparable types that prevent
+                cache key generation (e.g., filtering the same field with
+                both string and numeric values).
         """
+        # Sort filters for consistent cache keys
+        # Note: This requires filter values to be comparable. Avoid filtering
+        # the same field with incompatible types (e.g., name="Alice" and
+        # name=42 in the same query).
+        try:
+            sorted_filters = sorted(self.filters)
+        except TypeError as exc:
+            msg = (
+                "Cannot generate cache key: filters contain incomparable "
+                "types. Avoid filtering the same field with incompatible "
+                "value types (e.g., strings and numbers)."
+            )
+            raise ValueError(msg) from exc
+
         # Create a deterministic representation of the query
         key_parts = {
             "table": self.table_name,
-            "filters": sorted(self.filters),  # Sort for consistency
+            "filters": sorted_filters,
             "limit": self._limit,
             "offset": self._offset,
             "order_by": self._order_by,
