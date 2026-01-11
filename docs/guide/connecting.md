@@ -66,6 +66,21 @@ db = SqliterDB("your_database.db", reset=True)
 This will effectively drop all user tables from the database. The file itself is
 not deleted, only the tables are dropped.
 
+### Caching Options
+
+SQLiter provides optional query result caching to improve performance by reducing
+database queries. See the [Caching](caching.md) page for detailed information.
+
+```python
+db = SqliterDB(
+    "your_database.db",
+    cache_enabled=True,        # Enable caching (default: False)
+    cache_max_size=1000,       # Max cached queries per table
+    cache_ttl=60,              # Time-to-live in seconds
+    cache_max_memory_mb=100,   # Memory limit per table in MB
+)
+```
+
 ## Database Properties
 
 The `SqliterDB` class provides several properties to access information about
