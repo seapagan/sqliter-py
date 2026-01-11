@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from unittest.mock import patch
 
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
@@ -497,24 +498,40 @@ class TestCacheMemoryLimit:
 
     def test_memory_limit_enforcement(self, tmp_path) -> None:
         """Cache enforces memory limit by evicting entries."""
+
+        # Create a model with large fields to consume memory quickly
+        class LargeData(BaseDBModel):
+            name: str
+            data: str
+
         # Set a very low memory limit (1MB)
         db = SqliterDB(
             tmp_path / "test.db", cache_enabled=True, cache_max_memory_mb=1
         )
-        db.create_table(User)
-        db.insert(User(name="Alice", age=30))
-        db.insert(User(name="Bob", age=25))
-        db.insert(User(name="Charlie", age=35))
+        db.create_table(LargeData)
 
-        # Cache multiple queries
-        db.select(User).filter(name="Alice").fetch_all()
-        db.select(User).filter(name="Bob").fetch_all()
-        db.select(User).filter(name="Charlie").fetch_all()
+        # Insert data
+        for i in range(20):
+            db.insert(LargeData(name=f"User{i}", data=f"data{i}"))
 
-        # Due to memory limit, older entries should be evicted
-        # We can't predict exact count due to variable object sizes
-        # but we can verify the cache exists and is limited
-        assert len(db._cache[User.get_table_name()]) >= 0
+        # Mock _estimate_size to return large values to trigger eviction
+        call_count = [0]
+
+        def mock_estimate_size(obj) -> int:
+            # Return 200KB for each object to force eviction
+            call_count[0] += 1
+            return 200_000
+
+        # Patch and cache queries - eviction loop should be triggered
+        with patch.object(db, "_estimate_size", side_effect=mock_estimate_size):
+            for i in range(20):
+                db.select(LargeData).filter(name=f"User{i}").fetch_all()
+
+        # The eviction loop should have been triggered
+        # With 1MB limit and 200KB per entry, only ~4-5 entries should fit
+        table_cache = db._cache.get(LargeData.get_table_name(), {})
+        assert len(table_cache) < 20  # Many entries were evicted
+        assert len(table_cache) >= 0  # Cache exists
 
         db.close()
 
