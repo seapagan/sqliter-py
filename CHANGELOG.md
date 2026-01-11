@@ -5,14 +5,26 @@ project since the first release, with the latest changes at the top.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0](https://github.com/seapagan/sqliter-py/releases/tag/0.11.0) (January 11, 2026)
 
-## [v0.10.0](https://github.com/seapagan/sqliter-py/releases/tag/v0.10.0) (December 15, 2025)
+**New Features**
+
+- Add optional query result caching with LRU eviction ([#96](https://github.com/seapagan/sqliter-py/pull/96)) by [seapagan](https://github.com/seapagan)
+- Migrate from pr e-commit to prek ([#94](https://github.com/seapagan/sqliter-py/pull/94)) by [seapagan](https://github.com/seapagan)
+
+**Security**
+
+- Fix security vulnerabilities in dependencies ([#95](https://github.com/seapagan/sqliter-py/pull/95)) by [seapagan](https://github.com/seapagan)
+
+[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.10.0...0.11.0) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.10.0...0.11.0.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.10.0...0.11.0.patch)
+
+## [0.10.0](https://github.com/seapagan/sqliter-py/releases/tag/0.10.0) (December 15, 2025)
 
 **Bug Fixes**
 
 - Ensure python 3.14 compatability ([#87](https://github.com/seapagan/sqliter-py/pull/87)) by [seapagan](https://github.com/seapagan)
 
-[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.9.1...v0.10.0) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.9.1...v0.10.0.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.9.1...v0.10.0.patch)
+[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.9.1...0.10.0) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.9.1...0.10.0.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.9.1...0.10.0.patch)
 
 ## [0.9.1](https://github.com/seapagan/sqliter-py/releases/tag/0.9.1) (December 09, 2025)
 
@@ -179,7 +191,8 @@ the name of the primary key is always `pk`.
 ## [0.1.1](https://github.com/seapagan/sqliter-py/releases/tag/0.1.1) (September 12, 2024)
 
 Just a documentation fix - README was old version
-[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.1.0...0.1.1) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.1.0...0.1.1.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.1.0...0.1.1.patch)
+
+[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.1.0...0.1.1) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.1.0...0.1.1.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.1.0...0.1.1.patch)
 
 ## [0.1.0](https://github.com/seapagan/sqliter-py/releases/tag/0.1.0) (September 12, 2024)
 
