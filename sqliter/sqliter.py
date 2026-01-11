@@ -277,7 +277,7 @@ class SqliterDB:
         self,
         table_name: str,
         cache_key: str,
-    ) -> Optional[Union[BaseDBModel, list[BaseDBModel], None]]:
+    ) -> tuple[bool, Optional[Union[BaseDBModel, list[BaseDBModel]]]]:
         """Get cached result if valid and not expired.
 
         Args:
@@ -285,16 +285,18 @@ class SqliterDB:
             cache_key: The cache key for the query.
 
         Returns:
-            The cached result if valid, None otherwise.
+            A tuple of (hit, result) where hit is True if cache hit,
+            False if miss. Result is the cached value (which may be None
+            or an empty list) on a hit, or None on a miss.
         """
         if not self._cache_enabled:
-            return None
+            return False, None
         if table_name not in self._cache:
             self._cache_misses += 1
-            return None
+            return False, None
         if cache_key not in self._cache[table_name]:
             self._cache_misses += 1
-            return None
+            return False, None
 
         result, expiration = self._cache[table_name][cache_key]
 
@@ -302,12 +304,12 @@ class SqliterDB:
         if expiration is not None and time.time() > expiration:
             self._cache_misses += 1
             del self._cache[table_name][cache_key]
-            return None
+            return False, None
 
         # Mark as recently used (LRU)
         self._cache[table_name].move_to_end(cache_key)
         self._cache_hits += 1
-        return result
+        return True, result
 
     def _cache_set(
         self,

@@ -918,3 +918,59 @@ class TestFetchModeCacheKey:
         assert stats["hits"] >= 1
 
         db.close()
+
+
+class TestEmptyResultCaching:
+    """Test that empty results (None and []) are cached and retrieved correctly.
+
+    This tests the fix for the bug where falsy values (None, []) were not
+    being returned from cache due to truthiness-based cache hit detection.
+    """
+
+    def test_empty_result_from_fetch_one_is_cached(self, tmp_path) -> None:
+        """None result from fetch_one() should be cached and retrieved."""
+        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db.create_table(User)
+        db.insert(User(name="Alice", age=30))
+
+        # Query that returns no result (filter doesn't match)
+        result1 = db.select(User).filter(name="NonExistent").fetch_one()
+        assert result1 is None
+
+        # Should have 1 cached entry (the None result)
+        assert len(db._cache[User.get_table_name()]) == 1
+
+        # Query again - should hit cache and return None
+        result2 = db.select(User).filter(name="NonExistent").fetch_one()
+        assert result2 is None
+
+        # Verify cache stats show 1 miss and 1 hit
+        stats = db.get_cache_stats()
+        assert stats["misses"] == 1
+        assert stats["hits"] == 1
+
+        db.close()
+
+    def test_empty_result_from_fetch_all_is_cached(self, tmp_path) -> None:
+        """Empty list [] from fetch_all() should be cached and retrieved."""
+        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db.create_table(User)
+        db.insert(User(name="Alice", age=30))
+
+        # Query that returns no results (filter doesn't match)
+        result1 = db.select(User).filter(age__gt=100).fetch_all()
+        assert result1 == []
+
+        # Should have 1 cached entry (the empty list result)
+        assert len(db._cache[User.get_table_name()]) == 1
+
+        # Query again - should hit cache and return empty list
+        result2 = db.select(User).filter(age__gt=100).fetch_all()
+        assert result2 == []
+
+        # Verify cache stats show 1 miss and 1 hit
+        stats = db.get_cache_stats()
+        assert stats["misses"] == 1
+        assert stats["hits"] == 1
+
+        db.close()

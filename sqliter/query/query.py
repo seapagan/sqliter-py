@@ -725,9 +725,8 @@ class QueryBuilder:
         # Check cache first (unless bypass is enabled)
         if not self._bypass_cache:
             cache_key = self._make_cache_key(fetch_one=fetch_one)
-            if cached := self.db._cache_get(  # noqa: SLF001
-                self.table_name, cache_key
-            ):
+            hit, cached = self.db._cache_get(self.table_name, cache_key)  # noqa: SLF001
+            if hit:
                 return cached
 
         result = self._execute_query(fetch_one=fetch_one)
