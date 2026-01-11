@@ -317,6 +317,7 @@ class SqliterDB:
         table_name: str,
         cache_key: str,
         result: Union[BaseDBModel, list[BaseDBModel], None],
+        ttl: Optional[int] = None,
     ) -> None:
         """Store result in cache with optional expiration.
 
@@ -324,6 +325,7 @@ class SqliterDB:
             table_name: The name of the table.
             cache_key: The cache key for the query.
             result: The result to cache.
+            ttl: Optional TTL override for this specific entry.
         """
         if not self._cache_enabled:
             return
@@ -353,10 +355,11 @@ class SqliterDB:
                 current_table_memory -= oldest_size
                 self._cache_memory_usage[table_name] = current_table_memory
 
-        # Calculate expiration
+        # Calculate expiration (use query-specific TTL if provided)
         expiration = None
-        if self._cache_ttl is not None:
-            expiration = time.time() + self._cache_ttl
+        effective_ttl = ttl if ttl is not None else self._cache_ttl
+        if effective_ttl is not None:
+            expiration = time.time() + effective_ttl
 
         self._cache[table_name][cache_key] = (result, expiration)
         self._cache_memory_usage[table_name] = (

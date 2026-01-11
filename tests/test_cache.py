@@ -641,3 +641,218 @@ class TestCacheMemoryLimit:
         assert db._cache_memory_usage.get(User.get_table_name(), 0) >= 0
 
         db.close()
+
+
+class TestQueryLevelBypass:
+    """Test query-level cache bypass controls."""
+
+    def test_bypass_cache_skips_cache_read(self, tmp_path) -> None:
+        """bypass_cache() skips reading from cache."""
+        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db.create_table(User)
+        db.insert(User(name="Alice", age=30))
+
+        # First query - hits DB and caches
+        result1 = db.select(User).filter(name="Alice").fetch_all()
+        stats = db.get_cache_stats()
+        assert stats["misses"] == 1
+
+        # Second query - hits cache
+        db.select(User).filter(name="Alice").fetch_all()
+        stats = db.get_cache_stats()
+        assert stats["hits"] == 1
+
+        # Third query with bypass - skips cache, hits DB
+        result3 = (
+            db.select(User).filter(name="Alice").bypass_cache().fetch_all()
+        )
+        stats = db.get_cache_stats()
+        # Bypass doesn't increment hits or misses
+        assert stats["hits"] == 1
+        assert stats["misses"] == 1
+
+        # Fourth query - should still hit cache (bypass was one-time)
+        result4 = db.select(User).filter(name="Alice").fetch_all()
+        stats = db.get_cache_stats()
+        assert stats["hits"] == 2
+        assert stats["misses"] == 1
+
+        # All results should have the same data
+        assert len(result1) == 1
+        assert result1[0].name == "Alice"
+        assert result3 == result4
+
+        db.close()
+
+    def test_bypass_cache_skips_cache_write(self, tmp_path) -> None:
+        """bypass_cache() doesn't write to cache."""
+        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db.create_table(User)
+        db.insert(User(name="Alice", age=30))
+
+        # Query with bypass - doesn't cache result
+        db.select(User).filter(name="Alice").bypass_cache().fetch_all()
+
+        # Cache should be empty (no table key created)
+        assert len(db._cache.get(User.get_table_name(), {})) == 0
+
+        # Normal query after bypass - should miss (nothing was cached)
+        db.select(User).filter(name="Alice").fetch_all()
+        stats = db.get_cache_stats()
+        assert stats["misses"] == 1
+
+        db.close()
+
+    def test_bypass_cache_with_filter_chain(self, tmp_path) -> None:
+        """bypass_cache() works with method chaining."""
+        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db.create_table(User)
+        db.insert(User(name="Alice", age=30))
+
+        # Bypass cache with method chaining
+        result = (
+            db.select(User)
+            .filter(name="Alice")
+            .order("age")
+            .bypass_cache()
+            .fetch_one()
+        )
+
+        assert result is not None
+        assert result.name == "Alice"
+        # Cache should be empty (no table key created)
+        assert len(db._cache.get(User.get_table_name(), {})) == 0
+
+        db.close()
+
+    def test_bypass_cache_with_empty_result(self, tmp_path) -> None:
+        """bypass_cache() works with empty results."""
+        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db.create_table(User)
+        db.insert(User(name="Alice", age=30))
+
+        # Query that returns no result, with bypass
+        result = db.select(User).filter(name="Bob").bypass_cache().fetch_one()
+
+        assert result is None
+        # Cache should be empty (no table key created)
+        assert len(db._cache.get(User.get_table_name(), {})) == 0
+
+        db.close()
+
+
+class TestQueryLevelTtl:
+    """Test query-level TTL controls."""
+
+    def test_query_ttl_overrides_global_ttl(self, tmp_path) -> None:
+        """Query-level TTL overrides global cache_ttl."""
+        # Global TTL of 10 seconds
+        db = SqliterDB(tmp_path / "test.db", cache_enabled=True, cache_ttl=10)
+        db.create_table(User)
+        db.insert(User(name="Alice", age=30))
+
+        # Query with 1 second TTL
+        db.select(User).filter(name="Alice").cache_ttl(1).fetch_all()
+
+        # Wait 2 seconds
+        time.sleep(2)
+
+        # Query should miss (query-level TTL expired)
+        db.select(User).filter(name="Alice").fetch_all()
+        stats = db.get_cache_stats()
+        assert stats["misses"] == 2  # Initial miss + expiration miss
+
+        db.close()
+
+    def test_query_ttl_longer_than_global(self, tmp_path) -> None:
+        """Query-level TTL can be longer than global TTL."""
+        # Global TTL of 1 second
+        db = SqliterDB(tmp_path / "test.db", cache_enabled=True, cache_ttl=1)
+        db.create_table(User)
+        db.insert(User(name="Alice", age=30))
+
+        # Query with 10 second TTL
+        db.select(User).filter(name="Alice").cache_ttl(10).fetch_all()
+
+        # Wait 2 seconds
+        time.sleep(2)
+
+        # Query should hit (query-level TTL still valid)
+        db.select(User).filter(name="Alice").fetch_all()
+        stats = db.get_cache_stats()
+        assert stats["hits"] == 1  # Cache hit after 2 seconds
+
+        db.close()
+
+    def test_query_ttl_without_global_ttl(self, tmp_path) -> None:
+        """Query-level TTL works without global TTL."""
+        # No global TTL
+        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db.create_table(User)
+        db.insert(User(name="Alice", age=30))
+
+        # Query with 1 second TTL
+        db.select(User).filter(name="Alice").cache_ttl(1).fetch_all()
+
+        # Wait 2 seconds
+        time.sleep(2)
+
+        # Query should miss (query-level TTL expired)
+        db.select(User).filter(name="Alice").fetch_all()
+        stats = db.get_cache_stats()
+        assert stats["misses"] == 2
+
+        db.close()
+
+    def test_query_ttl_with_method_chaining(self, tmp_path) -> None:
+        """cache_ttl() works with method chaining."""
+        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db.create_table(User)
+        db.insert(User(name="Alice", age=30))
+
+        # Query with TTL and method chaining
+        result = (
+            db.select(User)
+            .filter(name="Alice")
+            .order("age")
+            .cache_ttl(60)
+            .fetch_one()
+        )
+
+        assert result is not None
+        assert result.name == "Alice"
+
+        db.close()
+
+    def test_query_ttl_different_for_different_queries(
+        self,
+        tmp_path,
+    ) -> None:
+        """Different queries can have different TTLs."""
+        db = SqliterDB(tmp_path / "test.db", cache_enabled=True, cache_ttl=100)
+        db.create_table(User)
+        db.insert(User(name="Alice", age=30))
+        db.insert(User(name="Bob", age=25))
+
+        # Query with 1 second TTL
+        db.select(User).filter(name="Alice").cache_ttl(1).fetch_all()
+
+        # Query with 5 second TTL
+        db.select(User).filter(name="Bob").cache_ttl(5).fetch_all()
+
+        # Both should be cached
+        assert len(db._cache[User.get_table_name()]) == 2
+
+        # Wait 2 seconds
+        time.sleep(2)
+
+        # Alice query should miss, Bob query should hit
+        db.select(User).filter(name="Alice").fetch_all()
+        db.select(User).filter(name="Bob").fetch_all()
+        stats = db.get_cache_stats()
+        # Alice: initial miss + expiration miss = 2 misses
+        # Bob: initial miss + hit = 1 hit
+        assert stats["misses"] >= 2  # At least Alice's misses
+        assert stats["hits"] >= 1  # At least Bob's hit
+
+        db.close()

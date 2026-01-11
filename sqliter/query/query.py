@@ -85,6 +85,8 @@ class QueryBuilder:
         self._offset: Optional[int] = None
         self._order_by: Optional[str] = None
         self._fields: Optional[list[str]] = fields
+        self._bypass_cache: bool = False
+        self._query_cache_ttl: Optional[int] = None
 
         if self._fields:
             self._validate_fields()
@@ -640,6 +642,40 @@ class QueryBuilder:
             field_name, value, return_local_time=self.db.return_local_time
         )
 
+    def bypass_cache(self) -> Self:
+        """Bypass the cache for this specific query.
+
+        When called, the query will always hit the database regardless of
+        the global cache setting. This is useful for queries that require
+        fresh data.
+
+        Returns:
+            The QueryBuilder instance for method chaining.
+
+        Example:
+            >>> db.select(User).filter(name="Alice").bypass_cache().fetch_one()
+        """
+        self._bypass_cache = True
+        return self
+
+    def cache_ttl(self, ttl: int) -> Self:
+        """Set a custom TTL (time-to-live) for this specific query.
+
+        When called, the cached result of this query will expire after the
+        specified number of seconds, overriding the global cache_ttl setting.
+
+        Args:
+            ttl: Time-to-live in seconds for the cached result.
+
+        Returns:
+            The QueryBuilder instance for method chaining.
+
+        Example:
+            >>> db.select(User).cache_ttl(60).fetch_all()
+        """
+        self._query_cache_ttl = ttl
+        return self
+
     def _make_cache_key(self) -> str:
         """Generate a cache key from the current query state.
 
@@ -682,27 +718,33 @@ class QueryBuilder:
             A list of model instances, a single model instance, or None if no
             results are found.
         """
-        # Check cache first
-        cache_key = self._make_cache_key()
-        if cached := self.db._cache_get(  # noqa: SLF001
-            self.table_name, cache_key
-        ):
-            return cached
+        # Check cache first (unless bypass is enabled)
+        if not self._bypass_cache:
+            cache_key = self._make_cache_key()
+            if cached := self.db._cache_get(  # noqa: SLF001
+                self.table_name, cache_key
+            ):
+                return cached
 
         result = self._execute_query(fetch_one=fetch_one)
 
         if not result:
-            if fetch_one:
-                # Cache empty result
+            if not self._bypass_cache:
+                if fetch_one:
+                    # Cache empty result
+                    self.db._cache_set(  # noqa: SLF001
+                        self.table_name,
+                        cache_key,
+                        None,
+                        ttl=self._query_cache_ttl,
+                    )
+                    return None
+                # Cache empty list
                 self.db._cache_set(  # noqa: SLF001
-                    self.table_name, cache_key, None
+                    self.table_name, cache_key, [], ttl=self._query_cache_ttl
                 )
-                return None
-            # Cache empty list
-            self.db._cache_set(  # noqa: SLF001
-                self.table_name, cache_key, []
-            )
-            return []
+                return []
+            return None if fetch_one else []
 
         if fetch_one:
             # Ensure we pass a tuple, not a list, to _convert_row_to_model
@@ -711,17 +753,25 @@ class QueryBuilder:
                     0
                 ]  # Get the first (and only) result if it's wrapped in a list.
             single_result = self._convert_row_to_model(result)
-            # Cache single result
-            self.db._cache_set(  # noqa: SLF001
-                self.table_name, cache_key, single_result
-            )
+            # Cache single result (unless bypass is enabled)
+            if not self._bypass_cache:
+                self.db._cache_set(  # noqa: SLF001
+                    self.table_name,
+                    cache_key,
+                    single_result,
+                    ttl=self._query_cache_ttl,
+                )
             return single_result
 
         list_results = [self._convert_row_to_model(row) for row in result]
-        # Cache list result
-        self.db._cache_set(  # noqa: SLF001
-            self.table_name, cache_key, list_results
-        )
+        # Cache list result (unless bypass is enabled)
+        if not self._bypass_cache:
+            self.db._cache_set(  # noqa: SLF001
+                self.table_name,
+                cache_key,
+                list_results,
+                ttl=self._query_cache_ttl,
+            )
         return list_results
 
     def fetch_all(self) -> list[BaseDBModel]:
