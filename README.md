@@ -50,6 +50,7 @@ Full documentation is available on the [Website](https://sqliter.grantramsay.dev
 - CRUD operations (Create, Read, Update, Delete)
 - Chained Query building with filtering, ordering, and pagination
 - Transaction support
+- Optional query result caching with LRU eviction, TTL, and memory limits
 - Custom exceptions for better error handling
 - Full type hinting and type checking
 - Detailed documentation and examples
