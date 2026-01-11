@@ -292,7 +292,7 @@ class TestCacheEmptyResults:
     """Test caching of empty results."""
 
     def test_cache_empty_single_result(self, tmp_path) -> None:
-        """Empty single results are cached."""
+        """Empty single results are cached and retrieved from cache."""
         db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
@@ -301,9 +301,19 @@ class TestCacheEmptyResults:
         result1 = db.select(User).filter(name="Bob").fetch_one()
         assert result1 is None
 
+        # Verify first query was a cache miss
+        stats = db.get_cache_stats()
+        assert stats["misses"] == 1
+        assert stats["hits"] == 0
+
         # Should return cached None
         result2 = db.select(User).filter(name="Bob").fetch_one()
         assert result2 is None
+
+        # Verify second query was a cache hit
+        stats = db.get_cache_stats()
+        assert stats["hits"] == 1
+        assert stats["misses"] == 1
 
         # Should have 1 cache entry
         assert len(db._cache[User.get_table_name()]) == 1
@@ -311,7 +321,7 @@ class TestCacheEmptyResults:
         db.close()
 
     def test_cache_empty_list_result(self, tmp_path) -> None:
-        """Empty list results are cached."""
+        """Empty list results are cached and retrieved from cache."""
         db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
@@ -320,9 +330,19 @@ class TestCacheEmptyResults:
         result1 = db.select(User).filter(name="Bob").fetch_all()
         assert result1 == []
 
+        # Verify first query was a cache miss
+        stats = db.get_cache_stats()
+        assert stats["misses"] == 1
+        assert stats["hits"] == 0
+
         # Should return cached empty list
         result2 = db.select(User).filter(name="Bob").fetch_all()
         assert result2 == []
+
+        # Verify second query was a cache hit
+        stats = db.get_cache_stats()
+        assert stats["hits"] == 1
+        assert stats["misses"] == 1
 
         # Should have 1 cache entry
         assert len(db._cache[User.get_table_name()]) == 1
