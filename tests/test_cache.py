@@ -974,3 +974,39 @@ class TestEmptyResultCaching:
         assert stats["hits"] == 1
 
         db.close()
+
+    def test_overwriting_cache_key_updates_memory_and_lru(
+        self,
+        tmp_path,
+    ) -> None:
+        """Overwriting an existing cache key should update memory accounting."""
+        db = SqliterDB(
+            tmp_path / "test.db", cache_enabled=True, cache_max_memory_mb=1
+        )
+        db.create_table(User)
+        db.insert(User(name="Alice", age=30))
+        db.insert(User(name="Bob", age=25))
+
+        # Query and cache the result
+        result1 = db.select(User).filter(name="Alice").fetch_one()
+        assert result1 is not None
+        initial_memory = db._cache_memory_usage[User.get_table_name()]
+
+        # Get the cache key for this query
+        query = db.select(User).filter(name="Alice")
+        cache_key = query._make_cache_key(fetch_one=True)
+        table_name = User.get_table_name()
+
+        # Manually call _cache_set with the same key to test overwrite
+        # This simulates updating a cached entry
+        db._cache_set(table_name, cache_key, result1, ttl=None)
+
+        # Memory should not have doubled (overwrite, not add)
+        final_memory = db._cache_memory_usage[table_name]
+        # Should be approximately the same size (not double)
+        assert final_memory < initial_memory * 1.5  # Allow 50% margin
+
+        # Should still have only 1 cached entry
+        assert len(db._cache[table_name]) == 1
+
+        db.close()

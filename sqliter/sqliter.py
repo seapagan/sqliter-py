@@ -365,7 +365,17 @@ class SqliterDB:
         if effective_ttl is not None:
             expiration = time.time() + effective_ttl
 
+        # If overwriting an existing key, adjust memory accounting first
+        if cache_key in self._cache[table_name]:
+            old_result, _ = self._cache[table_name][cache_key]
+            old_size = self._estimate_size(old_result)
+            self._cache_memory_usage[table_name] = max(
+                0, self._cache_memory_usage.get(table_name, 0) - old_size
+            )
+
         self._cache[table_name][cache_key] = (result, expiration)
+        # Mark as most-recently-used
+        self._cache[table_name].move_to_end(cache_key)
         self._cache_memory_usage[table_name] = (
             self._cache_memory_usage.get(table_name, 0) + result_size
         )
