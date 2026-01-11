@@ -74,14 +74,14 @@ Please do this if you are intending to submit a PR. It will check commits
 locally before they are pushed up to the Repo.
 
 ```console
-$ pre-commit install
-pre-commit installed at .git/hooks/pre-commit
+$ prek install
+prek installed at .git/hooks/pre-commit
 ```
 
 This will ensure that all code meets the required linting standard before being
 committed.
 
-## Run pre-commit manually
+## Run checks manually
 
 You can run these checks manually on all staged files using the below command :
 
@@ -169,9 +169,9 @@ Here are some guidelines to follow when contributing to SQLiter:
 - Do not update the version number in the `pyproject.toml` file. This will be
   done by the maintainers when a new release is made.
 - Follow the [PEP 8](https://www.python.org/dev/peps/pep-0008/) style guide. The
-  pre-commit hooks will check for this. We are using
+  prek hooks will check for this. We are using
   [Ruff](https://docs.astral.sh/ruff/) as both a linter and code formatter.
-- Try to have no linting errors or warnings. The pre-commit hooks will check for
+- Try to have no linting errors or warnings. The prek hooks will check for
   this also.
 - [MyPy](https://mypy.readthedocs.io/en/stable/) is installed and we are using
   type hints. Please try to add type hints to your code. If you see any areas of

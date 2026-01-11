@@ -222,3 +222,8 @@ repopack-output.xml
 demo-db
 # .planning
 .aider*
+
+# AI stuff
+.claude
+CLAUDE.md
+AGENTS.md
