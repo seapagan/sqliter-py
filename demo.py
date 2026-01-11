@@ -139,10 +139,10 @@ def main() -> None:  # noqa: PLR0915
         except RecordInsertionError as exc:
             logger.info("✓ Correctly prevented duplicate email: %s", exc)
 
-        logger.info("=== Demonstrating caching ===")
-        # Create a new connection with caching enabled
-        cached_db = SqliterDB("demo.db", cache_enabled=True, debug=True)
-
+    logger.info("=== Demonstrating caching ===")
+    # Create a new connection with caching enabled
+    cached_db = SqliterDB("demo.db", cache_enabled=True, debug=True)
+    try:
         # Cache miss - hits database
         start = time.perf_counter()
         _ = cached_db.select(UserModel).fetch_all()
@@ -184,7 +184,7 @@ def main() -> None:  # noqa: PLR0915
         # Final cache stats
         stats = cached_db.get_cache_stats()
         logger.info("Final cache stats: %s", stats)
-
+    finally:
         cached_db.close()
 
 
