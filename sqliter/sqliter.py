@@ -303,7 +303,12 @@ class SqliterDB:
         # Check TTL expiration
         if expiration is not None and time.time() > expiration:
             self._cache_misses += 1
+            # Keep memory accounting accurate by subtracting expired entry size
+            expired_size = self._estimate_size(result)
             del self._cache[table_name][cache_key]
+            self._cache_memory_usage[table_name] = max(
+                0, self._cache_memory_usage.get(table_name, 0) - expired_size
+            )
             return False, None
 
         # Mark as recently used (LRU)
