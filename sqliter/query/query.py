@@ -670,9 +670,15 @@ class QueryBuilder:
         Returns:
             The QueryBuilder instance for method chaining.
 
+        Raises:
+            ValueError: If ttl is negative.
+
         Example:
             >>> db.select(User).cache_ttl(60).fetch_all()
         """
+        if ttl < 0:
+            msg = "TTL must be non-negative"
+            raise ValueError(msg)
         self._query_cache_ttl = ttl
         return self
 

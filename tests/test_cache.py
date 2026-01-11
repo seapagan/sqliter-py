@@ -940,6 +940,17 @@ class TestQueryLevelTtl:
 
         db.close()
 
+    def test_query_ttl_validates_non_negative(self, tmp_path) -> None:
+        """cache_ttl() raises ValueError for negative values."""
+        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db.create_table(User)
+
+        # Negative TTL should raise ValueError
+        with pytest.raises(ValueError, match="TTL must be non-negative"):
+            db.select(User).cache_ttl(-1).fetch_all()
+
+        db.close()
+
     def test_query_ttl_different_for_different_queries(
         self,
         tmp_path,

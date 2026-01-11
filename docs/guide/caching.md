@@ -53,6 +53,7 @@ Each query generates a unique cache key based on:
 - Filter conditions
 - Order by clauses
 - Limit and offset values
+- Fetch mode (single vs list)
 
 This means different queries produce different cache entries:
 
