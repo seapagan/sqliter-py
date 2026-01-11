@@ -1117,3 +1117,37 @@ class TestEmptyResultCaching:
         assert memory_usage > 0
 
         db.close()
+
+
+class TestCacheKeyErrors:
+    """Test error handling in cache key generation."""
+
+    def test_incomparable_filter_types_raises_error(
+        self,
+        tmp_path,
+    ) -> None:
+        """Filters with incomparable types raise ValueError."""
+        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db.create_table(User)
+        db.insert(User(name="Alice", age=30))
+
+        # Create a query and manually add filters with incomparable types
+        # This simulates the edge case where sorting fails
+        query = db.select(User).filter(name="Alice")
+
+        # Manually add a filter with an incomparable value type
+        # (same field name but int value instead of string)
+        # Filters are tuples: (field_name, value, operator)
+        query.filters.append(("name", 42, "__eq"))
+
+        # This raises ValueError when sorting filters with incomparable types
+        # The tuples ("name", "Alice", "__eq") and ("name", 42, "__eq")
+        # cannot be compared due to string vs int at position 1
+        with pytest.raises(
+            ValueError,
+            match="filters contain incomparable types",
+        ):
+            # Trigger cache key generation which requires sorting
+            _ = query._make_cache_key(fetch_one=True)
+
+        db.close()
