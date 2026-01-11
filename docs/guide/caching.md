@@ -32,15 +32,15 @@ db = SqliterDB(
 
 ### Configuration Parameters
 
-- **`cache_enabled`** (`bool`, default: `False`): Enable or disable caching
+- **`cache_enabled`** (`bool`, default: `False`): Enable or disable caching.
 - **`cache_max_size`** (`int`, default: `1000`): Maximum number of cached query
-  results per table. When exceeded, oldest entries are evicted (LRU).
+  results per table. When exceeded, the least recently used entries are evicted.
 - **`cache_ttl`** (`int | None`, default: `None`): Default time-to-live for cached
-  results in seconds. After this time, entries expire and are removed on next
+  results, in seconds. After this time, entries expire and are removed on next
   access.
 - **`cache_max_memory_mb`** (`int | None`, default: `None`): Optional memory
-  limit per table in megabytes. When exceeded, oldest entries are evicted until
-  under the limit.
+  limit per table, in megabytes. When exceeded, the least recently used entries
+  are evicted until under the limit.
 
 ## How Caching Works
 
@@ -171,9 +171,9 @@ db = SqliterDB("mydb.db", cache_enabled=True, cache_max_memory_mb=10)
 
 When the memory limit is exceeded:
 
-1. The cache evicts the oldest entries (LRU)
+1. The cache evicts the least recently used entries
 2. Continues evicting until there's room for the new entry
-3. Memory usage is tracked per-table
+3. Memory usage is tracked per table
 
 ## Best Practices
 
