@@ -10,6 +10,7 @@ both a functional test and a usage guide for the SQLiter library.
 from __future__ import annotations
 
 import logging
+import time
 from typing import Annotated, Optional
 
 from sqliter import SqliterDB
@@ -47,7 +48,7 @@ class AccountModel(BaseDBModel):
         table_name: str = "accounts"
 
 
-def main() -> None:
+def main() -> None:  # noqa: PLR0915
     """Simple example to demonstrate the usage of the 'sqliter' package."""
     # set up logging
     logging.basicConfig(
@@ -137,6 +138,54 @@ def main() -> None:
             logger.error("✗ Should have failed - duplicate email!")
         except RecordInsertionError as exc:
             logger.info("✓ Correctly prevented duplicate email: %s", exc)
+
+        logger.info("=== Demonstrating caching ===")
+        # Create a new connection with caching enabled
+        cached_db = SqliterDB("demo.db", cache_enabled=True, debug=True)
+
+        # Cache miss - hits database
+        start = time.perf_counter()
+        _ = cached_db.select(UserModel).fetch_all()
+        miss_time = time.perf_counter() - start
+
+        # Cache hit - from cache
+        start = time.perf_counter()
+        _ = cached_db.select(UserModel).fetch_all()
+        hit_time = time.perf_counter() - start
+
+        logger.info("Cache miss: %.3fms (query executed)", miss_time * 1000)
+        logger.info("Cache hit:  %.3fms (from cache)", hit_time * 1000)
+        if hit_time > 0:
+            speedup = miss_time / hit_time
+            logger.info("Speedup:   %.1fx faster", speedup)
+
+        # Show cache statistics
+        stats = cached_db.get_cache_stats()
+        logger.info("Cache stats: %s", stats)
+
+        # Demonstrate cache invalidation
+        logger.info("=== Demonstrating cache invalidation ===")
+        # Insert new user using the same connection - this invalidates the cache
+        new_user = UserModel(
+            slug="test",
+            name="Test User",
+            content="Testing cache invalidation",
+            list_of_str=[],
+            a_set=set(),
+        )
+        cached_db.insert(new_user)
+
+        # This query should hit the database again (cache was invalidated)
+        start = time.perf_counter()
+        _ = cached_db.select(UserModel).fetch_all()
+        post_invalidation_time = time.perf_counter() - start
+        logger.info("Query after write: %.3fms", post_invalidation_time * 1000)
+
+        # Final cache stats
+        stats = cached_db.get_cache_stats()
+        logger.info("Final cache stats: %s", stats)
+
+        cached_db.close()
 
 
 if __name__ == "__main__":
