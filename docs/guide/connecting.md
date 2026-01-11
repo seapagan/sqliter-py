@@ -76,7 +76,7 @@ db = SqliterDB(
     "your_database.db",
     cache_enabled=True,        # Enable caching (default: False)
     cache_max_size=1000,       # Max cached queries per table
-    cache_ttl=60,              # Time-to-live in seconds
+    cache_ttl=60,              # Time-to-live in seconds (None = no expiry)
     cache_max_memory_mb=100,   # Memory limit per table in MB
 )
 ```
