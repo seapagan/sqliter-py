@@ -676,8 +676,11 @@ class QueryBuilder:
         self._query_cache_ttl = ttl
         return self
 
-    def _make_cache_key(self) -> str:
+    def _make_cache_key(self, *, fetch_one: bool) -> str:
         """Generate a cache key from the current query state.
+
+        Args:
+            fetch_one: Whether this is a fetch_one or fetch_all query.
 
         Returns:
             A SHA256 hash representing the current query state.
@@ -690,6 +693,7 @@ class QueryBuilder:
             "offset": self._offset,
             "order_by": self._order_by,
             "fields": tuple(sorted(self._fields)) if self._fields else None,
+            "fetch_one": fetch_one,
         }
 
         # Hash the key parts
@@ -720,7 +724,7 @@ class QueryBuilder:
         """
         # Check cache first (unless bypass is enabled)
         if not self._bypass_cache:
-            cache_key = self._make_cache_key()
+            cache_key = self._make_cache_key(fetch_one=fetch_one)
             if cached := self.db._cache_get(  # noqa: SLF001
                 self.table_name, cache_key
             ):

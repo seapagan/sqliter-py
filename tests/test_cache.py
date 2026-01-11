@@ -874,3 +874,47 @@ class TestQueryLevelTtl:
         assert stats["hits"] >= 1  # At least Bob's hit
 
         db.close()
+
+
+class TestFetchModeCacheKey:
+    """Test that fetch_one and fetch_all use different cache keys."""
+
+    def test_fetch_one_and_fetch_all_use_different_cache_keys(
+        self,
+        tmp_path,
+    ) -> None:
+        """fetch_one() and fetch_all() should generate different cache keys."""
+        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db.create_table(User)
+        db.insert(User(name="Alice", age=30))
+        db.insert(User(name="Bob", age=25))
+
+        # First, fetch_all - populates cache
+        all_users = db.select(User).fetch_all()
+        assert len(all_users) == 2
+
+        # Verify we have 1 cached entry (fetch_all result)
+        assert len(db._cache[User.get_table_name()]) == 1
+
+        # Now fetch_one - should NOT hit the cache (different key)
+        # This would have incorrectly returned the cached list before the fix
+        one_user = db.select(User).filter(name="Alice").fetch_one()
+        assert one_user is not None
+        assert one_user.name == "Alice"
+
+        # Should now have 2 cached entries (fetch_all and fetch_one)
+        assert len(db._cache[User.get_table_name()]) == 2
+
+        # Fetch the same fetch_one query again - should hit cache
+        cached_user = db.select(User).filter(name="Alice").fetch_one()
+        assert cached_user is not None
+        assert cached_user.name == "Alice"
+
+        # Verify cache stats show proper hit/miss counts
+        stats = db.get_cache_stats()
+        # Initial queries: 1 fetch_all (miss) + 1 fetch_one (miss) = 2 misses
+        # Followed by: 1 fetch_one (hit)
+        assert stats["misses"] >= 2
+        assert stats["hits"] >= 1
+
+        db.close()
