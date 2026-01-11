@@ -6,6 +6,8 @@ import time
 from typing import Any
 from unittest.mock import patch
 
+import pytest
+
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 
@@ -33,6 +35,47 @@ class TestCacheDisabledByDefault:
         assert db._cache == {}
 
         db.close()
+
+
+class TestCacheParameterValidation:
+    """Test validation of cache configuration parameters."""
+
+    def test_cache_max_size_must_be_positive(self, tmp_path) -> None:
+        """cache_max_size must be greater than 0."""
+        with pytest.raises(
+            ValueError, match="cache_max_size must be greater than 0"
+        ):
+            SqliterDB(
+                tmp_path / "test.db", cache_enabled=True, cache_max_size=0
+            )
+
+        with pytest.raises(
+            ValueError, match="cache_max_size must be greater than 0"
+        ):
+            SqliterDB(
+                tmp_path / "test.db", cache_enabled=True, cache_max_size=-1
+            )
+
+    def test_cache_ttl_must_be_non_negative(self, tmp_path) -> None:
+        """cache_ttl must be non-negative."""
+        with pytest.raises(ValueError, match="cache_ttl must be non-negative"):
+            SqliterDB(tmp_path / "test.db", cache_enabled=True, cache_ttl=-1)
+
+    def test_cache_max_memory_mb_must_be_positive(self, tmp_path) -> None:
+        """cache_max_memory_mb must be greater than 0."""
+        with pytest.raises(
+            ValueError, match="cache_max_memory_mb must be greater than 0"
+        ):
+            SqliterDB(
+                tmp_path / "test.db", cache_enabled=True, cache_max_memory_mb=0
+            )
+
+        with pytest.raises(
+            ValueError, match="cache_max_memory_mb must be greater than 0"
+        ):
+            SqliterDB(
+                tmp_path / "test.db", cache_enabled=True, cache_max_memory_mb=-1
+            )
 
 
 class TestCacheHitOnRepeatedQuery:

@@ -115,6 +115,20 @@ class SqliterDB:
         self._cache_max_size = cache_max_size
         self._cache_ttl = cache_ttl
         self._cache_max_memory_mb = cache_max_memory_mb
+
+        # Validate cache parameters
+        if self._cache_max_size <= 0:
+            msg = "cache_max_size must be greater than 0"
+            raise ValueError(msg)
+        if self._cache_ttl is not None and self._cache_ttl < 0:
+            msg = "cache_ttl must be non-negative"
+            raise ValueError(msg)
+        if (
+            self._cache_max_memory_mb is not None
+            and self._cache_max_memory_mb <= 0
+        ):
+            msg = "cache_max_memory_mb must be greater than 0"
+            raise ValueError(msg)
         self._cache: OrderedDict[
             str,
             OrderedDict[
@@ -467,6 +481,8 @@ class SqliterDB:
             self.conn = None
         self._cache.clear()
         self._cache_memory_usage.clear()
+        self._cache_hits = 0
+        self._cache_misses = 0
 
     def commit(self) -> None:
         """Commit the current transaction.
@@ -950,3 +966,5 @@ class SqliterDB:
         # Clear cache when exiting context
         self._cache.clear()
         self._cache_memory_usage.clear()
+        self._cache_hits = 0
+        self._cache_misses = 0
