@@ -4,6 +4,8 @@ Items marked with :fire: are high priority.
 
 ## General Plans and Ideas
 
+- add ability to inspect existing SQLite databases and generate Pydantic models
+  dynamically, including CLI tool for schema dumping.
 - add an 'execute' method to the main class to allow executing arbitrary SQL
   queries which can be chained to the 'find_first' etc methods or just used
   directly.
