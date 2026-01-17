@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from pydantic import Field
 
+from sqliter.exceptions import InvalidForeignKeyError
+
 if TYPE_CHECKING:  # pragma: no cover
     from pydantic.fields import FieldInfo
 
@@ -98,10 +100,10 @@ def ForeignKey(  # noqa: N802, PLR0913
     # Validate SET NULL requires null=True
     if on_delete == "SET NULL" and not null:
         msg = "on_delete='SET NULL' requires null=True"
-        raise ValueError(msg)
+        raise InvalidForeignKeyError(msg)
     if on_update == "SET NULL" and not null:
         msg = "on_update='SET NULL' requires null=True"
-        raise ValueError(msg)
+        raise InvalidForeignKeyError(msg)
 
     # Handle existing json_schema_extra
     existing_extra = kwargs.pop("json_schema_extra", {})

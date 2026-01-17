@@ -99,7 +99,8 @@ class TestForeignKeyInfo:
     def test_set_null_requires_null_true(self) -> None:
         """Test that SET NULL on_delete requires null=True."""
         with pytest.raises(
-            ValueError, match="on_delete='SET NULL' requires null=True"
+            InvalidForeignKeyError,
+            match="on_delete='SET NULL' requires null=True",
         ):
 
             class _TestBook(BaseDBModel):
@@ -111,7 +112,8 @@ class TestForeignKeyInfo:
     def test_set_null_on_update_requires_null_true(self) -> None:
         """Test that SET NULL on_update requires null=True."""
         with pytest.raises(
-            ValueError, match="on_update='SET NULL' requires null=True"
+            InvalidForeignKeyError,
+            match="on_update='SET NULL' requires null=True",
         ):
 
             class _TestBook(BaseDBModel):
