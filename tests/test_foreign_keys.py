@@ -46,7 +46,7 @@ class TestForeignKeyInfo:
         assert fk_info is not None
         assert fk_info.to_model is Author
         assert fk_info.on_delete == "CASCADE"
-        assert fk_info.on_update == "CASCADE"
+        assert fk_info.on_update == "RESTRICT"
         assert fk_info.null is False
         assert fk_info.unique is False
 
@@ -200,7 +200,7 @@ class TestForeignKeyTableCreation:
         assert "FOREIGN KEY" in create_table_sql
         assert 'REFERENCES "authors"("pk")' in create_table_sql
         assert "ON DELETE CASCADE" in create_table_sql
-        assert "ON UPDATE CASCADE" in create_table_sql
+        assert "ON UPDATE RESTRICT" in create_table_sql
 
     def test_fk_creates_index(self) -> None:
         """Test that FK columns get indexed automatically."""

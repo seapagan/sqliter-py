@@ -46,8 +46,8 @@ class ForeignKeyInfo:
 def ForeignKey(  # noqa: N802, PLR0913
     to: type[BaseDBModel],
     *,
-    on_delete: FKAction = "CASCADE",
-    on_update: FKAction = "CASCADE",
+    on_delete: FKAction = "RESTRICT",
+    on_update: FKAction = "RESTRICT",
     null: bool = False,
     unique: bool = False,
     related_name: Optional[str] = None,
@@ -64,14 +64,14 @@ def ForeignKey(  # noqa: N802, PLR0913
     Args:
         to: The target model class that this foreign key references.
         on_delete: Action when referenced record is deleted.
-            - CASCADE: Delete this record too (default).
+            - CASCADE: Delete this record too.
             - SET NULL: Set this field to NULL (requires null=True).
-            - RESTRICT: Prevent deletion if references exist.
+            - RESTRICT: Prevent deletion if references exist (default).
             - NO ACTION: Similar to RESTRICT in SQLite.
         on_update: Action when referenced record's PK is updated.
-            - CASCADE: Update this field to the new PK value (default).
+            - CASCADE: Update this field to the new PK value.
             - SET NULL: Set this field to NULL (requires null=True).
-            - RESTRICT: Prevent update if references exist.
+            - RESTRICT: Prevent update if references exist (default).
             - NO ACTION: Similar to RESTRICT in SQLite.
         null: Whether the foreign key field can be NULL. Default is False.
         unique: Whether the field must be unique (creates one-to-one

@@ -22,7 +22,11 @@ class Author(BaseDBModel):
 
 class Book(BaseDBModel):
     title: str
-    author_id: int = ForeignKey(Author, on_delete="CASCADE")
+    author_id: int = ForeignKey(
+        Author,
+        on_delete="CASCADE",
+        on_update="CASCADE"
+    )
 
 db = SqliterDB(":memory:")
 db.create_table(Author)
@@ -33,6 +37,15 @@ db.create_table(Book)
 >
 > The referenced table (`Author`) must be created **before** the table that
 > references it (`Book`).
+
+> [!NOTE]
+>
+> The default foreign key action is `RESTRICT` for both `on_delete` and
+> `on_update`. This means that by default, SQLiter will prevent deletion or
+> updates of referenced records if other records reference them. This is the
+> safest behavior and matches SQLite's default. You must explicitly specify
+> `on_delete="CASCADE"` or `on_update="CASCADE"` if you want cascading
+> behavior.
 
 ### Foreign Key Naming Convention
 
@@ -52,6 +65,41 @@ class Book(BaseDBModel):
     )
 ```
 
+### Type Checking
+
+The examples in this documentation show the simplest syntax that works at
+runtime and with most type checkers:
+
+```python
+author_id: int = ForeignKey(
+    Author,
+    on_delete="CASCADE",
+    on_update="CASCADE"
+)
+author_id: int | None = ForeignKey(
+    Author, on_delete="SET NULL", null=True, default=None
+)
+```
+
+If you use strict type checking with `mypy`, you can wrap the type and
+`ForeignKey()` with `Annotated` for explicit type metadata:
+
+```python
+from typing import Annotated
+
+author_id: Annotated[
+    int,
+    ForeignKey(Author, on_delete="CASCADE", on_update="CASCADE")
+]
+author_id: Annotated[
+    int | None,
+    ForeignKey(Author, on_delete="SET NULL", null=True)
+] = None
+```
+
+This is optional for foreign keys but required for the `unique()` constraint
+(see [Models](models.md#unique-fields)).
+
 ## Foreign Key Actions
 
 Foreign keys support actions that define what happens when the referenced record
@@ -62,9 +110,18 @@ available:
 
 When the referenced record is deleted, all records that reference it are also
 deleted. When the referenced record's primary key is updated, the foreign key
-values are updated to match:
+values are updated to match. You must explicitly specify `on_delete="CASCADE"`
+and `on_update="CASCADE"` to use this behavior:
 
 ```python
+class Book(BaseDBModel):
+    title: str
+    author_id: int = ForeignKey(
+        Author,
+        on_delete="CASCADE",
+        on_update="CASCADE"
+    )
+
 author = db.insert(Author(name="Jane Austen", email="jane@example.com"))
 book = db.insert(Book(title="Pride and Prejudice", author_id=author.pk))
 
@@ -84,10 +141,9 @@ to `NULL`. This requires `null=True`:
 ```python
 class Book(BaseDBModel):
     title: str
-    author_id: Annotated[
-        int,
-        ForeignKey(Author, on_delete="SET NULL", null=True)
-    ] = None
+    author_id: int | None = ForeignKey(
+        Author, on_delete="SET NULL", null=True, default=None
+    )
 ```
 
 > [!IMPORTANT]
@@ -98,7 +154,8 @@ class Book(BaseDBModel):
 ### RESTRICT
 
 Prevents deletion or update of the referenced record if other records reference
-it. This is the default behavior in SQLite when foreign keys are enabled:
+it. This is the **default** behavior in SQLiter and matches SQLite's default when
+foreign keys are enabled:
 
 ```python
 class Book(BaseDBModel):
@@ -129,14 +186,11 @@ By default, foreign key fields are required (NOT NULL). You can make them
 optional by setting `null=True`:
 
 ```python
-from typing import Annotated
-
 class Book(BaseDBModel):
     title: str
-    author_id: Annotated[
-        int,
-        ForeignKey(Author, on_delete="SET NULL", null=True)
-    ] = None
+    author_id: int | None = ForeignKey(
+        Author, on_delete="SET NULL", null=True, default=None
+    )
 
 # Insert a book without an author
 book = db.insert(Book(title="Anonymous Book", author_id=None))
@@ -199,7 +253,11 @@ class Author(BaseDBModel):
 
 class Book(BaseDBModel):
     title: str
-    author_id: int = ForeignKey(Author, on_delete="CASCADE")
+    author_id: int = ForeignKey(
+        Author,
+        on_delete="CASCADE",
+        on_update="CASCADE"
+    )
 
 # Create database and tables
 db = SqliterDB(":memory:")
