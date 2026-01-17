@@ -1,5 +1,6 @@
 """Test suite for foreign key support."""
 
+import sqlite3
 from typing import Optional
 
 import pytest
@@ -9,6 +10,7 @@ from sqliter.exceptions import (
     ForeignKeyConstraintError,
     ForeignKeyError,
     InvalidForeignKeyError,
+    RecordDeletionError,
     RecordInsertionError,
 )
 from sqliter.model import BaseDBModel, ForeignKey, get_foreign_key_info
@@ -497,3 +499,67 @@ class TestForeignKeyWithNonDictJsonSchemaExtra:
         # The ForeignKey should still be extractable
         assert fk_info is not None
         assert fk_info.to_model is Author
+
+
+class TestGetForeignKeyInfoEdgeCases:
+    """Test edge cases for get_foreign_key_info function."""
+
+    def test_field_without_json_schema_extra_attribute(self, mocker) -> None:
+        """Test get_foreign_key_info with field lacking json_schema_extra."""
+        # Create a mock FieldInfo without json_schema_extra attribute
+        mock_field_info = mocker.MagicMock(
+            spec=[]
+        )  # Empty spec = no attributes
+
+        fk_info = get_foreign_key_info(mock_field_info)
+
+        assert fk_info is None
+
+
+class TestForeignKeyDatabaseErrors:
+    """Test database error handling for FK operations."""
+
+    def test_insert_general_database_error(self, mocker) -> None:
+        """Test that general sqlite3.Error during insert raises properly."""
+        db = SqliterDB(":memory:")
+        db.create_table(Author)
+
+        # Mock cursor.execute to raise a general sqlite3.Error
+        mock_cursor = mocker.MagicMock()
+        mock_cursor.execute.side_effect = sqlite3.Error(
+            "General database error"
+        )
+
+        mock_conn = mocker.MagicMock()
+        mock_conn.cursor.return_value = mock_cursor
+        mock_conn.__enter__ = mocker.MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = mocker.MagicMock(return_value=False)
+
+        mocker.patch.object(db, "connect", return_value=mock_conn)
+
+        with pytest.raises(RecordInsertionError):
+            db.insert(Author(name="Test", email="test@example.com"))
+
+    def test_delete_non_fk_integrity_error(self, mocker) -> None:
+        """Test delete with IntegrityError that is not FK-related."""
+        db = SqliterDB(":memory:")
+        db.create_table(Author)
+
+        # Insert an author first
+        author = db.insert(Author(name="Test", email="test@example.com"))
+
+        # Mock to raise IntegrityError with non-FK message
+        mock_cursor = mocker.MagicMock()
+        mock_cursor.execute.side_effect = sqlite3.IntegrityError(
+            "UNIQUE constraint failed"
+        )
+
+        mock_conn = mocker.MagicMock()
+        mock_conn.cursor.return_value = mock_cursor
+        mock_conn.__enter__ = mocker.MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = mocker.MagicMock(return_value=False)
+
+        mocker.patch.object(db, "connect", return_value=mock_conn)
+
+        with pytest.raises(RecordDeletionError):
+            db.delete(Author, str(author.pk))
