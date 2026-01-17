@@ -114,7 +114,7 @@ class TestForeignKeyInfo:
             ValueError, match="on_update='SET NULL' requires null=True"
         ):
 
-            class TestBook(BaseDBModel):
+            class _TestBook(BaseDBModel):
                 title: str
                 author_id: int = ForeignKey(
                     Author, on_update="SET NULL", null=False
