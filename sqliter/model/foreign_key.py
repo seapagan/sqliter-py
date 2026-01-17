@@ -90,7 +90,7 @@ def ForeignKey(  # noqa: N802, PLR0913
         A Pydantic Field with foreign key metadata.
 
     Raises:
-        ValueError: If SET NULL action is used without null=True.
+        InvalidForeignKeyError: If SET NULL action is used without null=True.
 
     Example:
         >>> class Book(BaseDBModel):
