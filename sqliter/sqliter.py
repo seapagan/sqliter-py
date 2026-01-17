@@ -583,7 +583,7 @@ class SqliterDB:
             and field_info.json_schema_extra.get("unique", False)
         ):
             unique_constraint = "UNIQUE"
-        return f"{field_name} {sqlite_type} {unique_constraint}".strip()
+        return f'"{field_name}" {sqlite_type} {unique_constraint}'.strip()
 
     def create_table(
         self,
@@ -699,11 +699,14 @@ class SqliterDB:
             index_postfix = "_unique" if unique else ""
             index_type = " UNIQUE " if unique else " "
 
+            # Quote field names for index creation
+            quoted_fields = ", ".join(f'"{field}"' for field in fields)
+
             create_index_sql = (
                 f"CREATE{index_type}INDEX IF NOT EXISTS "
                 f"idx_{model_class.get_table_name()}"
                 f"_{index_name}{index_postfix} "
-                f"ON {model_class.get_table_name()} ({', '.join(fields)})"
+                f'ON "{model_class.get_table_name()}" ({quoted_fields})'
             )
             self._execute_sql(create_index_sql)
 
