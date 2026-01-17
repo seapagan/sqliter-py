@@ -479,6 +479,116 @@ class TestForeignKeyNoAction:
             db.delete(Author, str(author.pk))
 
 
+class TestForeignKeyOnUpdateActions:
+    """Test ON UPDATE actions for foreign keys."""
+
+    def _update_author_pk(
+        self, db: SqliterDB, old_pk: int, new_pk: int
+    ) -> None:
+        """Helper to update author pk directly via SQL."""
+        with db.connect() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE authors SET pk = ? WHERE pk = ?",
+                (new_pk, old_pk),
+            )
+            conn.commit()
+
+    def test_on_update_cascade(self) -> None:
+        """Test that ON UPDATE CASCADE updates FK when parent PK changes."""
+
+        class BookCascadeUpdate(BaseDBModel):
+            title: str
+            author_id: int = ForeignKey(
+                Author, on_delete="CASCADE", on_update="CASCADE"
+            )
+
+        db = SqliterDB(":memory:")
+        db.create_table(Author)
+        db.create_table(BookCascadeUpdate)
+
+        author = db.insert(Author(name="John", email="john@example.com"))
+        book = db.insert(
+            BookCascadeUpdate(title="My Book", author_id=author.pk)
+        )
+
+        # Update author's pk directly via SQL (simulating PK change)
+        new_pk = 999
+        self._update_author_pk(db, author.pk, new_pk)
+
+        # Book's author_id should be updated to new_pk
+        updated_book = db.get(BookCascadeUpdate, book.pk)
+        assert updated_book is not None
+        assert updated_book.author_id == new_pk
+
+    def test_on_update_set_null(self) -> None:
+        """Test ON UPDATE SET NULL sets FK to NULL when parent PK changes."""
+
+        class BookSetNullUpdate(BaseDBModel):
+            title: str
+            author_id: Optional[int] = ForeignKey(
+                Author, on_delete="SET NULL", on_update="SET NULL", null=True
+            )
+
+        db = SqliterDB(":memory:")
+        db.create_table(Author)
+        db.create_table(BookSetNullUpdate)
+
+        author = db.insert(Author(name="John", email="john@example.com"))
+        book = db.insert(
+            BookSetNullUpdate(title="My Book", author_id=author.pk)
+        )
+
+        # Update author's pk directly via SQL
+        new_pk = 999
+        self._update_author_pk(db, author.pk, new_pk)
+
+        # Book's author_id should be NULL
+        updated_book = db.get(BookSetNullUpdate, book.pk)
+        assert updated_book is not None
+        assert updated_book.author_id is None
+
+    def test_on_update_restrict(self) -> None:
+        """Test that ON UPDATE RESTRICT prevents PK update when referenced."""
+
+        class BookRestrictUpdate(BaseDBModel):
+            title: str
+            author_id: int = ForeignKey(
+                Author, on_delete="RESTRICT", on_update="RESTRICT"
+            )
+
+        db = SqliterDB(":memory:")
+        db.create_table(Author)
+        db.create_table(BookRestrictUpdate)
+
+        author = db.insert(Author(name="John", email="john@example.com"))
+        db.insert(BookRestrictUpdate(title="My Book", author_id=author.pk))
+
+        # Attempt to update author's pk should fail
+        with pytest.raises(sqlite3.IntegrityError):
+            self._update_author_pk(db, author.pk, 999)
+
+    def test_on_update_no_action(self) -> None:
+        """Test that ON UPDATE NO ACTION prevents PK update (like RESTRICT)."""
+
+        class BookNoActionUpdate(BaseDBModel):
+            title: str
+            author_id: int = ForeignKey(
+                Author, on_delete="NO ACTION", on_update="NO ACTION"
+            )
+
+        db = SqliterDB(":memory:")
+        db.create_table(Author)
+        db.create_table(BookNoActionUpdate)
+
+        author = db.insert(Author(name="John", email="john@example.com"))
+        db.insert(BookNoActionUpdate(title="My Book", author_id=author.pk))
+
+        # Attempt to update author's pk should fail
+        with pytest.raises(sqlite3.IntegrityError):
+            self._update_author_pk(db, author.pk, 999)
+
+
 class TestForeignKeyWithNonDictJsonSchemaExtra:
     """Test ForeignKey handles non-dict json_schema_extra correctly."""
 
