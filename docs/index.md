@@ -35,6 +35,7 @@ database-like format without needing to learn SQL or use a full ORM.
 - Supports `date` and `datetime` fields.
 - Support for complex data types (`list`, `dict`, `set`, `tuple`) stored as
   BLOBs
+- Foreign key relationships with referential integrity and CASCADE actions
 - Automatic primary key generation
 - User defined indexes on any field
 - Set any field as UNIQUE
