@@ -19,6 +19,7 @@ from typing_extensions import Self
 
 from sqliter.exceptions import (
     DatabaseConnectionError,
+    ForeignKeyConstraintError,
     InvalidIndexError,
     RecordDeletionError,
     RecordFetchError,
@@ -30,10 +31,13 @@ from sqliter.exceptions import (
     TableDeletionError,
 )
 from sqliter.helpers import infer_sqlite_type
+from sqliter.model.foreign_key import ForeignKeyInfo, get_foreign_key_info
 from sqliter.query.query import QueryBuilder
 
 if TYPE_CHECKING:  # pragma: no cover
     from types import TracebackType
+
+    from pydantic.fields import FieldInfo
 
     from sqliter.model.model import BaseDBModel
 
@@ -280,6 +284,8 @@ class SqliterDB:
         if not self.conn:
             try:
                 self.conn = sqlite3.connect(self.db_filename)
+                # Enable foreign key constraint enforcement
+                self.conn.execute("PRAGMA foreign_keys = ON")
             except sqlite3.Error as exc:
                 raise DatabaseConnectionError(self.db_filename) from exc
         return self.conn
@@ -491,6 +497,94 @@ class SqliterDB:
         if self.conn:
             self.conn.commit()
 
+    def _build_field_definitions(
+        self,
+        model_class: type[BaseDBModel],
+        primary_key: str,
+    ) -> tuple[list[str], list[str], list[str]]:
+        """Build SQL field definitions for table creation.
+
+        Args:
+            model_class: The Pydantic model class.
+            primary_key: The name of the primary key field.
+
+        Returns:
+            A tuple of (fields, foreign_keys, fk_columns) where:
+            - fields: List of column definitions
+            - foreign_keys: List of FK constraint definitions
+            - fk_columns: List of FK column names for index creation
+        """
+        fields = [f'"{primary_key}" INTEGER PRIMARY KEY AUTOINCREMENT']
+        foreign_keys: list[str] = []
+        fk_columns: list[str] = []
+
+        for field_name, field_info in model_class.model_fields.items():
+            if field_name == primary_key:
+                continue
+
+            fk_info = get_foreign_key_info(field_info)
+            if fk_info is not None:
+                col, constraint = self._build_fk_field(field_name, fk_info)
+                fields.append(col)
+                foreign_keys.append(constraint)
+                fk_columns.append(fk_info.db_column or field_name)
+            else:
+                fields.append(self._build_regular_field(field_name, field_info))
+
+        return fields, foreign_keys, fk_columns
+
+    def _build_fk_field(
+        self, field_name: str, fk_info: ForeignKeyInfo
+    ) -> tuple[str, str]:
+        """Build FK column definition and constraint.
+
+        Args:
+            field_name: The name of the field.
+            fk_info: The ForeignKeyInfo metadata.
+
+        Returns:
+            A tuple of (column_def, fk_constraint).
+        """
+        column_name = fk_info.db_column or field_name
+        null_str = "" if fk_info.null else "NOT NULL"
+        unique_str = "UNIQUE" if fk_info.unique else ""
+
+        field_def = f'"{column_name}" INTEGER {null_str} {unique_str}'
+        column_def = " ".join(field_def.split())
+
+        target_table = fk_info.to_model.get_table_name()
+        fk_constraint = (
+            f'FOREIGN KEY ("{column_name}") '
+            f'REFERENCES "{target_table}"("pk") '
+            f"ON DELETE {fk_info.on_delete} "
+            f"ON UPDATE {fk_info.on_update}"
+        )
+
+        return column_def, fk_constraint
+
+    def _build_regular_field(
+        self, field_name: str, field_info: FieldInfo
+    ) -> str:
+        """Build a regular (non-FK) column definition.
+
+        Args:
+            field_name: The name of the field.
+            field_info: The Pydantic field info.
+
+        Returns:
+            The column definition string.
+        """
+        sqlite_type = infer_sqlite_type(field_info.annotation)
+        unique_constraint = ""
+        if (
+            hasattr(field_info, "json_schema_extra")
+            and field_info.json_schema_extra
+            and isinstance(field_info.json_schema_extra, dict)
+            and field_info.json_schema_extra.get("unique", False)
+        ):
+            unique_constraint = "UNIQUE"
+        return f"{field_name} {sqlite_type} {unique_constraint}".strip()
+
     def create_table(
         self,
         model_class: type[BaseDBModel],
@@ -518,33 +612,20 @@ class SqliterDB:
             drop_table_sql = f"DROP TABLE IF EXISTS {table_name}"
             self._execute_sql(drop_table_sql)
 
-        fields = [f'"{primary_key}" INTEGER PRIMARY KEY AUTOINCREMENT']
+        fields, foreign_keys, fk_columns = self._build_field_definitions(
+            model_class, primary_key
+        )
 
-        # Add remaining fields
-        for field_name, field_info in model_class.model_fields.items():
-            if field_name != primary_key:
-                sqlite_type = infer_sqlite_type(field_info.annotation)
-                unique_constraint = ""
-                if (
-                    (
-                        hasattr(field_info, "json_schema_extra")
-                        and field_info.json_schema_extra
-                    )
-                    and isinstance(field_info.json_schema_extra, dict)
-                    and field_info.json_schema_extra.get("unique", False)
-                ):
-                    unique_constraint = "UNIQUE"
-                fields.append(
-                    f"{field_name} {sqlite_type} {unique_constraint}".strip()
-                )
+        # Combine field definitions and FK constraints
+        all_definitions = fields + foreign_keys
 
         create_str = (
             "CREATE TABLE IF NOT EXISTS" if exists_ok else "CREATE TABLE"
         )
 
         create_table_sql = f"""
-        {create_str} {table_name} (
-            {", ".join(fields)}
+        {create_str} "{table_name}" (
+            {", ".join(all_definitions)}
         )
         """
 
@@ -558,6 +639,14 @@ class SqliterDB:
                 conn.commit()
         except sqlite3.Error as exc:
             raise TableCreationError(table_name) from exc
+
+        # Create indexes for FK columns
+        for column_name in fk_columns:
+            index_sql = (
+                f'CREATE INDEX IF NOT EXISTS "idx_{table_name}_{column_name}" '
+                f'ON "{table_name}" ("{column_name}")'
+            )
+            self._execute_sql(index_sql)
 
         # Create regular indexes
         if hasattr(model_class.Meta, "indexes"):
@@ -670,6 +759,26 @@ class SqliterDB:
         if not self._in_transaction and self.auto_commit and self.conn:
             self.conn.commit()
 
+    def _set_insert_timestamps(
+        self, model_instance: T, *, timestamp_override: bool
+    ) -> None:
+        """Set created_at and updated_at timestamps for insert.
+
+        Args:
+            model_instance: The model instance to update.
+            timestamp_override: If True, respect provided non-zero values.
+        """
+        current_timestamp = int(time.time())
+
+        if not timestamp_override:
+            model_instance.created_at = current_timestamp
+            model_instance.updated_at = current_timestamp
+        else:
+            if model_instance.created_at == 0:
+                model_instance.created_at = current_timestamp
+            if model_instance.updated_at == 0:
+                model_instance.updated_at = current_timestamp
+
     def insert(
         self, model_instance: T, *, timestamp_override: bool = False
     ) -> T:
@@ -692,20 +801,9 @@ class SqliterDB:
         model_class = type(model_instance)
         table_name = model_class.get_table_name()
 
-        # Always set created_at and updated_at timestamps
-        current_timestamp = int(time.time())
-
-        # Handle the case where timestamp_override is False
-        if not timestamp_override:
-            # Always override both timestamps with the current time
-            model_instance.created_at = current_timestamp
-            model_instance.updated_at = current_timestamp
-        else:
-            # Respect provided values, but set to current time if they are 0
-            if model_instance.created_at == 0:
-                model_instance.created_at = current_timestamp
-            if model_instance.updated_at == 0:
-                model_instance.updated_at = current_timestamp
+        self._set_insert_timestamps(
+            model_instance, timestamp_override=timestamp_override
+        )
 
         # Get the data from the model
         data = model_instance.model_dump()
@@ -736,6 +834,15 @@ class SqliterDB:
                 cursor.execute(insert_sql, values)
                 self._maybe_commit()
 
+        except sqlite3.IntegrityError as exc:
+            # Check for foreign key constraint violation
+            if "FOREIGN KEY constraint failed" in str(exc):
+                fk_operation = "insert"
+                fk_reason = "does not exist in referenced table"
+                raise ForeignKeyConstraintError(
+                    fk_operation, fk_reason
+                ) from exc
+            raise RecordInsertionError(table_name) from exc
         except sqlite3.Error as exc:
             raise RecordInsertionError(table_name) from exc
         else:
@@ -881,6 +988,15 @@ class SqliterDB:
                     raise RecordNotFoundError(primary_key_value)
                 self._maybe_commit()
                 self._cache_invalidate_table(table_name)
+        except sqlite3.IntegrityError as exc:
+            # Check for foreign key constraint violation (RESTRICT)
+            if "FOREIGN KEY constraint failed" in str(exc):
+                fk_operation = "delete"
+                fk_reason = "is still referenced by other records"
+                raise ForeignKeyConstraintError(
+                    fk_operation, fk_reason
+                ) from exc
+            raise RecordDeletionError(table_name) from exc
         except sqlite3.Error as exc:
             raise RecordDeletionError(table_name) from exc
 

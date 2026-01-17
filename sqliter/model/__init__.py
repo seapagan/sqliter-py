@@ -10,6 +10,7 @@ from typing import Any
 
 from typing_extensions import deprecated
 
+from .foreign_key import ForeignKey, ForeignKeyInfo, get_foreign_key_info
 from .model import BaseDBModel, SerializableField
 from .unique import unique
 
@@ -34,4 +35,12 @@ def Unique(default: Any = ..., **kwargs: Any) -> Any:  # noqa: ANN401, N802
     return unique(default=default, **kwargs)
 
 
-__all__ = ["BaseDBModel", "SerializableField", "Unique", "unique"]
+__all__ = [
+    "BaseDBModel",
+    "ForeignKey",
+    "ForeignKeyInfo",
+    "SerializableField",
+    "Unique",
+    "get_foreign_key_info",
+    "unique",
+]
