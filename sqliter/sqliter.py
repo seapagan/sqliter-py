@@ -294,7 +294,7 @@ class SqliterDB:
         self,
         table_name: str,
         cache_key: str,
-    ) -> tuple[bool, Optional[Union[BaseDBModel, list[BaseDBModel]]]]:
+    ) -> tuple[bool, Any]:
         """Get cached result if valid and not expired.
 
         Args:
@@ -332,7 +332,7 @@ class SqliterDB:
         self,
         table_name: str,
         cache_key: str,
-        result: Union[BaseDBModel, list[BaseDBModel], None],
+        result: Any,  # noqa: ANN401
         ttl: Optional[int] = None,
     ) -> None:
         """Store result in cache with optional expiration.
@@ -1002,10 +1002,10 @@ class SqliterDB:
 
     def select(
         self,
-        model_class: type[BaseDBModel],
+        model_class: type[T],
         fields: Optional[list[str]] = None,
         exclude: Optional[list[str]] = None,
-    ) -> QueryBuilder:
+    ) -> QueryBuilder[T]:
         """Create a QueryBuilder instance for selecting records.
 
         Args:
@@ -1016,7 +1016,7 @@ class SqliterDB:
         Returns:
             A QueryBuilder instance for further query construction.
         """
-        query_builder = QueryBuilder(self, model_class, fields)
+        query_builder: QueryBuilder[T] = QueryBuilder(self, model_class, fields)
 
         # If exclude is provided, apply the exclude method
         if exclude:
