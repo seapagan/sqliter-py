@@ -5,12 +5,20 @@ project since the first release, with the latest changes at the top.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0](https://github.com/seapagan/sqliter-py/releases/tag/0.12.0) (January 17, 2026)
+
+**New Features**
+
+- Add foreign key support (Phase 1) ([#99](https://github.com/seapagan/sqliter-py/pull/99)) by [seapagan](https://github.com/seapagan)
+
+[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.11.0...0.12.0) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.11.0...0.12.0.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.11.0...0.12.0.patch)
+
 ## [0.11.0](https://github.com/seapagan/sqliter-py/releases/tag/0.11.0) (January 11, 2026)
 
 **New Features**
 
 - Add optional query result caching with LRU eviction ([#96](https://github.com/seapagan/sqliter-py/pull/96)) by [seapagan](https://github.com/seapagan)
-- Migrate from pr e-commit to prek ([#94](https://github.com/seapagan/sqliter-py/pull/94)) by [seapagan](https://github.com/seapagan)
+- Migrate from pre-commit to prek ([#94](https://github.com/seapagan/sqliter-py/pull/94)) by [seapagan](https://github.com/seapagan)
 
 **Security**
 
