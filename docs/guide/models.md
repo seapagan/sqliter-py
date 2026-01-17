@@ -56,7 +56,13 @@ Complex Types:
 
 Complex types are automatically serialized and stored as BLOBs in the database. For more details on using complex types, see the [Fields Guide](fields.md#complex-data-types).
 
-### Adding Indexes
+### Foreign Key Fields
+
+Foreign keys allow you to define relationships between models, enabling
+referential integrity in your database. See the [Foreign Keys Guide](foreign-keys.md)
+for detailed information on defining and using foreign key relationships.
+
+## Table Configuration
 
 You can add indexes to your table by specifying the `indexes` attribute in the
 `Meta` class. This should be a list of strings, each string being the name of an

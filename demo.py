@@ -14,8 +14,8 @@ import time
 from typing import Annotated, Optional
 
 from sqliter import SqliterDB
-from sqliter.exceptions import RecordInsertionError
-from sqliter.model import BaseDBModel, unique
+from sqliter.exceptions import ForeignKeyConstraintError, RecordInsertionError
+from sqliter.model import BaseDBModel, ForeignKey, unique
 
 
 # User model inheriting from the 'BaseDBModel' class
@@ -46,6 +46,21 @@ class AccountModel(BaseDBModel):
         """Override the table name for the AccountModel."""
 
         table_name: str = "accounts"
+
+
+# Models demonstrating foreign key relationships
+class Author(BaseDBModel):
+    """Author model for FK demonstration."""
+
+    name: str
+    email: str
+
+
+class Book(BaseDBModel):
+    """Book model with FK to Author - demonstrates CASCADE delete."""
+
+    title: str
+    author_id: int = ForeignKey(Author, on_delete="CASCADE")
 
 
 def main() -> None:  # noqa: PLR0915
@@ -138,6 +153,56 @@ def main() -> None:  # noqa: PLR0915
             logger.error("✗ Should have failed - duplicate email!")
         except RecordInsertionError as exc:
             logger.info("✓ Correctly prevented duplicate email: %s", exc)
+
+    # Demonstrate foreign key relationships
+    logger.info("=== Demonstrating foreign keys ===")
+    fk_db = SqliterDB("demo.db", debug=True)
+    with fk_db:
+        # Create tables (parent table must be created first)
+        fk_db.create_table(Author, force=True)
+        fk_db.create_table(Book, force=True)
+
+        # Insert authors
+        author1 = fk_db.insert(
+            Author(name="Jane Austen", email="jane@example.com")
+        )
+        author2 = fk_db.insert(
+            Author(name="Mark Twain", email="mark@example.com")
+        )
+        logger.info("Inserted authors: %s, %s", author1.name, author2.name)
+
+        # Insert books with FK references
+        book1 = fk_db.insert(
+            Book(title="Pride and Prejudice", author_id=author1.pk)
+        )
+        book2 = fk_db.insert(Book(title="Emma", author_id=author1.pk))
+        book3 = fk_db.insert(Book(title="Tom Sawyer", author_id=author2.pk))
+        logger.info(
+            "Inserted books: %s, %s, %s", book1.title, book2.title, book3.title
+        )
+
+        # Query books by author
+        jane_books = fk_db.select(Book).filter(author_id=author1.pk).fetch_all()
+        logger.info("Books by Jane Austen: %s", [b.title for b in jane_books])
+
+        # Try to insert book with invalid FK - should fail
+        try:
+            fk_db.insert(Book(title="Ghost Book", author_id=999))
+            logger.error("Should have failed - invalid FK!")
+        except ForeignKeyConstraintError as exc:
+            logger.info("Correctly prevented invalid FK: %s", exc)
+
+        # Demonstrate CASCADE delete
+        logger.info("Deleting Jane Austen (CASCADE should delete her books)...")
+        books_before = fk_db.select(Book).count()
+        fk_db.delete(Author, str(author1.pk))
+        books_after = fk_db.select(Book).count()
+        logger.info(
+            "Books before: %d, after: %d (CASCADE deleted %d)",
+            books_before,
+            books_after,
+            books_before - books_after,
+        )
 
     logger.info("=== Demonstrating caching ===")
     # Create a new connection with caching enabled

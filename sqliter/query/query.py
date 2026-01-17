@@ -17,9 +17,12 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    Generic,
     Literal,
     Optional,
+    TypeVar,
     Union,
+    cast,
     overload,
 )
 
@@ -40,13 +43,16 @@ if TYPE_CHECKING:  # pragma: no cover
     from sqliter import SqliterDB
     from sqliter.model import BaseDBModel, SerializableField
 
+# TypeVar for generic QueryBuilder
+T = TypeVar("T", bound="BaseDBModel")
+
 # Define a type alias for the possible value types
 FilterValue = Union[
     str, int, float, bool, None, list[Union[str, int, float, bool]]
 ]
 
 
-class QueryBuilder:
+class QueryBuilder(Generic[T]):
     """Builds and executes database queries for a specific model.
 
     This class provides methods to construct SQL queries, apply filters,
@@ -54,7 +60,7 @@ class QueryBuilder:
 
     Attributes:
         db (SqliterDB): The database connection object.
-        model_class (type[BaseDBModel]): The Pydantic model class.
+        model_class (type[T]): The Pydantic model class.
         table_name (str): The name of the database table.
         filters (list): List of applied filter conditions.
         _limit (Optional[int]): The LIMIT clause value, if any.
@@ -66,7 +72,7 @@ class QueryBuilder:
     def __init__(
         self,
         db: SqliterDB,
-        model_class: type[BaseDBModel],
+        model_class: type[T],
         fields: Optional[list[str]] = None,
     ) -> None:
         """Initialize a new QueryBuilder instance.
@@ -78,7 +84,7 @@ class QueryBuilder:
                 are selected.
         """
         self.db = db
-        self.model_class = model_class
+        self.model_class: type[T] = model_class
         self.table_name = model_class.get_table_name()  # Use model_class method
         self.filters: list[tuple[str, Any, str]] = []
         self._limit: Optional[int] = None
@@ -107,7 +113,7 @@ class QueryBuilder:
             )
             raise ValueError(err_message)
 
-    def filter(self, **conditions: str | float | None) -> QueryBuilder:
+    def filter(self, **conditions: str | float | None) -> Self:
         """Apply filter conditions to the query.
 
         This method allows adding one or more filter conditions to the query.
@@ -142,7 +148,7 @@ class QueryBuilder:
 
         return self
 
-    def fields(self, fields: Optional[list[str]] = None) -> QueryBuilder:
+    def fields(self, fields: Optional[list[str]] = None) -> Self:
         """Specify which fields to select in the query.
 
         Args:
@@ -159,7 +165,7 @@ class QueryBuilder:
             self._validate_fields()
         return self
 
-    def exclude(self, fields: Optional[list[str]] = None) -> QueryBuilder:
+    def exclude(self, fields: Optional[list[str]] = None) -> Self:
         """Specify which fields to exclude from the query results.
 
         Args:
@@ -201,7 +207,7 @@ class QueryBuilder:
 
         return self
 
-    def only(self, field: str) -> QueryBuilder:
+    def only(self, field: str) -> Self:
         """Specify a single field to select in the query.
 
         Args:
@@ -604,7 +610,7 @@ class QueryBuilder:
         where_clause = " AND ".join(where_clauses)
         return values, where_clause
 
-    def _convert_row_to_model(self, row: tuple[Any, ...]) -> BaseDBModel:
+    def _convert_row_to_model(self, row: tuple[Any, ...]) -> T:
         """Convert a database row to a model instance.
 
         Args:
@@ -726,18 +732,14 @@ class QueryBuilder:
         return hashlib.sha256(key_json.encode()).hexdigest()
 
     @overload
-    def _fetch_result(
-        self, *, fetch_one: Literal[True]
-    ) -> Optional[BaseDBModel]: ...
+    def _fetch_result(self, *, fetch_one: Literal[True]) -> Optional[T]: ...
 
     @overload
-    def _fetch_result(
-        self, *, fetch_one: Literal[False]
-    ) -> list[BaseDBModel]: ...
+    def _fetch_result(self, *, fetch_one: Literal[False]) -> list[T]: ...
 
     def _fetch_result(
         self, *, fetch_one: bool = False
-    ) -> Union[list[BaseDBModel], Optional[BaseDBModel]]:
+    ) -> Union[list[T], Optional[T]]:
         """Fetch and convert query results to model instances.
 
         Args:
@@ -752,7 +754,8 @@ class QueryBuilder:
             cache_key = self._make_cache_key(fetch_one=fetch_one)
             hit, cached = self.db._cache_get(self.table_name, cache_key)  # noqa: SLF001
             if hit:
-                return cached
+                # Cache stores correctly typed data, cast from Any
+                return cast("Union[list[T], Optional[T]]", cached)
 
         result = self._execute_query(fetch_one=fetch_one)
 
@@ -802,7 +805,7 @@ class QueryBuilder:
             )
         return list_results
 
-    def fetch_all(self) -> list[BaseDBModel]:
+    def fetch_all(self) -> list[T]:
         """Fetch all results of the query.
 
         Returns:
@@ -810,7 +813,7 @@ class QueryBuilder:
         """
         return self._fetch_result(fetch_one=False)
 
-    def fetch_one(self) -> Optional[BaseDBModel]:
+    def fetch_one(self) -> Optional[T]:
         """Fetch a single result of the query.
 
         Returns:
@@ -818,7 +821,7 @@ class QueryBuilder:
         """
         return self._fetch_result(fetch_one=True)
 
-    def fetch_first(self) -> Optional[BaseDBModel]:
+    def fetch_first(self) -> Optional[T]:
         """Fetch the first result of the query.
 
         Returns:
@@ -827,7 +830,7 @@ class QueryBuilder:
         self._limit = 1
         return self._fetch_result(fetch_one=True)
 
-    def fetch_last(self) -> Optional[BaseDBModel]:
+    def fetch_last(self) -> Optional[T]:
         """Fetch the last result of the query.
 
         Returns:

@@ -5,7 +5,7 @@ from typing import ClassVar
 import pytest
 from pytest_mock import MockerFixture
 
-from sqliter.exceptions import InvalidIndexError, TableCreationError
+from sqliter.exceptions import InvalidIndexError
 from sqliter.model import BaseDBModel
 from sqliter.sqliter import SqliterDB
 
@@ -43,7 +43,7 @@ class TestIndexes:
 
         # Assert the correct SQL for the index was executed
         expected_sql = (
-            "CREATE INDEX IF NOT EXISTS idx_users_email ON users (email)"
+            'CREATE INDEX IF NOT EXISTS idx_users_email ON "users" ("email")'
         )
         mock_execute.assert_any_call(expected_sql)
 
@@ -68,7 +68,7 @@ class TestIndexes:
         # Assert the correct SQL for the unique index was executed
         expected_sql = (
             "CREATE UNIQUE INDEX IF NOT EXISTS "
-            "idx_users_email_unique ON users (email)"
+            'idx_users_email_unique ON "users" ("email")'
         )
         mock_execute.assert_any_call(expected_sql)
 
@@ -96,7 +96,7 @@ class TestIndexes:
         # Assert the correct SQL for the composite index was executed
         expected_sql = (
             "CREATE INDEX IF NOT EXISTS idx_orders_customer_id_order_id "
-            "ON orders (customer_id, order_id)"
+            'ON "orders" ("customer_id", "order_id")'
         )
         mock_execute.assert_any_call(expected_sql)
 
@@ -294,7 +294,7 @@ class TestIndexes:
         assert index_names.count("idx_users_email") == 1
 
     def test_index_with_reserved_keyword_as_field_name(self) -> None:
-        """Test that fields using reserved SQL keywords raise an error."""
+        """Test that fields using reserved SQL keywords work when quoted."""
         db = SqliterDB(":memory:")
 
         class UserModel(BaseDBModel):
@@ -305,13 +305,13 @@ class TestIndexes:
                 table_name = "users"
                 indexes: ClassVar[list[str]] = [
                     "select"
-                ]  # Invalid due to keyword
+                ]  # Now valid due to quoting
 
-        with pytest.raises(TableCreationError) as exc_info:
-            db.create_table(UserModel)
+        # Should succeed because field names are quoted
+        db.create_table(UserModel)
 
-        error_message: str = str(exc_info.value)
-        assert "select" in error_message
+        # Verify the index was created successfully
+        assert "users" in db.table_names
 
     def test_mixed_valid_and_invalid_fields_in_composite_index(self) -> None:
         """Test an index with both valid and invalid fields raises an error."""

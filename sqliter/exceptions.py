@@ -166,3 +166,33 @@ class InvalidIndexError(SqliterError):
         invalid_fields_str = ", ".join(invalid_fields)
         # Pass the formatted message to the parent class
         super().__init__(model_class, invalid_fields_str)
+
+
+class ForeignKeyError(SqliterError):
+    """Base exception for foreign key related errors."""
+
+    message_template = "Foreign key error: {}"
+
+
+class ForeignKeyConstraintError(ForeignKeyError):
+    """Raised when a foreign key constraint is violated.
+
+    This error occurs when attempting to insert/update a record with a
+    foreign key value that doesn't exist in the referenced table, or
+    when attempting to delete a record that is still referenced.
+    """
+
+    message_template = (
+        "Foreign key constraint violation: Cannot {} record - "
+        "referenced record {}"
+    )
+
+
+class InvalidForeignKeyError(ForeignKeyError):
+    """Raised when an invalid foreign key configuration is detected.
+
+    This error occurs when defining a foreign key with invalid parameters,
+    such as using SET NULL without null=True.
+    """
+
+    message_template = "Invalid foreign key configuration: {}"

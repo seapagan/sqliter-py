@@ -94,7 +94,7 @@ class TestUnique:
 
         # Assert that the correct UNIQUE syntax is present for the 'name' field
         assert "CREATE TABLE" in sql
-        assert "name TEXT UNIQUE" in sql_without_pk  # Correct SQLite syntax
+        assert '"name" TEXT UNIQUE' in sql_without_pk  # Correct SQLite syntax
 
     def test_unique_constraint_across_records(self) -> None:
         """Test that unique constraints hold across multiple records."""
