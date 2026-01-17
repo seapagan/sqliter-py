@@ -675,3 +675,42 @@ class TestForeignKeyDatabaseErrors:
 
         with pytest.raises(RecordDeletionError):
             db.delete(Author, str(author.pk))
+
+
+class TestForeignKeyWithDefaultFactory:
+    """Test ForeignKey with default_factory parameter."""
+
+    def test_fk_with_default_factory_nullable(self) -> None:
+        """Test that nullable FK with default_factory doesn't set default."""
+
+        class TestBook(BaseDBModel):
+            title: str
+            author_id: int = ForeignKey(
+                Author,
+                null=True,
+                default_factory=lambda: 999,
+            )
+
+        # Should not raise TypeError about default and default_factory
+        field_info = TestBook.model_fields["author_id"]
+        fk_info = get_foreign_key_info(field_info)
+
+        assert fk_info is not None
+        assert fk_info.null is True
+
+    def test_fk_with_default_factory_non_nullable(self) -> None:
+        """Test that non-nullable FK with default_factory works."""
+
+        class TestBook(BaseDBModel):
+            title: str
+            author_id: int = ForeignKey(
+                Author,
+                default_factory=lambda: 1,
+            )
+
+        # Should not raise TypeError about default and default_factory
+        field_info = TestBook.model_fields["author_id"]
+        fk_info = get_foreign_key_info(field_info)
+
+        assert fk_info is not None
+        assert fk_info.null is False

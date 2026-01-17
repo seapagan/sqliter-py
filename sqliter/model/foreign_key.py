@@ -127,7 +127,7 @@ def ForeignKey(  # noqa: N802, PLR0913
         existing_extra["unique"] = True
 
     # Set default value
-    if default is ...:
+    if default is ... and "default_factory" not in kwargs:
         default = None if null else ...
 
     return Field(default=default, json_schema_extra=existing_extra, **kwargs)
