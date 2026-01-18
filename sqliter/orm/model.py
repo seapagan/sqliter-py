@@ -113,7 +113,9 @@ class BaseDBModel(_BaseDBModel):
                 cls.fk_descriptors[name] = value
                 # Add _id field annotation so Pydantic creates a field for it
                 id_field_name = f"{name}_id"
-                if not hasattr(cls, "__annotations__"):
+                # Note: Pydantic models always have __annotations__, but this
+                # is defensive code for edge cases
+                if not hasattr(cls, "__annotations__"):  # pragma: no cover
                     cls.__annotations__ = {}
                 if id_field_name not in cls.__annotations__:
                     cls.__annotations__[id_field_name] = Optional[int]

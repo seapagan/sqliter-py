@@ -955,8 +955,9 @@ class SqliterDB:
         data = model_instance.model_dump()
 
         # For ORM mode, convert FK field values to _id fields before
-        # serialization
-        if hasattr(model_class, "fk_descriptors"):
+        # serialization. Note: This is defensive code - ORM model_dump()
+        # already excludes FK fields, so this block is normally not executed.
+        if hasattr(model_class, "fk_descriptors"):  # pragma: no cover
             for fk_field in model_class.fk_descriptors:
                 if fk_field in data:
                     value = data[fk_field]

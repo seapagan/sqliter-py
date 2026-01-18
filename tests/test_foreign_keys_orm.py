@@ -9,6 +9,8 @@ import pytest
 
 from sqliter import SqliterDB
 from sqliter.orm import BaseDBModel, ForeignKey, ModelRegistry
+from sqliter.orm.fields import LazyLoader
+from sqliter.orm.query import ReverseRelationship
 
 
 @pytest.fixture
@@ -396,3 +398,517 @@ class TestNestedLazyLoading:
 
         # Nested lazy loading
         assert person.city.country.name == "USA"
+
+
+class TestLazyLoaderMethods:
+    """Test suite for LazyLoader special methods."""
+
+    def test_repr_unloaded(self, db: SqliterDB) -> None:
+        """Test LazyLoader repr before loading."""
+        db.create_table(Author)
+        db.create_table(Book)
+
+        author = db.insert(Author(name="Test", email="test@example.com"))
+        book = db.insert(Book(title="Test Book", author=author))
+
+        # Clear cache to get fresh LazyLoader
+        if hasattr(book, "_fk_cache"):
+            book._fk_cache.clear()
+
+        # Get the LazyLoader without triggering load
+        lazy = book.__dict__.get("_fk_cache", {}).get("author")
+        if lazy is None:
+            # Access to create the LazyLoader but check repr before load
+            # Cast author_id since __getattribute__ returns object
+            fk_id: int | None = book.author_id  # type: ignore[assignment]
+            lazy = LazyLoader(
+                instance=book,
+                to_model=Author,
+                fk_id=fk_id,
+                db_context=db,
+            )
+
+        repr_str = repr(lazy)
+        assert "LazyLoader" in repr_str
+        assert "unloaded" in repr_str
+        assert "Author" in repr_str
+
+    def test_repr_loaded(self, db: SqliterDB) -> None:
+        """Test LazyLoader repr after loading."""
+        db.create_table(Author)
+        db.create_table(Book)
+
+        author = db.insert(
+            Author(name="LoadedTest", email="loaded@example.com")
+        )
+        book = db.insert(Book(title="Loaded Book", author=author))
+
+        # Access to trigger load
+        _ = book.author.name
+
+        # Get the cached LazyLoader
+        lazy = book._fk_cache.get("author")
+        assert lazy is not None
+
+        repr_str = repr(lazy)
+        assert "LazyLoader" in repr_str
+        assert "loaded" in repr_str
+
+    def test_equality_with_loaded_object(self, db: SqliterDB) -> None:
+        """Test LazyLoader equality with loaded object."""
+        db.create_table(Author)
+        db.create_table(Book)
+
+        author = db.insert(Author(name="EqTest", email="eq@example.com"))
+        book = db.insert(Book(title="Eq Book", author=author))
+
+        # Get the LazyLoader
+        lazy = book.author
+
+        # Compare with the actual author
+        assert lazy == author
+
+    def test_equality_with_none_when_null(self, db: SqliterDB) -> None:
+        """Test LazyLoader equality when FK is null returns None."""
+        db.create_table(Publisher)
+        db.create_table(Magazine)
+
+        magazine = db.insert(Magazine(title="No Pub", publisher=None))
+
+        # Create a LazyLoader with null FK ID and compare to None
+        lazy = LazyLoader(
+            instance=magazine,
+            to_model=Publisher,
+            fk_id=None,  # Null FK
+            db_context=db,
+        )
+
+        # This triggers _load() which sets _cached = None, then returns True
+        assert lazy == None  # noqa: E711
+
+    def test_equality_different_objects(self, db: SqliterDB) -> None:
+        """Test LazyLoader equality with different objects."""
+        db.create_table(Author)
+        db.create_table(Book)
+
+        author1 = db.insert(Author(name="Author1", email="a1@example.com"))
+        author2 = db.insert(Author(name="Author2", email="a2@example.com"))
+        book = db.insert(Book(title="Book1", author=author1))
+
+        # LazyLoader should not equal a different author
+        assert book.author != author2
+
+    def test_hash(self, db: SqliterDB) -> None:
+        """Test LazyLoader can be hashed."""
+        db.create_table(Author)
+        db.create_table(Book)
+
+        author = db.insert(Author(name="HashTest", email="hash@example.com"))
+        book = db.insert(Book(title="Hash Book", author=author))
+
+        # Get the LazyLoader
+        lazy = book.author
+
+        # Should be hashable
+        h = hash(lazy)
+        assert isinstance(h, int)
+
+        # Can be used in a set
+        s = {lazy}
+        assert len(s) == 1
+
+    def test_db_error_handling(self, db: SqliterDB) -> None:
+        """Test LazyLoader handles DB errors gracefully."""
+
+        # Create a LazyLoader pointing to a non-existent table
+        class FakeModel(BaseDBModel):
+            name: str
+
+        lazy = LazyLoader(
+            instance=object(),
+            to_model=FakeModel,
+            fk_id=999,
+            db_context=db,
+        )
+
+        # Accessing should raise AttributeError (not a DB error)
+        with pytest.raises(AttributeError):
+            _ = lazy.name
+
+    def test_load_with_null_fk_id(self, db: SqliterDB) -> None:
+        """Test LazyLoader._load() with null FK ID."""
+        lazy = LazyLoader(
+            instance=object(),
+            to_model=Author,
+            fk_id=None,
+            db_context=db,
+        )
+
+        # Force _load to be called
+        lazy._load()
+        assert lazy._cached is None
+
+
+class TestForeignKeyDescriptor:
+    """Test suite for ForeignKey descriptor __set__ method.
+
+    Note: Pydantic intercepts __setattr__, so we call the descriptor directly.
+    The descriptor is stored in fk_descriptors, not __dict__.
+    """
+
+    def test_set_with_none(self, db: SqliterDB) -> None:
+        """Test setting FK to None via descriptor."""
+        db.create_table(Publisher)
+        db.create_table(Magazine)
+
+        publisher = db.insert(Publisher(name="Test Pub"))
+        magazine = db.insert(Magazine(title="Test Mag", publisher=publisher))
+
+        # Call descriptor directly via fk_descriptors
+        Magazine.fk_descriptors["publisher"].__set__(magazine, None)
+        assert magazine.publisher_id is None
+
+    def test_set_with_int(self, db: SqliterDB) -> None:
+        """Test setting FK with integer ID via descriptor."""
+        db.create_table(Author)
+        db.create_table(Book)
+
+        author = db.insert(Author(name="IntTest", email="int@example.com"))
+        book = db.insert(Book(title="Int Book", author=author))
+
+        # Create another author and set by ID via descriptor
+        author2 = db.insert(Author(name="IntTest2", email="int2@example.com"))
+        Book.fk_descriptors["author"].__set__(book, author2.pk)
+
+        assert book.author_id == author2.pk
+
+    def test_set_with_model_instance(self, db: SqliterDB) -> None:
+        """Test setting FK with model instance via descriptor."""
+        db.create_table(Author)
+        db.create_table(Book)
+
+        author1 = db.insert(Author(name="Model1", email="m1@example.com"))
+        author2 = db.insert(Author(name="Model2", email="m2@example.com"))
+        book = db.insert(Book(title="Model Book", author=author1))
+
+        # Set with model instance via descriptor
+        Book.fk_descriptors["author"].__set__(book, author2)
+        assert book.author_id == author2.pk
+
+    def test_set_with_invalid_type(self, db: SqliterDB) -> None:
+        """Test setting FK with invalid type raises TypeError."""
+        db.create_table(Author)
+        db.create_table(Book)
+
+        author = db.insert(Author(name="Invalid", email="inv@example.com"))
+        book = db.insert(Book(title="Invalid Book", author=author))
+
+        # Setting with invalid type should raise TypeError
+        with pytest.raises(TypeError, match="FK value must be"):
+            Book.fk_descriptors["author"].__set__(book, "invalid string")
+
+    def test_get_returns_lazy_loader(self, db: SqliterDB) -> None:
+        """Test ForeignKey.__get__ returns LazyLoader when called directly.
+
+        Note: The ORM model's __getattribute__ normally intercepts FK access,
+        but we can call __get__ directly on the descriptor.
+        """
+        db.create_table(Author)
+        db.create_table(Book)
+
+        author = db.insert(Author(name="GetTest", email="get@example.com"))
+        book = db.insert(Book(title="Get Book", author=author))
+
+        # Call __get__ directly on the descriptor
+        descriptor = Book.fk_descriptors["author"]
+        result = descriptor.__get__(book, Book)
+
+        # Should return a LazyLoader
+        assert isinstance(result, LazyLoader)
+
+
+class TestReverseQueryMethods:
+    """Test suite for ReverseQuery methods."""
+
+    def test_fetch_one(self, db: SqliterDB) -> None:
+        """Test fetch_one on reverse relationship."""
+        db.create_table(Author)
+        db.create_table(Book)
+
+        author = db.insert(Author(name="FetchOne", email="fo@example.com"))
+        db.insert(Book(title="Book 1", author=author))
+        db.insert(Book(title="Book 2", author=author))
+
+        # fetch_one should return a single book
+        book = author.books.fetch_one()
+        assert book is not None
+        assert book.title in {"Book 1", "Book 2"}
+
+    def test_fetch_one_empty(self, db: SqliterDB) -> None:
+        """Test fetch_one when no related objects exist."""
+        db.create_table(Author)
+        db.create_table(Book)
+
+        author = db.insert(Author(name="NoBooks", email="nb@example.com"))
+
+        # fetch_one should return None
+        book = author.books.fetch_one()
+        assert book is None
+
+    def test_fetch_all_no_db_context(self) -> None:
+        """Test fetch_all returns empty list without db_context."""
+        # Create instance without db_context
+        author = Author(name="NoContext", email="nc@example.com")
+
+        # Should return empty list
+        books = author.books.fetch_all()
+        assert books == []
+
+    def test_count_no_db_context(self) -> None:
+        """Test count returns 0 without db_context."""
+        # Create instance without db_context
+        author = Author(name="NoContext", email="nc@example.com")
+
+        # Should return 0
+        count = author.books.count()
+        assert count == 0
+
+    def test_count_with_filters(self, db: SqliterDB) -> None:
+        """Test count with filters on reverse relationship."""
+        db.create_table(Author)
+        db.create_table(Book)
+
+        author = db.insert(Author(name="FilterCount", email="fc@example.com"))
+        db.insert(Book(title="Python Book", author=author))
+        db.insert(Book(title="Java Book", author=author))
+        db.insert(Book(title="Python Guide", author=author))
+
+        # Count with filter
+        count = author.books.filter(title__like="Python%").count()
+        assert count == 2
+
+
+class TestReverseRelationshipDescriptor:
+    """Test suite for ReverseRelationship descriptor."""
+
+    def test_class_level_access(self) -> None:
+        """Test accessing reverse relationship on class returns descriptor."""
+        # Access on class, not instance
+        descriptor = Author.books
+        assert isinstance(descriptor, ReverseRelationship)
+
+    def test_cannot_set_reverse_relationship(self, db: SqliterDB) -> None:
+        """Test setting reverse relationship raises AttributeError.
+
+        Pydantic intercepts __setattr__, so we call the descriptor directly.
+        """
+        db.create_table(Author)
+        db.create_table(Book)
+
+        author = db.insert(Author(name="NoSet", email="ns@example.com"))
+
+        # Call descriptor directly to bypass Pydantic's __setattr__
+        with pytest.raises(
+            AttributeError, match="Cannot set reverse relationship"
+        ):
+            Author.books.__set__(author, [])
+
+
+class TestRegistryPendingRelationships:
+    """Test suite for ModelRegistry pending relationships."""
+
+    def test_forward_reference_pending_relationship(self) -> None:
+        """Test FK to model defined later (forward reference)."""
+        # Save current registry state
+        original_models = ModelRegistry._models.copy()
+        original_fks = ModelRegistry._foreign_keys.copy()
+        original_pending = ModelRegistry._pending_reverses.copy()
+
+        try:
+            # Clear registry for clean test
+            ModelRegistry._models.clear()
+            ModelRegistry._foreign_keys.clear()
+            ModelRegistry._pending_reverses.clear()
+
+            # Define a model that references another not-yet-defined model
+            # Note: This is tricky because Python requires the class to exist
+            # We'll test the pending mechanism by manually triggering it
+
+            class TargetModel(BaseDBModel):
+                """Model that will be referenced."""
+
+                name: str
+
+            # Define a model with FK to TargetModel
+            # Since TargetModel is defined first, this won't trigger pending
+            # But we can verify the mechanism works
+
+            class SourceModel(BaseDBModel):
+                """Model with FK to target."""
+
+                title: str
+                target: ForeignKey[TargetModel] = ForeignKey(
+                    TargetModel, on_delete="CASCADE"
+                )
+
+            # Verify reverse relationship was set up
+            assert hasattr(TargetModel, "sourcemodels")
+
+        finally:
+            # Restore registry state
+            ModelRegistry._models.clear()
+            ModelRegistry._models.update(original_models)
+            ModelRegistry._foreign_keys.clear()
+            ModelRegistry._foreign_keys.update(original_fks)
+            ModelRegistry._pending_reverses.clear()
+            ModelRegistry._pending_reverses.update(original_pending)
+
+    def test_pending_reverse_relationship_deferred(self) -> None:
+        """Test that pending relationships are stored and processed later.
+
+        This tests the scenario where a FK is defined before the target
+        model is registered - the relationship is stored as pending and
+        processed when the target model is registered.
+        """
+        # Save current registry state
+        original_models = ModelRegistry._models.copy()
+        original_fks = ModelRegistry._foreign_keys.copy()
+        original_pending = ModelRegistry._pending_reverses.copy()
+
+        try:
+            # Clear registry for clean test
+            ModelRegistry._models.clear()
+            ModelRegistry._foreign_keys.clear()
+            ModelRegistry._pending_reverses.clear()
+
+            # First define a target model (will be registered)
+            class DeferredTarget(BaseDBModel):
+                """Target model defined first but registered later."""
+
+                name: str
+
+            # Now manually simulate the pending mechanism by:
+            # 1. Unregistering the target
+            # 2. Adding a pending relationship
+            # 3. Re-registering to trigger processing
+
+            target_table = "deferredtarget"
+
+            # Remove the model from registry (simulating it not being there yet)
+            if target_table in ModelRegistry._models:
+                del ModelRegistry._models[target_table]
+
+            # Manually add a pending relationship
+            ModelRegistry._pending_reverses[target_table] = [
+                {
+                    "from_model": Book,  # Use existing Book class
+                    "to_model": DeferredTarget,
+                    "fk_field": "target",
+                    "related_name": "books",
+                }
+            ]
+
+            # Now register the model - this should process pending relationships
+            ModelRegistry.register_model(DeferredTarget)
+
+            # Verify the pending list was processed and cleared
+            assert target_table not in ModelRegistry._pending_reverses
+
+            # Verify the reverse relationship was added
+            assert hasattr(DeferredTarget, "books")
+
+        finally:
+            # Restore registry state
+            ModelRegistry._models.clear()
+            ModelRegistry._models.update(original_models)
+            ModelRegistry._foreign_keys.clear()
+            ModelRegistry._foreign_keys.update(original_fks)
+            ModelRegistry._pending_reverses.clear()
+            ModelRegistry._pending_reverses.update(original_pending)
+
+    def test_add_reverse_relationship_stores_pending(self) -> None:
+        """Test add_reverse_relationship stores pending when model missing."""
+        # Save current registry state
+        original_models = ModelRegistry._models.copy()
+        original_fks = ModelRegistry._foreign_keys.copy()
+        original_pending = ModelRegistry._pending_reverses.copy()
+
+        try:
+            # Clear registry for clean test
+            ModelRegistry._models.clear()
+            ModelRegistry._foreign_keys.clear()
+            ModelRegistry._pending_reverses.clear()
+
+            # Create a mock "to_model" that's not registered
+            class UnregisteredModel(BaseDBModel):
+                """Model that won't be in registry."""
+
+                name: str
+
+            # Remove it from registry
+            unregistered_table = "unregisteredmodel"
+            if unregistered_table in ModelRegistry._models:
+                del ModelRegistry._models[unregistered_table]
+
+            # Call add_reverse_relationship - should store as pending
+            ModelRegistry.add_reverse_relationship(
+                from_model=Book,
+                to_model=UnregisteredModel,
+                fk_field="unregistered",
+                related_name="books",
+            )
+
+            # Verify it was stored as pending
+            assert unregistered_table in ModelRegistry._pending_reverses
+            assert len(ModelRegistry._pending_reverses[unregistered_table]) == 1
+            pending = ModelRegistry._pending_reverses[unregistered_table][0]
+            assert pending["from_model"] is Book
+            assert pending["related_name"] == "books"
+
+        finally:
+            # Restore registry state
+            ModelRegistry._models.clear()
+            ModelRegistry._models.update(original_models)
+            ModelRegistry._foreign_keys.clear()
+            ModelRegistry._foreign_keys.update(original_fks)
+            ModelRegistry._pending_reverses.clear()
+            ModelRegistry._pending_reverses.update(original_pending)
+
+
+class TestUpdateWithORMForeignKey:
+    """Test suite for SqliterDB.update() with ORM FK fields."""
+
+    def test_update_fk_via_id_field(self, db: SqliterDB) -> None:
+        """Test updating FK by modifying the _id field directly."""
+        db.create_table(Author)
+        db.create_table(Book)
+
+        author1 = db.insert(Author(name="Author1", email="a1@example.com"))
+        author2 = db.insert(Author(name="Author2", email="a2@example.com"))
+        book = db.insert(Book(title="Update Book", author=author1))
+
+        # Update by modifying the _id field and calling update
+        book.author_id = author2.pk
+        db.update(book)
+
+        # Fetch and verify
+        updated_book = db.get(Book, book.pk)
+        assert updated_book is not None
+        assert updated_book.author_id == author2.pk
+
+    def test_update_nullable_fk_to_none(self, db: SqliterDB) -> None:
+        """Test updating nullable FK to None."""
+        db.create_table(Publisher)
+        db.create_table(Magazine)
+
+        publisher = db.insert(Publisher(name="Pub"))
+        magazine = db.insert(Magazine(title="Update None", publisher=publisher))
+
+        # Update by setting _id to None
+        magazine.publisher_id = None
+        db.update(magazine)
+
+        # Fetch and verify
+        updated_mag = db.get(Magazine, magazine.pk)
+        assert updated_mag is not None
+        assert updated_mag.publisher_id is None
