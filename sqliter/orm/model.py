@@ -66,24 +66,38 @@ class BaseDBModel(_BaseDBModel):
         """Intercept FK field access to provide lazy loading."""
         # Check if this is a FK field
         if name in object.__getattribute__(self, "fk_descriptors"):
-            # Get the descriptor
-            descriptor = object.__getattribute__(self, "fk_descriptors")[name]
             # Get FK ID
             fk_id = object.__getattribute__(self, f"{name}_id")
-            # Get db_context
-            db_context = object.__getattribute__(self, "db_context")
-            # Return LazyLoader
-            return LazyLoader(
-                instance=self,
-                to_model=descriptor.to_model,
-                fk_id=fk_id,
-                db_context=db_context,
-            )
+
+            # Null FK returns None directly (standard ORM behavior)
+            if fk_id is None:
+                return None
+
+            # Check instance cache for identity (same object on repeated access)
+            instance_dict = object.__getattribute__(self, "__dict__")
+            cache = instance_dict.setdefault("_fk_cache", {})
+            if name not in cache:
+                # Get the descriptor
+                descriptor = object.__getattribute__(self, "fk_descriptors")[name]
+                # Get db_context
+                db_context = object.__getattribute__(self, "db_context")
+                # Create and cache LazyLoader
+                cache[name] = LazyLoader(
+                    instance=self,
+                    to_model=descriptor.to_model,
+                    fk_id=fk_id,
+                    db_context=db_context,
+                )
+            return cache[name]
         # For non-FK fields, use normal attribute access
         return object.__getattribute__(self, name)
 
     def __init_subclass__(cls, **kwargs: Any) -> None:  # noqa: ANN401
-        """Set up ORM-specific features for subclasses."""
+        """Set up ORM field annotations before Pydantic processes the class.
+
+        This runs BEFORE Pydantic populates model_fields, so we add the _id
+        field annotations here so Pydantic will create proper FieldInfo for them.
+        """
         # Call parent __init_subclass__ FIRST
         super().__init_subclass__(**kwargs)
 
@@ -91,12 +105,30 @@ class BaseDBModel(_BaseDBModel):
         if "fk_descriptors" not in cls.__dict__:
             cls.fk_descriptors = {}
 
-        # Find all ForeignKeys in the class
-        for name, value in cls.__dict__.items():
+        # Find all ForeignKeys in the class and add _id field annotations
+        # Make a copy of items to avoid modifying dict during iteration
+        class_items = list(cls.__dict__.items())
+        for name, value in class_items:
             if isinstance(value, ForeignKey):
                 cls.fk_descriptors[name] = value
+                # Add _id field annotation so Pydantic creates a field for it
+                id_field_name = f"{name}_id"
+                if not hasattr(cls, "__annotations__"):
+                    cls.__annotations__ = {}
+                if id_field_name not in cls.__annotations__:
+                    cls.__annotations__[id_field_name] = Optional[int]
 
-        # Process FK descriptors - add _id fields, register FKs
+    @classmethod
+    def __pydantic_init_subclass__(cls, **kwargs: Any) -> None:  # noqa: ANN401
+        """Set up ORM FK metadata after Pydantic has created model_fields.
+
+        This runs AFTER Pydantic populates model_fields, so we can add FK
+        metadata to the _id fields that Pydantic created.
+        """
+        # Call parent __pydantic_init_subclass__ FIRST
+        super().__pydantic_init_subclass__(**kwargs)
+
+        # Process FK descriptors - add FK metadata, register relationships
         cls._setup_orm_fields()
 
         # Register model in global registry
@@ -104,12 +136,12 @@ class BaseDBModel(_BaseDBModel):
 
     @classmethod
     def _setup_orm_fields(cls) -> None:
-        """Create _id fields and register FK relationships.
+        """Add FK metadata to _id fields and register FK relationships.
 
-        Called during class creation to:
-        1. Add _id fields for each FK descriptor
+        Called during class creation (after Pydantic setup) to:
+        1. Add FK metadata to _id fields for constraint generation
         2. Register FK relationships in ModelRegistry
-        3. Set descriptor as class attribute (not as model field)
+        3. Remove descriptor from model_fields so Pydantic doesn't validate it
         """
         # Get FK descriptors for this class
         fk_descriptors_copy = cls.fk_descriptors.copy()
@@ -123,23 +155,29 @@ class BaseDBModel(_BaseDBModel):
             # Get ForeignKeyInfo from descriptor
             fk_info = descriptor.fk_info
 
-            # Add _id field to model if not already present
-            if id_field_name not in cls.model_fields:
-                # Create the field with proper type and constraints
-                default_value: Any = None if fk_info.null else ...
-                id_field = Field(
-                    default=default_value,
-                    description=(f"Foreign key to {fk_info.to_model.__name__}"),
+            # The _id field should exist (created by Pydantic from annotation)
+            # We need to add FK metadata for constraint generation
+            if id_field_name in cls.model_fields:
+                existing_field = cls.model_fields[id_field_name]
+
+                # Create ForeignKeyInfo with proper db_column
+                fk_info_for_field = type(fk_info)(
+                    to_model=fk_info.to_model,
+                    on_delete=fk_info.on_delete,
+                    on_update=fk_info.on_update,
+                    null=fk_info.null,
+                    unique=fk_info.unique,
+                    related_name=fk_info.related_name,
+                    db_column=fk_info.db_column or id_field_name,
                 )
 
-                # Add to model_fields
-                cls.model_fields[id_field_name] = id_field
-
-                # Add to annotations if not present
-                if not hasattr(cls, "__annotations__"):
-                    cls.__annotations__ = {}
-                if id_field_name not in cls.__annotations__:
-                    cls.__annotations__[id_field_name] = Optional[int]
+                # Add FK metadata to existing field's json_schema_extra
+                if existing_field.json_schema_extra is None:
+                    existing_field.json_schema_extra = {}
+                if isinstance(existing_field.json_schema_extra, dict):
+                    existing_field.json_schema_extra["foreign_key"] = (
+                        fk_info_for_field
+                    )
 
             # Register FK relationship
             ModelRegistry.register_foreign_key(

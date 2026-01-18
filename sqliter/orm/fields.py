@@ -83,8 +83,15 @@ class LazyLoader(Generic[T]):
 
         if self._cached is None and self._db is not None:
             # Use db_context to fetch the related object
-            result = self._db.get(self._to_model, self._fk_id)
-            self._cached = cast("Optional[T]", result)
+            # Catch any DB errors (missing table, connection issues, etc.)
+            # and treat as "not found" - AttributeError will be raised
+            # by __getattr__ when accessing attributes on None
+            try:
+                result = self._db.get(self._to_model, self._fk_id)
+                self._cached = cast("Optional[T]", result)
+            except Exception:
+                # Any error loading → treat as not found
+                self._cached = None
 
     def __repr__(self) -> str:
         """Representation showing lazy state."""

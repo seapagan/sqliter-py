@@ -97,15 +97,36 @@ class TestLazyLoading:
         assert book.author.name == "Bob"
 
     def test_lazy_load_not_found(self, db: SqliterDB) -> None:
-        """Test lazy loading when related object doesn't exist."""
+        """Test lazy loading when related object doesn't exist.
+
+        With proper FK constraints, orphan records can't be created normally.
+        This test verifies LazyLoader behavior when db.get returns None
+        (simulating a missing record scenario like database corruption or
+        race conditions).
+        """
+        db.create_table(Author)
         db.create_table(Book)
-        # Don't create the author table or insert any authors
 
-        # Insert with a non-existent author ID
-        book = db.insert(Book(title="Orphan Book", author=999))
+        # Create a valid author and book
+        author = db.insert(Author(name="Test", email="test@example.com"))
+        book = db.insert(Book(title="Orphan Book", author=author))
 
-        # Accessing the author should return None or raise error
-        # (Implementation may vary - currently it would try to load and fail)
+        # Simulate the author being missing by patching db.get to return None
+        original_get = db.get
+
+        def mock_get(model_class: type, pk: int) -> None:
+            if model_class == Author:
+                return None
+            return original_get(model_class, pk)
+
+        db.get = mock_get  # type: ignore[method-assign]
+
+        # Clear any cached loader
+        if hasattr(book, "_fk_cache"):
+            book._fk_cache.clear()
+
+        # Accessing the author should raise AttributeError because
+        # the LazyLoader returns None for the loaded object
         with pytest.raises(AttributeError):
             _ = book.author.name
 
