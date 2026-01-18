@@ -77,9 +77,9 @@ class BaseDBModel(_BaseDBModel):
             instance_dict = object.__getattribute__(self, "__dict__")
             cache = instance_dict.setdefault("_fk_cache", {})
             if name not in cache:
-                # Get the descriptor
-                descriptor = object.__getattribute__(self, "fk_descriptors")[name]
-                # Get db_context
+                # Get the descriptor and db_context
+                fk_descs = object.__getattribute__(self, "fk_descriptors")
+                descriptor = fk_descs[name]
                 db_context = object.__getattribute__(self, "db_context")
                 # Create and cache LazyLoader
                 cache[name] = LazyLoader(
@@ -96,7 +96,7 @@ class BaseDBModel(_BaseDBModel):
         """Set up ORM field annotations before Pydantic processes the class.
 
         This runs BEFORE Pydantic populates model_fields, so we add the _id
-        field annotations here so Pydantic will create proper FieldInfo for them.
+        field annotations here so Pydantic creates proper FieldInfo for them.
         """
         # Call parent __init_subclass__ FIRST
         super().__init_subclass__(**kwargs)
@@ -172,11 +172,13 @@ class BaseDBModel(_BaseDBModel):
                 )
 
                 # Add FK metadata to existing field's json_schema_extra
+                # The ForeignKeyInfo is stored for _build_field_definitions()
                 if existing_field.json_schema_extra is None:
                     existing_field.json_schema_extra = {}
                 if isinstance(existing_field.json_schema_extra, dict):
+                    # ForeignKeyInfo stored for _build_field_definitions
                     existing_field.json_schema_extra["foreign_key"] = (
-                        fk_info_for_field
+                        fk_info_for_field  # type: ignore[assignment]
                     )
 
             # Register FK relationship

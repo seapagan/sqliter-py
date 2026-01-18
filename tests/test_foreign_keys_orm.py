@@ -3,6 +3,8 @@
 Tests lazy loading, reverse relationships, and automatic setup.
 """
 
+from __future__ import annotations
+
 import pytest
 
 from sqliter import SqliterDB
@@ -114,12 +116,12 @@ class TestLazyLoading:
         # Simulate the author being missing by patching db.get to return None
         original_get = db.get
 
-        def mock_get(model_class: type, pk: int) -> None:
+        def mock_get(model_class: type, pk: int) -> object:
             if model_class == Author:
                 return None
             return original_get(model_class, pk)
 
-        db.get = mock_get  # type: ignore[method-assign]
+        db.get = mock_get  # type: ignore[assignment]
 
         # Clear any cached loader
         if hasattr(book, "_fk_cache"):
