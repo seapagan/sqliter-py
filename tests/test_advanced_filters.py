@@ -423,3 +423,68 @@ class TestAdvancedFilters:
         )
         assert len(results) == 1
         assert results[0].name is None
+
+    def test_filter_with_like_condition(self, db_mock_adv) -> None:
+        """Test filter with LIKE condition using wildcards."""
+        # Filter where name matches 'A%' (starts with A)
+        results = (
+            db_mock_adv.select(PersonModel).filter(name__like="A%").fetch_all()
+        )
+        assert len(results) == 1
+        assert results[0].name == "Alice"
+
+    def test_filter_with_like_ends_with(self, db_mock_adv) -> None:
+        """Test filter with LIKE condition for ends with pattern."""
+        # Filter where name matches '%e' (ends with e)
+        results = (
+            db_mock_adv.select(PersonModel).filter(name__like="%e").fetch_all()
+        )
+        assert len(results) == 2
+        assert {r.name for r in results} == {"Alice", "Charlie"}
+
+    def test_filter_with_like_contains(self, db_mock_adv) -> None:
+        """Test filter with LIKE condition for contains pattern."""
+        # Filter where name matches '%li%' (contains 'li')
+        results = (
+            db_mock_adv.select(PersonModel)
+            .filter(name__like="%li%")
+            .fetch_all()
+        )
+        assert len(results) == 2
+        assert {r.name for r in results} == {"Alice", "Charlie"}
+
+    def test_filter_with_like_single_char_wildcard(self, db_mock_adv) -> None:
+        """Test filter with LIKE condition using single character wildcard."""
+        # Filter where name matches '_ob' (3 chars ending in 'ob')
+        results = (
+            db_mock_adv.select(PersonModel).filter(name__like="_ob").fetch_all()
+        )
+        assert len(results) == 1
+        assert results[0].name == "Bob"
+
+    def test_filter_with_like_case_insensitive(self, db_mock_adv) -> None:
+        """Test that LIKE is case-insensitive in SQLite by default."""
+        # SQLite LIKE is case-insensitive for ASCII characters
+        results = (
+            db_mock_adv.select(PersonModel).filter(name__like="a%").fetch_all()
+        )
+        assert len(results) == 1
+        assert results[0].name == "Alice"
+
+    def test_filter_with_like_no_match(self, db_mock_adv) -> None:
+        """Test filter with LIKE condition that matches nothing."""
+        results = (
+            db_mock_adv.select(PersonModel).filter(name__like="Z%").fetch_all()
+        )
+        assert len(results) == 0
+
+    def test_filter_with_bad_like_condition(self, db_mock_adv) -> None:
+        """Test filter with bad LIKE condition (non-string value)."""
+        with pytest.raises(
+            TypeError, match="name requires a string"
+        ) as exc_info:
+            db_mock_adv.select(PersonModel).filter(name__like=25).fetch_all()
+
+        assert (
+            str(exc_info.value) == "name requires a string value for '__like'"
+        )
