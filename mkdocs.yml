@@ -71,7 +71,10 @@ nav:
   - Guide:
       - Overview: guide/guide.md
       - Models: guide/models.md
-      - Foreign Keys: guide/foreign-keys.md
+      - Foreign Keys:
+          - Overview: guide/foreign-keys.md
+          - Explicit Foreign Keys: guide/foreign-keys/explicit.md
+          - ORM Foreign Keys: guide/foreign-keys/orm.md
       - Connect to a Database: guide/connecting.md
       - Caching: guide/caching.md
       - Properties: guide/properties.md
