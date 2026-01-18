@@ -246,6 +246,7 @@ class QueryBuilder(Generic[T]):
             "__notnull": self._handle_null,
             "__in": self._handle_in,
             "__not_in": self._handle_in,
+            "__like": self._handle_like,
             "__startswith": self._handle_like,
             "__endswith": self._handle_like,
             "__contains": self._handle_like,
@@ -348,7 +349,7 @@ class QueryBuilder(Generic[T]):
         Args:
             field_name: The name of the field to filter on.
             value: The pattern to match against.
-            operator: The operator string (e.g., '__startswith', '__contains').
+            operator: The operator string (e.g., '__like', '__startswith').
 
         Raises:
             TypeError: If the value is not a string.
@@ -359,8 +360,17 @@ class QueryBuilder(Generic[T]):
         if not isinstance(value, str):
             err = f"{field_name} requires a string value for '{operator}'"
             raise TypeError(err)
-        formatted_value = self._format_string_for_operator(operator, value)
-        if operator in ["__startswith", "__endswith", "__contains"]:
+        if operator == "__like":
+            # Raw LIKE - user provides the full pattern with % wildcards
+            self.filters.append(
+                (
+                    f"{field_name} LIKE ?",
+                    [value],
+                    operator,
+                )
+            )
+        elif operator in ["__startswith", "__endswith", "__contains"]:
+            formatted_value = self._format_string_for_operator(operator, value)
             self.filters.append(
                 (
                     f"{field_name} GLOB ?",
@@ -369,6 +379,7 @@ class QueryBuilder(Generic[T]):
                 )
             )
         elif operator in ["__istartswith", "__iendswith", "__icontains"]:
+            formatted_value = self._format_string_for_operator(operator, value)
             self.filters.append(
                 (
                     f"{field_name} LIKE ?",

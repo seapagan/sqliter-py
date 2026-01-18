@@ -21,6 +21,7 @@ OPERATOR_MAPPING = {
     "__not_in": "NOT IN",
     "__isnull": "IS NULL",
     "__notnull": "IS NOT NULL",
+    "__like": "LIKE",
     "__startswith": "LIKE",
     "__endswith": "LIKE",
     "__contains": "LIKE",
