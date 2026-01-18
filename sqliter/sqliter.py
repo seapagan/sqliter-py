@@ -954,26 +954,6 @@ class SqliterDB:
         # Get the data and serialize any datetime/date fields
         data = model_instance.model_dump()
 
-        # For ORM mode, convert FK field values to _id fields before
-        # serialization. Note: This is defensive code - ORM model_dump()
-        # already excludes FK fields, so this block is normally not executed.
-        if hasattr(model_class, "fk_descriptors"):  # pragma: no cover
-            for fk_field in model_class.fk_descriptors:
-                if fk_field in data:
-                    value = data[fk_field]
-                    if isinstance(value, BaseDBModel):
-                        # Extract pk from model instance
-                        data[f"{fk_field}_id"] = value.pk
-                        del data[fk_field]
-                    elif isinstance(value, int):
-                        # Already an ID, just move to _id field
-                        data[f"{fk_field}_id"] = value
-                        del data[fk_field]
-                    elif value is None:
-                        # Keep None for nullable FKs
-                        data[f"{fk_field}_id"] = None
-                        del data[fk_field]
-
         for field_name, value in list(data.items()):
             data[field_name] = model_instance.serialize_field(value)
 
