@@ -1,0 +1,62 @@
+"""ForeignKey function for ORM mode.
+
+This returns a ForeignKeyDescriptor (NOT a Pydantic Field like Phase 1).
+"""
+
+from __future__ import annotations
+
+from typing import Any, Optional
+
+
+def ForeignKey(
+    to: type,
+    on_delete: str = "RESTRICT",
+    null: bool = False,
+    unique: bool = False,
+    related_name: Optional[str] = None,
+    db_column: Optional[str] = None,
+) -> Any:
+    """Create a FK field with lazy loading (ORM mode).
+
+    Returns a ForeignKeyDescriptor (NOT a Pydantic Field like Phase 1).
+
+    Args:
+        to: The related model class
+        on_delete: Action when related object is deleted (CASCADE, RESTRICT,
+            SET_NULL)
+        null: Whether FK can be null
+        unique: Whether FK must be unique
+        related_name: Name for reverse relationship (auto-generated if None)
+        db_column: Custom column name for _id field
+
+    Returns:
+        ForeignKeyDescriptor for lazy loading
+
+    Example:
+        class Author(BaseDBModel):
+            name: str
+
+        class Book(BaseDBModel):
+            title: str
+            author: Author = ForeignKey(Author, on_delete="CASCADE")
+
+        # Usage
+        author = db.insert(Author(name="John"))
+        book = db.insert(Book(title="My Book", author=author))
+
+        # Lazy loading
+        print(book.author.name)  # Queries DB for Author
+
+        # Reverse relationship (auto-generated)
+        books = author.books.fetch_all()
+    """
+    from sqliter.orm.fields import ForeignKeyDescriptor
+
+    return ForeignKeyDescriptor(
+        to_model=to,
+        on_delete=on_delete,
+        null=null,
+        unique=unique,
+        related_name=related_name,
+        db_column=db_column,
+    )

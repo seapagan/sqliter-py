@@ -857,7 +857,15 @@ class SqliterDB:
                 deserialized_data[field_name] = model_class.deserialize_field(
                     field_name, value, return_local_time=self.return_local_time
                 )
-            return model_class(pk=cursor.lastrowid, **deserialized_data)
+            # For ORM mode, exclude FK descriptor fields from data
+            if hasattr(model_class, "_fk_descriptors"):
+                for fk_field in model_class._fk_descriptors:
+                    deserialized_data.pop(fk_field, None)
+            instance = model_class(pk=cursor.lastrowid, **deserialized_data)
+            # Set db_context for ORM lazy loading and reverse relationships
+            if hasattr(instance, "db_context"):
+                instance.db_context = self
+            return instance
 
     def get(
         self, model_class: type[BaseDBModel], primary_key_value: int
@@ -904,7 +912,15 @@ class SqliterDB:
                             return_local_time=self.return_local_time,
                         )
                     )
-                return model_class(**deserialized_data)
+                # For ORM mode, exclude FK descriptor fields from data
+                if hasattr(model_class, "_fk_descriptors"):
+                    for fk_field in model_class._fk_descriptors:
+                        deserialized_data.pop(fk_field, None)
+                instance = model_class(**deserialized_data)
+                # Set db_context for ORM lazy loading and reverse relationships
+                if hasattr(instance, "db_context"):
+                    instance.db_context = self
+                return instance
         except sqlite3.Error as exc:
             raise RecordFetchError(table_name) from exc
         else:
@@ -930,6 +946,25 @@ class SqliterDB:
 
         # Get the data and serialize any datetime/date fields
         data = model_instance.model_dump()
+
+        # For ORM mode, convert FK field values to _id fields before serialization
+        if hasattr(model_class, "_fk_descriptors"):
+            for fk_field in model_class._fk_descriptors:
+                if fk_field in data:
+                    value = data[fk_field]
+                    if isinstance(value, BaseDBModel):
+                        # Extract pk from model instance
+                        data[f"{fk_field}_id"] = value.pk
+                        del data[fk_field]
+                    elif isinstance(value, int):
+                        # Already an ID, just move to _id field
+                        data[f"{fk_field}_id"] = value
+                        del data[fk_field]
+                    elif value is None:
+                        # Keep None for nullable FKs
+                        data[f"{fk_field}_id"] = None
+                        del data[fk_field]
+
         for field_name, value in list(data.items()):
             data[field_name] = model_instance.serialize_field(value)
 
