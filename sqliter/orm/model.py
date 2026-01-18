@@ -23,15 +23,16 @@ class BaseDBModel(_BaseDBModel):
     """
 
     # Store FK descriptors per class (not inherited)
-    _fk_descriptors: ClassVar[dict[str, Any]] = {}
+    fk_descriptors: ClassVar[dict[str, ForeignKeyDescriptor]] = {}
 
     # Database context for lazy loading and reverse queries
+    # Using Any since SqliterDB would cause circular import issues with Pydantic
     db_context: Optional[Any] = Field(default=None, exclude=True)
 
-    def __init__(self, **kwargs: Any) -> None:
+    def __init__(self, **kwargs: Any) -> None:  # noqa: ANN401
         """Initialize model, converting FK fields to _id fields."""
         # Convert FK field values to _id fields before validation
-        for fk_field in self._fk_descriptors:
+        for fk_field in self.fk_descriptors:
             if fk_field in kwargs:
                 value = kwargs[fk_field]
                 if isinstance(value, _BaseDBModel):
@@ -49,12 +50,12 @@ class BaseDBModel(_BaseDBModel):
 
         super().__init__(**kwargs)
 
-    def __getattribute__(self, name: str) -> Any:
+    def __getattribute__(self, name: str) -> object:
         """Intercept FK field access to provide lazy loading."""
         # Check if this is a FK field
-        if name in object.__getattribute__(self, "_fk_descriptors"):
+        if name in object.__getattribute__(self, "fk_descriptors"):
             # Get the descriptor
-            descriptor = object.__getattribute__(self, "_fk_descriptors")[name]
+            descriptor = object.__getattribute__(self, "fk_descriptors")[name]
             # Get FK ID
             fk_id = object.__getattribute__(self, f"{name}_id")
             # Get db_context
@@ -69,19 +70,19 @@ class BaseDBModel(_BaseDBModel):
         # For non-FK fields, use normal attribute access
         return object.__getattribute__(self, name)
 
-    def __init_subclass__(cls, **kwargs: Any) -> None:
+    def __init_subclass__(cls, **kwargs: Any) -> None:  # noqa: ANN401
         """Set up ORM-specific features for subclasses."""
         # Call parent __init_subclass__ FIRST
         super().__init_subclass__(**kwargs)
 
         # Collect FK descriptors from class dict
-        if "_fk_descriptors" not in cls.__dict__:
-            cls._fk_descriptors = {}
+        if "fk_descriptors" not in cls.__dict__:
+            cls.fk_descriptors = {}
 
         # Find all ForeignKeyDescriptors in the class
         for name, value in cls.__dict__.items():
             if isinstance(value, ForeignKeyDescriptor):
-                cls._fk_descriptors[name] = value
+                cls.fk_descriptors[name] = value
 
         # Process FK descriptors - add _id fields, register FKs
         cls._setup_orm_fields()
@@ -99,10 +100,10 @@ class BaseDBModel(_BaseDBModel):
         3. Set descriptor as class attribute (not as model field)
         """
         # Get FK descriptors for this class
-        fk_descriptors = cls._fk_descriptors.copy()
+        fk_descriptors_copy = cls.fk_descriptors.copy()
 
-        for field_name in fk_descriptors:
-            descriptor = cls._fk_descriptors[field_name]
+        for field_name in fk_descriptors_copy:
+            descriptor = cls.fk_descriptors[field_name]
 
             # Create _id field name
             id_field_name = f"{field_name}_id"
@@ -113,8 +114,8 @@ class BaseDBModel(_BaseDBModel):
             # Add _id field to model if not already present
             if id_field_name not in cls.model_fields:
                 # Create the field with proper type and constraints
-                default_value = None if fk_info.null else ...
-                id_field: Any = Field(
+                default_value: Any = None if fk_info.null else ...
+                id_field = Field(
                     default=default_value,
                     description=(f"Foreign key to {fk_info.to_model.__name__}"),
                 )

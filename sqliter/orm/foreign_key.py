@@ -5,20 +5,24 @@ This returns a ForeignKeyDescriptor (NOT a Pydantic Field like Phase 1).
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Optional
 
 from sqliter.orm.fields import ForeignKeyDescriptor
 
+if TYPE_CHECKING:  # pragma: no cover
+    from sqliter.model.foreign_key import FKAction
+    from sqliter.model.model import BaseDBModel
+
 
 def ForeignKey(  # noqa: N802
-    to: type,
-    on_delete: str = "RESTRICT",
+    to: type[BaseDBModel],
+    on_delete: FKAction = "RESTRICT",
     *,
     null: bool = False,
     unique: bool = False,
     related_name: Optional[str] = None,
     db_column: Optional[str] = None,
-) -> Any:
+) -> ForeignKeyDescriptor:
     """Create a FK field with lazy loading (ORM mode).
 
     Returns a ForeignKeyDescriptor (NOT a Pydantic Field like Phase 1).

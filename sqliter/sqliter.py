@@ -32,6 +32,7 @@ from sqliter.exceptions import (
 )
 from sqliter.helpers import infer_sqlite_type
 from sqliter.model.foreign_key import ForeignKeyInfo, get_foreign_key_info
+from sqliter.model.model import BaseDBModel
 from sqliter.query.query import QueryBuilder
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -39,9 +40,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
     from pydantic.fields import FieldInfo
 
-    from sqliter.model.model import BaseDBModel
-
-T = TypeVar("T", bound="BaseDBModel")
+T = TypeVar("T", bound=BaseDBModel)
 
 
 class SqliterDB:
@@ -782,6 +781,44 @@ class SqliterDB:
             if model_instance.updated_at == 0:
                 model_instance.updated_at = current_timestamp
 
+    def _create_instance_from_data(
+        self,
+        model_class: type[T],
+        data: dict[str, Any],
+        pk: Optional[int] = None,
+    ) -> T:
+        """Create a model instance from deserialized data.
+
+        Handles ORM-specific field exclusions and db_context setup.
+
+        Args:
+            model_class: The model class to instantiate.
+            data: Raw data dictionary from the database.
+            pk: Optional primary key value to set.
+
+        Returns:
+            A new model instance with db_context set if applicable.
+        """
+        # Deserialize each field before creating the model instance
+        deserialized_data: dict[str, Any] = {}
+        for field_name, value in data.items():
+            deserialized_data[field_name] = model_class.deserialize_field(
+                field_name, value, return_local_time=self.return_local_time
+            )
+        # For ORM mode, exclude FK descriptor fields from data
+        for fk_field in getattr(model_class, "fk_descriptors", {}):
+            deserialized_data.pop(fk_field, None)
+
+        if pk is not None:
+            instance = model_class(pk=pk, **deserialized_data)
+        else:
+            instance = model_class(**deserialized_data)
+
+        # Set db_context for ORM lazy loading and reverse relationships
+        if hasattr(instance, "db_context"):
+            instance.db_context = self
+        return instance
+
     def insert(
         self, model_instance: T, *, timestamp_override: bool = False
     ) -> T:
@@ -851,21 +888,9 @@ class SqliterDB:
         else:
             self._cache_invalidate_table(table_name)
             data.pop("pk", None)
-            # Deserialize each field before creating the model instance
-            deserialized_data = {}
-            for field_name, value in data.items():
-                deserialized_data[field_name] = model_class.deserialize_field(
-                    field_name, value, return_local_time=self.return_local_time
-                )
-            # For ORM mode, exclude FK descriptor fields from data
-            if hasattr(model_class, "_fk_descriptors"):
-                for fk_field in model_class._fk_descriptors:
-                    deserialized_data.pop(fk_field, None)
-            instance = model_class(pk=cursor.lastrowid, **deserialized_data)
-            # Set db_context for ORM lazy loading and reverse relationships
-            if hasattr(instance, "db_context"):
-                instance.db_context = self
-            return instance
+            return self._create_instance_from_data(
+                model_class, data, pk=cursor.lastrowid
+            )
 
     def get(
         self, model_class: type[BaseDBModel], primary_key_value: int
@@ -902,25 +927,7 @@ class SqliterDB:
                     field: result[idx]
                     for idx, field in enumerate(model_class.model_fields)
                 }
-                # Deserialize each field before creating the model instance
-                deserialized_data = {}
-                for field_name, value in result_dict.items():
-                    deserialized_data[field_name] = (
-                        model_class.deserialize_field(
-                            field_name,
-                            value,
-                            return_local_time=self.return_local_time,
-                        )
-                    )
-                # For ORM mode, exclude FK descriptor fields from data
-                if hasattr(model_class, "_fk_descriptors"):
-                    for fk_field in model_class._fk_descriptors:
-                        deserialized_data.pop(fk_field, None)
-                instance = model_class(**deserialized_data)
-                # Set db_context for ORM lazy loading and reverse relationships
-                if hasattr(instance, "db_context"):
-                    instance.db_context = self
-                return instance
+                return self._create_instance_from_data(model_class, result_dict)
         except sqlite3.Error as exc:
             raise RecordFetchError(table_name) from exc
         else:
@@ -949,8 +956,8 @@ class SqliterDB:
 
         # For ORM mode, convert FK field values to _id fields before
         # serialization
-        if hasattr(model_class, "_fk_descriptors"):
-            for fk_field in model_class._fk_descriptors:
+        if hasattr(model_class, "fk_descriptors"):
+            for fk_field in model_class.fk_descriptors:
                 if fk_field in data:
                     value = data[fk_field]
                     if isinstance(value, BaseDBModel):
@@ -998,7 +1005,7 @@ class SqliterDB:
             raise RecordUpdateError(table_name) from exc
 
     def delete(
-        self, model_class: type[BaseDBModel], primary_key_value: str
+        self, model_class: type[BaseDBModel], primary_key_value: Union[int, str]
     ) -> None:
         """Delete a record from the database by its primary key.
 

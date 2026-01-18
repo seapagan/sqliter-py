@@ -151,7 +151,7 @@ class ModelRegistry:
             fk_field: Name of the FK field (e.g., "author")
             related_name: Name for reverse relationship (e.g., "books")
         """
-        from sqliter.orm.query import ReverseRelationship
+        from sqliter.orm.query import ReverseRelationship  # noqa: PLC0415
 
         # Add reverse relationship descriptor to to_model
         setattr(

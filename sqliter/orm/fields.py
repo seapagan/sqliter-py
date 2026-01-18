@@ -2,11 +2,33 @@
 
 from __future__ import annotations
 
-from typing import Any, Generic, Optional, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Generic,
+    Optional,
+    Protocol,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+    runtime_checkable,
+)
 
 from sqliter.model.foreign_key import ForeignKeyInfo
+from sqliter.model.model import BaseDBModel
 
-T = TypeVar("T")
+if TYPE_CHECKING:  # pragma: no cover
+    from sqliter.model.foreign_key import FKAction
+    from sqliter.sqliter import SqliterDB
+
+T = TypeVar("T", bound=BaseDBModel)
+
+
+@runtime_checkable
+class HasPK(Protocol):
+    """Protocol for objects that have a pk attribute."""
+
+    pk: Optional[int]
 
 
 class LazyLoader(Generic[T]):
@@ -18,10 +40,10 @@ class LazyLoader(Generic[T]):
 
     def __init__(
         self,
-        instance: Any,
+        instance: object,
         to_model: type[T],
         fk_id: Optional[int],
-        db_context: Any,
+        db_context: Optional[SqliterDB],
     ) -> None:
         """Initialize lazy loader.
 
@@ -37,7 +59,7 @@ class LazyLoader(Generic[T]):
         self._db = db_context
         self._cached: Optional[T] = None
 
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, name: str) -> object:
         """Load related object and delegate attribute access."""
         if self._cached is None:
             self._load()
@@ -56,7 +78,8 @@ class LazyLoader(Generic[T]):
 
         if self._cached is None and self._db is not None:
             # Use db_context to fetch the related object
-            self._cached = self._db.get(self._to_model, self._fk_id)
+            result = self._db.get(self._to_model, self._fk_id)
+            self._cached = cast("Optional[T]", result)
 
     def __repr__(self) -> str:
         """Representation showing lazy state."""
@@ -92,8 +115,8 @@ class ForeignKeyDescriptor:
 
     def __init__(
         self,
-        to_model: type,
-        on_delete: str = "RESTRICT",
+        to_model: type[BaseDBModel],
+        on_delete: FKAction = "RESTRICT",
         *,
         null: bool = False,
         unique: bool = False,
@@ -133,10 +156,13 @@ class ForeignKeyDescriptor:
         self.name = name
         self.owner = owner
 
-        # Store descriptor in class's _fk_descriptors dict
-        if not hasattr(owner, "_fk_descriptors"):
-            owner._fk_descriptors = {}
-        owner._fk_descriptors[name] = self
+        # Store descriptor in class's fk_descriptors dict
+        fk_desc: dict[str, ForeignKeyDescriptor] = getattr(
+            owner, "fk_descriptors", {}
+        )
+        if not fk_desc:
+            owner.fk_descriptors = fk_desc  # type: ignore[attr-defined]
+        fk_desc[name] = self
 
         # Auto-generate related_name if not provided
         if self.related_name is None:
@@ -144,7 +170,7 @@ class ForeignKeyDescriptor:
             self.related_name = f"{owner.__name__.lower()}s"
 
         # Set up reverse relationship on related model
-        from sqliter.orm.registry import ModelRegistry
+        from sqliter.orm.registry import ModelRegistry  # noqa: PLC0415
 
         ModelRegistry.add_reverse_relationship(
             from_model=owner,
@@ -153,7 +179,19 @@ class ForeignKeyDescriptor:
             related_name=self.related_name,
         )
 
-    def __get__(self, instance: Any, owner: type) -> Any:
+    @overload
+    def __get__(
+        self, instance: None, owner: type[object]
+    ) -> ForeignKeyDescriptor: ...
+
+    @overload
+    def __get__(
+        self, instance: object, owner: type[object]
+    ) -> LazyLoader[BaseDBModel]: ...
+
+    def __get__(
+        self, instance: Optional[object], owner: type[object]
+    ) -> Union[ForeignKeyDescriptor, LazyLoader[BaseDBModel]]:
         """Return LazyLoader that loads related object on attribute access.
 
         If accessed on class (not instance), return the descriptor itself.
@@ -169,27 +207,25 @@ class ForeignKeyDescriptor:
             instance=instance,
             to_model=self.to_model,
             fk_id=fk_id,
-            db_context=instance.db_context,
+            db_context=getattr(instance, "db_context", None),
         )
 
-    def __set__(self, instance: Any, value: Any) -> None:
+    def __set__(self, instance: object, value: object) -> None:
         """Set FK value - handles model instances, ints, or None.
 
         Args:
             instance: Model instance
             value: New FK value (model instance, int ID, or None)
         """
-        from sqliter.model.model import BaseDBModel
-
         if value is None:
             # Set to None
             setattr(instance, f"{self.name}_id", None)
-        elif isinstance(value, BaseDBModel):
-            # Extract pk from model instance
-            setattr(instance, f"{self.name}_id", value.pk)
         elif isinstance(value, int):
             # Set ID directly
             setattr(instance, f"{self.name}_id", value)
+        elif isinstance(value, HasPK):
+            # Duck typing via Protocol: extract pk from model instance
+            setattr(instance, f"{self.name}_id", value.pk)
         else:
             msg = f"FK value must be BaseModel, int, or None, got {type(value)}"
             raise TypeError(msg)

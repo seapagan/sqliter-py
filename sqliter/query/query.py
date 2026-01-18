@@ -631,9 +631,8 @@ class QueryBuilder(Generic[T]):
                 for idx, field in enumerate(self.model_class.model_fields)
             }
             # For ORM mode, exclude FK descriptor fields from data
-            if hasattr(self.model_class, "_fk_descriptors"):
-                for fk_field in self.model_class._fk_descriptors:
-                    data.pop(fk_field, None)
+            for fk_field in getattr(self.model_class, "fk_descriptors", {}):
+                data.pop(fk_field, None)
             instance = self.model_class(**data)
 
         # Set db_context for ORM lazy loading and reverse relationships

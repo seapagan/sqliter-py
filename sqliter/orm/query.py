@@ -2,7 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional, Protocol, runtime_checkable
+
+if TYPE_CHECKING:  # pragma: no cover
+    from sqliter.model.model import BaseDBModel
+    from sqliter.sqliter import SqliterDB
+
+
+@runtime_checkable
+class HasPKAndContext(Protocol):
+    """Protocol for model instances with pk and db_context."""
+
+    pk: Optional[int]
+    db_context: Optional[SqliterDB]
 
 
 class ReverseQuery:
@@ -13,10 +25,10 @@ class ReverseQuery:
 
     def __init__(
         self,
-        instance: object,
-        to_model: type,
+        instance: HasPKAndContext,
+        to_model: type[BaseDBModel],
         fk_field: str,
-        db_context: object,
+        db_context: Optional[SqliterDB],
     ) -> None:
         """Initialize reverse query.
 
@@ -30,7 +42,7 @@ class ReverseQuery:
         self.to_model = to_model
         self.fk_field = fk_field
         self._db = db_context
-        self._filters: dict[str, object] = {}
+        self._filters: dict[str, Any] = {}
         self._limit: Optional[int] = None
         self._offset: Optional[int] = None
 
@@ -39,7 +51,7 @@ class ReverseQuery:
         """Get the FK ID value from the instance."""
         return self.instance.pk
 
-    def filter(self, **kwargs: object) -> ReverseQuery:
+    def filter(self, **kwargs: Any) -> ReverseQuery:  # noqa: ANN401
         """Store filters for later execution.
 
         Args:
@@ -75,14 +87,14 @@ class ReverseQuery:
         self._offset = count
         return self
 
-    def fetch_all(self) -> list[object]:
+    def fetch_all(self) -> list[BaseDBModel]:
         """Execute query using stored db_context.
 
         Returns:
             List of related model instances
         """
         fk_id = self.fk_value
-        if fk_id is None:
+        if fk_id is None or self._db is None:
             return []
 
         # Build query with FK filter and additional filters
@@ -102,7 +114,7 @@ class ReverseQuery:
 
         return query.fetch_all()
 
-    def fetch_one(self) -> Optional[object]:
+    def fetch_one(self) -> Optional[BaseDBModel]:
         """Execute query and return single result.
 
         Returns:
@@ -118,7 +130,7 @@ class ReverseQuery:
             Number of related objects
         """
         fk_id = self.fk_value
-        if fk_id is None:
+        if fk_id is None or self._db is None:
             return 0
 
         # Build query with FK filter and additional filters
@@ -148,7 +160,7 @@ class ReverseRelationship:
     """
 
     def __init__(
-        self, from_model: type, fk_field: str, related_name: str
+        self, from_model: type[BaseDBModel], fk_field: str, related_name: str
     ) -> None:
         """Initialize reverse relationship descriptor.
 
@@ -161,7 +173,9 @@ class ReverseRelationship:
         self.fk_field = fk_field
         self.related_name = related_name
 
-    def __get__(self, instance: object, owner: type) -> object:
+    def __get__(
+        self, instance: Optional[HasPKAndContext], owner: type[object]
+    ) -> ReverseRelationship | ReverseQuery:
         """Return ReverseQuery when accessed on instance.
 
         Args:

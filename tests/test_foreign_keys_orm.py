@@ -40,7 +40,7 @@ class Magazine(BaseDBModel):
 
     title: str
     publisher: Publisher = ForeignKey(
-        Publisher, on_delete="SET_NULL", null=True
+        Publisher, on_delete="SET NULL", null=True
     )
 
 
