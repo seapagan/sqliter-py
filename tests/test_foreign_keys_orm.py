@@ -5,6 +5,11 @@ Tests lazy loading, reverse relationships, and automatic setup.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
 import pytest
 
 from sqliter import SqliterDB
@@ -717,53 +722,54 @@ class TestReverseRelationshipDescriptor:
 class TestRegistryPendingRelationships:
     """Test suite for ModelRegistry pending relationships."""
 
-    def test_forward_reference_pending_relationship(self) -> None:
-        """Test FK to model defined later (forward reference)."""
-        # Save current registry state
+    @pytest.fixture(autouse=True)
+    def _clean_registry(self) -> Generator[None, None, None]:
+        """Isolate ModelRegistry state for each test."""
         original_models = ModelRegistry._models.copy()
         original_fks = ModelRegistry._foreign_keys.copy()
         original_pending = ModelRegistry._pending_reverses.copy()
 
+        ModelRegistry._models.clear()
+        ModelRegistry._foreign_keys.clear()
+        ModelRegistry._pending_reverses.clear()
+
         try:
-            # Clear registry for clean test
-            ModelRegistry._models.clear()
-            ModelRegistry._foreign_keys.clear()
-            ModelRegistry._pending_reverses.clear()
-
-            # Define a model that references another not-yet-defined model
-            # Note: This is tricky because Python requires the class to exist
-            # We'll test the pending mechanism by manually triggering it
-
-            class TargetModel(BaseDBModel):
-                """Model that will be referenced."""
-
-                name: str
-
-            # Define a model with FK to TargetModel
-            # Since TargetModel is defined first, this won't trigger pending
-            # But we can verify the mechanism works
-
-            class _SourceModel(BaseDBModel):
-                """Model with FK to target."""
-
-                title: str
-                target: ForeignKey[TargetModel] = ForeignKey(
-                    TargetModel,
-                    on_delete="CASCADE",
-                    related_name="sourcemodels",  # reverse relationship name
-                )
-
-            # Verify reverse relationship was set up
-            assert hasattr(TargetModel, "sourcemodels")
-
+            yield
         finally:
-            # Restore registry state
             ModelRegistry._models.clear()
             ModelRegistry._models.update(original_models)
             ModelRegistry._foreign_keys.clear()
             ModelRegistry._foreign_keys.update(original_fks)
             ModelRegistry._pending_reverses.clear()
             ModelRegistry._pending_reverses.update(original_pending)
+
+    def test_forward_reference_pending_relationship(self) -> None:
+        """Test FK to model defined later (forward reference)."""
+        # Define a model that references another not-yet-defined model
+        # Note: This is tricky because Python requires the class to exist
+        # We'll test the pending mechanism by manually triggering it
+
+        class TargetModel(BaseDBModel):
+            """Model that will be referenced."""
+
+            name: str
+
+        # Define a model with FK to TargetModel
+        # Since TargetModel is defined first, this won't trigger pending
+        # But we can verify the mechanism works
+
+        class _SourceModel(BaseDBModel):
+            """Model with FK to target."""
+
+            title: str
+            target: ForeignKey[TargetModel] = ForeignKey(
+                TargetModel,
+                on_delete="CASCADE",
+                related_name="sourcemodels",  # reverse relationship name
+            )
+
+        # Verify reverse relationship was set up
+        assert hasattr(TargetModel, "sourcemodels")
 
     def test_pending_reverse_relationship_deferred(self) -> None:
         """Test that pending relationships are stored and processed later.
@@ -772,109 +778,71 @@ class TestRegistryPendingRelationships:
         model is registered - the relationship is stored as pending and
         processed when the target model is registered.
         """
-        # Save current registry state
-        original_models = ModelRegistry._models.copy()
-        original_fks = ModelRegistry._foreign_keys.copy()
-        original_pending = ModelRegistry._pending_reverses.copy()
 
-        try:
-            # Clear registry for clean test
-            ModelRegistry._models.clear()
-            ModelRegistry._foreign_keys.clear()
-            ModelRegistry._pending_reverses.clear()
+        # First define a target model (will be registered)
+        class DeferredTarget(BaseDBModel):
+            """Target model defined first but registered later."""
 
-            # First define a target model (will be registered)
-            class DeferredTarget(BaseDBModel):
-                """Target model defined first but registered later."""
+            name: str
 
-                name: str
+        # Now manually simulate the pending mechanism by:
+        # 1. Unregistering the target
+        # 2. Adding a pending relationship
+        # 3. Re-registering to trigger processing
 
-            # Now manually simulate the pending mechanism by:
-            # 1. Unregistering the target
-            # 2. Adding a pending relationship
-            # 3. Re-registering to trigger processing
+        target_table = "deferredtarget"
 
-            target_table = "deferredtarget"
+        # Remove the model from registry (simulating it not being there yet)
+        if target_table in ModelRegistry._models:
+            del ModelRegistry._models[target_table]
 
-            # Remove the model from registry (simulating it not being there yet)
-            if target_table in ModelRegistry._models:
-                del ModelRegistry._models[target_table]
+        # Manually add a pending relationship
+        ModelRegistry._pending_reverses[target_table] = [
+            {
+                "from_model": Book,  # Use existing Book class
+                "to_model": DeferredTarget,
+                "fk_field": "target",
+                "related_name": "books",
+            }
+        ]
 
-            # Manually add a pending relationship
-            ModelRegistry._pending_reverses[target_table] = [
-                {
-                    "from_model": Book,  # Use existing Book class
-                    "to_model": DeferredTarget,
-                    "fk_field": "target",
-                    "related_name": "books",
-                }
-            ]
+        # Now register the model - this should process pending relationships
+        ModelRegistry.register_model(DeferredTarget)
 
-            # Now register the model - this should process pending relationships
-            ModelRegistry.register_model(DeferredTarget)
+        # Verify the pending list was processed and cleared
+        assert target_table not in ModelRegistry._pending_reverses
 
-            # Verify the pending list was processed and cleared
-            assert target_table not in ModelRegistry._pending_reverses
-
-            # Verify the reverse relationship was added
-            assert hasattr(DeferredTarget, "books")
-
-        finally:
-            # Restore registry state
-            ModelRegistry._models.clear()
-            ModelRegistry._models.update(original_models)
-            ModelRegistry._foreign_keys.clear()
-            ModelRegistry._foreign_keys.update(original_fks)
-            ModelRegistry._pending_reverses.clear()
-            ModelRegistry._pending_reverses.update(original_pending)
+        # Verify the reverse relationship was added
+        assert hasattr(DeferredTarget, "books")
 
     def test_add_reverse_relationship_stores_pending(self) -> None:
         """Test add_reverse_relationship stores pending when model missing."""
-        # Save current registry state
-        original_models = ModelRegistry._models.copy()
-        original_fks = ModelRegistry._foreign_keys.copy()
-        original_pending = ModelRegistry._pending_reverses.copy()
 
-        try:
-            # Clear registry for clean test
-            ModelRegistry._models.clear()
-            ModelRegistry._foreign_keys.clear()
-            ModelRegistry._pending_reverses.clear()
+        # Create a mock "to_model" that's not registered
+        class UnregisteredModel(BaseDBModel):
+            """Model that won't be in registry."""
 
-            # Create a mock "to_model" that's not registered
-            class UnregisteredModel(BaseDBModel):
-                """Model that won't be in registry."""
+            name: str
 
-                name: str
+        # Remove it from registry
+        unregistered_table = "unregisteredmodel"
+        if unregistered_table in ModelRegistry._models:
+            del ModelRegistry._models[unregistered_table]
 
-            # Remove it from registry
-            unregistered_table = "unregisteredmodel"
-            if unregistered_table in ModelRegistry._models:
-                del ModelRegistry._models[unregistered_table]
+        # Call add_reverse_relationship - should store as pending
+        ModelRegistry.add_reverse_relationship(
+            from_model=Book,
+            to_model=UnregisteredModel,
+            fk_field="unregistered",
+            related_name="books",
+        )
 
-            # Call add_reverse_relationship - should store as pending
-            ModelRegistry.add_reverse_relationship(
-                from_model=Book,
-                to_model=UnregisteredModel,
-                fk_field="unregistered",
-                related_name="books",
-            )
-
-            # Verify it was stored as pending
-            assert unregistered_table in ModelRegistry._pending_reverses
-            assert len(ModelRegistry._pending_reverses[unregistered_table]) == 1
-            pending = ModelRegistry._pending_reverses[unregistered_table][0]
-            assert pending["from_model"] is Book
-            assert pending["related_name"] == "books"
-
-        finally:
-            # Restore registry state
-            ModelRegistry._models.clear()
-            ModelRegistry._models.update(original_models)
-            ModelRegistry._foreign_keys.clear()
-            ModelRegistry._foreign_keys.update(original_fks)
-            ModelRegistry._pending_reverses.clear()
-            ModelRegistry._pending_reverses.update(original_pending)
+        # Verify it was stored as pending
+        assert unregistered_table in ModelRegistry._pending_reverses
+        assert len(ModelRegistry._pending_reverses[unregistered_table]) == 1
+        pending = ModelRegistry._pending_reverses[unregistered_table][0]
+        assert pending["from_model"] is Book
+        assert pending["related_name"] == "books"
 
 
 class TestUpdateWithORMForeignKey:
