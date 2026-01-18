@@ -273,11 +273,11 @@ class TestModelRegistry:
         """Test pending reverse relationships for forward references."""
 
         # Define Book first (Author doesn't exist yet)
-        class ForwardRefBook(BaseDBModel):
+        class _ForwardRefBook(BaseDBModel):
             title: str
 
         # Now define Author - pending relationship should be processed
-        class ForwardRefAuthor(BaseDBModel):
+        class _ForwardRefAuthor(BaseDBModel):
             name: str
 
         # The pending relationship should have been processed
@@ -743,12 +743,14 @@ class TestRegistryPendingRelationships:
             # Since TargetModel is defined first, this won't trigger pending
             # But we can verify the mechanism works
 
-            class SourceModel(BaseDBModel):
+            class _SourceModel(BaseDBModel):
                 """Model with FK to target."""
 
                 title: str
                 target: ForeignKey[TargetModel] = ForeignKey(
-                    TargetModel, on_delete="CASCADE"
+                    TargetModel,
+                    on_delete="CASCADE",
+                    related_name="sourcemodels",  # reverse relationship name
                 )
 
             # Verify reverse relationship was set up

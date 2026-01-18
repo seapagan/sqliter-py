@@ -21,7 +21,7 @@ SQLiter offers two ways to work with foreign keys:
 
 ## Which Should I Use?
 
-### Use Explicit Foreign Keys when:
+### Use Explicit Foreign Keys when
 
 - You want minimal abstraction over the database
 - You're managing IDs manually anyway
@@ -44,7 +44,7 @@ author = db.get(Author, book.author_id)
 
 [Read the Explicit Foreign Keys guide](foreign-keys/explicit.md)
 
-### Use ORM Foreign Keys when:
+### Use ORM Foreign Keys when
 
 - You want `book.author.name` style access
 - You need reverse relationships (`author.books`)
