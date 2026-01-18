@@ -26,7 +26,7 @@ class Book(BaseDBModel):
     """Test model for a book with FK to author."""
 
     title: str
-    author: Author = ForeignKey(Author, on_delete="CASCADE")
+    author: ForeignKey[Author] = ForeignKey(Author, on_delete="CASCADE")
 
 
 class Publisher(BaseDBModel):
@@ -39,7 +39,7 @@ class Magazine(BaseDBModel):
     """Test model for a magazine with nullable FK."""
 
     title: str
-    publisher: Publisher = ForeignKey(
+    publisher: ForeignKey[Publisher] = ForeignKey(
         Publisher, on_delete="SET NULL", null=True
     )
 
@@ -205,7 +205,7 @@ class TestReverseRelationships:
 
         class Book(BaseDBModel):
             title: str
-            author: Author = ForeignKey(
+            author: ForeignKey[Author] = ForeignKey(
                 Author, on_delete="CASCADE", related_name="publications"
             )
 
@@ -355,11 +355,13 @@ class TestNestedLazyLoading:
 
         class City(BaseDBModel):
             name: str
-            country: Country = ForeignKey(Country, on_delete="CASCADE")
+            country: ForeignKey[Country] = ForeignKey(
+                Country, on_delete="CASCADE"
+            )
 
         class Person(BaseDBModel):
             name: str
-            city: City = ForeignKey(City, on_delete="CASCADE")
+            city: ForeignKey[City] = ForeignKey(City, on_delete="CASCADE")
 
         db.create_table(Country)
         db.create_table(City)

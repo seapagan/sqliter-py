@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import (
     TYPE_CHECKING,
+    Any,
     Generic,
     Optional,
     Protocol,
@@ -14,10 +15,14 @@ from typing import (
     runtime_checkable,
 )
 
+from pydantic_core import core_schema
+
 from sqliter.model.foreign_key import ForeignKeyInfo
 from sqliter.model.model import BaseDBModel
 
 if TYPE_CHECKING:  # pragma: no cover
+    from pydantic import GetCoreSchemaHandler
+
     from sqliter.model.foreign_key import FKAction
     from sqliter.sqliter import SqliterDB
 
@@ -103,19 +108,24 @@ class LazyLoader(Generic[T]):
         return hash((id(self._instance), self._to_model, self._fk_id))
 
 
-class ForeignKeyDescriptor:
-    """Descriptor for FK fields providing lazy loading.
+class ForeignKey(Generic[T]):
+    """Generic descriptor for FK fields providing lazy loading.
 
     When a FK field is accessed on a model instance, returns a LazyLoader
     that queries the database for the related object.
 
-    During class creation, __set_name__ is called to set up reverse
-    relationships.
+    Usage:
+        class Book(BaseDBModel):
+            title: str
+            author: ForeignKey[Author] = ForeignKey(Author, on_delete="CASCADE")
+
+    The generic parameter T represents the related model type, ensuring
+    proper type checking when accessing the relationship.
     """
 
     def __init__(
         self,
-        to_model: type[BaseDBModel],
+        to_model: type[T],
         on_delete: FKAction = "RESTRICT",
         *,
         null: bool = False,
@@ -147,6 +157,21 @@ class ForeignKeyDescriptor:
         self.name: Optional[str] = None  # Set by __set_name__
         self.owner: Optional[type] = None  # Set by __set_name__
 
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls,
+        source_type: type[Any],
+        handler: GetCoreSchemaHandler,
+    ) -> core_schema.CoreSchema:
+        """Tell Pydantic how to handle ForeignKey[T] type annotations.
+
+        Since ForeignKey fields are removed from model_fields during class
+        creation (in __init_subclass__), we just need to provide a permissive
+        schema to prevent errors during initial schema generation.
+        """
+        # Return a schema that accepts any value - the field is removed anyway
+        return core_schema.any_schema()
+
     def __set_name__(self, owner: type, name: str) -> None:
         """Called automatically during class creation.
 
@@ -156,13 +181,11 @@ class ForeignKeyDescriptor:
         self.name = name
         self.owner = owner
 
-        # Store descriptor in class's fk_descriptors dict
-        fk_desc: dict[str, ForeignKeyDescriptor] = getattr(
-            owner, "fk_descriptors", {}
-        )
-        if not fk_desc:
-            owner.fk_descriptors = fk_desc  # type: ignore[attr-defined]
-        fk_desc[name] = self
+        # Store descriptor in class's OWN fk_descriptors dict (not inherited)
+        # Check __dict__ to avoid getting inherited dict from parent class
+        if "fk_descriptors" not in owner.__dict__:
+            owner.fk_descriptors = {}  # type: ignore[attr-defined]
+        owner.fk_descriptors[name] = self  # type: ignore[attr-defined]
 
         # Auto-generate related_name if not provided
         if self.related_name is None:
@@ -180,18 +203,16 @@ class ForeignKeyDescriptor:
         )
 
     @overload
-    def __get__(
-        self, instance: None, owner: type[object]
-    ) -> ForeignKeyDescriptor: ...
+    def __get__(self, instance: None, owner: type[object]) -> ForeignKey[T]: ...
 
     @overload
     def __get__(
         self, instance: object, owner: type[object]
-    ) -> LazyLoader[BaseDBModel]: ...
+    ) -> LazyLoader[T]: ...
 
     def __get__(
         self, instance: Optional[object], owner: type[object]
-    ) -> Union[ForeignKeyDescriptor, LazyLoader[BaseDBModel]]:
+    ) -> Union[ForeignKey[T], LazyLoader[T]]:
         """Return LazyLoader that loads related object on attribute access.
 
         If accessed on class (not instance), return the descriptor itself.
@@ -229,3 +250,7 @@ class ForeignKeyDescriptor:
         else:
             msg = f"FK value must be BaseModel, int, or None, got {type(value)}"
             raise TypeError(msg)
+
+
+# Backwards compatibility alias
+ForeignKeyDescriptor = ForeignKey

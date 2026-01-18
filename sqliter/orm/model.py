@@ -7,7 +7,7 @@ from typing import Any, ClassVar, Optional
 from pydantic import Field
 
 from sqliter.model.model import BaseDBModel as _BaseDBModel
-from sqliter.orm.fields import ForeignKeyDescriptor, LazyLoader
+from sqliter.orm.fields import ForeignKey, LazyLoader
 from sqliter.orm.registry import ModelRegistry
 
 __all__ = ["BaseDBModel"]
@@ -23,7 +23,7 @@ class BaseDBModel(_BaseDBModel):
     """
 
     # Store FK descriptors per class (not inherited)
-    fk_descriptors: ClassVar[dict[str, ForeignKeyDescriptor]] = {}
+    fk_descriptors: ClassVar[dict[str, ForeignKey[Any]]] = {}
 
     # Database context for lazy loading and reverse queries
     # Using Any since SqliterDB would cause circular import issues with Pydantic
@@ -49,6 +49,18 @@ class BaseDBModel(_BaseDBModel):
                     del kwargs[fk_field]
 
         super().__init__(**kwargs)
+
+    def model_dump(self, **kwargs: Any) -> dict[str, Any]:  # noqa: ANN401
+        """Dump model, excluding FK descriptor fields.
+
+        FK descriptor fields (like 'author') are excluded from serialization.
+        Only the _id fields (like 'author_id') are included.
+        """
+        data = super().model_dump(**kwargs)
+        # Remove FK descriptor fields from the dump
+        for fk_field in self.fk_descriptors:
+            data.pop(fk_field, None)
+        return data
 
     def __getattribute__(self, name: str) -> object:
         """Intercept FK field access to provide lazy loading."""
@@ -79,9 +91,9 @@ class BaseDBModel(_BaseDBModel):
         if "fk_descriptors" not in cls.__dict__:
             cls.fk_descriptors = {}
 
-        # Find all ForeignKeyDescriptors in the class
+        # Find all ForeignKeys in the class
         for name, value in cls.__dict__.items():
-            if isinstance(value, ForeignKeyDescriptor):
+            if isinstance(value, ForeignKey):
                 cls.fk_descriptors[name] = value
 
         # Process FK descriptors - add _id fields, register FKs
