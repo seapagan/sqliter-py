@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Optional
 
 
 class ReverseQuery:
@@ -13,10 +13,10 @@ class ReverseQuery:
 
     def __init__(
         self,
-        instance: Any,
+        instance: object,
         to_model: type,
         fk_field: str,
-        db_context: Any,
+        db_context: object,
     ) -> None:
         """Initialize reverse query.
 
@@ -30,17 +30,16 @@ class ReverseQuery:
         self.to_model = to_model
         self.fk_field = fk_field
         self._db = db_context
-        self._filters: dict[str, Any] = {}
+        self._filters: dict[str, object] = {}
         self._limit: Optional[int] = None
         self._offset: Optional[int] = None
 
     @property
     def fk_value(self) -> Optional[int]:
         """Get the FK ID value from the instance."""
-        pk = self.instance.pk
-        return pk  # type: ignore[no-any-return]
+        return self.instance.pk
 
-    def filter(self, **kwargs: Any) -> ReverseQuery:
+    def filter(self, **kwargs: object) -> ReverseQuery:
         """Store filters for later execution.
 
         Args:
@@ -76,7 +75,7 @@ class ReverseQuery:
         self._offset = count
         return self
 
-    def fetch_all(self) -> List[Any]:
+    def fetch_all(self) -> list[object]:
         """Execute query using stored db_context.
 
         Returns:
@@ -101,10 +100,9 @@ class ReverseQuery:
         if self._offset is not None:
             query = query.offset(self._offset)
 
-        result = query.fetch_all()
-        return result  # type: ignore[no-any-return]
+        return query.fetch_all()
 
-    def fetch_one(self) -> Optional[Any]:
+    def fetch_one(self) -> Optional[object]:
         """Execute query and return single result.
 
         Returns:
@@ -132,8 +130,7 @@ class ReverseQuery:
         if self._filters:
             query = query.filter(**self._filters)
 
-        count_result = query.count()
-        return count_result  # type: ignore[no-any-return]
+        return query.count()
 
     def exists(self) -> bool:
         """Check if any related objects exist.
@@ -164,7 +161,7 @@ class ReverseRelationship:
         self.fk_field = fk_field
         self.related_name = related_name
 
-    def __get__(self, instance: Any, owner: type) -> Any:
+    def __get__(self, instance: object, owner: type) -> object:
         """Return ReverseQuery when accessed on instance.
 
         Args:
@@ -184,7 +181,7 @@ class ReverseRelationship:
             db_context=instance.db_context,
         )
 
-    def __set__(self, instance: Any, value: Any) -> None:
+    def __set__(self, instance: object, value: object) -> None:
         """Prevent setting reverse relationships."""
         msg = (
             f"Cannot set reverse relationship '{self.related_name}'. "

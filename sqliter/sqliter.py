@@ -947,7 +947,8 @@ class SqliterDB:
         # Get the data and serialize any datetime/date fields
         data = model_instance.model_dump()
 
-        # For ORM mode, convert FK field values to _id fields before serialization
+        # For ORM mode, convert FK field values to _id fields before
+        # serialization
         if hasattr(model_class, "_fk_descriptors"):
             for fk_field in model_class._fk_descriptors:
                 if fk_field in data:

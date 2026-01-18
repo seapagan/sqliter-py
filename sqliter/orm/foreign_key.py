@@ -7,10 +7,13 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from sqliter.orm.fields import ForeignKeyDescriptor
 
-def ForeignKey(
+
+def ForeignKey(  # noqa: N802
     to: type,
     on_delete: str = "RESTRICT",
+    *,
     null: bool = False,
     unique: bool = False,
     related_name: Optional[str] = None,
@@ -50,8 +53,6 @@ def ForeignKey(
         # Reverse relationship (auto-generated)
         books = author.books.fetch_all()
     """
-    from sqliter.orm.fields import ForeignKeyDescriptor
-
     return ForeignKeyDescriptor(
         to_model=to,
         on_delete=on_delete,

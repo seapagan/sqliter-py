@@ -8,7 +8,7 @@ Central registry for:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, ClassVar, Optional
 
 
 class ModelRegistry:
@@ -18,12 +18,12 @@ class ModelRegistry:
     required.
     """
 
-    _models: Dict[str, Type[Any]] = {}
-    _foreign_keys: Dict[str, List[Dict[str, Any]]] = {}
-    _pending_reverses: Dict[str, List[Dict[str, Any]]] = {}
+    _models: ClassVar[dict[str, type]] = {}
+    _foreign_keys: ClassVar[dict[str, list[dict[str, Any]]]] = {}
+    _pending_reverses: ClassVar[dict[str, list[dict[str, Any]]]] = {}
 
     @classmethod
-    def register_model(cls, model_class: Type[Any]) -> None:
+    def register_model(cls, model_class: type[Any]) -> None:
         """Register a model class in the global registry.
 
         Args:
@@ -41,8 +41,8 @@ class ModelRegistry:
     @classmethod
     def register_foreign_key(
         cls,
-        from_model: Type[Any],
-        to_model: Type[Any],
+        from_model: type[Any],
+        to_model: type[Any],
         fk_field: str,
         on_delete: str,
         related_name: Optional[str] = None,
@@ -71,7 +71,7 @@ class ModelRegistry:
         )
 
     @classmethod
-    def get_model(cls, table_name: str) -> Optional[Type[Any]]:
+    def get_model(cls, table_name: str) -> Optional[type[Any]]:
         """Get model by table name.
 
         Args:
@@ -83,7 +83,7 @@ class ModelRegistry:
         return cls._models.get(table_name)
 
     @classmethod
-    def get_foreign_keys(cls, table_name: str) -> List[Dict[str, Any]]:
+    def get_foreign_keys(cls, table_name: str) -> list[dict[str, Any]]:
         """Get FK relationships for a model.
 
         Args:
@@ -97,8 +97,8 @@ class ModelRegistry:
     @classmethod
     def add_reverse_relationship(
         cls,
-        from_model: Type[Any],
-        to_model: Type[Any],
+        from_model: type[Any],
+        to_model: type[Any],
         fk_field: str,
         related_name: str,
     ) -> None:
@@ -138,8 +138,8 @@ class ModelRegistry:
     @classmethod
     def _add_reverse_relationship_now(
         cls,
-        from_model: Type[Any],
-        to_model: Type[Any],
+        from_model: type[Any],
+        to_model: type[Any],
         fk_field: str,
         related_name: str,
     ) -> None:

@@ -39,7 +39,9 @@ class Magazine(BaseDBModel):
     """Test model for a magazine with nullable FK."""
 
     title: str
-    publisher: Publisher = ForeignKey(Publisher, on_delete="SET_NULL", null=True)
+    publisher: Publisher = ForeignKey(
+        Publisher, on_delete="SET_NULL", null=True
+    )
 
 
 class TestLazyLoading:
@@ -117,8 +119,8 @@ class TestReverseRelationships:
         db.create_table(Book)
 
         author = db.insert(Author(name="Alice", email="alice@example.com"))
-        book1 = db.insert(Book(title="Book 1", author=author))
-        book2 = db.insert(Book(title="Book 2", author=author))
+        db.insert(Book(title="Book 1", author=author))
+        db.insert(Book(title="Book 2", author=author))
 
         # Fetch books via reverse relationship
         books = author.books.fetch_all()
@@ -275,6 +277,7 @@ class TestDbContext:
 
         author1 = db.insert(Author(name="Jane", email="jane@example.com"))
         author2 = db.get(Author, author1.pk)
+        assert author2
         assert author2.db_context is db
 
     def test_db_context_set_on_select(self, db: SqliterDB) -> None:

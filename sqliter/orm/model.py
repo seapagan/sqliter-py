@@ -7,6 +7,7 @@ from typing import Any, ClassVar, Optional
 from pydantic import Field
 
 from sqliter.model.model import BaseDBModel as _BaseDBModel
+from sqliter.orm.fields import ForeignKeyDescriptor, LazyLoader
 from sqliter.orm.registry import ModelRegistry
 
 __all__ = ["BaseDBModel"]
@@ -59,8 +60,6 @@ class BaseDBModel(_BaseDBModel):
             # Get db_context
             db_context = object.__getattribute__(self, "db_context")
             # Return LazyLoader
-            from sqliter.orm.fields import LazyLoader
-
             return LazyLoader(
                 instance=self,
                 to_model=descriptor.to_model,
@@ -76,8 +75,6 @@ class BaseDBModel(_BaseDBModel):
         super().__init_subclass__(**kwargs)
 
         # Collect FK descriptors from class dict
-        from sqliter.orm.fields import ForeignKeyDescriptor
-
         if "_fk_descriptors" not in cls.__dict__:
             cls._fk_descriptors = {}
 
@@ -119,9 +116,7 @@ class BaseDBModel(_BaseDBModel):
                 default_value = None if fk_info.null else ...
                 id_field: Any = Field(
                     default=default_value,
-                    description=(
-                        f"Foreign key to {fk_info.to_model.__name__}"
-                    ),
+                    description=(f"Foreign key to {fk_info.to_model.__name__}"),
                 )
 
                 # Add to model_fields

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Generic, Optional, TypeVar
 
+from sqliter.model.foreign_key import ForeignKeyInfo
+
 T = TypeVar("T")
 
 
@@ -73,6 +75,10 @@ class LazyLoader(Generic[T]):
             return other is None
         return self._cached == other
 
+    def __hash__(self) -> int:
+        """Hash based on instance and FK identity (not cached object)."""
+        return hash((id(self._instance), self._to_model, self._fk_id))
+
 
 class ForeignKeyDescriptor:
     """Descriptor for FK fields providing lazy loading.
@@ -88,6 +94,7 @@ class ForeignKeyDescriptor:
         self,
         to_model: type,
         on_delete: str = "RESTRICT",
+        *,
         null: bool = False,
         unique: bool = False,
         related_name: Optional[str] = None,
@@ -103,12 +110,10 @@ class ForeignKeyDescriptor:
             related_name: Name for reverse relationship (auto-generated if None)
             db_column: Custom column name for _id field
         """
-        from sqliter.model.foreign_key import ForeignKeyInfo
-
         self.to_model = to_model
         self.fk_info = ForeignKeyInfo(
             to_model=to_model,
-            on_delete=on_delete,  # type: ignore[arg-type]
+            on_delete=on_delete,
             on_update="RESTRICT",
             null=null,
             unique=unique,
@@ -130,8 +135,8 @@ class ForeignKeyDescriptor:
 
         # Store descriptor in class's _fk_descriptors dict
         if not hasattr(owner, "_fk_descriptors"):
-            owner._fk_descriptors = {}  # type: ignore[attr-defined]
-        owner._fk_descriptors[name] = self  # type: ignore[attr-defined]
+            owner._fk_descriptors = {}
+        owner._fk_descriptors[name] = self
 
         # Auto-generate related_name if not provided
         if self.related_name is None:

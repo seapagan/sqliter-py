@@ -136,18 +136,6 @@ convention = "google"
   "PLR2004", # magic numbers are often used in test files
   "SLF001",  # sometimes we need to test private methods
 ]
-"sqliter/orm/**/*.py" = [
-  "ANN401",  # Any is necessary for ORM dynamic typing
-  "PLC0415", # imports inside functions needed to avoid circular imports
-  "SLF001",  # private member access needed for descriptors
-  "N802",    # ForeignKey function name is API convention
-  "FBT001",  # boolean positional arguments are API design
-  "UP035",   # keep runtime typing for Python 3.9 compatibility
-  "UP006",   # keep runtime typing for Python 3.9 compatibility
-  "RUF012",  # mutable class attributes without ClassVar in ORM registry
-  "PLW1641", # LazyLoader does not need __hash__
-  "I001",    # import order for late imports
-]
 
 [tool.ruff.lint.isort]
 known-first-party = ["sqliter"]
