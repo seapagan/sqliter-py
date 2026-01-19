@@ -117,9 +117,8 @@ class LazyLoader(Generic[T]):
             return other is None
         return self._cached == other
 
-    def __hash__(self) -> int:
-        """Hash based on instance and FK identity (not cached object)."""
-        return hash((id(self._instance), self._to_model, self._fk_id))
+    # Unhashable due to mutable equality (based on cached object)
+    __hash__ = None  # type: ignore[assignment]
 
 
 class ForeignKey(Generic[T]):

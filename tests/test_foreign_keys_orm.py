@@ -490,8 +490,8 @@ class TestLazyLoaderMethods:
         # LazyLoader should not equal a different author
         assert book.author != author2
 
-    def test_hash(self, db: SqliterDB) -> None:
-        """Test LazyLoader can be hashed."""
+    def test_hash_raises_type_error(self, db: SqliterDB) -> None:
+        """Test LazyLoader is unhashable due to mutable equality."""
         db.create_table(Author)
         db.create_table(Book)
 
@@ -501,13 +501,10 @@ class TestLazyLoaderMethods:
         # Get the LazyLoader
         lazy = book.author
 
-        # Should be hashable
-        h = hash(lazy)
-        assert isinstance(h, int)
-
-        # Can be used in a set
-        s = {lazy}
-        assert len(s) == 1
+        # LazyLoader is unhashable because __eq__ depends on mutable cached
+        # object, violating the hash/equality contract
+        with pytest.raises(TypeError, match="unhashable type"):
+            hash(lazy)
 
     def test_db_error_handling(self, db: SqliterDB) -> None:
         """Test LazyLoader handles DB errors gracefully."""
