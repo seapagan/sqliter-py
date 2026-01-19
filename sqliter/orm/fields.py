@@ -132,11 +132,12 @@ class ForeignKey(Generic[T]):
     proper type checking when accessing the relationship.
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         to_model: type[T],
-        on_delete: FKAction = "RESTRICT",
         *,
+        on_delete: FKAction = "RESTRICT",
+        on_update: FKAction = "RESTRICT",
         null: bool = False,
         unique: bool = False,
         related_name: Optional[str] = None,
@@ -147,6 +148,7 @@ class ForeignKey(Generic[T]):
         Args:
             to_model: The related model class
             on_delete: Action when related object is deleted
+            on_update: Action when related object's PK is updated
             null: Whether FK can be null
             unique: Whether FK must be unique
             related_name: Name for reverse relationship (auto-generated if None)
@@ -156,7 +158,7 @@ class ForeignKey(Generic[T]):
         self.fk_info = ForeignKeyInfo(
             to_model=to_model,
             on_delete=on_delete,
-            on_update="RESTRICT",
+            on_update=on_update,
             null=null,
             unique=unique,
             related_name=related_name,
@@ -200,7 +202,17 @@ class ForeignKey(Generic[T]):
         # Auto-generate related_name if not provided
         if self.related_name is None:
             # Generate pluralized name from owner class name
-            self.related_name = f"{owner.__name__.lower()}s"
+            base_name = owner.__name__.lower()
+            try:
+                import inflect  # noqa: PLC0415
+
+                p = inflect.engine()
+                self.related_name = p.plural(base_name)
+            except ImportError:
+                # Fallback to simple pluralization by adding 's'
+                self.related_name = (
+                    base_name if base_name.endswith("s") else base_name + "s"
+                )
 
         # Set up reverse relationship on related model
         from sqliter.orm.registry import ModelRegistry  # noqa: PLC0415
