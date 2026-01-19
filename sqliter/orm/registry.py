@@ -153,6 +153,14 @@ class ModelRegistry:
         """
         from sqliter.orm.query import ReverseRelationship  # noqa: PLC0415
 
+        # Guard against overwriting existing attributes
+        if hasattr(to_model, related_name):
+            msg = (
+                f"Reverse relationship '{related_name}' already exists on "
+                f"{to_model.__name__}"
+            )
+            raise AttributeError(msg)
+
         # Add reverse relationship descriptor to to_model
         setattr(
             to_model,

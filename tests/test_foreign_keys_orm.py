@@ -844,6 +844,38 @@ class TestRegistryPendingRelationships:
         assert pending["from_model"] is Book
         assert pending["related_name"] == "books"
 
+    def test_duplicate_related_name_raises_error(self) -> None:
+        """Test that duplicate related_name raises AttributeError."""
+
+        class TargetModel(BaseDBModel):
+            """Target model for reverse relationships."""
+
+            name: str
+
+        class SourceModel(BaseDBModel):
+            """Source model with FK."""
+
+            title: str
+
+        # Add first reverse relationship
+        ModelRegistry._add_reverse_relationship_now(
+            from_model=SourceModel,
+            to_model=TargetModel,
+            fk_field="target",
+            related_name="sources",
+        )
+
+        # Attempting to add another with the same related_name should raise
+        with pytest.raises(
+            AttributeError, match="already exists on TargetModel"
+        ):
+            ModelRegistry._add_reverse_relationship_now(
+                from_model=SourceModel,
+                to_model=TargetModel,
+                fk_field="other_target",
+                related_name="sources",
+            )
+
 
 class TestUpdateWithORMForeignKey:
     """Test suite for SqliterDB.update() with ORM FK fields."""
