@@ -958,6 +958,26 @@ class TestFKEdgeCases:
         # Cache should be cleared, so we should get author2
         assert book.author.name == "Author2"
 
+    def test_fk_cache_cleared_on_direct_id_assignment(
+        self, db: SqliterDB
+    ) -> None:
+        """Test that FK cache is cleared when _id field is set directly."""
+        db.create_table(Author)
+        db.create_table(Book)
+
+        author1 = db.insert(Author(name="Author1", email="a1@example.com"))
+        author2 = db.insert(Author(name="Author2", email="a2@example.com"))
+        book = db.insert(Book(title="Test Book", author=author1))
+
+        # Access author to populate cache
+        assert book.author.name == "Author1"
+
+        # Set _id field directly (not via FK descriptor)
+        book.author_id = author2.pk
+
+        # Cache should be cleared, so we should get author2
+        assert book.author.name == "Author2"
+
     def test_fk_cache_cleared_on_reassignment_to_none(
         self, db: SqliterDB
     ) -> None:

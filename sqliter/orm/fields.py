@@ -282,12 +282,7 @@ class ForeignKey(Generic[T]):
         else:
             msg = f"FK value must be BaseModel, int, or None, got {type(value)}"
             raise TypeError(msg)
-
-        # Clear cached LazyLoader so next access fetches the new related object
-        instance_dict = getattr(instance, "__dict__", {})
-        fk_cache = instance_dict.get("_fk_cache")
-        if fk_cache and self.name in fk_cache:
-            del fk_cache[self.name]
+        # Note: FK cache is cleared by BaseDBModel.__setattr__ when _id changes
 
 
 # Backwards compatibility alias

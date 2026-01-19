@@ -98,6 +98,18 @@ class BaseDBModel(_BaseDBModel):
         # For non-FK fields, use normal attribute access
         return object.__getattribute__(self, name)
 
+    def __setattr__(self, name: str, value: object) -> None:
+        """Intercept _id field assignment to clear FK cache."""
+        # If setting an _id field, clear corresponding FK cache
+        if name.endswith("_id"):
+            fk_name = name[:-3]  # Remove "_id" suffix
+            fk_descs = getattr(self, "fk_descriptors", {})
+            if fk_name in fk_descs:
+                cache = self.__dict__.get("_fk_cache")
+                if cache and fk_name in cache:
+                    del cache[fk_name]
+        super().__setattr__(name, value)
+
     def __init_subclass__(cls, **kwargs: Any) -> None:  # noqa: ANN401
         """Set up ORM field annotations before Pydantic processes the class.
 
