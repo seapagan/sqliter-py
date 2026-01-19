@@ -34,8 +34,9 @@ features:
     2. **Reverse relationships**: When auto-generating `related_name` for ORM
        foreign keys (e.g., `Category` → `categories` instead of `categorys`)
 
-  Without `inflect`, a simple "s" suffix is added. In most cases the default
-  works fine, but `inflect` handles irregular plurals correctly.
+  Without `inflect`, a simple "s" suffix is added (unless the name already ends
+  in "s"). In most cases, the default works fine, but `inflect` handles irregular
+  plurals correctly.
 
 These can be installed using `uv`:
 
