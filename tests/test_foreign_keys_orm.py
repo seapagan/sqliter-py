@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from collections.abc import Generator
 
+    import pytest_mock
+
 import pytest
 
 from sqliter import SqliterDB
@@ -615,6 +617,27 @@ class TestForeignKeyDescriptor:
 
         # Should return a LazyLoader
         assert isinstance(result, LazyLoader)
+
+    def test_related_name_fallback_without_inflect(
+        self, mocker: pytest_mock.MockerFixture
+    ) -> None:
+        """Test related_name uses simple 's' suffix when inflect unavailable."""
+        # Mock inflect to be unavailable
+        mocker.patch.dict("sys.modules", {"inflect": None})
+
+        class _TestAuthor(BaseDBModel):
+            name: str
+
+        class _TestArticle(BaseDBModel):
+            title: str
+            author: ForeignKey[_TestAuthor] = ForeignKey(
+                _TestAuthor, on_delete="CASCADE"
+            )
+
+        # Without inflect, should use simple 's' suffix
+        assert _TestArticle.fk_descriptors["author"].related_name == (
+            "_testarticles"
+        )
 
 
 class TestReverseQueryMethods:
