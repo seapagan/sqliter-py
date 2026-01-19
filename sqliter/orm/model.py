@@ -132,10 +132,12 @@ class BaseDBModel(_BaseDBModel):
                 # Add _id field annotation so Pydantic creates a field for it
                 id_field_name = f"{name}_id"
                 if id_field_name not in cls.__annotations__:
-                    cls.__annotations__[id_field_name] = Optional[int]
-                    # If FK is nullable, default to None so it can be omitted
                     if value.fk_info.null:
+                        cls.__annotations__[id_field_name] = Optional[int]
+                        # Nullable FKs default to None so they can be omitted
                         setattr(cls, id_field_name, None)
+                    else:
+                        cls.__annotations__[id_field_name] = int
 
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs: Any) -> None:  # noqa: ANN401
