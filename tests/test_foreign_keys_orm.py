@@ -274,21 +274,6 @@ class TestModelRegistry:
         assert len(fks) > 0
         assert fks[0]["to_model"] is Author
 
-    def test_pending_reverse_relationships(self) -> None:
-        """Test pending reverse relationships for forward references."""
-
-        # Define Book first (Author doesn't exist yet)
-        class _ForwardRefBook(BaseDBModel):
-            title: str
-
-        # Now define Author - pending relationship should be processed
-        class _ForwardRefAuthor(BaseDBModel):
-            name: str
-
-        # The pending relationship should have been processed
-        # (This is a basic test - the actual forward reference handling
-        # would need more complex setup)
-
 
 class TestDbContext:
     """Test suite for db_context functionality."""
