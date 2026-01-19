@@ -28,9 +28,15 @@ Currently by default, the only external dependency is Pydantic. However, there
 are some optional dependencies that can be installed to enable additional
 features:
 
-- `inflect`: For pluralizing table names (if not specified). This just offers a
-  more-advanced pluralization than the default method used. In most cases you
-  will not need this.
+- `inflect`: For grammatically correct pluralization. This is used in two places:
+    1. **Table names**: When auto-generating table names from model classes
+       (e.g., `Person` → `people` instead of `persons`)
+    2. **Reverse relationships**: When auto-generating `related_name` for ORM
+       foreign keys (e.g., `Category` → `categories` instead of `categorys`)
+
+  Without `inflect`, a simple "s" suffix is added (unless the name already ends
+  in "s"). In most cases, the default works fine, but `inflect` handles irregular
+  plurals correctly.
 
 These can be installed using `uv`:
 

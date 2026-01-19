@@ -177,11 +177,12 @@ class User(BaseDBModel):
 
 > [!NOTE]
 >
-> The pluralization is pretty basic by default, and just consists of adding an
-> 's' if not already there. This will fail on words like 'person' or 'child'. If
-> you need more advanced pluralization, you can install the `extras` package as
-> mentioned in the [installation](../installation.md#optional-dependencies). Of
-> course, you can always specify the `table_name` manually in this case!
+> By default, pluralization adds a simple "s" suffix (unless the name already
+> ends in "s"). For grammatically correct pluralization of irregular words like
+> "person" → "people" or "category" → "categories", install the `extras`
+> package as mentioned in the
+> [installation](../installation.md#optional-dependencies). Of course, you can
+> always specify the `table_name` manually.
 
 ## Model Classmethods
 

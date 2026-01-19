@@ -246,6 +246,7 @@ class QueryBuilder(Generic[T]):
             "__notnull": self._handle_null,
             "__in": self._handle_in,
             "__not_in": self._handle_in,
+            "__like": self._handle_like,
             "__startswith": self._handle_like,
             "__endswith": self._handle_like,
             "__contains": self._handle_like,
@@ -348,7 +349,7 @@ class QueryBuilder(Generic[T]):
         Args:
             field_name: The name of the field to filter on.
             value: The pattern to match against.
-            operator: The operator string (e.g., '__startswith', '__contains').
+            operator: The operator string (e.g., '__like', '__startswith').
 
         Raises:
             TypeError: If the value is not a string.
@@ -359,8 +360,17 @@ class QueryBuilder(Generic[T]):
         if not isinstance(value, str):
             err = f"{field_name} requires a string value for '{operator}'"
             raise TypeError(err)
-        formatted_value = self._format_string_for_operator(operator, value)
-        if operator in ["__startswith", "__endswith", "__contains"]:
+        if operator == "__like":
+            # Raw LIKE - user provides the full pattern with % wildcards
+            self.filters.append(
+                (
+                    f"{field_name} LIKE ?",
+                    [value],
+                    operator,
+                )
+            )
+        elif operator in ["__startswith", "__endswith", "__contains"]:
+            formatted_value = self._format_string_for_operator(operator, value)
             self.filters.append(
                 (
                     f"{field_name} GLOB ?",
@@ -369,6 +379,7 @@ class QueryBuilder(Generic[T]):
                 )
             )
         elif operator in ["__istartswith", "__iendswith", "__icontains"]:
+            formatted_value = self._format_string_for_operator(operator, value)
             self.filters.append(
                 (
                     f"{field_name} LIKE ?",
@@ -624,13 +635,21 @@ class QueryBuilder(Generic[T]):
                 field: self._deserialize(field, row[idx])
                 for idx, field in enumerate(self._fields)
             }
-            return self.model_class.model_validate_partial(data)
+            instance = self.model_class.model_validate_partial(data)
+        else:
+            data = {
+                field: self._deserialize(field, row[idx])
+                for idx, field in enumerate(self.model_class.model_fields)
+            }
+            # For ORM mode, exclude FK descriptor fields from data
+            for fk_field in getattr(self.model_class, "fk_descriptors", {}):
+                data.pop(fk_field, None)
+            instance = self.model_class(**data)
 
-        data = {
-            field: self._deserialize(field, row[idx])
-            for idx, field in enumerate(self.model_class.model_fields)
-        }
-        return self.model_class(**data)
+        # Set db_context for ORM lazy loading and reverse relationships
+        if hasattr(instance, "db_context"):
+            instance.db_context = self.db
+        return instance
 
     def _deserialize(
         self, field_name: str, value: SerializableField

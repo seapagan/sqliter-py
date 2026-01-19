@@ -130,6 +130,12 @@ class BaseDBModel(BaseModel):
         This method determines the table name based on the Meta configuration
         or derives it from the class name if not explicitly set.
 
+        When deriving the table name automatically, the class name is converted
+        to snake_case and pluralized. If the `inflect` library is installed,
+        it provides grammatically correct pluralization (e.g., "person" becomes
+        "people", "category" becomes "categories"). Otherwise, a simple "s"
+        suffix is added if the name doesn't already end in "s".
+
         Returns:
             The name of the database table for this model.
         """

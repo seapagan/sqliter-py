@@ -51,6 +51,16 @@ result = db.select(User).filter(age__gte=20).filter(age__lte=30).fetch_all()
 - `__not_in`: Not in a list of values
   - Example: `category__not_in=["archived", "deleted"]`
 
+## Pattern Matching
+
+- `__like`: SQL LIKE pattern matching (SQLite default is case-insensitive for ASCII)
+  - Use `%` for any sequence of characters
+  - Use `_` for any single character
+  - Example: `name__like="A%"` (starts with A)
+  - Example: `name__like="%son"` (ends with "son")
+  - Example: `name__like="%mid%"` (contains "mid")
+  - Example: `name__like="_ob"` (3 characters ending in "ob")
+
 ## String Operations (Case-Sensitive)
 
 - `__startswith`: Starts with
