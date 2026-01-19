@@ -176,8 +176,12 @@ next_five = author.books.offset(5).limit(5).fetch_all()
 
 ### Custom Related Name
 
-By default, the reverse relationship is named after the model with an "s"
-suffix (e.g., `Book` becomes `books`). You can customize this:
+By default, the reverse relationship is named by pluralizing the model name
+(e.g., `Book` becomes `books`). If the `inflect` library is installed, it
+provides grammatically correct pluralization (e.g., `Person` becomes `people`,
+`Category` becomes `categories`). Otherwise, a simple "s" suffix is added.
+
+You can customize this with the `related_name` parameter:
 
 ```python
 class Book(BaseDBModel):
