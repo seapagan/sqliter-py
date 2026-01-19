@@ -76,12 +76,18 @@ class BaseDBModel(_BaseDBModel):
             # Check instance cache for identity (same object on repeated access)
             instance_dict = object.__getattribute__(self, "__dict__")
             cache = instance_dict.setdefault("_fk_cache", {})
-            if name not in cache:
-                # Get the descriptor and db_context
+            db_context = object.__getattribute__(self, "db_context")
+
+            # Check if we need to create or refresh the cached loader
+            cached_loader = cache.get(name)
+            needs_refresh = cached_loader is None or (
+                cached_loader.db_context is None and db_context is not None
+            )
+
+            if needs_refresh:
+                # Get the descriptor and create LazyLoader
                 fk_descs = object.__getattribute__(self, "fk_descriptors")
                 descriptor = fk_descs[name]
-                db_context = object.__getattribute__(self, "db_context")
-                # Create and cache LazyLoader
                 cache[name] = LazyLoader(
                     instance=self,
                     to_model=descriptor.to_model,
@@ -115,6 +121,9 @@ class BaseDBModel(_BaseDBModel):
                 id_field_name = f"{name}_id"
                 if id_field_name not in cls.__annotations__:
                     cls.__annotations__[id_field_name] = Optional[int]
+                    # If FK is nullable, default to None so it can be omitted
+                    if value.fk_info.null:
+                        setattr(cls, id_field_name, None)
 
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs: Any) -> None:  # noqa: ANN401

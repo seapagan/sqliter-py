@@ -64,6 +64,11 @@ class LazyLoader(Generic[T]):
         self._db = db_context
         self._cached: Optional[T] = None
 
+    @property
+    def db_context(self) -> object:
+        """Return the database context (for checking if loader is valid)."""
+        return self._db
+
     def __getattr__(self, name: str) -> object:
         """Load related object and delegate attribute access."""
         if self._cached is None:
@@ -277,6 +282,12 @@ class ForeignKey(Generic[T]):
         else:
             msg = f"FK value must be BaseModel, int, or None, got {type(value)}"
             raise TypeError(msg)
+
+        # Clear cached LazyLoader so next access fetches the new related object
+        instance_dict = getattr(instance, "__dict__", {})
+        fk_cache = instance_dict.get("_fk_cache")
+        if fk_cache and self.name in fk_cache:
+            del fk_cache[self.name]
 
 
 # Backwards compatibility alias

@@ -922,3 +922,85 @@ class TestUpdateWithORMForeignKey:
         updated_mag = db.get(Magazine, magazine.pk)
         assert updated_mag is not None
         assert updated_mag.publisher_id is None
+
+
+class TestFKEdgeCases:
+    """Test suite for FK edge cases identified in code review."""
+
+    def test_nullable_fk_can_be_omitted_at_init(self, db: SqliterDB) -> None:
+        """Test that nullable FK fields can be omitted from constructor."""
+        db.create_table(Publisher)
+        db.create_table(Magazine)
+
+        # Should be able to create Magazine without specifying publisher
+        magazine = Magazine(title="No Publisher Specified")
+        assert magazine.publisher_id is None
+
+        # Should still be able to insert it
+        inserted = db.insert(magazine)
+        assert inserted.publisher_id is None
+
+    def test_fk_cache_cleared_on_reassignment(self, db: SqliterDB) -> None:
+        """Test that FK cache is cleared when FK is reassigned."""
+        db.create_table(Author)
+        db.create_table(Book)
+
+        author1 = db.insert(Author(name="Author1", email="a1@example.com"))
+        author2 = db.insert(Author(name="Author2", email="a2@example.com"))
+        book = db.insert(Book(title="Test Book", author=author1))
+
+        # Access author to populate cache
+        assert book.author.name == "Author1"
+
+        # Reassign FK using descriptor
+        Book.fk_descriptors["author"].__set__(book, author2)
+
+        # Cache should be cleared, so we should get author2
+        assert book.author.name == "Author2"
+
+    def test_fk_cache_cleared_on_reassignment_to_none(
+        self, db: SqliterDB
+    ) -> None:
+        """Test that FK cache is cleared when FK is set to None."""
+        db.create_table(Publisher)
+        db.create_table(Magazine)
+
+        publisher = db.insert(Publisher(name="Test Pub"))
+        magazine = db.insert(Magazine(title="Test Mag", publisher=publisher))
+
+        # Access publisher to populate cache
+        assert magazine.publisher.name == "Test Pub"
+
+        # Set FK to None using descriptor
+        Magazine.fk_descriptors["publisher"].__set__(magazine, None)
+
+        # Cache should be cleared, so we should get None
+        assert magazine.publisher is None
+
+    def test_lazy_loader_refreshed_when_db_context_set_later(
+        self, db: SqliterDB
+    ) -> None:
+        """Test LazyLoader is refreshed when db_context is set after init."""
+        db.create_table(Author)
+        db.create_table(Book)
+
+        author = db.insert(Author(name="Test Author", email="test@example.com"))
+
+        # Create book manually without db_context
+        book = Book(title="Manual Book", author_id=author.pk)
+        assert book.db_context is None
+
+        # Access author - creates LazyLoader with None db_context
+        # This would previously cache a broken loader
+        lazy1 = book.author
+        assert lazy1.db_context is None
+
+        # Now set db_context
+        book.db_context = db
+
+        # Access author again - should get a refreshed loader with db_context
+        lazy2 = book.author
+        assert lazy2.db_context is db
+
+        # And it should actually work now
+        assert book.author.name == "Test Author"
