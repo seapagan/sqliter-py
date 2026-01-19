@@ -29,7 +29,7 @@ class ModelRegistry:
         Args:
             model_class: The model class to register
         """
-        table_name = model_class.__name__.lower()
+        table_name = model_class.get_table_name()
         cls._models[table_name] = model_class
 
         # Process any pending reverse relationships for this model
@@ -56,7 +56,7 @@ class ModelRegistry:
             on_delete: Action when related object is deleted
             related_name: Name for reverse relationship
         """
-        from_table = from_model.__name__.lower()
+        from_table = from_model.get_table_name()
 
         if from_table not in cls._foreign_keys:
             cls._foreign_keys[from_table] = []
@@ -114,7 +114,7 @@ class ModelRegistry:
             fk_field: Name of the FK field (e.g., "author")
             related_name: Name for reverse relationship (e.g., "books")
         """
-        to_table = to_model.__name__.lower()
+        to_table = to_model.get_table_name()
 
         # Check if to_model has been registered yet
         if to_table in cls._models:

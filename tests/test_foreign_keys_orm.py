@@ -260,17 +260,17 @@ class TestModelRegistry:
         class TestModel(BaseDBModel):
             name: str
 
-        table_name = TestModel.__name__.lower()
+        table_name = TestModel.get_table_name()
         assert ModelRegistry.get_model(table_name) is TestModel
 
     def test_register_foreign_key(self) -> None:
         """Test registering FK relationships."""
         # The FK should be registered during class creation
-        assert Book.__name__.lower() in ModelRegistry._foreign_keys
+        assert Book.get_table_name() in ModelRegistry._foreign_keys
 
     def test_get_foreign_keys(self) -> None:
         """Test getting FK relationships for a model."""
-        fks = ModelRegistry.get_foreign_keys(Book.__name__.lower())
+        fks = ModelRegistry.get_foreign_keys(Book.get_table_name())
         assert len(fks) > 0
         assert fks[0]["to_model"] is Author
 
@@ -790,7 +790,7 @@ class TestRegistryPendingRelationships:
         # 2. Adding a pending relationship
         # 3. Re-registering to trigger processing
 
-        target_table = "deferredtarget"
+        target_table = DeferredTarget.get_table_name()
 
         # Remove the model from registry (simulating it not being there yet)
         if target_table in ModelRegistry._models:
@@ -825,7 +825,7 @@ class TestRegistryPendingRelationships:
             name: str
 
         # Remove it from registry
-        unregistered_table = "unregisteredmodel"
+        unregistered_table = UnregisteredModel.get_table_name()
         if unregistered_table in ModelRegistry._models:
             del ModelRegistry._models[unregistered_table]
 
