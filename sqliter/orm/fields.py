@@ -160,7 +160,8 @@ class ForeignKey(Generic[T]):
             null=null,
             unique=unique,
             related_name=related_name,
-            db_column=db_column or f"{to_model.__name__.lower()}_id",
+            # Let _setup_orm_fields set default from actual field name
+            db_column=db_column,
         )
         self.related_name = related_name
         self.name: Optional[str] = None  # Set by __set_name__

@@ -230,21 +230,21 @@ class TestReverseRelationships:
     ) -> None:
         """Test reverse relationship with custom related_name."""
 
-        class Author(BaseDBModel):
+        class CustomAuthor(BaseDBModel):
             name: str
 
-        class Book(BaseDBModel):
+        class CustomBook(BaseDBModel):
             title: str
-            author: ForeignKey[Author] = ForeignKey(
-                Author, on_delete="CASCADE", related_name="publications"
+            author: ForeignKey[CustomAuthor] = ForeignKey(
+                CustomAuthor, on_delete="CASCADE", related_name="publications"
             )
 
-        db.create_table(Author)
-        db.create_table(Book)
+        db.create_table(CustomAuthor)
+        db.create_table(CustomBook)
 
-        author = db.insert(Author(name="Henry"))
-        db.insert(Book(title="Book 1", author=author))
-        db.insert(Book(title="Book 2", author=author))
+        author = db.insert(CustomAuthor(name="Henry"))
+        db.insert(CustomBook(title="Book 1", author=author))
+        db.insert(CustomBook(title="Book 2", author=author))
 
         # Use custom related name
         books = author.publications.fetch_all()
