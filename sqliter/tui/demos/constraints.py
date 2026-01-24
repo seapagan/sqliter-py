@@ -4,16 +4,16 @@ from __future__ import annotations
 
 import io
 
+from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
+from sqliter.model.unique import unique
+from sqliter.orm.foreign_key import ForeignKey
 from sqliter.tui.demos.base import Demo, DemoCategory
 
 
 def _run_unique_field() -> str:
     """Execute the unique field demo."""
     output = io.StringIO()
-
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
-    from sqliter.model.unique import unique
 
     class User(BaseDBModel):
         email: str = unique()
@@ -36,10 +36,6 @@ def _run_multi_field_unique() -> str:
     """Execute the composite unique key demo."""
     output = io.StringIO()
 
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
-    from sqliter.model.unique import unique
-
     class Enrollment(BaseDBModel):
         student_id: int = unique()
         course_id: int = unique()
@@ -49,7 +45,10 @@ def _run_multi_field_unique() -> str:
 
     output.write("Table created with unique fields\n")
     enrollment = db.insert(Enrollment(student_id=1, course_id=101))
-    output.write(f"Enrolled student {enrollment.student_id} in course {enrollment.course_id}\n")
+    output.write(
+        f"Enrolled student {enrollment.student_id} in course "
+        f"{enrollment.course_id}\n"
+    )
 
     db.close()
     return output.getvalue()
@@ -59,16 +58,12 @@ def _run_foreign_key_cascade() -> str:
     """Execute the foreign key CASCADE demo."""
     output = io.StringIO()
 
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
-    from sqliter.orm.foreign_key import ForeignKey
-
     class Author(BaseDBModel):
         name: str
 
     class Book(BaseDBModel):
         title: str
-        author: Author = ForeignKey(
+        author_id: ForeignKey[Author] = ForeignKey(
             Author,
             on_delete="CASCADE",
             on_update="CASCADE",
@@ -92,16 +87,14 @@ def _run_foreign_key_restrict() -> str:
     """Execute the foreign key RESTRICT demo."""
     output = io.StringIO()
 
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
-    from sqliter.orm.foreign_key import ForeignKey
-
     class Category(BaseDBModel):
         name: str
 
     class Product(BaseDBModel):
         name: str
-        category: Category = ForeignKey(Category, on_delete="RESTRICT")
+        category_id: ForeignKey[Category] = ForeignKey(
+            Category, on_delete="RESTRICT"
+        )
 
     db = SqliterDB(memory=True)
     db.create_table(Category)
@@ -110,7 +103,9 @@ def _run_foreign_key_restrict() -> str:
     category = db.insert(Category(name="Electronics"))
     product = db.insert(Product(name="Laptop", category_id=category.pk))
     output.write(f"Product '{product.name}' in category '{category.name}'\n")
-    output.write("Foreign key: RESTRICT prevents deletion of referenced records\n")
+    output.write(
+        "Foreign key: RESTRICT prevents deletion of referenced records\n"
+    )
 
     db.close()
     return output.getvalue()
@@ -120,16 +115,12 @@ def _run_foreign_key_set_null() -> str:
     """Execute the foreign key SET NULL demo."""
     output = io.StringIO()
 
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
-    from sqliter.orm.foreign_key import ForeignKey
-
     class Department(BaseDBModel):
         name: str
 
     class Employee(BaseDBModel):
         name: str
-        department: Department | None = ForeignKey(
+        department_id: ForeignKey[Department] | None = ForeignKey(
             Department,
             on_delete="SET NULL",
             null=True,
@@ -148,7 +139,7 @@ def _run_foreign_key_set_null() -> str:
     return output.getvalue()
 
 
-UNIQUE_FIELD_CODE = '''
+UNIQUE_FIELD_CODE = """
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 from sqliter.model.unique import unique
@@ -166,9 +157,9 @@ user2 = db.insert(User(email="bob@example.com", name="Bob"))
 
 # Duplicate email will raise error
 # user3 = db.insert(User(email="alice@example.com", name="Carol"))
-'''
+"""
 
-MULTI_UNIQUE_CODE = '''
+MULTI_UNIQUE_CODE = """
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 from sqliter.model.unique import unique
@@ -182,9 +173,9 @@ db.create_table(Enrollment)
 
 # Each field is unique individually
 enrollment = db.insert(Enrollment(student_id=1, course_id=101))
-'''
+"""
 
-FK_CASCADE_CODE = '''
+FK_CASCADE_CODE = """
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 from sqliter.orm.foreign_key import ForeignKey
@@ -194,7 +185,7 @@ class Author(BaseDBModel):
 
 class Book(BaseDBModel):
     title: str
-    author: Author = ForeignKey(
+    author_id: ForeignKey[Author] = ForeignKey(
         Author,
         on_delete="CASCADE",
         on_update="CASCADE",
@@ -206,9 +197,9 @@ db.create_table(Author)
 db.create_table(Book)
 
 # Deleting author will delete their books
-'''
+"""
 
-FK_RESTRICT_CODE = '''
+FK_RESTRICT_CODE = """
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 from sqliter.orm.foreign_key import ForeignKey
@@ -218,16 +209,18 @@ class Category(BaseDBModel):
 
 class Product(BaseDBModel):
     name: str
-    category: Category = ForeignKey(Category, on_delete="RESTRICT")
+    category_id: ForeignKey[Category] = ForeignKey(
+        Category, on_delete="RESTRICT"
+    )
 
 db = SqliterDB(memory=True)
 db.create_table(Category)
 db.create_table(Product)
 
 # Cannot delete category if products reference it
-'''
+"""
 
-FK_SET_NULL_CODE = '''
+FK_SET_NULL_CODE = """
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 from sqliter.orm.foreign_key import ForeignKey
@@ -237,7 +230,7 @@ class Department(BaseDBModel):
 
 class Employee(BaseDBModel):
     name: str
-    department: Department | None = ForeignKey(
+    department_id: int | None = ForeignKey(
         Department,
         on_delete="SET NULL",
         null=True,
@@ -248,7 +241,7 @@ db.create_table(Department)
 db.create_table(Employee)
 
 # Deleting department sets employee.department_id to NULL
-'''
+"""
 
 
 def get_category() -> DemoCategory:

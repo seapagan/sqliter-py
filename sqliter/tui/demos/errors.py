@@ -4,16 +4,22 @@ from __future__ import annotations
 
 import io
 
-from sqliter import ForeignKeyConstraintError, RecordNotFoundError, UniqueConstraintError
+from sqliter import SqliterDB
+from sqliter.exceptions import (
+    ForeignKeyConstraintError,
+    RecordInsertionError,
+    RecordNotFoundError,
+    SqliterError,
+)
+from sqliter.model import BaseDBModel
+from sqliter.model.unique import unique
+from sqliter.orm.foreign_key import ForeignKey
 from sqliter.tui.demos.base import Demo, DemoCategory
 
 
 def _run_record_not_found() -> str:
     """Execute the record not found demo."""
     output = io.StringIO()
-
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
 
     class User(BaseDBModel):
         name: str
@@ -39,10 +45,6 @@ def _run_unique_constraint() -> str:
     """Execute the unique constraint demo."""
     output = io.StringIO()
 
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
-    from sqliter.model.unique import unique
-
     class User(BaseDBModel):
         email: str = unique()
         name: str
@@ -56,7 +58,7 @@ def _run_unique_constraint() -> str:
     try:
         # Try to insert duplicate email
         db.insert(User(email="alice@example.com", name="Alice 2"))
-    except UniqueConstraintError as e:
+    except RecordInsertionError as e:
         output.write(f"\nCaught error: {type(e).__name__}\n")
         output.write(f"Message: {e}\n")
 
@@ -68,16 +70,12 @@ def _run_foreign_key_constraint() -> str:
     """Execute the foreign key constraint demo."""
     output = io.StringIO()
 
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
-    from sqliter.orm.foreign_key import ForeignKey
-
     class Author(BaseDBModel):
         name: str
 
     class Book(BaseDBModel):
         title: str
-        author: Author = ForeignKey(Author, on_delete="RESTRICT")
+        author_id: ForeignKey[Author] = ForeignKey(Author, on_delete="RESTRICT")
 
     db = SqliterDB(memory=True)
     db.create_table(Author)
@@ -102,9 +100,6 @@ def _run_generic_error_handling() -> str:
     """Execute the generic error handling demo."""
     output = io.StringIO()
 
-    from sqliter import SqliterDB, SqliterError
-    from sqliter.model import BaseDBModel
-
     class Task(BaseDBModel):
         title: str
 
@@ -116,9 +111,10 @@ def _run_generic_error_handling() -> str:
 
     # Try to update non-existent record
     try:
-        db.update(task, title="Updated")  # task has been deleted
-        db.delete(task)
-        db.update(task, title="This will fail")
+        task.title = "Updated"
+        db.update(task)  # task has been deleted
+        db.delete(Task, task.pk)
+        db.update(task)  # This will fail
     except SqliterError as e:
         output.write(f"\nCaught SqliterError: {type(e).__name__}\n")
         output.write(f"Message: {e}\n")
@@ -145,7 +141,7 @@ except RecordNotFoundError as e:
 """
 
 UNIQUE_CONSTRAINT_CODE = """
-from sqliter import SqliterDB, UniqueConstraintError
+from sqliter import SqliterDB, RecordInsertionError
 from sqliter.model import BaseDBModel
 from sqliter.model.unique import unique
 
@@ -159,9 +155,9 @@ db.create_table(User)
 db.insert(User(email="alice@example.com", name="Alice"))
 
 try:
-    # Will raise UniqueConstraintError
+    # Will raise RecordInsertionError for unique constraint
     db.insert(User(email="alice@example.com", name="Alice 2"))
-except UniqueConstraintError as e:
+except RecordInsertionError as e:
     print(f"Duplicate email: {e}")
 """
 
@@ -175,7 +171,7 @@ class Author(BaseDBModel):
 
 class Book(BaseDBModel):
     title: str
-    author: Author = ForeignKey(Author, on_delete="RESTRICT")
+    author_id: ForeignKey[Author] = ForeignKey(Author, on_delete="RESTRICT")
 
 db = SqliterDB(memory=True)
 db.create_table(Author)

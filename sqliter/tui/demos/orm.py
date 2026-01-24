@@ -4,15 +4,14 @@ from __future__ import annotations
 
 import io
 
+from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
 from sqliter.tui.demos.base import Demo, DemoCategory
 
 
 def _run_lazy_loading() -> str:
     """Execute the lazy loading demo."""
     output = io.StringIO()
-
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
 
     class Author(BaseDBModel):
         name: str
@@ -41,9 +40,6 @@ def _run_orm_style_access() -> str:
     """Execute the ORM-style access demo."""
     output = io.StringIO()
 
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
-
     class User(BaseDBModel):
         name: str
         email: str
@@ -52,7 +48,7 @@ def _run_orm_style_access() -> str:
     db.create_table(User)
 
     user = db.insert(User(name="Alice", email="alice@example.com"))
-    output.write(f"Created user:\n")
+    output.write("Created user:\n")
     output.write(f"  name: {user.name}\n")
     output.write(f"  email: {user.email}\n")
     output.write(f"  pk: {user.pk}\n")
@@ -65,9 +61,6 @@ def _run_orm_style_access() -> str:
 def _run_relationship_navigation() -> str:
     """Execute the relationship navigation demo."""
     output = io.StringIO()
-
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
 
     class Team(BaseDBModel):
         name: str

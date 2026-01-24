@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from rich.syntax import Syntax
-from textual.app import ComposeResult
 from textual.containers import ScrollableContainer
+from textual.css.query import NoMatches
 from textual.widgets import Static
+
+if TYPE_CHECKING:
+    from textual.app import ComposeResult
 
 
 class CodeDisplay(ScrollableContainer):
@@ -15,10 +20,17 @@ class CodeDisplay(ScrollableContainer):
         self,
         code: str = "",
         *,
-        id: str | None = None,
+        widget_id: str | None = None,
         classes: str | None = None,
     ) -> None:
-        super().__init__(id=id, classes=classes)
+        """Initialize the code display.
+
+        Args:
+            code: Initial code to display.
+            widget_id: Widget ID.
+            classes: CSS classes for the widget.
+        """
+        super().__init__(id=widget_id, classes=classes)
         self._code = code
 
     def compose(self) -> ComposeResult:
@@ -44,7 +56,7 @@ class CodeDisplay(ScrollableContainer):
         """Update the code display with syntax highlighting."""
         try:
             content = self.query_one("#code-content", Static)
-        except Exception:
+        except NoMatches:
             return  # Not mounted yet
 
         if not self._code:

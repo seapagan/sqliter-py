@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 import io
+from datetime import datetime, timezone
 
+from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
 from sqliter.tui.demos.base import Demo, DemoCategory
 
 
 def _run_basic_model() -> str:
     """Execute the basic model demo."""
     output = io.StringIO()
-
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
 
     class User(BaseDBModel):
         name: str
@@ -35,9 +35,6 @@ def _run_basic_model() -> str:
 def _run_custom_table_name() -> str:
     """Execute the custom table name demo."""
     output = io.StringIO()
-
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
 
     class Person(BaseDBModel):
         """Person model with custom table name."""
@@ -62,17 +59,12 @@ def _run_field_types() -> str:
     """Execute the field types demo."""
     output = io.StringIO()
 
-    from datetime import datetime
-
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
-
     class Product(BaseDBModel):
         name: str
         price: float
         in_stock: bool
         quantity: int
-        created_at: datetime
+        created_at: int
 
     db = SqliterDB(memory=True)
     db.create_table(Product)
@@ -83,7 +75,7 @@ def _run_field_types() -> str:
             price=19.99,
             in_stock=True,
             quantity=100,
-            created_at=datetime.now(),
+            created_at=int(datetime.now(timezone.utc).timestamp()),
         ),
     )
     output.write(f"Product: {product.name}\n")
@@ -100,9 +92,6 @@ def _run_optional_fields() -> str:
     """Execute the optional fields demo."""
     output = io.StringIO()
 
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
-
     class Article(BaseDBModel):
         title: str
         content: str | None
@@ -111,7 +100,7 @@ def _run_optional_fields() -> str:
     db = SqliterDB(memory=True)
     db.create_table(Article)
 
-    article1 = db.insert(Article(title="First Post"))
+    article1 = db.insert(Article(title="First Post", content=None))
     output.write(f"Article 1: {article1.title}\n")
     output.write(f"Content: {article1.content}\n")
     output.write(f"Author: {article1.author}\n")
@@ -130,9 +119,6 @@ def _run_optional_fields() -> str:
 def _run_default_values() -> str:
     """Execute the default values demo."""
     output = io.StringIO()
-
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
 
     class Task(BaseDBModel):
         title: str
@@ -154,9 +140,6 @@ def _run_default_values() -> str:
 def _run_complex_types() -> str:
     """Execute the complex types demo."""
     output = io.StringIO()
-
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
 
     class Document(BaseDBModel):
         title: str

@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import contextlib
 import io
 import traceback
 from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from sqliter.tui.demos.base import Demo
+if TYPE_CHECKING:
+    from sqliter.tui.demos.base import Demo
 
 
 @dataclass
@@ -47,7 +50,10 @@ class DemoRunner:
         stderr_capture = io.StringIO()
 
         try:
-            with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
+            with (
+                redirect_stdout(stdout_capture),
+                redirect_stderr(stderr_capture),
+            ):
                 output = demo.execute()
 
             # Combine all output sources
@@ -69,22 +75,22 @@ class DemoRunner:
                 output=combined or "(No output)",
             )
 
-        except Exception as e:
+        # Catching Exception is necessary here since demo code may raise any
+        # type
+        except Exception:  # noqa: BLE001
             tb = traceback.format_exc()
             self._last_result = ExecutionResult(
                 success=False,
                 output=stdout_capture.getvalue(),
-                error=str(e),
+                error="Exception in demo code",
                 traceback=tb,
             )
 
         finally:
-            # Run teardown if defined
+            # Run teardown if defined, ignoring any errors
             if demo.teardown:
-                try:
+                with contextlib.suppress(Exception):
                     demo.teardown()
-                except Exception:
-                    pass  # Ignore teardown errors
 
         return self._last_result
 

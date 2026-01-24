@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from textual.app import ComposeResult
+from typing import TYPE_CHECKING
+
 from textual.containers import ScrollableContainer
 from textual.message import Message
 from textual.widgets import Tree
@@ -10,11 +11,19 @@ from textual.widgets import Tree
 from sqliter.tui.demos import DemoRegistry
 from sqliter.tui.demos.base import Demo, DemoCategory
 
+if TYPE_CHECKING:
+    from textual.app import ComposeResult
+
 
 class DemoSelected(Message):
     """Message sent when a demo is selected."""
 
     def __init__(self, demo: Demo) -> None:
+        """Initialize the message.
+
+        Args:
+            demo: The demo that was selected.
+        """
         self.demo = demo
         super().__init__()
 

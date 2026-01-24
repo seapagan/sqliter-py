@@ -2,19 +2,34 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
-from sqliter.tui.demos.base import Demo, DemoCategory
+from sqliter.tui.demos import (
+    caching,
+    connection,
+    constraints,
+    crud,
+    errors,
+    filters,
+    models,
+    ordering,
+    orm,
+    results,
+    timestamps,
+    transactions,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+    from sqliter.tui.demos.base import Demo, DemoCategory
 
 
 class DemoRegistry:
     """Registry for all available demos."""
 
-    _categories: list[DemoCategory] = []
-    _demos_by_id: dict[str, Demo] = {}
+    _categories: ClassVar[list[DemoCategory]] = []
+    _demos_by_id: ClassVar[dict[str, Demo]] = {}
 
     @classmethod
     def register_category(cls, category: DemoCategory) -> None:
@@ -54,21 +69,6 @@ class DemoRegistry:
 
 def _init_registry() -> None:
     """Initialize the demo registry with all categories."""
-    from sqliter.tui.demos import (
-        caching,
-        connection,
-        constraints,
-        crud,
-        errors,
-        filters,
-        models,
-        ordering,
-        orm,
-        results,
-        timestamps,
-        transactions,
-    )
-
     DemoRegistry.register_category(connection.get_category())
     DemoRegistry.register_category(models.get_category())
     DemoRegistry.register_category(crud.get_category())

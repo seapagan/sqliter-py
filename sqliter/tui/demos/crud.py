@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 import io
+from typing import cast
 
+from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
 from sqliter.tui.demos.base import Demo, DemoCategory
 
 
 def _run_insert() -> str:
     """Execute the insert demo."""
     output = io.StringIO()
-
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
 
     class User(BaseDBModel):
         name: str
@@ -35,9 +35,6 @@ def _run_get_by_pk() -> str:
     """Execute the get by primary key demo."""
     output = io.StringIO()
 
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
-
     class Task(BaseDBModel):
         title: str
         done: bool = False
@@ -45,12 +42,14 @@ def _run_get_by_pk() -> str:
     db = SqliterDB(memory=True)
     db.create_table(Task)
 
-    task = db.insert(Task(title="Buy groceries"))
+    task: Task = db.insert(Task(title="Buy groceries"))
     output.write(f"Created: {task.title} (pk={task.pk})\n")
 
     retrieved = db.get(Task, task.pk)
-    output.write(f"Retrieved: {retrieved.title}\n")
-    output.write(f"Same object: {retrieved.pk == task.pk}\n")
+    if retrieved is not None:
+        task_retrieved = cast("Task", retrieved)
+        output.write(f"Retrieved: {task_retrieved.title}\n")
+        output.write(f"Same object: {task_retrieved.pk == task.pk}\n")
 
     db.close()
     return output.getvalue()
@@ -59,9 +58,6 @@ def _run_get_by_pk() -> str:
 def _run_update() -> str:
     """Execute the update demo."""
     output = io.StringIO()
-
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
 
     class Item(BaseDBModel):
         name: str
@@ -73,7 +69,9 @@ def _run_update() -> str:
     item = db.insert(Item(name="Apples", quantity=5))
     output.write(f"Created: {item.name} x{item.quantity}\n")
 
-    updated = db.update(item, quantity=10)
+    item.quantity = 10
+    db.update(item)
+    updated = item
     output.write(f"Updated: {updated.name} x{updated.quantity}\n")
 
     db.close()
@@ -84,9 +82,6 @@ def _run_delete() -> str:
     """Execute the delete demo."""
     output = io.StringIO()
 
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
-
     class Note(BaseDBModel):
         content: str
 
@@ -96,7 +91,8 @@ def _run_delete() -> str:
     note = db.insert(Note(content="Temporary note"))
     output.write(f"Created note (pk={note.pk})\n")
 
-    deleted = db.delete(note)
+    db.delete(Note, note.pk)
+    deleted = note.pk
     output.write(f"Deleted: {deleted}\n")
 
     all_notes = db.select(Note).fetch_all()
@@ -150,9 +146,10 @@ db = SqliterDB(memory=True)
 db.create_table(Item)
 
 item = db.insert(Item(name="Apples", quantity=5))
-updated = db.update(item, quantity=10)
+item.quantity = 10
+db.update(item)
 
-print(f"Updated quantity: {updated.quantity}")
+print(f"Updated quantity: {item.quantity}")
 """
 
 DELETE_CODE = """
@@ -166,9 +163,9 @@ db = SqliterDB(memory=True)
 db.create_table(Note)
 
 note = db.insert(Note(content="Temporary note"))
-deleted = db.delete(note)
+db.delete(Note, note.pk)
 
-print(f"Deleted: {deleted}")
+print(f"Deleted note with pk: {note.pk}")
 """
 
 

@@ -4,15 +4,14 @@ from __future__ import annotations
 
 import io
 
+from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
 from sqliter.tui.demos.base import Demo, DemoCategory
 
 
 def _run_enable_cache() -> str:
     """Execute the enable cache demo."""
     output = io.StringIO()
-
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
 
     class User(BaseDBModel):
         name: str
@@ -37,9 +36,6 @@ def _run_enable_cache() -> str:
 def _run_cache_stats() -> str:
     """Execute the cache statistics demo."""
     output = io.StringIO()
-
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
 
     class Product(BaseDBModel):
         name: str
@@ -66,9 +62,6 @@ def _run_cache_bypass() -> str:
     """Execute the cache bypass demo."""
     output = io.StringIO()
 
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
-
     class Item(BaseDBModel):
         name: str
 
@@ -92,9 +85,6 @@ def _run_cache_ttl() -> str:
     """Execute the cache TTL demo."""
     output = io.StringIO()
 
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
-
     class Article(BaseDBModel):
         title: str
 
@@ -113,9 +103,6 @@ def _run_cache_ttl() -> str:
 def _run_cache_clear() -> str:
     """Execute the cache clear demo."""
     output = io.StringIO()
-
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
 
     class Document(BaseDBModel):
         title: str

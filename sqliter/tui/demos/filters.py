@@ -4,15 +4,14 @@ from __future__ import annotations
 
 import io
 
+from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
 from sqliter.tui.demos.base import Demo, DemoCategory
 
 
 def _run_equals() -> str:
     """Execute the equals filter demo."""
     output = io.StringIO()
-
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
 
     class User(BaseDBModel):
         name: str
@@ -37,9 +36,6 @@ def _run_equals() -> str:
 def _run_comparison() -> str:
     """Execute the comparison operators demo."""
     output = io.StringIO()
-
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
 
     class Product(BaseDBModel):
         name: str
@@ -68,9 +64,6 @@ def _run_in_operator() -> str:
     """Execute the IN operator demo."""
     output = io.StringIO()
 
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
-
     class Task(BaseDBModel):
         title: str
         status: str
@@ -83,7 +76,9 @@ def _run_in_operator() -> str:
     db.insert(Task(title="Task 3", status="in_progress"))
     db.insert(Task(title="Task 4", status="done"))
 
-    results = db.select(Task).filter(status__in=["todo", "in_progress"]).fetch_all()
+    results = (
+        db.select(Task).filter(status__in=["todo", "in_progress"]).fetch_all()  # type: ignore[arg-type]
+    )
     output.write(f"Active tasks: {len(results)}\n")
     for task in results:
         output.write(f"  - {task.title}: {task.status}\n")
@@ -95,9 +90,6 @@ def _run_in_operator() -> str:
 def _run_like_operator() -> str:
     """Execute the LIKE operator demo."""
     output = io.StringIO()
-
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
 
     class File(BaseDBModel):
         name: str
@@ -123,9 +115,6 @@ def _run_not_equals() -> str:
     """Execute the not equals demo."""
     output = io.StringIO()
 
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
-
     class Item(BaseDBModel):
         name: str
         status: str
@@ -148,9 +137,6 @@ def _run_multiple_filters() -> str:
     """Execute multiple filters demo."""
     output = io.StringIO()
 
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
-
     class User(BaseDBModel):
         name: str
         age: int
@@ -164,10 +150,7 @@ def _run_multiple_filters() -> str:
     db.insert(User(name="Charlie", age=30, city="NYC"))
 
     results = (
-        db.select(User)
-        .filter(age__gte=30)
-        .filter(city__eq="NYC")
-        .fetch_all()
+        db.select(User).filter(age__gte=30).filter(city__eq="NYC").fetch_all()
     )
     output.write(f"Users in NYC aged 30+: {len(results)}\n")
     for user in results:
@@ -181,9 +164,6 @@ def _run_range_filters() -> str:
     """Execute range filter demo."""
     output = io.StringIO()
 
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
-
     class Product(BaseDBModel):
         name: str
         price: float
@@ -194,7 +174,12 @@ def _run_range_filters() -> str:
     for i in range(1, 11):
         db.insert(Product(name=f"Product {i}", price=float(i * 10)))
 
-    results = db.select(Product).filter(price__gte=30.0).filter(price__lte=70.0).fetch_all()
+    results = (
+        db.select(Product)
+        .filter(price__gte=30.0)
+        .filter(price__lte=70.0)
+        .fetch_all()
+    )
     output.write(f"Products $30-$70: {len(results)}\n")
 
     db.close()
@@ -204,9 +189,6 @@ def _run_range_filters() -> str:
 def _run_combined_operators() -> str:
     """Execute combined filter operators demo."""
     output = io.StringIO()
-
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
 
     class Order(BaseDBModel):
         id: str

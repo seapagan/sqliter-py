@@ -2,22 +2,32 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, ClassVar, cast
+
 from textual.app import App, ComposeResult
-from textual.binding import Binding
+from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, Vertical
+from textual.css.query import NoMatches
 from textual.screen import ModalScreen
-from textual.widgets import Button, Footer, Header, Static
+from textual.widgets import Button, Footer, Header, Static, Tree
+
+if TYPE_CHECKING:
+    from sqliter.tui.demos.base import Demo
 
 from sqliter.tui.demos import DemoRegistry
-from sqliter.tui.demos.base import Demo
 from sqliter.tui.runner import run_demo
-from sqliter.tui.widgets import CodeDisplay, DemoList, DemoSelected, OutputDisplay
+from sqliter.tui.widgets import (
+    CodeDisplay,
+    DemoList,
+    DemoSelected,
+    OutputDisplay,
+)
 
 
 class HelpScreen(ModalScreen[None]):
     """Modal help screen."""
 
-    BINDINGS = [
+    BINDINGS: ClassVar[list[BindingType]] = [
         Binding("escape", "dismiss", "Close"),
         Binding("q", "dismiss", "Close"),
     ]
@@ -64,17 +74,18 @@ class SQLiterDemoApp(App[None]):
     CSS_PATH = "styles/app.tcss"
     TITLE = "SQLiter Interactive Demo"
 
-    BINDINGS = [
+    BINDINGS: ClassVar[list[BindingType]] = [
         Binding("q", "quit", "Quit", show=True, priority=True),
         Binding("f5", "run_demo", "Run", show=True),
         Binding("f8", "clear_output", "Clear", show=True),
         Binding("question_mark", "show_help", "Help", show=True),
         Binding("f1", "show_help", show=False),
-        Binding("j", "cursor_down", show=False),
-        Binding("k", "cursor_up", show=False),
+        Binding("j", "tree_cursor_down", show=False),
+        Binding("k", "tree_cursor_up", show=False),
     ]
 
     def __init__(self) -> None:
+        """Initialize the application."""
         super().__init__()
         self._current_demo: Demo | None = None
 
@@ -84,10 +95,12 @@ class SQLiterDemoApp(App[None]):
         with Horizontal(id="main-container"):
             yield DemoList(id="demo-list")
             with Vertical(id="right-panel"):
-                yield CodeDisplay(id="code-display")
-                yield OutputDisplay(id="output-display")
+                yield CodeDisplay(widget_id="code-display")
+                yield OutputDisplay(widget_id="output-display")
                 with Horizontal(id="button-bar"):
-                    yield Button("Run Demo (F5)", id="run-btn", variant="primary")
+                    yield Button(
+                        "Run Demo (F5)", id="run-btn", variant="primary"
+                    )
                     yield Button("Clear Output (F8)", id="clear-btn")
         yield Footer()
 
@@ -108,7 +121,9 @@ class SQLiterDemoApp(App[None]):
         """Run the currently selected demo."""
         if self._current_demo is None:
             output_display = self.query_one("#output-display", OutputDisplay)
-            output_display.show_output("Please select a demo first.", success=False)
+            output_display.show_output(
+                "Please select a demo first.", success=False
+            )
             return
 
         result = run_demo(self._current_demo)
@@ -131,12 +146,20 @@ class SQLiterDemoApp(App[None]):
         """Show the help screen."""
         self.push_screen(HelpScreen())
 
-    def action_cursor_down(self) -> None:
+    def action_tree_cursor_down(self) -> None:
         """Move cursor down in the tree (vim-style j key)."""
-        tree = self.query_one("#demo-tree")
-        tree.action_cursor_down()
+        try:
+            demo_list = self.query_one(DemoList)
+            tree = cast("Tree[object]", demo_list.query_one("#demo-tree"))
+            tree.action_cursor_down()
+        except NoMatches:
+            pass  # Tree might not be focused
 
-    def action_cursor_up(self) -> None:
+    def action_tree_cursor_up(self) -> None:
         """Move cursor up in the tree (vim-style k key)."""
-        tree = self.query_one("#demo-tree")
-        tree.action_cursor_up()
+        try:
+            demo_list = self.query_one(DemoList)
+            tree = cast("Tree[object]", demo_list.query_one("#demo-tree"))
+            tree.action_cursor_up()
+        except NoMatches:
+            pass  # Tree might not be focused

@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from rich.text import Text
-from textual.app import ComposeResult
 from textual.containers import ScrollableContainer
 from textual.widgets import Static
+
+if TYPE_CHECKING:
+    from textual.app import ComposeResult
 
 
 class OutputDisplay(ScrollableContainer):
@@ -14,10 +18,16 @@ class OutputDisplay(ScrollableContainer):
     def __init__(
         self,
         *,
-        id: str | None = None,
+        widget_id: str | None = None,
         classes: str | None = None,
     ) -> None:
-        super().__init__(id=id, classes=classes)
+        """Initialize the output display.
+
+        Args:
+            widget_id: Widget ID.
+            classes: CSS classes for the widget.
+        """
+        super().__init__(id=widget_id, classes=classes)
 
     def compose(self) -> ComposeResult:
         """Compose the output display."""

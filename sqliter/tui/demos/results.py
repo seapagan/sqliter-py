@@ -4,15 +4,14 @@ from __future__ import annotations
 
 import io
 
+from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
 from sqliter.tui.demos.base import Demo, DemoCategory
 
 
 def _run_fetch_all() -> str:
     """Execute the fetch_all demo."""
     output = io.StringIO()
-
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
 
     class User(BaseDBModel):
         name: str
@@ -37,9 +36,6 @@ def _run_fetch_one() -> str:
     """Execute the fetch_one demo."""
     output = io.StringIO()
 
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
-
     class Task(BaseDBModel):
         title: str
         priority: int
@@ -52,7 +48,10 @@ def _run_fetch_one() -> str:
     db.insert(Task(title="Low priority", priority=3))
 
     task = db.select(Task).filter(priority__eq=1).fetch_one()
-    output.write(f"Single result: {task.title}\n")
+    if task is not None:
+        output.write(f"Single result: {task.title}\n")
+    else:
+        output.write("No task found\n")
 
     db.close()
     return output.getvalue()
@@ -61,9 +60,6 @@ def _run_fetch_one() -> str:
 def _run_fetch_first_last() -> str:
     """Execute the fetch_first and fetch_last demo."""
     output = io.StringIO()
-
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
 
     class Item(BaseDBModel):
         name: str
@@ -75,10 +71,12 @@ def _run_fetch_first_last() -> str:
         db.insert(Item(name=name))
 
     first = db.select(Item).fetch_first()
-    output.write(f"First: {first.name}\n")
+    if first is not None:
+        output.write(f"First: {first.name}\n")
 
     last = db.select(Item).fetch_last()
-    output.write(f"Last: {last.name}\n")
+    if last is not None:
+        output.write(f"Last: {last.name}\n")
 
     db.close()
     return output.getvalue()
@@ -87,9 +85,6 @@ def _run_fetch_first_last() -> str:
 def _run_count() -> str:
     """Execute the count demo."""
     output = io.StringIO()
-
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
 
     class Product(BaseDBModel):
         name: str
@@ -116,9 +111,6 @@ def _run_exists() -> str:
     """Execute the exists demo."""
     output = io.StringIO()
 
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
-
     class User(BaseDBModel):
         username: str
 
@@ -141,9 +133,6 @@ def _run_exists() -> str:
 def _run_aggregates() -> str:
     """Execute aggregate functions demo."""
     output = io.StringIO()
-
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
 
     class Sale(BaseDBModel):
         amount: float

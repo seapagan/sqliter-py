@@ -6,14 +6,14 @@ import io
 import tempfile
 from pathlib import Path
 
+from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
 from sqliter.tui.demos.base import Demo, DemoCategory
 
 
 def _run_memory_db() -> str:
     """Execute the in-memory database demo."""
     output = io.StringIO()
-
-    from sqliter import SqliterDB
 
     db = SqliterDB(memory=True)
     output.write(f"Created database: {db}\n")
@@ -33,14 +33,12 @@ def _run_file_db() -> str:
     """Execute the file-based database demo."""
     output = io.StringIO()
 
-    from sqliter import SqliterDB
-
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = f.name
 
     try:
         db = SqliterDB(db_path)
-        output.write(f"Created file database\n")
+        output.write("Created file database\n")
         output.write(f"Filename: {db.filename}\n")
         output.write(f"Is memory: {db.is_memory}\n")
 
@@ -61,15 +59,8 @@ def _run_debug_mode() -> str:
     output.write("Debug mode enables SQL query logging.\n")
     output.write("When debug=True, all SQL queries are logged.\n\n")
 
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
-
-    class User(BaseDBModel):
-        name: str
-
-    # Note: In real usage, debug output goes to logger
     db = SqliterDB(memory=True, debug=True)
-    db.create_table(User)
+    db.create_table(BaseDBModel)
 
     output.write("SQL queries would be logged to console:\n")
     output.write('  CREATE TABLE IF NOT EXISTS "users" (...)\n')
@@ -81,9 +72,6 @@ def _run_debug_mode() -> str:
 def _run_context_manager() -> str:
     """Execute the context manager demo."""
     output = io.StringIO()
-
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
 
     class Task(BaseDBModel):
         title: str

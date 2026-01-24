@@ -4,15 +4,14 @@ from __future__ import annotations
 
 import io
 
+from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
 from sqliter.tui.demos.base import Demo, DemoCategory
 
 
 def _run_order_asc() -> str:
     """Execute the ascending order demo."""
     output = io.StringIO()
-
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
 
     class User(BaseDBModel):
         name: str
@@ -38,9 +37,6 @@ def _run_order_desc() -> str:
     """Execute the descending order demo."""
     output = io.StringIO()
 
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
-
     class Product(BaseDBModel):
         name: str
         price: float
@@ -65,9 +61,6 @@ def _run_limit() -> str:
     """Execute the limit demo."""
     output = io.StringIO()
 
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
-
     class Article(BaseDBModel):
         title: str
 
@@ -78,7 +71,7 @@ def _run_limit() -> str:
         db.insert(Article(title=f"Article {i}"))
 
     results = db.select(Article).limit(3).fetch_all()
-    output.write(f"Top 3 articles:\n")
+    output.write("Top 3 articles:\n")
     for article in results:
         output.write(f"  - {article.title}\n")
 
@@ -90,9 +83,6 @@ def _run_offset() -> str:
     """Execute the offset demo."""
     output = io.StringIO()
 
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
-
     class Item(BaseDBModel):
         name: str
 
@@ -103,7 +93,7 @@ def _run_offset() -> str:
         db.insert(Item(name=f"Item {i}"))
 
     results = db.select(Item).limit(5).offset(5).fetch_all()
-    output.write(f"Items 6-10:\n")
+    output.write("Items 6-10:\n")
     for item in results:
         output.write(f"  - {item.name}\n")
 

@@ -5,15 +5,14 @@ from __future__ import annotations
 import io
 import time
 
+from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
 from sqliter.tui.demos.base import Demo, DemoCategory
 
 
 def _run_created_at() -> str:
     """Execute the created_at demo."""
     output = io.StringIO()
-
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
 
     class Article(BaseDBModel):
         title: str
@@ -39,9 +38,6 @@ def _run_updated_at() -> str:
     """Execute the updated_at demo."""
     output = io.StringIO()
 
-    from sqliter import SqliterDB
-    from sqliter.model import BaseDBModel
-
     class Task(BaseDBModel):
         title: str
         done: bool = False
@@ -56,8 +52,11 @@ def _run_updated_at() -> str:
 
     time.sleep(0.1)
 
-    updated_task = db.update(task, title="Updated Task", done=True)
-    output.write(f"\nAfter update:\n")
+    task.title = "Updated Task"
+    task.done = True
+    db.update(task)
+    updated_task = task
+    output.write("\nAfter update:\n")
     output.write(f"Title: {updated_task.title}\n")
     output.write(f"Created: {updated_task.created_at}\n")
     output.write(f"Updated: {updated_task.updated_at}\n")
@@ -96,11 +95,13 @@ db.create_table(Task)
 task = db.insert(Task(title="Original"))
 
 # Update the record
-updated = db.update(task, title="Updated", done=True)
+task.title = "Updated"
+task.done = True
+db.update(task)
 
 # Both timestamps are tracked
-print(f"Created: {updated.created_at}")
-print(f"Updated: {updated.updated_at}")
+print(f"Created: {task.created_at}")
+print(f"Updated: {task.updated_at}")
 """
 
 
