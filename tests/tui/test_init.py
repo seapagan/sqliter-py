@@ -39,6 +39,16 @@ class TestGetApp:
         app = get_app()
         assert isinstance(app, SQLiterDemoApp)
 
+    def test_get_app_without_textual_raises_import_error(self, mocker) -> None:
+        """Test get_app raises ImportError when textual is not available."""
+        # Mock _TEXTUAL_AVAILABLE to False
+        mocker.patch("sqliter.tui._TEXTUAL_AVAILABLE", False)
+
+        # Now get_app should raise ImportError
+        with pytest.raises(ImportError) as exc_info:
+            get_app()
+        assert "textual" in str(exc_info.value)
+
 
 class TestRunFunction:
     """Test the run function."""

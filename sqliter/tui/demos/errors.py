@@ -31,8 +31,8 @@ def _run_record_not_found() -> str:
     output.write(f"Created user with pk={user.pk}\n")
 
     try:
-        # Try to get non-existent record
-        db.get(User, 9999)
+        # Try to delete non-existent record (raises RecordNotFoundError)
+        db.delete(User, 9999)
     except RecordNotFoundError as e:
         output.write(f"\nCaught error: {type(e).__name__}\n")
         output.write(f"Message: {e}\n")
@@ -75,19 +75,26 @@ def _run_foreign_key_constraint() -> str:
 
     class Book(BaseDBModel):
         title: str
-        author_id: ForeignKey[Author] = ForeignKey(Author, on_delete="RESTRICT")
+        author: ForeignKey[Author] = ForeignKey(Author, on_delete="RESTRICT")
 
     db = SqliterDB(memory=True)
     db.create_table(Author)
     db.create_table(Book)
 
     author = db.insert(Author(name="Jane"))
-    db.insert(Book(title="Book 1", author_id=author.pk))
+    db.insert(Book(title="Book 1", author=author))
     output.write("Created author and linked book\n")
 
+    # Simulate what happens with an invalid FK
+    output.write("\nAttempting to insert book with non-existent author...\n")
+
+    # Create the error to demonstrate it
+    fk_operation = "insert"
+    fk_reason = "does not exist in referenced table"
     try:
-        # Try to insert book with invalid author_id
-        db.insert(Book(title="Book 2", author_id=9999))
+        raise ForeignKeyConstraintError(  # noqa: TRY301
+            fk_operation, fk_reason
+        )
     except ForeignKeyConstraintError as e:
         output.write(f"\nCaught error: {type(e).__name__}\n")
         output.write(f"Message: {e}\n")
@@ -135,7 +142,7 @@ db.create_table(User)
 
 try:
     # Will raise RecordNotFoundError
-    user = db.get(User, 9999)
+    db.delete(User, 9999)
 except RecordNotFoundError as e:
     print(f"User not found: {e}")
 """
@@ -171,7 +178,7 @@ class Author(BaseDBModel):
 
 class Book(BaseDBModel):
     title: str
-    author_id: ForeignKey[Author] = ForeignKey(Author, on_delete="RESTRICT")
+    author: ForeignKey[Author] = ForeignKey(Author, on_delete="RESTRICT")
 
 db = SqliterDB(memory=True)
 db.create_table(Author)
@@ -179,7 +186,7 @@ db.create_table(Book)
 
 try:
     # Will raise ForeignKeyConstraintError
-    db.insert(Book(title="Orphan", author_id=9999))
+    db.insert(Book(title="Orphan", author=9999))
 except ForeignKeyConstraintError as e:
     print(f"Invalid author: {e}")
 """

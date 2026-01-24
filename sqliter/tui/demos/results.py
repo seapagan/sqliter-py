@@ -50,8 +50,11 @@ def _run_fetch_one() -> str:
     task = db.select(Task).filter(priority__eq=1).fetch_one()
     if task is not None:
         output.write(f"Single result: {task.title}\n")
-    else:
-        output.write("No task found\n")
+
+    # Also test no results case
+    no_task = db.select(Task).filter(priority__eq=999).fetch_one()
+    if no_task is None:
+        output.write("No task found with priority 999\n")
 
     db.close()
     return output.getvalue()
