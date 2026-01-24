@@ -7,10 +7,15 @@ from typing import TYPE_CHECKING, ClassVar, cast
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding, BindingType
-from textual.containers import Container, Horizontal, Vertical
+from textual.containers import (
+    Container,
+    Horizontal,
+    Vertical,
+    VerticalScroll,
+)
 from textual.css.query import NoMatches
 from textual.screen import ModalScreen
-from textual.widgets import Button, Footer, Header, Static, Tree
+from textual.widgets import Button, Footer, Header, Markdown, Tree
 
 if TYPE_CHECKING:  # pragma: no cover
     from sqliter.tui.demos.base import Demo
@@ -35,9 +40,10 @@ class HelpScreen(ModalScreen[None]):
 
     def compose(self) -> ComposeResult:
         """Compose the help screen."""
-        yield Static(
-            """
-# SQLiter TUI Demo - Help
+        with VerticalScroll(id="help-scroll"):
+            yield Markdown(
+                """
+# SQLiter Demo - Help
 
 ## Navigation
 
@@ -64,9 +70,9 @@ class HelpScreen(ModalScreen[None]):
 - Click buttons to run/clear
 
 Press Escape or q to close this help.
-            """,
-            id="help-content",
-        )
+                """,
+                id="help-content",
+            )
 
 
 class SQLiterDemoApp(App[None]):

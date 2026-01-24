@@ -93,13 +93,17 @@ HelpScreen {
     align: center middle;
 }
 
-#help-content {
-    width: 60;
+#help-scroll {
+    width: 70;
     height: auto;
     max-height: 80%;
     padding: 2;
     border: solid $primary;
     background: $surface;
+}
+
+#help-content {
+    padding: 0;
 }
 
 /* Footer styling */
