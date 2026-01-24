@@ -10,14 +10,12 @@ import pytest
 
 from sqliter.model import BaseDBModel
 from sqliter.sqliter import SqliterDB
+from sqliter.tui.demos import DemoRegistry
+from sqliter.tui.demos.base import Demo, DemoCategory
 
 if TYPE_CHECKING:
     from collections.abc import Generator
 
-    from sqliter.tui.demos.base import Demo, DemoCategory
-
-from sqliter.tui.demos import DemoRegistry
-from sqliter.tui.demos.base import Demo, DemoCategory
 
 memory_db = ":memory:"
 
