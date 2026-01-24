@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from unittest import mock
-
 import pytest
 
 import sqliter.tui
@@ -45,11 +43,11 @@ class TestGetApp:
 class TestRunFunction:
     """Test the run function."""
 
-    def test_run_calls_app_run(self) -> None:
+    def test_run_calls_app_run(self, mocker) -> None:
         """Test that run() calls app.run()."""
-        with mock.patch("sqliter.tui.SQLiterDemoApp.run") as mock_run:
-            run()
-            mock_run.assert_called_once()
+        mock_run = mocker.patch("sqliter.tui.SQLiterDemoApp.run")
+        run()
+        mock_run.assert_called_once()
 
 
 class TestModuleExports:

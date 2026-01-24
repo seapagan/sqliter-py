@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
-
 import pytest
 from textual.css.query import NoMatches
 from textual.widgets import Button, Footer, Header, Tree
@@ -669,7 +667,7 @@ class TestSQLiterDemoAppEdgeCases:
 
     @pytest.mark.asyncio
     async def test_cursor_down_handles_missing_tree(
-        self, reset_demo_registry
+        self, reset_demo_registry, mocker
     ) -> None:
         """Test cursor down handles missing tree gracefully."""
         demo = Demo(
@@ -687,13 +685,13 @@ class TestSQLiterDemoAppEdgeCases:
         app = SQLiterDemoApp()
         async with app.run_test() as _:
             # Mock query_one to raise NoMatches
-            with patch.object(app, "query_one", side_effect=NoMatches()):
-                # Should not raise exception, just handle gracefully
-                app.action_tree_cursor_down()
+            mocker.patch.object(app, "query_one", side_effect=NoMatches())
+            # Should not raise exception, just handle gracefully
+            app.action_tree_cursor_down()
 
     @pytest.mark.asyncio
     async def test_cursor_up_handles_missing_tree(
-        self, reset_demo_registry
+        self, reset_demo_registry, mocker
     ) -> None:
         """Test cursor up handles missing tree gracefully."""
         demo = Demo(
@@ -711,9 +709,9 @@ class TestSQLiterDemoAppEdgeCases:
         app = SQLiterDemoApp()
         async with app.run_test() as _:
             # Mock query_one to raise NoMatches
-            with patch.object(app, "query_one", side_effect=NoMatches()):
-                # Should not raise exception, just handle gracefully
-                app.action_tree_cursor_up()
+            mocker.patch.object(app, "query_one", side_effect=NoMatches())
+            # Should not raise exception, just handle gracefully
+            app.action_tree_cursor_up()
 
     @pytest.mark.asyncio
     async def test_app_properties(self, reset_demo_registry) -> None:

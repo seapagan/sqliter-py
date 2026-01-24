@@ -2,18 +2,16 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
-
 from sqliter.tui import __main__
 
 
 class TestMainModule:
     """Test the __main__ module execution."""
 
-    @patch("sqliter.tui.run")
-    def test_main_imports_run(self, mock_run: MagicMock) -> None:
+    def test_main_imports_run(self, mocker) -> None:
         """Test that __main__ imports run correctly."""
         # The run function should be imported
+        mocker.patch("sqliter.tui.run")
         assert hasattr(__main__, "run")
 
     def test_main_module_structure(self) -> None:
