@@ -5,9 +5,11 @@ features using the Textual library.
 
 Usage:
     python -m sqliter.tui
+    # or
+    sqliter-demo
 
 Requires:
-    pip install sqliter-py[tui]
+    pip install sqliter-py[demo]
 """
 
 from __future__ import annotations
@@ -23,7 +25,7 @@ def _missing_dependency_error() -> None:
     """Raise informative error when textual is not installed."""
     msg = (
         "The SQLiter TUI demo requires the 'textual' library.\n"
-        "Install it with: pip install sqliter-py[tui]\n"
+        "Install it with: pip install sqliter-py[demo]\n"
     )
     raise ImportError(msg)
 

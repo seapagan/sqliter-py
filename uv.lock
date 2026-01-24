@@ -1729,14 +1729,14 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+demo = [
+    { name = "textual" },
+]
 extras = [
     { name = "inflect" },
 ]
 full = [
     { name = "inflect" },
-    { name = "textual" },
-]
-tui = [
     { name = "textual" },
 ]
 
@@ -1770,10 +1770,10 @@ requires-dist = [
     { name = "inflect", marker = "extra == 'extras'", specifier = "==7.0.0" },
     { name = "inflect", marker = "extra == 'full'", specifier = ">=7.0.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
+    { name = "textual", marker = "extra == 'demo'", specifier = ">=7.3.0" },
     { name = "textual", marker = "extra == 'full'", specifier = ">=7.3.0" },
-    { name = "textual", marker = "extra == 'tui'", specifier = ">=7.3.0" },
 ]
-provides-extras = ["extras", "tui", "full"]
+provides-extras = ["demo", "extras", "full"]
 
 [package.metadata.requires-dev]
 dev = [

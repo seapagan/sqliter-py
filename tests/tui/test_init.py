@@ -16,7 +16,7 @@ from sqliter.tui import (
 # Error message for missing textual dependency
 _MISSING_DEPENDENCY_ERROR = (
     "The SQLiter TUI demo requires the 'textual' library.\n"
-    "Install it with: pip install sqliter-py[tui]\n"
+    "Install it with: pip install sqliter-py[demo]\n"
 )
 
 

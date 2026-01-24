@@ -29,14 +29,17 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-extras = ["inflect==7.0.0"]
-tui = [
+demo = [
     "textual>=7.3.0",
 ]
+extras = ["inflect==7.0.0"]
 full = [
     "inflect>=7.0.0",
     "textual>=7.3.0",
 ]
+
+[project.scripts]
+sqliter-demo = "sqliter.tui:run"
 
 [project.urls]
 "Homepage" = "http://sqliter.grantramsay.dev"
