@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+from typing import Optional
 
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
@@ -248,7 +249,7 @@ def _run_isnull() -> str:
 
     class Task(BaseDBModel):
         title: str
-        assigned_to: str | None = None
+        assigned_to: Optional[str] = None
 
     db = SqliterDB(memory=True)
     db.create_table(Task)
@@ -277,7 +278,7 @@ def _run_notnull() -> str:
 
     class Task(BaseDBModel):
         title: str
-        assigned_to: str | None = None
+        assigned_to: Optional[str] = None
 
     db = SqliterDB(memory=True)
     db.create_table(Task)

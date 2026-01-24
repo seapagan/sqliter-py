@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 import textwrap
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Callable
@@ -86,8 +86,8 @@ class Demo:
     category: str
     code: str
     execute: Callable[[], str]
-    setup_code: str | None = None
-    teardown: Callable[[], None] | None = None
+    setup_code: Optional[str] = None
+    teardown: Optional[Callable[[], None]] = None
 
 
 @dataclass
