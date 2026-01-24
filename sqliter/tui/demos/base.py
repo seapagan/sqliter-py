@@ -18,14 +18,48 @@ def extract_demo_code(func: Callable[..., str]) -> str:
     source code from a demo function, ensuring the displayed code always
     matches what's actually executed.
 
+    Removes demo infrastructure (function definition, output setup, return)
+    but keeps the docstring for context.
+
     Args:
         func: The demo function to extract code from
 
     Returns:
         Formatted source code string with proper dedentation and whitespace
     """
-    # Get the source code, dedent, and strip whitespace in one expression
-    return textwrap.dedent(inspect.getsource(func)).strip()
+    # Get the source code and split into lines
+    source = inspect.getsource(func)
+    lines = source.splitlines()
+
+    # Remove function definition line
+    if lines and lines[0].strip().startswith("def "):
+        lines = lines[1:]
+
+    # Dedent the remaining code
+    code = textwrap.dedent("\n".join(lines))
+    lines = code.splitlines()
+
+    # Filter out unwanted lines
+    filtered: list[str] = []
+    for original_line in lines:
+        # Skip output setup
+        if "output = io.StringIO()" in original_line:
+            continue
+        # Rename output.write to print
+        line = original_line
+        if "output.write(" in line:
+            line = line.replace("output.write(", "print(")
+        # Stop at return statement
+        if "return output.getvalue()" in line:
+            break
+
+        filtered.append(line)
+
+    # Remove trailing empty lines
+    while filtered and not filtered[-1].strip():
+        filtered.pop()
+
+    return "\n".join(filtered).strip()
 
 
 __all__ = ["Demo", "DemoCategory", "extract_demo_code"]
