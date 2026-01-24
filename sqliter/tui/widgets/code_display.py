@@ -73,6 +73,9 @@ class CodeDisplay(ScrollableContainer):
         )
         content.update(syntax)
 
+        # Scroll to top when content changes
+        self.scroll_to(0, 0)
+
     def set_code(self, code: str) -> None:
         """Set the code to display (public API)."""
         self.code = code
