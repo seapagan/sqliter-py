@@ -12,7 +12,7 @@ from textual.css.query import NoMatches
 from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, Header, Static, Tree
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from sqliter.tui.demos.base import Demo
 
 from sqliter.tui.demos import DemoRegistry

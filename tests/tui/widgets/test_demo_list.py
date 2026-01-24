@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from textual.app import App
@@ -10,11 +10,70 @@ from textual.widgets import Tree
 
 from sqliter.tui.demos import DemoRegistry
 from sqliter.tui.demos.base import Demo, DemoCategory
-from sqliter.tui.widgets import DemoList
+from sqliter.tui.widgets import DemoList, DemoSelected
+
+if TYPE_CHECKING:
+    from textual.widgets.tree import TreeNode
 
 
 class TestDemoList:
     """Test the DemoList widget."""
+
+    @pytest.mark.asyncio
+    async def test_demo_selection_posts_message(
+        self, reset_demo_registry
+    ) -> None:
+        """Test that selecting a demo posts DemoSelected message."""
+        demo = Demo(
+            id="demo1",
+            title="Demo",
+            description="Demo",
+            category="cat1",
+            code="code",
+            execute=lambda: "",
+        )
+
+        category = DemoCategory(id="cat1", title="Category", demos=[demo])
+        DemoRegistry.register_category(category)
+
+        # Track whether message was posted
+        messages_received = []
+
+        class TestApp(App[Any]):
+            def on_demo_selected(self, event: DemoSelected) -> None:
+                messages_received.append(event.demo)
+
+        app = TestApp()
+        async with app.run_test() as pilot:
+            demo_list = DemoList()
+            await app.mount(demo_list)
+
+            tree = demo_list.query_one("#demo-tree", Tree)
+            # Get the demo node
+            cat_node = tree.root.children[0]
+            demo_node = cat_node.children[0]
+
+            # Create a mock event with proper attributes
+            class MockNodeSelected:
+                """Mock NodeSelected event for testing."""
+
+                def __init__(
+                    self,
+                    node: TreeNode[Demo | DemoCategory],
+                    tree_obj: Tree[Demo | DemoCategory],
+                ) -> None:
+                    self.node = node
+                    self.tree = tree_obj
+
+            mock_event = MockNodeSelected(node=demo_node, tree_obj=tree)
+
+            # Call the handler directly
+            demo_list.on_tree_node_selected(mock_event)  # type: ignore[arg-type]
+            await pilot.pause()
+
+            # Check that DemoSelected message was posted
+            assert len(messages_received) == 1
+            assert messages_received[0].id == "demo1"
 
     @pytest.mark.asyncio
     async def test_tree_composition(self, reset_demo_registry) -> None:

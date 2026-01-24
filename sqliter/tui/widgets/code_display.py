@@ -9,7 +9,7 @@ from textual.containers import ScrollableContainer
 from textual.css.query import NoMatches
 from textual.widgets import Static
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from textual.app import ComposeResult
 
 

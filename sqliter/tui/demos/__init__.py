@@ -19,7 +19,7 @@ from sqliter.tui.demos import (
     transactions,
 )
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Sequence
 
     from sqliter.tui.demos.base import Demo, DemoCategory

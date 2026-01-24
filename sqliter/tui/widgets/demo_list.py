@@ -11,7 +11,7 @@ from textual.widgets import Tree
 from sqliter.tui.demos import DemoRegistry
 from sqliter.tui.demos.base import Demo, DemoCategory
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from textual.app import ComposeResult
 
 

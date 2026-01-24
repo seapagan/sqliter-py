@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 from textual.css.query import NoMatches
 from textual.widgets import Button, Footer, Header, Tree
@@ -583,6 +585,52 @@ class TestSQLiterDemoAppKeyboardBindings:
             assert tree.has_focus
 
 
+class TestSQLiterDemoAppErrorHandling:
+    """Test error handling in demo execution."""
+
+    # Error message for demo execution failure
+    _DEMO_EXECUTION_FAILED = "Demo execution failed"
+
+    @pytest.mark.asyncio
+    async def test_run_demo_failure_shows_error(
+        self, reset_demo_registry
+    ) -> None:
+        """Test that failed demo execution shows error message."""
+
+        def failing_execute() -> str:
+            raise RuntimeError(self._DEMO_EXECUTION_FAILED)
+
+        demo = Demo(
+            id="test",
+            title="Failing Demo",
+            description="A demo that fails",
+            category="test",
+            code="code",
+            execute=failing_execute,
+        )
+
+        DemoRegistry.register_category(
+            DemoCategory(id="test", title="Test", demos=[demo])
+        )
+
+        app = SQLiterDemoApp()
+        async with app.run_test() as pilot:
+            app.post_message(DemoSelected(demo))
+            await pilot.pause()
+
+            # Click run button
+            run_button = app.query_one("#run-btn", Button)
+            await pilot.click(run_button)
+            await pilot.pause()
+
+            # Should show error output
+            output_display = app.query_one("#output-display", OutputDisplay)
+            content = output_display.query_one("#output-content")
+            output_str = str(content.content).lower()
+            # Error output should contain error information
+            assert "exception" in output_str or "error" in output_str
+
+
 class TestSQLiterDemoAppEdgeCases:
     """Test edge cases and error handling."""
 
@@ -618,6 +666,54 @@ class TestSQLiterDemoAppEdgeCases:
             # Try to query non-existent widget
             with pytest.raises(NoMatches):
                 app.query_one("#non-existent")
+
+    @pytest.mark.asyncio
+    async def test_cursor_down_handles_missing_tree(
+        self, reset_demo_registry
+    ) -> None:
+        """Test cursor down handles missing tree gracefully."""
+        demo = Demo(
+            id="test",
+            title="T",
+            description="T",
+            category="t",
+            code="c",
+            execute=lambda: "",
+        )
+        DemoRegistry.register_category(
+            DemoCategory(id="t", title="T", demos=[demo])
+        )
+
+        app = SQLiterDemoApp()
+        async with app.run_test() as _:
+            # Mock query_one to raise NoMatches
+            with patch.object(app, "query_one", side_effect=NoMatches()):
+                # Should not raise exception, just handle gracefully
+                app.action_tree_cursor_down()
+
+    @pytest.mark.asyncio
+    async def test_cursor_up_handles_missing_tree(
+        self, reset_demo_registry
+    ) -> None:
+        """Test cursor up handles missing tree gracefully."""
+        demo = Demo(
+            id="test",
+            title="T",
+            description="T",
+            category="t",
+            code="c",
+            execute=lambda: "",
+        )
+        DemoRegistry.register_category(
+            DemoCategory(id="t", title="T", demos=[demo])
+        )
+
+        app = SQLiterDemoApp()
+        async with app.run_test() as _:
+            # Mock query_one to raise NoMatches
+            with patch.object(app, "query_one", side_effect=NoMatches()):
+                # Should not raise exception, just handle gracefully
+                app.action_tree_cursor_up()
 
     @pytest.mark.asyncio
     async def test_app_properties(self, reset_demo_registry) -> None:

@@ -144,6 +144,35 @@ class TestDemoRunner:
         assert "stderr" in result.output
         assert "return" in result.output
 
+    def test_stdout_and_return_value_separated_by_newline(
+        self,
+    ) -> None:
+        """Test that stdout and return value are separated by newline."""
+
+        def demo_func() -> str:
+            # Print without newline to trigger the newline insertion
+            print("stdout message", end="")
+            return "return value"
+
+        demo = Demo(
+            id="test",
+            title="Test",
+            description="Test",
+            category="test",
+            code="code",
+            execute=demo_func,
+        )
+
+        runner = DemoRunner()
+        result = runner.run(demo)
+
+        assert result.success is True
+        # Output should contain both parts
+        assert "stdout message" in result.output
+        assert "return value" in result.output
+        # The return value should be on a new line after stdout
+        assert result.output == "stdout message\nreturn value"
+
     def test_exception_handling(self) -> None:
         """Test handling exceptions in demo code."""
 

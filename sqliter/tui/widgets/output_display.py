@@ -8,7 +8,7 @@ from rich.text import Text
 from textual.containers import ScrollableContainer
 from textual.widgets import Static
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from textual.app import ComposeResult
 
 
