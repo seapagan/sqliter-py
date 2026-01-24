@@ -30,6 +30,13 @@ classifiers = [
 
 [project.optional-dependencies]
 extras = ["inflect==7.0.0"]
+tui = [
+    "textual>=7.3.0",
+]
+full = [
+    "inflect>=7.0.0",
+    "textual>=7.3.0",
+]
 
 [project.urls]
 "Homepage" = "http://sqliter.grantramsay.dev"
