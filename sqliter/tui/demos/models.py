@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 from datetime import datetime, timezone
+from typing import Optional, Union
 
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
@@ -94,8 +95,8 @@ def _run_optional_fields() -> str:
 
     class Article(BaseDBModel):
         title: str
-        content: str | None
-        author: str | None = "Anonymous"
+        content: Optional[str]
+        author: Optional[str] = "Anonymous"
 
     db = SqliterDB(memory=True)
     db.create_table(Article)
@@ -144,7 +145,7 @@ def _run_complex_types() -> str:
     class Document(BaseDBModel):
         title: str
         tags: list[str]
-        metadata: dict[str, str | int]
+        metadata: dict[str, Union[str, int]]
 
     db = SqliterDB(memory=True)
     db.create_table(Document)
@@ -225,11 +226,12 @@ product = db.insert(
 OPTIONAL_FIELDS_CODE = """
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
+from typing import Optional
 
 class Article(BaseDBModel):
     title: str
-    content: str | None
-    author: str | None = "Anonymous"
+    content: Optional[str]
+    author: Optional[str] = "Anonymous"
 
 db = SqliterDB(memory=True)
 db.create_table(Article)
@@ -259,11 +261,12 @@ print(task.priority)    # 1 (default)
 COMPLEX_TYPES_CODE = """
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
+from typing import List, Union
 
 class Document(BaseDBModel):
     title: str
-    tags: list[str]
-    metadata: dict[str, str | int]
+    tags: List[str]
+    metadata: dict[str, Union[str, int]]
 
 db = SqliterDB(memory=True)
 db.create_table(Document)
@@ -272,7 +275,7 @@ doc = db.insert(
     Document(
         title="Guide",
         tags=["python", "database"],
-        metadata={"views": 1000, "rating": 4.5},
+        metadata={"views": 1000, "rating": 4},
     )
 )
 """

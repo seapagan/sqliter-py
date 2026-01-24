@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+from typing import Optional
 
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
@@ -120,7 +121,7 @@ def _run_foreign_key_set_null() -> str:
 
     class Employee(BaseDBModel):
         name: str
-        department_id: ForeignKey[Department] | None = ForeignKey(
+        department_id: Optional[ForeignKey[Department]] = ForeignKey(
             Department,
             on_delete="SET NULL",
             null=True,
@@ -230,7 +231,7 @@ class Department(BaseDBModel):
 
 class Employee(BaseDBModel):
     name: str
-    department_id: int | None = ForeignKey(
+    department_id: Optional[int] = ForeignKey(
         Department,
         on_delete="SET NULL",
         null=True,
