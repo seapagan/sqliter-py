@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, ClassVar, cast
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding, BindingType
-from textual.containers import Horizontal, Vertical
+from textual.containers import Container, Horizontal, Vertical
 from textual.css.query import NoMatches
 from textual.screen import ModalScreen
 from textual.widgets import Button, Footer, Header, Static, Tree
@@ -93,7 +93,7 @@ class SQLiterDemoApp(App[None]):
     def compose(self) -> ComposeResult:
         """Compose the application layout."""
         yield Header()
-        with Horizontal(id="main-container"):
+        with Container(id="main-container"):
             yield DemoList(id="demo-list")
             with Vertical(id="right-panel"):
                 yield CodeDisplay(widget_id="code-display")

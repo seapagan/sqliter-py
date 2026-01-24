@@ -5,15 +5,15 @@ Screen {
 }
 
 #main-container {
+    layout: grid;
+    grid-size: 2;
+    grid-columns: auto 1fr;
     height: 100%;
     padding: 0 1;
 }
 
 /* Left panel - Demo list */
 #demo-list {
-    width: 30%;
-    min-width: 25;
-    max-width: 40;
     border: solid $primary;
     border-title-color: $text;
     padding: 1;
@@ -34,7 +34,6 @@ Screen {
 
 /* Right panel container */
 #right-panel {
-    width: 70%;
     padding-left: 1;
 }
 
