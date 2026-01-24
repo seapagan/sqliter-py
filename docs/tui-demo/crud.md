@@ -32,9 +32,11 @@ for user in users:
 ```
 
 ### Return Value
+
 `db.insert()` returns the inserted model instance with the `pk` field populated.
 
 ### Performance
+
 For bulk inserts, consider using transactions (see [Transactions](transactions.md)) for better performance.
 
 ## Get by Primary Key
@@ -62,6 +64,7 @@ print(f"Retrieved: {retrieved_user.name}")
 ```
 
 ### When Record Doesn't Exist
+
 Returns `None` if no record is found with that primary key.
 
 ## Update Records
@@ -94,11 +97,13 @@ print(f"Task status: {updated_task.done}")
 ```
 
 ### Update Process
+
 1. Retrieve the record (or keep reference from insert)
 2. Modify the fields
 3. Call `db.update()` with the modified object
 
 ### Auto-Timestamps
+
 If your model has `updated_at`, it's automatically updated when you call `db.update()`.
 
 ## Delete Records
@@ -128,6 +133,7 @@ print(f"Note exists: {deleted_note is not None}")  # False
 ```
 
 ### Foreign Key Constraints
+
 If other records reference this record (via foreign keys), the delete will fail unless you handle the dependencies first.
 
 ## Operation Summary
@@ -141,13 +147,15 @@ If other records reference this record (via foreign keys), the delete will fail 
 
 ## Best Practices
 
-### DO:
+### DO
+
 - Keep the returned model from `insert()` for later use
 - Use `get_by_pk()` when you know the primary key
 - Validate data before inserting (Pydantic does this automatically)
 - Use transactions for multiple related operations
 
-### DON'T:
+### DON'T
+
 - Forget to call `db.update()` after modifying a model
 - Assume `get_by_pk()` always returns a record (check for `None`)
 - Delete records without checking for foreign key dependencies

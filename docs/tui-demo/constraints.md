@@ -17,11 +17,13 @@ class User(BaseDBModel):
 ```
 
 ### What It Does
+
 - Creates a `UNIQUE` constraint in the database
 - Database prevents duplicate values
 - Query fails with error if you try to insert a duplicate
 
 ### When to Use
+
 - **Usernames**: No two users can have the same username
 - **Emails**: Prevent duplicate email registrations
 - **Slugs**: Unique URL identifiers
@@ -49,12 +51,14 @@ print(f"Primary key: {product.pk}")  # Auto-generated
 ```
 
 ### Automatic Behavior
+
 - Field named `pk` is automatically added
 - Auto-increments with each insert
 - Guaranteed unique for each record
 - Used by `get_by_pk()` and foreign keys
 
 ### Don't Define Your Own
+
 ```python
 # ❌ WRONG: Don't do this
 class User(BaseDBModel):
@@ -81,10 +85,12 @@ class Task(BaseDBModel):
 ```
 
 ### Field Behavior
+
 - **Required fields**: Must be provided when inserting
 - **Optional fields**: Can be omitted, default to `None` or specified default
 
 ### Insert Behavior
+
 ```python
 # ✅ Works: title is provided
 db.insert(Task(title="Buy groceries"))
@@ -109,6 +115,7 @@ class Settings(BaseDBModel):
 ```
 
 ### When Inserting
+
 ```python
 # All defaults used
 settings1 = db.insert(Settings())
@@ -147,6 +154,7 @@ class Product(BaseDBModel):
 ```
 
 ### How It Works
+
 - Pydantic validates before database insert
 - Prevents invalid data from being stored
 - Returns helpful error messages
@@ -189,13 +197,15 @@ except IntegrityError as e:
 
 ## Best Practices
 
-### DO:
+### DO
+
 - Use `unique()` for fields that must be unique
 - Provide sensible defaults for optional fields
 - Use Pydantic validators for complex constraints
 - Handle `IntegrityError` for constraint violations
 
-### DON'T:
+### DON'T
+
 - Define your own primary key field
 - Forget that fields without defaults are required
 - Use check constraints for simple validation (use Pydantic)

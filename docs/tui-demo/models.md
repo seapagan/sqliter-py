@@ -17,6 +17,7 @@ class User(BaseDBModel):
 ```
 
 ### What Happens Automatically
+
 - **Primary Key**: `pk` field is automatically added as the primary key
 - **Table Name**: Table name is automatically pluralized (`users` in this case)
 - **Type Conversion**: Pydantic validates and converts types automatically
@@ -37,6 +38,7 @@ class Task(BaseDBModel):
 ```
 
 ### Field Behavior
+
 - Fields with defaults are optional when inserting
 - If not provided, the default value is used
 - You can override defaults by explicitly passing values
@@ -56,6 +58,7 @@ class Article(BaseDBModel):
 ```
 
 ### Auto-Generated Fields
+
 - **`created_at`**: Unix timestamp set when the record is inserted
 - **`updated_at`**: Unix timestamp updated automatically when the record is modified
 

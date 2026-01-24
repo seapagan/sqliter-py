@@ -29,6 +29,7 @@ for product in products:
 ```
 
 ### Default Order
+
 By default, `order_by()` sorts in **ascending** order (lowest to highest).
 
 ## Descending Order
@@ -59,7 +60,9 @@ recent = db.select(Article).order_by("-pk").fetch_all()
 ```
 
 ### Descending Syntax
+
 Prefix the field name with `-` for descending order:
+
 - `"price"` → Ascending (low to high)
 - `"-price"` → Descending (high to low)
 - `"pk"` → Oldest first
@@ -90,9 +93,11 @@ tasks = db.select(Task).order_by("priority", "title").fetch_all()
 ```
 
 ### How It Works
+
 Results are sorted by the first field, then by the second field within ties, and so on.
 
 ### Common Pattern
+
 ```python
 # Sort by category, then by name within each category
 items = db.select(Item).order_by("category", "name").fetch_all()
@@ -121,6 +126,7 @@ adults = db.select(User).filter(
 ```
 
 ### Order Matters
+
 The order of method chaining doesn't matter for the result, but affects readability:
 
 ```python
@@ -134,20 +140,25 @@ db.select(User).order_by("age").filter(age__gte=18).fetch_all()
 Different field types have different sort behaviors:
 
 ### Numbers
+
 Sorted numerically: `1, 2, 10, 100`
 
 ### Strings
+
 Sorted alphabetically: `"Apple", "Banana", "Cherry"`
 
 ### Dates/Timestamps
+
 Sorted chronologically (oldest to newest for `created_at`)
 
 ### Booleans
+
 `False` (0) comes before `True` (1)
 
 ## Performance Considerations
 
 ### Indexes
+
 Ordering by indexed fields is much faster:
 
 ```python
@@ -163,16 +174,19 @@ db.select(User).order_by("age").fetch_all()
 ```
 
 ### Large Result Sets
+
 Ordering requires the database to process all matching records before returning results.
 
 ## Best Practices
 
-### DO:
+### DO
+
 - Order by indexed fields for better performance
 - Use descending order (`-field`) for "newest first" queries
 - Order by multiple fields when you need secondary sorting
 
-### DON'T:
+### DON'T
+
 - Order by fields you don't need to sort by
 - Forget that string sorting is case-sensitive
 - Order large result sets without pagination

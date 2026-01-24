@@ -28,6 +28,7 @@ for user in results:
 ```
 
 ### Use Cases
+
 - **Prefix matching**: Find items with a specific code prefix
 - **Name filtering**: Find users whose names start with certain letters
 - **Category browsing**: Filter products by category prefix
@@ -56,6 +57,7 @@ text_files = db.select(File).filter(filename__endswith=".txt").fetch_all()
 ```
 
 ### Use Cases
+
 - **File extensions**: Filter by file type
 - **Domain matching**: Find emails from a specific domain
 - **Suffix filtering**: Items ending in specific codes
@@ -92,6 +94,7 @@ apple_products = db.select(Product).filter(
 ```
 
 ### Use Cases
+
 - **Search functionality**: Full-text search in descriptions
 - **Keyword matching**: Find items with specific keywords
 - **Pattern matching**: Flexible string matching
@@ -121,6 +124,7 @@ results = db.select(User).filter(
 ```
 
 ### Case-Insensitive Operators
+
 | Operator | Description |
 |----------|-------------|
 | `__istartswith` | Starts with (case-insensitive) |
@@ -128,6 +132,7 @@ results = db.select(User).filter(
 | `__icontains` | Contains (case-insensitive) |
 
 ### When to Use
+
 - **Email domains**: Users might type "Example.COM" or "example.com"
 - **Usernames**: Username searches should ignore case
 - **General search**: More user-friendly search experience
@@ -135,14 +140,17 @@ results = db.select(User).filter(
 ## Performance Considerations
 
 ### Indexes
+
 String filters (especially `contains` and `startswith`) can be slow on large datasets without proper indexing.
 
 ### Optimization Tips
+
 1. **Use `startswith` instead of `contains`** when possible - can use indexes better
 2. **Consider case-sensitive filters** - they're slightly faster
 3. **Limit results** with `fetch_first()` or pagination on large datasets
 
 ### Example: Optimized Search
+
 ```python
 # Instead of this (slower on large datasets):
 results = db.select(User).filter(email__contains="@example.com").fetch_all()

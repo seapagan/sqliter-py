@@ -30,6 +30,7 @@ for product in results:
 ```
 
 ### Alternative Syntax
+
 `category="gadgets"` works the same as `category__eq="gadgets"`.
 
 ## Not Equal To
@@ -85,6 +86,7 @@ young_users = db.select(User).filter(age__lte=30).fetch_all()
 ```
 
 ### Available Operators
+
 | Operator | Description |
 |----------|-------------|
 | `__gt` | Greater than |
@@ -119,6 +121,7 @@ active_orders = db.select(Order).filter(
 ```
 
 ### When to Use
+
 - Filtering by multiple possible values
 - Checking membership in a set
 - Simplifying multiple `OR` conditions
@@ -152,6 +155,7 @@ assigned = db.select(Task).filter(assigned_to__notnull=True).fetch_all()
 ```
 
 ### Null vs Empty String
+
 - `None` (null): Field was never set
 - `""` (empty string): Field was explicitly set to empty
 - Use `__isnull` to check for `None`
@@ -186,9 +190,11 @@ affordable = db.select(Product).filter(
 ```
 
 ### How It Works
+
 All filter conditions are combined with **AND** logic - only records matching ALL conditions are returned.
 
 ### Alternative One-Line Syntax
+
 ```python
 affordable = db.select(Product).filter(
     price__lt=20.0,
@@ -198,12 +204,14 @@ affordable = db.select(Product).filter(
 
 ## Best Practices
 
-### DO:
+### DO
+
 - Use specific filter operators (`__eq`, `__gt`, etc.) for clarity
 - Chain filters when you have multiple conditions
 - Use `__in` for checking multiple values instead of multiple `OR` conditions
 
-### DON'T:
+### DON'T
+
 - Filter on non-indexed fields in large datasets (performance issue)
 - Forget that text comparisons are case-sensitive
 - Mix up `__gt` (greater than) with `__lt` (less than)

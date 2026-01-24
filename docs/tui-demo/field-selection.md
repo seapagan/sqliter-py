@@ -37,11 +37,13 @@ for user in users:
 ```
 
 ### Benefits
+
 - **Performance**: Less data transferred from database
 - **Memory**: Lower memory usage for large result sets
 - **Clarity**: Explicit about what data you need
 
 ### When to Use
+
 - **API responses**: Only send needed fields to clients
 - **Large records**: Records with many fields but you only need a few
 - **Sensitive data**: Exclude fields like passwords
@@ -78,6 +80,7 @@ product = db.select(Product).exclude(
 ```
 
 ### Use Cases
+
 - **Hidden fields**: Exclude internal metadata
 - **Large fields**: Exclude large text/binary fields not needed for display
 - **Sensitive data**: Exclude passwords, tokens, etc.
@@ -115,6 +118,7 @@ for task in tasks:
 ```
 
 ### When to Use
+
 - **Lists/ dropdowns**: Only need display values
 - **Aggregation**: Extract specific column values
 - **Simple queries**: You only need one piece of information
@@ -134,18 +138,21 @@ db.select(User).filter(age__gte=18).fetch_all()
 ## Performance Impact
 
 ### Before Optimization
+
 ```python
 # Fetches all fields (potentially large records)
 users = db.select(User).fetch_all()  # All fields included
 ```
 
 ### After Optimization
+
 ```python
 # Fetches only needed fields
 users = db.select(User).fields(["name", "email"]).fetch_all()
 ```
 
 ### Performance Gains
+
 - **Less memory**: Smaller objects in memory
 - **Faster queries**: Database optimization can apply
 - **Cleaner code**: Intent is explicit
@@ -153,6 +160,7 @@ users = db.select(User).fields(["name", "email"]).fetch_all()
 ## Limitations
 
 ### Partial Objects
+
 Fields that aren't selected will be `None`:
 
 ```python
@@ -163,6 +171,7 @@ print(user.age)     # None (not selected)
 ```
 
 ### Updates
+
 Be careful when updating partially fetched objects:
 
 ```python
@@ -177,12 +186,14 @@ user.name = "New Name"
 
 ## Best Practices
 
-### DO:
+### DO
+
 - Select only the fields you need for display/processing
 - Use field selection for API responses
 - Consider memory usage for large datasets
 
-### DON'T:
+### DON'T
+
 - Update partially fetched objects without understanding the impact
 - Use field selection if you need to update the record later
 - Forget that unselected fields will be `None`

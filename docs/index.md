@@ -67,6 +67,7 @@ python -m sqliter.tui
 ```
 
 The demo includes:
+
 - **14 demo categories** covering all SQLiter features
 - **Live code display** with syntax highlighting
 - **One-click execution** to see results in real-time

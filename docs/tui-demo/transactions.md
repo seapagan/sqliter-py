@@ -32,6 +32,7 @@ with db.transaction():
 ```
 
 ### What Happens
+
 - Both updates succeed or both fail
 - If an error occurs, all changes are rolled back
 - Database remains in a consistent state
@@ -70,6 +71,7 @@ print(f"Balance: {reloaded.balance}")  # Still 100.0
 ```
 
 ### Rollback Behavior
+
 - All changes within the transaction are undone
 - Database state is as if nothing happened
 - Exception continues to propagate unless caught
@@ -104,6 +106,7 @@ except Exception:
 ```
 
 ### When to Use
+
 - **Complex logic**: Need conditional commit/rollback
 - **Error handling**: Different rollback strategies
 - **Nested operations**: Multiple validation steps
@@ -187,22 +190,26 @@ with db.transaction():
 ```
 
 ### Performance Impact
+
 - **Without transaction**: 1000 separate commits = slow
 - **With transaction**: 1 commit for all records = 10-100x faster
 
 ## When to Use Transactions
 
-### Always Use For:
+### Always Use For
+
 - **Related operations**: Multiple tables that must stay in sync
 - **Financial data**: Money transfers must be atomic
 - **Complex updates**: Changes that affect multiple records
 
-### Optional For:
+### Optional For
+
 - **Single operations**: One insert/update/delete
 - **Independent records**: No relationship between operations
 - **Non-critical data**: Temporary data, logs
 
-### Never For:
+### Never For
+
 - **Long-running operations**: Transactions lock the database
 - **Interactive operations**: Waiting for user input
 - **Large bulk imports**: Consider periodic commits
@@ -210,6 +217,7 @@ with db.transaction():
 ## Common Patterns
 
 ### Transfer Pattern
+
 ```python
 def transfer(from_account: Account, to_account: Account, amount: float) -> None:
     """Transfer funds between accounts."""
@@ -221,6 +229,7 @@ def transfer(from_account: Account, to_account: Account, amount: float) -> None:
 ```
 
 ### Create or Update Pattern
+
 ```python
 def create_or_update(user: User) -> None:
     """Insert or update a user."""
@@ -238,13 +247,15 @@ def create_or_update(user: User) -> None:
 
 ## Best Practices
 
-### DO:
+### DO
+
 - Use transactions for multi-step operations
 - Keep transactions short (don't hold locks)
 - Use context managers for automatic cleanup
 - Handle exceptions appropriately
 
-### DON'T:
+### DON'T
+
 - Forget that transactions lock the database
 - Put user input inside transactions
 - Use transactions for single operations (unnecessary overhead)

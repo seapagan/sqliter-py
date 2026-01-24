@@ -27,11 +27,13 @@ db.close()
 ```
 
 ### When to Use
+
 - **Testing**: Perfect for unit tests where you need a fresh database each time
 - **Caching**: Temporary cache data that doesn't need to persist
 - **Prototyping**: Quickly test data models without creating files
 
 ### Performance
+
 In-memory databases are typically 2-3x faster than file-based databases since there's no disk I/O.
 
 ## File-Based Database
@@ -74,11 +76,13 @@ finally:
 ```
 
 ### When to Use
+
 - **Production Applications**: Any data that needs to persist
 - **Data Analysis**: Working with existing SQLite databases
 - **Web Applications**: Storing user data, sessions, etc.
 
 ### Best Practices
+
 - Use absolute paths for database files to avoid confusion
 - Consider database file location (e.g., user data directory)
 - Handle file permissions appropriately
@@ -105,11 +109,13 @@ with SqliterDB(memory=True) as db:
 ```
 
 ### Benefits
+
 - **Automatic Cleanup**: Guaranteed connection closure
 - **Exception Safety**: Connection closes even if errors occur
 - **Cleaner Code**: No need to remember `db.close()`
 
 ### When to Use
+
 - **Scripts**: Short-lived scripts that need database access
 - **Batch Jobs**: Operations that open, process, and close
 - **Testing**: Ensures clean test isolation
@@ -138,12 +144,14 @@ product = db.insert(Product(name="Widget", price=19.99))
 ```
 
 ### What You'll See
+
 - `CREATE TABLE` statements when creating tables
 - `INSERT` statements when adding records
 - `SELECT` statements when querying data
 - Parameter values being bound
 
 ### When to Use
+
 - **Learning**: Understand how SQLiter translates Python to SQL
 - **Debugging**: Troubleshoot query issues
 - **Optimization**: Identify inefficient queries

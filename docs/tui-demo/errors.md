@@ -30,6 +30,7 @@ except IntegrityError as e:
 ```
 
 ### Prevention
+
 Check if record exists before inserting:
 
 ```python
@@ -62,6 +63,7 @@ except RecordNotFoundError as e:
 ```
 
 ### Safe Alternative
+
 Use `fetch_one()` which returns `None` instead of raising:
 
 ```python
@@ -105,6 +107,7 @@ except ValidationError as e:
 ```
 
 ### Benefits
+
 - Data never reaches the database in invalid form
 - Clear error messages
 - Type checking and validation
@@ -127,6 +130,7 @@ except DatabaseConnectionError as e:
 ```
 
 ### Common Causes
+
 - Invalid directory (doesn't exist)
 - Permission denied (can't write to directory)
 - Database file corrupted
@@ -158,6 +162,7 @@ except TableNotFoundError as e:
 ```
 
 ### Prevention
+
 Always call `create_table()` before inserting:
 
 ```python
@@ -194,6 +199,7 @@ except IntegrityError as e:
 ```
 
 ### Prevention
+
 Ensure parent record exists:
 
 ```python
@@ -235,6 +241,7 @@ print(f"Balance: {reloaded.balance}")  # Still 100.0
 ## Error Handling Best Practices
 
 ### Specific Exceptions
+
 Catch specific exceptions for different error types:
 
 ```python
@@ -256,6 +263,7 @@ except Exception as e:
 ```
 
 ### User-Friendly Messages
+
 Translate technical errors for users:
 
 ```python
@@ -266,6 +274,7 @@ except IntegrityError:
 ```
 
 ### Logging
+
 Log errors for debugging:
 
 ```python
@@ -294,14 +303,16 @@ Exception
 
 ## Best Practices
 
-### DO:
+### DO
+
 - Catch specific exceptions for different error types
 - Provide user-friendly error messages
 - Log errors for debugging
 - Validate data before database operations
 - Use transactions for multi-step operations
 
-### DON'T:
+### DON'T
+
 - Catch all exceptions with bare `except:`
 - Ignore errors silently
 - Expose raw database errors to users

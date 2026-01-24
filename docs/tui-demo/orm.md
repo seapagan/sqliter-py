@@ -21,6 +21,7 @@ class Book(BaseDBModel):
 ```
 
 ### What Happens
+
 - `author` field stores the primary key of the Author
 - Database creates a foreign key constraint
 - Referential integrity is enforced
@@ -54,6 +55,7 @@ book2 = db.insert(Book(title="Emma", author=author.pk))
 ```
 
 ### Storage
+
 The `author` field stores the primary key (integer), not the full Author object.
 
 ## Lazy Loading
@@ -88,11 +90,13 @@ for book in books:
 ```
 
 ### How Lazy Loading Works
+
 1. Book object is fetched with just `author.pk` stored
 2. When you access `book.author.name`, SQLiter queries the Author table
 3. Full Author object is loaded and cached
 
 ### Performance Consideration
+
 - **Pro**: Only loads related data when needed
 - **Con**: N+1 query problem if iterating many records
 
@@ -136,6 +140,7 @@ for book in fetched_author.books:
 ```
 
 ### Setting Up Reverse Relationships
+
 Use the `related_name` parameter when defining the ForeignKey:
 
 ```python
@@ -185,12 +190,14 @@ orphaned_books = db.select(Book).fetch_all()
 
 ## ORM Best Practices
 
-### DO:
+### DO
+
 - Use foreign keys to link related data
 - Access related objects when needed (lazy loading)
 - Consider query count when iterating over related objects
 
-### DON'T:
+### DON'T
+
 - Forget that ForeignKey stores the pk, not the object
 - Create circular foreign key relationships
 - Delete parent records without handling children

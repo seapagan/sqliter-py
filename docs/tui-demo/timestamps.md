@@ -30,11 +30,13 @@ print(f"Created: {article2.created_at}")
 ```
 
 ### What It Does
+
 - `created_at` field is automatically added to your model
 - Set to current Unix timestamp when record is inserted
 - Never changes after initial insert
 
 ### Field Type
+
 `created_at` is stored as an integer (Unix timestamp in seconds).
 
 ## Auto updated_at
@@ -72,6 +74,7 @@ print(f"Updated: {updated_task.updated_at}")
 ```
 
 ### How It Works
+
 - `updated_at` starts same as `created_at`
 - Automatically updated when you call `db.update()`
 - Changes on every update operation
@@ -126,7 +129,9 @@ print(f"Created: {article.created_at} ({readable} UTC)")
 ## When to Use Timestamps
 
 ### Audit Trails
+
 Track when records were created and modified:
+
 ```python
 class User(BaseDBModel):
     username: str
@@ -134,7 +139,9 @@ class User(BaseDBModel):
 ```
 
 ### Synchronization
+
 Determine if data needs to be synced:
+
 ```python
 local_doc = db_local.get_by_pk(Document, doc_id)
 remote_doc = db_remote.get_by_pk(Document, doc_id)
@@ -144,14 +151,18 @@ if remote_doc.updated_at > local_doc.updated_at:
 ```
 
 ### Debugging
+
 Understand the lifecycle of records:
+
 ```python
 print(f"User created {datetime.now() - user.created_at} ago")
 print(f"Last updated {datetime.now() - user.updated_at} ago")
 ```
 
 ### Soft Delete
+
 Mark records as deleted instead of removing them:
+
 ```python
 class Record(BaseDBModel):
     data: str
@@ -167,11 +178,13 @@ def soft_delete(record: Record) -> None:
 Unix timestamps are in **seconds** since the epoch (January 1, 1970).
 
 ### Limitations
+
 - **Second precision**: No milliseconds/microseconds
 - **Timezone naive**: Stored as UTC, convert for display
 - **Year 2038**: 32-bit integer limit (not an issue for 64-bit)
 
 ### Example Values
+
 ```
 1737739200 -> 2025-01-25 00:00:00 UTC
 1737742800 -> 2025-01-25 01:00:00 UTC
@@ -207,13 +220,15 @@ recent = db.select(LogEntry).filter(
 
 ## Best Practices
 
-### DO:
+### DO
+
 - Use timestamps for audit trails
 - Convert to readable format for display
 - Store as UTC, convert to local time for users
 - Use for synchronization checks
 
-### DON'T:
+### DON'T
+
 - Assume timestamps are in local time (they're UTC)
 - Forget that precision is only in seconds
 - Manually set timestamps (let SQLiter handle it)

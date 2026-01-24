@@ -27,9 +27,11 @@ print(f"First user: {user.name}")
 ```
 
 ### When No Results
+
 Returns `None` if no records match the query.
 
 ### Use Cases
+
 - **Find specific user**: When you expect only one result
 - **Get first match**: When you only need the first record
 - **Existence checks**: Quick check if any records match
@@ -61,9 +63,11 @@ for product in products:
 ```
 
 ### Return Type
+
 Returns a list of model instances. Empty list if no results.
 
 ### Memory Consideration
+
 Be careful with large result sets - all records are loaded into memory.
 
 ## Fetch First
@@ -91,6 +95,7 @@ print(f"Showing {len(recent)} articles")
 ```
 
 ### Use Cases
+
 - **Pagination**: Show first page of results
 - **Previews**: Display sample data
 - **Limit load**: Prevent loading too many records
@@ -122,6 +127,7 @@ pending_count = db.select(Order).filter(
 ```
 
 ### Benefits
+
 - **Fast**: Database counts without transferring data
 - **Memory efficient**: No records loaded into memory
 - **Statistics**: Quick counts for dashboards
@@ -150,6 +156,7 @@ has_alice = db.select(User).filter(
 ```
 
 ### Use Cases
+
 - **Validation**: Check if username/email already exists
 - **Conditional logic**: Branch based on existence
 - **Fast checks**: Quicker than fetching the actual record
@@ -167,6 +174,7 @@ has_alice = db.select(User).filter(
 ## Performance Considerations
 
 ### Large Datasets
+
 ```python
 # ❌ BAD: Loads all records into memory
 all_users = db.select(User).fetch_all()
@@ -181,6 +189,7 @@ while True:
 ```
 
 ### Counting
+
 ```python
 # ❌ BAD: Counts in Python (slow)
 count = len(db.select(User).fetch_all())
@@ -191,13 +200,15 @@ count = db.select(User).count()
 
 ## Best Practices
 
-### DO:
+### DO
+
 - Use `fetch_one()` when you expect a single result
 - Use `count()` for statistics instead of counting in Python
 - Use `fetch_first()` for pagination
 - Check for `None` when using `fetch_one()`
 
-### DON'T:
+### DON'T
+
 - Use `fetch_all()` on potentially huge datasets
 - Count results with `len()` - use `count()` instead
 - Forget that `fetch_one()` returns `None` if no results
