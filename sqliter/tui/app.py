@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
 from typing import TYPE_CHECKING, ClassVar, cast
 
 from textual.app import App, ComposeResult
@@ -103,6 +104,13 @@ class SQLiterDemoApp(App[None]):
                     )
                     yield Button("Clear Output (F8)", id="clear-btn")
         yield Footer()
+
+    def on_mount(self) -> None:
+        """Set initial focus on the demo list."""
+        with suppress(NoMatches):
+            demo_list = self.query_one("#demo-list", DemoList)
+            tree = demo_list.query_one("#demo-tree", Tree)
+            tree.focus()
 
     def on_demo_selected(self, event: DemoSelected) -> None:
         """Handle demo selection from the list."""
