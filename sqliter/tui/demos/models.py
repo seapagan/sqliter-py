@@ -153,7 +153,7 @@ def _run_complex_types() -> str:
         Document(
             title="Guide",
             tags=["python", "database", "tutorial"],
-            metadata={"views": 1000, "rating": 4.5},
+            metadata={"views": 1000, "rating": 4},
         ),
     )
     output.write(f"Document: {doc.title}\n")

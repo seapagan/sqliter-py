@@ -74,6 +74,7 @@ dev = [
   "mkdocs-minify-plugin>=0.8.0",
   "mdx-truly-sane-lists>=1.3",
   "prek>=0.2.27",
+  "pytest-asyncio>=1.2.0",
 ]
 
 [tool.poe.tasks]
@@ -161,6 +162,8 @@ disable_error_code = ["method-assign", "no-untyped-def", "attr-defined"]
 module = "tests.*"
 
 [tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 addopts = [
   "--cov",
   "--cov-report",

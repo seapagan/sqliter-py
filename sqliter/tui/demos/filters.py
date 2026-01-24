@@ -53,7 +53,7 @@ def _run_comparison() -> str:
     output.write(f"Products > $15: {len(expensive)}\n")
 
     # Less than or equal
-    cheap = db.select(Product).filter(price__le=20.0).fetch_all()
+    cheap = db.select(Product).filter(price__lte=20.0).fetch_all()
     output.write(f"Products <= $20: {len(cheap)}\n")
 
     db.close()
@@ -378,7 +378,7 @@ def get_category() -> DemoCategory:
             Demo(
                 id="filter_comparison",
                 title="Comparison Operators",
-                description="__gt, __lt, __gte, __lte",
+                description="__gt, __lt, __gte, __lte (less/greater than)",
                 category="filters",
                 code=COMPARISON_CODE,
                 execute=_run_comparison,

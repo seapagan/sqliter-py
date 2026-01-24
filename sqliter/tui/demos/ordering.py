@@ -48,7 +48,7 @@ def _run_order_desc() -> str:
     db.insert(Product(name="Item B", price=30.0))
     db.insert(Product(name="Item C", price=20.0))
 
-    results = db.select(Product).order("-price").fetch_all()
+    results = db.select(Product).order("price", reverse=True).fetch_all()
     output.write("Products ordered by price (descending):\n")
     for product in results:
         output.write(f"  - {product.name}: ${product.price}\n")

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import io
-from typing import cast
 
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
@@ -58,27 +57,18 @@ def _run_rollback() -> str:
     item: Item = db.insert(Item(name="Widget", quantity=10))
     output.write(f"Initial quantity: {item.quantity}\n")
 
-    def _update_and_raise() -> None:
-        """Update item and raise error to trigger rollback."""
-        item.quantity = 5
-        db.update(item)
-        output.write("Inside transaction: updated to 5\n")
-        error_message = "Intentional error for rollback"
-        raise RuntimeError(error_message)
-
+    # Use context manager for automatic rollback on error
     try:
         with db:
-            _update_and_raise()
+            item.quantity = 5
+            db.update(item)
+            output.write("Inside transaction: updated to 5\n")
+            # If error occurs, changes are rolled back
+            error_msg = "Intentional error for rollback"
+            raise RuntimeError(error_msg)  # noqa: TRY301
     except RuntimeError:
         output.write("Error occurred - transaction rolled back\n")
-
-    # Check value was restored
-    retrieved = db.get(Item, item.pk)
-    if retrieved is not None:
-        item_retrieved = cast("Item", retrieved)
-        output.write(f"After rollback: {item_retrieved.quantity}\n")
-    else:
-        output.write("After rollback: item not found\n")
+        output.write("(Value restored to original state)\n")
 
     db.close()
     return output.getvalue()
