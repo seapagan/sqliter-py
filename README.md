@@ -55,6 +55,7 @@ Full documentation is available on the [Website](https://sqliter.grantramsay.dev
 - Custom exceptions for better error handling
 - Full type hinting and type checking
 - Detailed documentation and examples
+- Interactive TUI demo for exploring features
 - No external dependencies other than Pydantic
 - Full test coverage
 - Can optionally output the raw SQL queries being executed for debugging
@@ -90,9 +91,9 @@ Currently by default, the only external dependency is Pydantic. However, there
 are some optional dependencies that can be installed to enable additional
 features:
 
-- `inflect`: For pluralizing the auto-generated table names (if not explicitly
-  set in the Model) This just offers a more-advanced pluralization than the
-  default method used. In most cases you will not need this.
+- `demo`: Installs the Textual TUI framework for the interactive demo
+- `extras`: Installs Inflect for better pluralization of table names
+- `full`: Installs all optional dependencies (Textual and Inflect)
 
 See [Installing Optional
 Dependencies](https://sqliter.grantramsay.dev/installation#optional-dependencies)
@@ -140,6 +141,16 @@ delete_count = db.select(User).filter(age__gt=30).delete()
 See the [Guide](https://sqliter.grantramsay.dev/guide/guide/) section of the
 documentation for more detailed information on how to use SQLiter, and advanced
 features.
+
+You can also run the interactive TUI demo to explore SQLiter features hands-on:
+
+```bash
+# Install the demo
+uv add sqliter-py[demo]
+
+# Run the demo
+sqliter-demo
+```
 
 ## Contributing
 
