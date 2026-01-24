@@ -12,7 +12,11 @@ from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
 def _run_basic_model() -> str:
-    """Execute the basic model demo."""
+    """Define a simple model with automatic primary key generation.
+
+    BaseDBModel provides an auto-incrementing 'pk' field and handles
+    all the database table creation.
+    """
     output = io.StringIO()
 
     class User(BaseDBModel):
@@ -34,7 +38,11 @@ def _run_basic_model() -> str:
 
 
 def _run_custom_table_name() -> str:
-    """Execute the custom table name demo."""
+    """Override the auto-generated table name.
+
+    Set __tablename__ to use a custom table name instead of the
+    auto-pluralized model class name.
+    """
     output = io.StringIO()
 
     class Person(BaseDBModel):
@@ -57,7 +65,11 @@ def _run_custom_table_name() -> str:
 
 
 def _run_field_types() -> str:
-    """Execute the field types demo."""
+    """Use various field types in your models.
+
+    BaseDBModel supports str, int, float, bool, and more with automatic
+    type conversion and validation.
+    """
     output = io.StringIO()
 
     class Product(BaseDBModel):
@@ -90,7 +102,11 @@ def _run_field_types() -> str:
 
 
 def _run_optional_fields() -> str:
-    """Execute the optional fields demo."""
+    """Define fields that can be NULL (optional) in the database.
+
+    Use Optional[T] or Union[T, None] for nullable fields, with
+    optional default values.
+    """
     output = io.StringIO()
 
     class Article(BaseDBModel):
@@ -118,7 +134,11 @@ def _run_optional_fields() -> str:
 
 
 def _run_default_values() -> str:
-    """Execute the default values demo."""
+    """Set default values for fields.
+
+    Assign default values in the model definition to use when
+    inserting records without specifying those fields.
+    """
     output = io.StringIO()
 
     class Task(BaseDBModel):
@@ -139,7 +159,11 @@ def _run_default_values() -> str:
 
 
 def _run_complex_types() -> str:
-    """Execute the complex types demo."""
+    """Store complex data types like lists and dicts.
+
+    BaseDBModel automatically serializes lists, dicts, sets, and tuples
+    to BLOBs for SQLite storage, and deserializes them back.
+    """
     output = io.StringIO()
 
     class Document(BaseDBModel):

@@ -10,7 +10,11 @@ from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
 def _run_select_fields() -> str:
-    """Execute the select specific fields demo."""
+    """Select specific fields from a query to reduce data transfer.
+
+    Use fields() to fetch only the columns you need, leaving unspecified
+    fields as None.
+    """
     output = io.StringIO()
 
     class User(BaseDBModel):
@@ -39,7 +43,11 @@ def _run_select_fields() -> str:
 
 
 def _run_exclude_fields() -> str:
-    """Execute the exclude fields demo."""
+    """Exclude specific fields from query results.
+
+    Use exclude() to fetch all fields except the ones you specify,
+    useful for hiding large or sensitive fields.
+    """
     output = io.StringIO()
 
     class Product(BaseDBModel):
@@ -72,7 +80,11 @@ def _run_exclude_fields() -> str:
 
 
 def _run_only_field() -> str:
-    """Execute the select single field demo."""
+    """Select a single field from query results.
+
+    Use only() when you only need one specific field from your query,
+    useful for getting IDs or names.
+    """
     output = io.StringIO()
 
     class Task(BaseDBModel):

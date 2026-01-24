@@ -10,7 +10,10 @@ from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
 def _run_equals() -> str:
-    """Execute the equals filter demo."""
+    """Filter records where a field exactly matches a value.
+
+    Use __eq to find records with the specified exact value.
+    """
     output = io.StringIO()
 
     class User(BaseDBModel):
@@ -34,7 +37,10 @@ def _run_equals() -> str:
 
 
 def _run_comparison() -> str:
-    """Execute the comparison operators demo."""
+    """Filter records using comparison operators.
+
+    Use __gt, __lt, __gte, __lte for greater/less than filtering.
+    """
     output = io.StringIO()
 
     class Product(BaseDBModel):
@@ -61,7 +67,10 @@ def _run_comparison() -> str:
 
 
 def _run_in_operator() -> str:
-    """Execute the IN operator demo."""
+    """Filter records matching any value in a list.
+
+    Use __in to match records against multiple possible values.
+    """
     output = io.StringIO()
 
     class Task(BaseDBModel):
@@ -88,7 +97,10 @@ def _run_in_operator() -> str:
 
 
 def _run_like_operator() -> str:
-    """Execute the LIKE operator demo."""
+    """Filter strings using SQL LIKE pattern matching.
+
+    Use __like with % wildcards for flexible string matching.
+    """
     output = io.StringIO()
 
     class File(BaseDBModel):
@@ -112,7 +124,10 @@ def _run_like_operator() -> str:
 
 
 def _run_not_equals() -> str:
-    """Execute the not equals demo."""
+    """Filter records that don't match a specific value.
+
+    Use __ne to exclude records with the specified value.
+    """
     output = io.StringIO()
 
     class Item(BaseDBModel):
@@ -134,7 +149,10 @@ def _run_not_equals() -> str:
 
 
 def _run_multiple_filters() -> str:
-    """Execute multiple filters demo."""
+    """Chain multiple filters for complex queries.
+
+    Combine multiple filter() calls to narrow results with AND logic.
+    """
     output = io.StringIO()
 
     class User(BaseDBModel):
@@ -161,7 +179,10 @@ def _run_multiple_filters() -> str:
 
 
 def _run_range_filters() -> str:
-    """Execute range filter demo."""
+    """Filter records within a specific value range.
+
+    Combine __gte and __lte to find records in a range.
+    """
     output = io.StringIO()
 
     class Product(BaseDBModel):
@@ -187,7 +208,10 @@ def _run_range_filters() -> str:
 
 
 def _run_combined_operators() -> str:
-    """Execute combined filter operators demo."""
+    """Combine different filter types for precise queries.
+
+    Mix equality, comparison, and other operators in a single query.
+    """
     output = io.StringIO()
 
     class Order(BaseDBModel):
@@ -216,7 +240,10 @@ def _run_combined_operators() -> str:
 
 
 def _run_isnull() -> str:
-    """Execute the IS NULL filter demo."""
+    """Find records with null (empty) field values.
+
+    Use __isnull=True to find records where a field is None.
+    """
     output = io.StringIO()
 
     class Task(BaseDBModel):
@@ -242,7 +269,10 @@ def _run_isnull() -> str:
 
 
 def _run_notnull() -> str:
-    """Execute the IS NOT NULL filter demo."""
+    """Find records without null (empty) field values.
+
+    Use __notnull=True to find records where a field has a value.
+    """
     output = io.StringIO()
 
     class Task(BaseDBModel):

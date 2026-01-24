@@ -12,7 +12,10 @@ from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
 def _run_memory_db() -> str:
-    """Execute the in-memory database demo."""
+    """Create an in-memory SQLite database.
+
+    Use memory=True for fast, temporary databases that don't persist.
+    """
     output = io.StringIO()
 
     db = SqliterDB(memory=True)
@@ -30,7 +33,10 @@ def _run_memory_db() -> str:
 
 
 def _run_file_db() -> str:
-    """Execute the file-based database demo."""
+    """Create a file-based SQLite database for persistent storage.
+
+    Provide a file path to store data that persists across sessions.
+    """
     output = io.StringIO()
 
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
@@ -53,7 +59,10 @@ def _run_file_db() -> str:
 
 
 def _run_debug_mode() -> str:
-    """Execute the debug mode demo."""
+    """Enable debug mode to see SQL queries being executed.
+
+    Set debug=True to log all SQL queries to the console for debugging.
+    """
     output = io.StringIO()
 
     output.write("Debug mode enables SQL query logging.\n")
@@ -70,7 +79,10 @@ def _run_debug_mode() -> str:
 
 
 def _run_context_manager() -> str:
-    """Execute the context manager demo."""
+    """Use context manager for automatic connection management.
+
+    The `with db:` block handles connection, transactions, and cleanup.
+    """
     output = io.StringIO()
 
     class Task(BaseDBModel):

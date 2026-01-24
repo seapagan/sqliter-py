@@ -13,7 +13,11 @@ from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
 def _run_unique_field() -> str:
-    """Execute the unique field demo."""
+    """Enforce uniqueness on a field to prevent duplicate values.
+
+    Use unique() to ensure no two records have the same value for
+    a specific field (like email).
+    """
     output = io.StringIO()
 
     class User(BaseDBModel):
@@ -34,7 +38,11 @@ def _run_unique_field() -> str:
 
 
 def _run_multi_field_unique() -> str:
-    """Execute the composite unique key demo."""
+    """Enforce uniqueness across multiple fields together.
+
+    Multiple unique() fields create a composite constraint - the
+    combination of values must be unique.
+    """
     output = io.StringIO()
 
     class Enrollment(BaseDBModel):
@@ -56,7 +64,11 @@ def _run_multi_field_unique() -> str:
 
 
 def _run_foreign_key_cascade() -> str:
-    """Execute the foreign key CASCADE demo."""
+    """Automatically delete related records when parent is deleted.
+
+    CASCADE on_delete means deleting a record also deletes all
+    records that reference it via foreign key.
+    """
     output = io.StringIO()
 
     class Author(BaseDBModel):
@@ -85,7 +97,11 @@ def _run_foreign_key_cascade() -> str:
 
 
 def _run_foreign_key_restrict() -> str:
-    """Execute the foreign key RESTRICT demo."""
+    """Prevent deletion of records that are referenced by others.
+
+    RESTRICT on_delete prevents deleting a record if other records
+    reference it via foreign key.
+    """
     output = io.StringIO()
 
     class Category(BaseDBModel):
@@ -113,7 +129,11 @@ def _run_foreign_key_restrict() -> str:
 
 
 def _run_foreign_key_set_null() -> str:
-    """Execute the foreign key SET NULL demo."""
+    """Set foreign key to NULL when referenced record is deleted.
+
+    SET NULL on_delete sets the foreign key field to None when the
+    referenced record is deleted (requires nullable FK).
+    """
     output = io.StringIO()
 
     class Department(BaseDBModel):

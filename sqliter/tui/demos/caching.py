@@ -10,7 +10,11 @@ from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
 def _run_enable_cache() -> str:
-    """Execute the enable cache demo."""
+    """Demonstrate enabling query result caching for performance.
+
+    Caching stores query results in memory, speeding up repeated queries
+    by avoiding database hits.
+    """
     output = io.StringIO()
 
     class User(BaseDBModel):
@@ -34,7 +38,11 @@ def _run_enable_cache() -> str:
 
 
 def _run_cache_stats() -> str:
-    """Execute the cache statistics demo."""
+    """Show how to view cache hit/miss statistics.
+
+    Use get_cache_stats() to monitor cache performance and see how
+    effective your caching strategy is.
+    """
     output = io.StringIO()
 
     class Product(BaseDBModel):
@@ -59,7 +67,11 @@ def _run_cache_stats() -> str:
 
 
 def _run_cache_bypass() -> str:
-    """Execute the cache bypass demo."""
+    """Bypass the cache to fetch fresh data from the database.
+
+    Use bypass_cache() when you need to ensure you're getting the most
+    up-to-date data, ignoring any cached results.
+    """
     output = io.StringIO()
 
     class Item(BaseDBModel):
@@ -84,7 +96,11 @@ def _run_cache_bypass() -> str:
 
 
 def _run_cache_ttl() -> str:
-    """Execute the cache TTL demo."""
+    """Set a time-to-live (TTL) for cached entries.
+
+    Cache entries automatically expire after the specified number of seconds,
+    ensuring stale data isn't served indefinitely.
+    """
     output = io.StringIO()
 
     class Article(BaseDBModel):
@@ -103,7 +119,11 @@ def _run_cache_ttl() -> str:
 
 
 def _run_cache_clear() -> str:
-    """Execute the cache clear demo."""
+    """Manually clear the cache to free memory or force refresh.
+
+    Use clear_cache() when you need to invalidate all cached results
+    and start fresh.
+    """
     output = io.StringIO()
 
     class Document(BaseDBModel):

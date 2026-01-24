@@ -10,7 +10,10 @@ from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
 def _run_fetch_all() -> str:
-    """Execute the fetch_all demo."""
+    """Fetch all records matching a query.
+
+    Use fetch_all() to get a list of all matching records.
+    """
     output = io.StringIO()
 
     class User(BaseDBModel):
@@ -33,7 +36,11 @@ def _run_fetch_all() -> str:
 
 
 def _run_fetch_one() -> str:
-    """Execute the fetch_one demo."""
+    """Fetch a single record or return None if not found.
+
+    Use fetch_one() to get one matching record, returning None if
+    no records match the query.
+    """
     output = io.StringIO()
 
     class Task(BaseDBModel):
@@ -61,7 +68,11 @@ def _run_fetch_one() -> str:
 
 
 def _run_fetch_first_last() -> str:
-    """Execute the fetch_first and fetch_last demo."""
+    """Fetch the first or last record from results.
+
+    Use fetch_first() or fetch_last() to get a single record
+    from the beginning or end of the result set.
+    """
     output = io.StringIO()
 
     class Item(BaseDBModel):
@@ -86,7 +97,10 @@ def _run_fetch_first_last() -> str:
 
 
 def _run_count() -> str:
-    """Execute the count demo."""
+    """Count the number of matching records.
+
+    Use count() to efficiently count records without fetching them.
+    """
     output = io.StringIO()
 
     class Product(BaseDBModel):
@@ -111,7 +125,11 @@ def _run_count() -> str:
 
 
 def _run_exists() -> str:
-    """Execute the exists demo."""
+    """Check if any records match the query.
+
+    Use exists() to efficiently check for matching records without
+    fetching them - returns True/False.
+    """
     output = io.StringIO()
 
     class User(BaseDBModel):
@@ -134,7 +152,11 @@ def _run_exists() -> str:
 
 
 def _run_aggregates() -> str:
-    """Execute aggregate functions demo."""
+    """Calculate aggregates using Python after fetching data.
+
+    SQLiter doesn't support SQL-level aggregates (GROUP BY, HAVING).
+    Use Python's sum(), len(), etc. after fetching results.
+    """
     output = io.StringIO()
 
     class Sale(BaseDBModel):

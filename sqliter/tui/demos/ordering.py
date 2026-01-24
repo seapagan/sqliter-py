@@ -10,7 +10,10 @@ from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
 def _run_order_asc() -> str:
-    """Execute the ascending order demo."""
+    """Sort query results in ascending order.
+
+    Use order(field_name) to sort results from lowest to highest.
+    """
     output = io.StringIO()
 
     class User(BaseDBModel):
@@ -34,7 +37,10 @@ def _run_order_asc() -> str:
 
 
 def _run_order_desc() -> str:
-    """Execute the descending order demo."""
+    """Sort query results in descending order.
+
+    Use order(field_name, reverse=True) to sort from highest to lowest.
+    """
     output = io.StringIO()
 
     class Product(BaseDBModel):
@@ -58,7 +64,10 @@ def _run_order_desc() -> str:
 
 
 def _run_limit() -> str:
-    """Execute the limit demo."""
+    """Limit the number of results returned.
+
+    Use limit(count) to fetch only the first N records.
+    """
     output = io.StringIO()
 
     class Article(BaseDBModel):
@@ -80,7 +89,10 @@ def _run_limit() -> str:
 
 
 def _run_offset() -> str:
-    """Execute the offset demo."""
+    """Skip a specified number of results.
+
+    Use offset(count) with limit() for pagination, skipping first N records.
+    """
     output = io.StringIO()
 
     class Item(BaseDBModel):

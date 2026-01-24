@@ -10,7 +10,11 @@ from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
 def _run_startswith() -> str:
-    """Execute the starts with filter demo."""
+    """Filter strings that start with a specific prefix.
+
+    Use __startswith to match records where a field begins with
+    the specified value.
+    """
     output = io.StringIO()
 
     class User(BaseDBModel):
@@ -34,7 +38,11 @@ def _run_startswith() -> str:
 
 
 def _run_endswith() -> str:
-    """Execute the ends with filter demo."""
+    """Filter strings that end with a specific suffix.
+
+    Use __endswith to match records where a field ends with
+    the specified value.
+    """
     output = io.StringIO()
 
     class File(BaseDBModel):
@@ -59,7 +67,11 @@ def _run_endswith() -> str:
 
 
 def _run_contains() -> str:
-    """Execute the contains filter demo."""
+    """Filter strings that contain a specific substring.
+
+    Use __contains to match records where a field contains
+    the specified value anywhere within it.
+    """
     output = io.StringIO()
 
     class Product(BaseDBModel):
@@ -84,7 +96,11 @@ def _run_contains() -> str:
 
 
 def _run_case_insensitive() -> str:
-    """Execute the case-insensitive filter demo."""
+    """Filter strings ignoring case with __istartswith and __iendswith.
+
+    Use case-insensitive operators to match strings regardless of
+    capitalization.
+    """
     output = io.StringIO()
 
     class User(BaseDBModel):
@@ -114,7 +130,10 @@ def _run_case_insensitive() -> str:
 
 
 def _run_icontains() -> str:
-    """Execute the case-insensitive contains filter demo."""
+    """Filter strings containing a substring, ignoring case.
+
+    Use __icontains for case-insensitive substring matching.
+    """
     output = io.StringIO()
 
     class Article(BaseDBModel):

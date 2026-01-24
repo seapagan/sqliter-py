@@ -10,7 +10,10 @@ from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
 def _run_context_manager_transaction() -> str:
-    """Execute the context manager transaction demo."""
+    """Use context manager for automatic transaction management.
+
+    The `with db:` block auto-commits on success and rolls back on error.
+    """
     output = io.StringIO()
 
     class Account(BaseDBModel):
@@ -44,7 +47,11 @@ def _run_context_manager_transaction() -> str:
 
 
 def _run_rollback() -> str:
-    """Execute the rollback demo."""
+    """Automatically roll back changes when an error occurs.
+
+    If an exception is raised inside a transaction context, all changes
+    are automatically undone.
+    """
     output = io.StringIO()
 
     class Item(BaseDBModel):
@@ -75,7 +82,10 @@ def _run_rollback() -> str:
 
 
 def _run_manual_commit() -> str:
-    """Execute the manual commit demo."""
+    """Manually control transactions with explicit commit.
+
+    Call db.commit() to persist changes when not using context manager.
+    """
     output = io.StringIO()
 
     class Log(BaseDBModel):

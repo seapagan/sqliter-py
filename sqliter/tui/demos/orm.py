@@ -10,7 +10,11 @@ from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
 def _run_lazy_loading() -> str:
-    """Execute the lazy loading demo."""
+    """Load related objects on-demand using foreign keys.
+
+    Accessing a ForeignKey field triggers a database query to fetch the
+    related object only when you need it.
+    """
     output = io.StringIO()
 
     class Author(BaseDBModel):
@@ -44,7 +48,11 @@ def _run_lazy_loading() -> str:
 
 
 def _run_orm_style_access() -> str:
-    """Execute the ORM-style access demo."""
+    """Access model fields as object attributes.
+
+    BaseDBModel provides attribute-style access to fields, with automatic
+    primary key generation via the pk field.
+    """
     output = io.StringIO()
 
     class User(BaseDBModel):
@@ -66,7 +74,11 @@ def _run_orm_style_access() -> str:
 
 
 def _run_relationship_navigation() -> str:
-    """Execute the relationship navigation demo."""
+    """Navigate from one object to another using foreign keys.
+
+    ForeignKey fields let you traverse relationships by accessing
+    related objects as attributes.
+    """
     output = io.StringIO()
 
     class Team(BaseDBModel):
@@ -96,7 +108,11 @@ def _run_relationship_navigation() -> str:
 
 
 def _run_reverse_relationships() -> str:
-    """Execute the reverse relationships demo."""
+    """Access related objects in reverse using related_name.
+
+    When you define a ForeignKey, SQLiter automatically creates a reverse
+    relationship to access all objects that reference a given object.
+    """
     output = io.StringIO()
 
     class Author(BaseDBModel):

@@ -11,7 +11,11 @@ from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
 def _run_insert() -> str:
-    """Execute the insert demo."""
+    """Insert new records into the database.
+
+    Use db.insert() to add new records, which returns the inserted
+    object with auto-generated primary key.
+    """
     output = io.StringIO()
 
     class User(BaseDBModel):
@@ -32,7 +36,10 @@ def _run_insert() -> str:
 
 
 def _run_get_by_pk() -> str:
-    """Execute the get by primary key demo."""
+    """Retrieve a single record by primary key.
+
+    Use db.get(Model, pk) to fetch a specific record quickly.
+    """
     output = io.StringIO()
 
     class Task(BaseDBModel):
@@ -56,7 +63,10 @@ def _run_get_by_pk() -> str:
 
 
 def _run_update() -> str:
-    """Execute the update demo."""
+    """Update existing records in the database.
+
+    Modify field values and call db.update() to persist changes.
+    """
     output = io.StringIO()
 
     class Item(BaseDBModel):
@@ -79,7 +89,10 @@ def _run_update() -> str:
 
 
 def _run_delete() -> str:
-    """Execute the delete demo."""
+    """Delete records from the database.
+
+    Use db.delete(Model, pk) to permanently remove a record.
+    """
     output = io.StringIO()
 
     class Note(BaseDBModel):

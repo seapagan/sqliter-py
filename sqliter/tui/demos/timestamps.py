@@ -11,7 +11,10 @@ from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
 def _run_created_at() -> str:
-    """Execute the created_at demo."""
+    """Automatically track when records are created.
+
+    The created_at field is set automatically when you insert a record.
+    """
     output = io.StringIO()
 
     class Article(BaseDBModel):
@@ -35,7 +38,10 @@ def _run_created_at() -> str:
 
 
 def _run_updated_at() -> str:
-    """Execute the updated_at demo."""
+    """Automatically track when records are last modified.
+
+    The updated_at field changes automatically when you update a record.
+    """
     output = io.StringIO()
 
     class Task(BaseDBModel):

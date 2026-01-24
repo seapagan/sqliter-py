@@ -18,7 +18,11 @@ from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
 def _run_record_not_found() -> str:
-    """Execute the record not found demo."""
+    """Handle attempts to access non-existent records.
+
+    RecordNotFoundError is raised when trying to get/update/delete
+    a record that doesn't exist.
+    """
     output = io.StringIO()
 
     class User(BaseDBModel):
@@ -42,7 +46,11 @@ def _run_record_not_found() -> str:
 
 
 def _run_unique_constraint() -> str:
-    """Execute the unique constraint demo."""
+    """Handle violations of unique field constraints.
+
+    RecordInsertionError is raised when inserting a duplicate value
+    into a field marked as unique().
+    """
     output = io.StringIO()
 
     class User(BaseDBModel):
@@ -67,7 +75,11 @@ def _run_unique_constraint() -> str:
 
 
 def _run_foreign_key_constraint() -> str:
-    """Execute the foreign key constraint demo."""
+    """Handle foreign key constraint violations.
+
+    ForeignKeyConstraintError occurs when referencing a non-existent
+    related record or violating referential integrity.
+    """
     output = io.StringIO()
 
     class Author(BaseDBModel):
@@ -104,7 +116,11 @@ def _run_foreign_key_constraint() -> str:
 
 
 def _run_generic_error_handling() -> str:
-    """Execute the generic error handling demo."""
+    """Catch all SQLiter errors with the base SqliterError class.
+
+    Use SqliterError for generic error handling when you don't need
+    to distinguish between specific error types.
+    """
     output = io.StringIO()
 
     class Task(BaseDBModel):
