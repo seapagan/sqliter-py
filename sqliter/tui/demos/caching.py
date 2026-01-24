@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import io
+import tempfile
+import time
+from pathlib import Path
 
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
@@ -13,27 +16,63 @@ def _run_enable_cache() -> str:
     """Demonstrate enabling query result caching for performance.
 
     Caching stores query results in memory, speeding up repeated queries
-    by avoiding database hits.
+    by avoiding disk I/O. Benefits are most apparent with complex queries
+    and large datasets.
     """
     output = io.StringIO()
 
     class User(BaseDBModel):
         name: str
         email: str
+        age: int
 
-    db = SqliterDB(memory=True, cache_enabled=True)
-    db.create_table(User)
+    # Use file-based database to show real caching benefits
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+        db_path = f.name
 
-    user = db.insert(User(name="Alice", email="alice@example.com"))
-    output.write(f"Created: {user.name}\n")
-    output.write("Caching is enabled for faster repeated queries\n")
+    try:
+        db = SqliterDB(db_path, cache_enabled=True)
+        db.create_table(User)
 
-    # Query twice - second should be cached
-    db.get(User, user.pk)
-    db.get(User, user.pk)
-    output.write("Executed same query twice (second from cache)\n")
+        # Insert more data for a more realistic demo
+        for i in range(50):
+            db.insert(
+                User(
+                    name=f"User {i}",
+                    email=f"user{i}@example.com",
+                    age=20 + i,
+                )
+            )
 
-    db.close()
+        output.write("Inserted 50 users\n")
+        output.write("Caching stores query results to avoid repeated I/O\n\n")
+
+        # Query with filter (more expensive than simple pk lookup)
+        # First query - cache miss
+        start = time.perf_counter()
+        users = db.select(User).filter(age__gte=40).fetch_all()
+        miss_time = (time.perf_counter() - start) * 1000
+        output.write(f"First query (cache miss): {miss_time:.3f}ms\n")
+        output.write(f"Found {len(users)} users age 40+\n")
+
+        # Second query with same filter - cache hit
+        start = time.perf_counter()
+        users = db.select(User).filter(age__gte=40).fetch_all()
+        hit_time = (time.perf_counter() - start) * 1000
+        output.write(f"Second query (cache hit): {hit_time:.3f}ms\n")
+        output.write(f"Found {len(users)} users age 40+\n")
+
+        # Show speedup
+        if hit_time > 0:
+            speedup = miss_time / hit_time
+            output.write(f"\nCache hit is {speedup:.1f}x faster!\n")
+        output.write("(Benefits increase with query complexity and data size)")
+
+        db.close()
+    finally:
+        # Cleanup
+        Path(db_path).unlink(missing_ok=True)
+
     return output.getvalue()
 
 
