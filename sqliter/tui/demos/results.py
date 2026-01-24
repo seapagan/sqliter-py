@@ -146,12 +146,15 @@ def _run_aggregates() -> str:
     for amount in [10.0, 20.0, 30.0, 40.0, 50.0]:
         db.insert(Sale(amount=amount))
 
+    # Note: SQLiter doesn't support SQL-level aggregates (GROUP BY, HAVING)
+    # Use Python for calculations after fetching data
     results = db.select(Sale).fetch_all()
     total = sum(s.amount for s in results)
     average = total / len(results)
     output.write(f"Total sales: ${total:.2f}\n")
     output.write(f"Average sale: ${average:.2f}\n")
     output.write(f"Count: {len(results)}\n")
+    output.write("\n(Aggregates calculated in Python, not SQL)\n")
 
     db.close()
     return output.getvalue()

@@ -10,11 +10,13 @@ from sqliter.tui.demos import (
     constraints,
     crud,
     errors,
+    field_selection,
     filters,
     models,
     ordering,
     orm,
     results,
+    string_filters,
     timestamps,
     transactions,
 )
@@ -75,6 +77,8 @@ def _init_registry() -> None:
     DemoRegistry.register_category(filters.get_category())
     DemoRegistry.register_category(results.get_category())
     DemoRegistry.register_category(ordering.get_category())
+    DemoRegistry.register_category(field_selection.get_category())
+    DemoRegistry.register_category(string_filters.get_category())
     DemoRegistry.register_category(constraints.get_category())
     DemoRegistry.register_category(orm.get_category())
     DemoRegistry.register_category(caching.get_category())

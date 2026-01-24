@@ -215,6 +215,58 @@ def _run_combined_operators() -> str:
     return output.getvalue()
 
 
+def _run_isnull() -> str:
+    """Execute the IS NULL filter demo."""
+    output = io.StringIO()
+
+    class Task(BaseDBModel):
+        title: str
+        assigned_to: str | None = None
+
+    db = SqliterDB(memory=True)
+    db.create_table(Task)
+
+    db.insert(Task(title="Task 1", assigned_to="Alice"))
+    db.insert(Task(title="Task 2", assigned_to=None))  # Unassigned
+    db.insert(Task(title="Task 3", assigned_to="Bob"))
+    db.insert(Task(title="Task 4", assigned_to=None))  # Unassigned
+
+    # Find unassigned tasks
+    unassigned = db.select(Task).filter(assigned_to__isnull=True).fetch_all()
+    output.write(f"Unassigned tasks: {len(unassigned)}\n")
+    for task in unassigned:
+        output.write(f"  - {task.title}\n")
+
+    db.close()
+    return output.getvalue()
+
+
+def _run_notnull() -> str:
+    """Execute the IS NOT NULL filter demo."""
+    output = io.StringIO()
+
+    class Task(BaseDBModel):
+        title: str
+        assigned_to: str | None = None
+
+    db = SqliterDB(memory=True)
+    db.create_table(Task)
+
+    db.insert(Task(title="Task 1", assigned_to="Alice"))
+    db.insert(Task(title="Task 2", assigned_to=None))
+    db.insert(Task(title="Task 3", assigned_to="Bob"))
+    db.insert(Task(title="Task 4", assigned_to=None))
+
+    # Find assigned tasks
+    assigned = db.select(Task).filter(assigned_to__notnull=True).fetch_all()
+    output.write(f"Assigned tasks: {len(assigned)}\n")
+    for task in assigned:
+        output.write(f"  - {task.title}: {task.assigned_to}\n")
+
+    db.close()
+    return output.getvalue()
+
+
 def get_category() -> DemoCategory:
     """Get the Query Filters demo category."""
     return DemoCategory(
@@ -285,6 +337,22 @@ def get_category() -> DemoCategory:
                 category="filters",
                 code=extract_demo_code(_run_combined_operators),
                 execute=_run_combined_operators,
+            ),
+            Demo(
+                id="filter_isnull",
+                title="IS NULL (__isnull)",
+                description="Find records with null values",
+                category="filters",
+                code=extract_demo_code(_run_isnull),
+                execute=_run_isnull,
+            ),
+            Demo(
+                id="filter_notnull",
+                title="IS NOT NULL (__notnull)",
+                description="Find records without null values",
+                category="filters",
+                code=extract_demo_code(_run_notnull),
+                execute=_run_notnull,
             ),
         ],
     )

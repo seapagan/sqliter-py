@@ -68,14 +68,16 @@ def _run_cache_bypass() -> str:
     db = SqliterDB(memory=True, cache_enabled=True)
     db.create_table(Item)
 
-    item = db.insert(Item(name="Item 1"))
+    # Insert item to query
+    db.insert(Item(name="Item 1"))
 
-    # Normal query (uses cache)
-    db.get(Item, item.pk)
+    # First query - uses cache
+    db.select(Item).filter(name__eq="Item 1").fetch_one()
     output.write("First query: cached\n")
 
-    # Bypass cache for fresh data
-    output.write("Can bypass cache when needed for fresh data\n")
+    # Bypass cache for fresh data - skips cache, hits DB
+    db.select(Item).filter(name__eq="Item 1").bypass_cache().fetch_one()
+    output.write("Second query: bypassed cache for fresh data\n")
 
     db.close()
     return output.getvalue()
