@@ -6,7 +6,7 @@ import io
 
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
-from sqliter.tui.demos.base import Demo, DemoCategory
+from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
 def _run_fetch_all() -> str:
@@ -157,129 +157,6 @@ def _run_aggregates() -> str:
     return output.getvalue()
 
 
-FETCH_ALL_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class User(BaseDBModel):
-    name: str
-    age: int
-
-db = SqliterDB(memory=True)
-db.create_table(User)
-
-# Get all records
-results = db.select(User).fetch_all()
-
-for user in results:
-    print(user.name, user.age)
-"""
-
-FETCH_ONE_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Task(BaseDBModel):
-    title: str
-    priority: int
-
-db = SqliterDB(memory=True)
-db.create_table(Task)
-
-# Get single record (or None)
-task = (
-    db.select(Task)
-    .filter(priority__eq=1)
-    .fetch_one()
-)
-
-if task:
-    print(task.title)
-"""
-
-FETCH_FIRST_LAST_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Item(BaseDBModel):
-    name: str
-
-db = SqliterDB(memory=True)
-db.create_table(Item)
-
-# Get first record
-first = db.select(Item).fetch_first()
-
-# Get last record
-last = db.select(Item).fetch_last()
-
-print(f"First: {first.name}")
-print(f"Last: {last.name}")
-"""
-
-COUNT_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Product(BaseDBModel):
-    name: str
-    category: str
-
-db = SqliterDB(memory=True)
-db.create_table(Product)
-
-# Count all records
-total = db.select(Product).count()
-
-# Count with filter
-count = (
-    db.select(Product)
-    .filter(category__eq="electronics")
-    .count()
-)
-"""
-
-EXISTS_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class User(BaseDBModel):
-    username: str
-
-db = SqliterDB(memory=True)
-db.create_table(User)
-
-# Check if record exists
-exists = (
-    db.select(User)
-    .filter(username__eq="alice")
-    .exists()
-)
-
-print(f"User exists: {exists}")
-"""
-
-AGGREGATES_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Sale(BaseDBModel):
-    amount: float
-
-db = SqliterDB(memory=True)
-db.create_table(Sale)
-
-results = db.select(Sale).fetch_all()
-
-# Calculate aggregates in Python
-total = sum(s.amount for s in results)
-average = total / len(results)
-
-print(f"Total: ${total}")
-print(f"Average: ${average}")
-"""
-
-
 def get_category() -> DemoCategory:
     """Get the Query Results demo category."""
     return DemoCategory(
@@ -292,7 +169,7 @@ def get_category() -> DemoCategory:
                 title="Fetch All",
                 description="Get all matching records",
                 category="results",
-                code=FETCH_ALL_CODE,
+                code=extract_demo_code(_run_fetch_all),
                 execute=_run_fetch_all,
             ),
             Demo(
@@ -300,7 +177,7 @@ def get_category() -> DemoCategory:
                 title="Fetch One",
                 description="Get single record or None",
                 category="results",
-                code=FETCH_ONE_CODE,
+                code=extract_demo_code(_run_fetch_one),
                 execute=_run_fetch_one,
             ),
             Demo(
@@ -308,7 +185,7 @@ def get_category() -> DemoCategory:
                 title="Fetch First/Last",
                 description="Get first or last record",
                 category="results",
-                code=FETCH_FIRST_LAST_CODE,
+                code=extract_demo_code(_run_fetch_first_last),
                 execute=_run_fetch_first_last,
             ),
             Demo(
@@ -316,7 +193,7 @@ def get_category() -> DemoCategory:
                 title="Count",
                 description="Count matching records",
                 category="results",
-                code=COUNT_CODE,
+                code=extract_demo_code(_run_count),
                 execute=_run_count,
             ),
             Demo(
@@ -324,7 +201,7 @@ def get_category() -> DemoCategory:
                 title="Exists",
                 description="Check if any records match",
                 category="results",
-                code=EXISTS_CODE,
+                code=extract_demo_code(_run_exists),
                 execute=_run_exists,
             ),
             Demo(
@@ -332,7 +209,7 @@ def get_category() -> DemoCategory:
                 title="Aggregates",
                 description="Calculate sum, average, etc.",
                 category="results",
-                code=AGGREGATES_CODE,
+                code=extract_demo_code(_run_aggregates),
                 execute=_run_aggregates,
             ),
         ],

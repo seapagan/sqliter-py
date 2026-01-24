@@ -8,7 +8,7 @@ from pathlib import Path
 
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
-from sqliter.tui.demos.base import Demo, DemoCategory
+from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
 def _run_memory_db() -> str:
@@ -91,74 +91,6 @@ def _run_context_manager() -> str:
     return output.getvalue()
 
 
-MEMORY_DB_CODE = """
-from sqliter import SqliterDB
-
-# Create an in-memory database
-# Data is lost when connection closes
-db = SqliterDB(memory=True)
-
-# Check database properties
-print(f"Is memory: {db.is_memory}")
-print(f"Filename: {db.filename}")  # None for memory
-
-# Connect and use
-db.connect()
-print(f"Connected: {db.is_connected}")
-
-db.close()
-"""
-
-FILE_DB_CODE = """
-from sqliter import SqliterDB
-
-# Create a file-based database
-# Data persists between sessions
-db = SqliterDB("my_app.db")
-
-# Or with explicit parameter
-db = SqliterDB(db_filename="my_app.db")
-
-print(f"Filename: {db.filename}")
-print(f"Is memory: {db.is_memory}")  # False
-"""
-
-DEBUG_MODE_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class User(BaseDBModel):
-    name: str
-
-# Enable debug mode to see SQL queries
-db = SqliterDB(memory=True, debug=True)
-db.create_table(User)
-
-# Console output:
-# DEBUG Executing SQL: CREATE TABLE IF NOT EXISTS "users" (...)
-"""
-
-CONTEXT_MANAGER_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Task(BaseDBModel):
-    title: str
-    done: bool = False
-
-db = SqliterDB(memory=True)
-
-# Use as context manager for transactions
-with db:
-    db.create_table(Task)
-    task = db.insert(Task(title="Learn SQLiter"))
-    # Auto-commits on successful exit
-    # Auto-rollback on exception
-
-# Connection is closed after exiting
-"""
-
-
 def get_category() -> DemoCategory:
     """Get the Connection & Setup demo category."""
     return DemoCategory(
@@ -171,7 +103,7 @@ def get_category() -> DemoCategory:
                 title="In-memory Database",
                 description="Create a temporary in-memory database",
                 category="connection",
-                code=MEMORY_DB_CODE,
+                code=extract_demo_code(_run_memory_db),
                 execute=_run_memory_db,
             ),
             Demo(
@@ -179,7 +111,7 @@ def get_category() -> DemoCategory:
                 title="File-based Database",
                 description="Create a persistent file database",
                 category="connection",
-                code=FILE_DB_CODE,
+                code=extract_demo_code(_run_file_db),
                 execute=_run_file_db,
             ),
             Demo(
@@ -187,7 +119,7 @@ def get_category() -> DemoCategory:
                 title="Debug Mode",
                 description="Enable SQL query logging",
                 category="connection",
-                code=DEBUG_MODE_CODE,
+                code=extract_demo_code(_run_debug_mode),
                 execute=_run_debug_mode,
             ),
             Demo(
@@ -195,7 +127,7 @@ def get_category() -> DemoCategory:
                 title="Context Manager",
                 description="Auto commit/rollback with 'with' statement",
                 category="connection",
-                code=CONTEXT_MANAGER_CODE,
+                code=extract_demo_code(_run_context_manager),
                 execute=_run_context_manager,
             ),
         ],

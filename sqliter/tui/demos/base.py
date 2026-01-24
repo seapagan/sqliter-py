@@ -2,11 +2,33 @@
 
 from __future__ import annotations
 
+import inspect
+import textwrap
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Callable
+
+
+def extract_demo_code(func: Callable[..., str]) -> str:
+    """Extract and format source code from a demo function.
+
+    This function uses Python's inspect module to dynamically extract the
+    source code from a demo function, ensuring the displayed code always
+    matches what's actually executed.
+
+    Args:
+        func: The demo function to extract code from
+
+    Returns:
+        Formatted source code string with proper dedentation and whitespace
+    """
+    # Get the source code, dedent, and strip whitespace in one expression
+    return textwrap.dedent(inspect.getsource(func)).strip()
+
+
+__all__ = ["Demo", "DemoCategory", "extract_demo_code"]
 
 
 @dataclass

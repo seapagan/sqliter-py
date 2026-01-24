@@ -6,7 +6,7 @@ import io
 
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
-from sqliter.tui.demos.base import Demo, DemoCategory
+from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
 def _run_lazy_loading() -> str:
@@ -85,68 +85,6 @@ def _run_relationship_navigation() -> str:
     return output.getvalue()
 
 
-LAZY_LOADING_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Author(BaseDBModel):
-    name: str
-
-class Book(BaseDBModel):
-    title: str
-    author_id: int
-
-db = SqliterDB(memory=True)
-db.create_table(Author)
-db.create_table(Book)
-
-author = db.insert(Author(name="J.K. Rowling"))
-db.insert(Book(title="Harry Potter 1", author_id=author.pk))
-
-# Access related data through foreign keys
-"""
-
-ORM_ACCESS_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class User(BaseDBModel):
-    name: str
-    email: str
-
-db = SqliterDB(memory=True)
-db.create_table(User)
-
-user = db.insert(User(name="Alice", email="alice@example.com"))
-
-# Access fields as object attributes
-print(user.name)
-print(user.email)
-print(user.pk)
-"""
-
-RELATIONSHIP_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Team(BaseDBModel):
-    name: str
-
-class Player(BaseDBModel):
-    name: str
-    team_id: int
-
-db = SqliterDB(memory=True)
-db.create_table(Team)
-db.create_table(Player)
-
-team = db.insert(Team(name="Lakers"))
-player = db.insert(Player(name="LeBron", team_id=team.pk))
-
-# Navigate relationships via foreign key
-"""
-
-
 def get_category() -> DemoCategory:
     """Get the ORM Features demo category."""
     return DemoCategory(
@@ -159,7 +97,7 @@ def get_category() -> DemoCategory:
                 title="Lazy Loading",
                 description="Load related data on demand",
                 category="orm",
-                code=LAZY_LOADING_CODE,
+                code=extract_demo_code(_run_lazy_loading),
                 execute=_run_lazy_loading,
             ),
             Demo(
@@ -167,7 +105,7 @@ def get_category() -> DemoCategory:
                 title="ORM-Style Access",
                 description="Access fields as object attributes",
                 category="orm",
-                code=ORM_ACCESS_CODE,
+                code=extract_demo_code(_run_orm_style_access),
                 execute=_run_orm_style_access,
             ),
             Demo(
@@ -175,7 +113,7 @@ def get_category() -> DemoCategory:
                 title="Relationship Navigation",
                 description="Navigate using foreign keys",
                 category="orm",
-                code=RELATIONSHIP_CODE,
+                code=extract_demo_code(_run_relationship_navigation),
                 execute=_run_relationship_navigation,
             ),
         ],

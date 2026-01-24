@@ -6,7 +6,7 @@ import io
 
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
-from sqliter.tui.demos.base import Demo, DemoCategory
+from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
 def _run_order_asc() -> str:
@@ -101,82 +101,6 @@ def _run_offset() -> str:
     return output.getvalue()
 
 
-ORDER_ASC_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class User(BaseDBModel):
-    name: str
-    age: int
-
-db = SqliterDB(memory=True)
-db.create_table(User)
-
-# Order ascending by field
-results = db.select(User).order("age").fetch_all()
-
-for user in results:
-    print(user.name, user.age)
-"""
-
-ORDER_DESC_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Product(BaseDBModel):
-    name: str
-    price: float
-
-db = SqliterDB(memory=True)
-db.create_table(Product)
-
-# Order descending (prefix with -)
-results = db.select(Product).order("-price").fetch_all()
-
-for product in results:
-    print(product.name, product.price)
-"""
-
-LIMIT_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Article(BaseDBModel):
-    title: str
-
-db = SqliterDB(memory=True)
-db.create_table(Article)
-
-# Get first 3 records
-results = db.select(Article).limit(3).fetch_all()
-
-for article in results:
-    print(article.title)
-"""
-
-OFFSET_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Item(BaseDBModel):
-    name: str
-
-db = SqliterDB(memory=True)
-db.create_table(Item)
-
-# Get second page (skip first 5, take next 5)
-results = (
-    db.select(Item)
-    .limit(5)
-    .offset(5)
-    .fetch_all()
-)
-
-for item in results:
-    print(item.name)
-"""
-
-
 def get_category() -> DemoCategory:
     """Get the Ordering & Pagination demo category."""
     return DemoCategory(
@@ -189,7 +113,7 @@ def get_category() -> DemoCategory:
                 title="Order Ascending",
                 description="Sort results in ascending order",
                 category="ordering",
-                code=ORDER_ASC_CODE,
+                code=extract_demo_code(_run_order_asc),
                 execute=_run_order_asc,
             ),
             Demo(
@@ -197,7 +121,7 @@ def get_category() -> DemoCategory:
                 title="Order Descending",
                 description="Sort results in descending order",
                 category="ordering",
-                code=ORDER_DESC_CODE,
+                code=extract_demo_code(_run_order_desc),
                 execute=_run_order_desc,
             ),
             Demo(
@@ -205,7 +129,7 @@ def get_category() -> DemoCategory:
                 title="Limit Results",
                 description="Limit number of results",
                 category="ordering",
-                code=LIMIT_CODE,
+                code=extract_demo_code(_run_limit),
                 execute=_run_limit,
             ),
             Demo(
@@ -213,7 +137,7 @@ def get_category() -> DemoCategory:
                 title="Offset Results",
                 description="Skip records for pagination",
                 category="ordering",
-                code=OFFSET_CODE,
+                code=extract_demo_code(_run_offset),
                 execute=_run_offset,
             ),
         ],

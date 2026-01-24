@@ -6,7 +6,7 @@ import io
 
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
-from sqliter.tui.demos.base import Demo, DemoCategory
+from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
 def _run_context_manager_transaction() -> str:
@@ -102,76 +102,6 @@ def _run_manual_commit() -> str:
     return output.getvalue()
 
 
-CONTEXT_MANAGER_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Account(BaseDBModel):
-    name: str
-    balance: float
-
-db = SqliterDB(memory=True)
-db.create_table(Account)
-
-alice = db.insert(Account(name="Alice", balance=100.0))
-bob = db.insert(Account(name="Bob", balance=50.0))
-
-# Use context manager for atomic transactions
-with db:
-    alice.balance = alice.balance - 20.0
-    bob.balance = bob.balance + 20.0
-    db.update(alice)
-    db.update(bob)
-
-# Auto-commits on success, auto-rollback on error
-"""
-
-ROLLBACK_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Item(BaseDBModel):
-    name: str
-    quantity: int
-
-db = SqliterDB(memory=True)
-db.create_table(Item)
-
-item = db.insert(Item(name="Widget", quantity=10))
-
-try:
-    with db:
-        item.quantity = 5
-        db.update(item)
-        # If error occurs, changes are rolled back
-        raise RuntimeError("Something went wrong")
-except RuntimeError:
-    pass
-
-# Value is restored to 10
-"""
-
-MANUAL_COMMIT_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Log(BaseDBModel):
-    message: str
-
-db = SqliterDB(memory=True)
-db.create_table(Log)
-
-# Manual transaction control
-db.connect()
-log = db.insert(Log(message="Entry"))
-
-# Make changes visible
-db.commit()
-
-db.close()
-"""
-
-
 def get_category() -> DemoCategory:
     """Get the Transactions demo category."""
     return DemoCategory(
@@ -184,7 +114,7 @@ def get_category() -> DemoCategory:
                 title="Context Manager",
                 description="Auto commit/rollback with 'with' statement",
                 category="transactions",
-                code=CONTEXT_MANAGER_CODE,
+                code=extract_demo_code(_run_context_manager_transaction),
                 execute=_run_context_manager_transaction,
             ),
             Demo(
@@ -192,7 +122,7 @@ def get_category() -> DemoCategory:
                 title="Rollback",
                 description="Automatic rollback on errors",
                 category="transactions",
-                code=ROLLBACK_CODE,
+                code=extract_demo_code(_run_rollback),
                 execute=_run_rollback,
             ),
             Demo(
@@ -200,7 +130,7 @@ def get_category() -> DemoCategory:
                 title="Manual Commit",
                 description="Manually control transactions",
                 category="transactions",
-                code=MANUAL_COMMIT_CODE,
+                code=extract_demo_code(_run_manual_commit),
                 execute=_run_manual_commit,
             ),
         ],

@@ -6,7 +6,7 @@ import io
 
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
-from sqliter.tui.demos.base import Demo, DemoCategory
+from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
 def _run_enable_cache() -> str:
@@ -120,99 +120,6 @@ def _run_cache_clear() -> str:
     return output.getvalue()
 
 
-ENABLE_CACHE_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class User(BaseDBModel):
-    name: str
-    email: str
-
-db = SqliterDB(memory=True, cache_enabled=True)
-db.create_table(User)
-
-user = db.insert(User(name="Alice", email="alice@example.com"))
-
-# Subsequent queries are cached
-result1 = db.get(User, user.pk)  # From DB
-result2 = db.get(User, user.pk)  # From cache
-"""
-
-CACHE_STATS_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Product(BaseDBModel):
-    name: str
-    price: float
-
-db = SqliterDB(memory=True, cache_enabled=True)
-db.create_table(Product)
-
-product = db.insert(Product(name="Widget", price=19.99))
-
-# Perform multiple queries
-for _ in range(5):
-    db.get(Product, product.pk)
-
-# Cache improves performance for repeated queries
-"""
-
-CACHE_BYPASS_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Item(BaseDBModel):
-    name: str
-
-db = SqliterDB(memory=True, cache_enabled=True)
-db.create_table(Item)
-
-item = db.insert(Item(name="Item 1"))
-
-# Normal query uses cache
-cached = db.get(Item, item.pk)
-
-# Bypass cache for fresh data (when needed)
-# fresh = db.get(Item, item.pk, use_cache=False)
-"""
-
-CACHE_TTL_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Article(BaseDBModel):
-    title: str
-
-# Cache with time-to-live
-db = SqliterDB(
-    memory=True,
-    cache_enabled=True,
-    cache_ttl=60  # seconds
-)
-db.create_table(Article)
-
-# Cached entries expire after TTL
-"""
-
-CACHE_CLEAR_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Document(BaseDBModel):
-    title: str
-
-db = SqliterDB(memory=True, cache_enabled=True)
-db.create_table(Document)
-
-doc = db.insert(Document(title="Doc 1"))
-db.get(Document, doc.pk)  # Cached
-
-# Clear cache when needed
-# db.clear_cache()
-"""
-
-
 def get_category() -> DemoCategory:
     """Get the Caching demo category."""
     return DemoCategory(
@@ -225,7 +132,7 @@ def get_category() -> DemoCategory:
                 title="Enable Cache",
                 description="Enable query result caching",
                 category="caching",
-                code=ENABLE_CACHE_CODE,
+                code=extract_demo_code(_run_enable_cache),
                 execute=_run_enable_cache,
             ),
             Demo(
@@ -233,7 +140,7 @@ def get_category() -> DemoCategory:
                 title="Cache Statistics",
                 description="View cache hit/miss statistics",
                 category="caching",
-                code=CACHE_STATS_CODE,
+                code=extract_demo_code(_run_cache_stats),
                 execute=_run_cache_stats,
             ),
             Demo(
@@ -241,7 +148,7 @@ def get_category() -> DemoCategory:
                 title="Cache Bypass",
                 description="Bypass cache for fresh data",
                 category="caching",
-                code=CACHE_BYPASS_CODE,
+                code=extract_demo_code(_run_cache_bypass),
                 execute=_run_cache_bypass,
             ),
             Demo(
@@ -249,7 +156,7 @@ def get_category() -> DemoCategory:
                 title="Cache TTL",
                 description="Set cache expiration time",
                 category="caching",
-                code=CACHE_TTL_CODE,
+                code=extract_demo_code(_run_cache_ttl),
                 execute=_run_cache_ttl,
             ),
             Demo(
@@ -257,7 +164,7 @@ def get_category() -> DemoCategory:
                 title="Clear Cache",
                 description="Manually clear the cache",
                 category="caching",
-                code=CACHE_CLEAR_CODE,
+                code=extract_demo_code(_run_cache_clear),
                 execute=_run_cache_clear,
             ),
         ],

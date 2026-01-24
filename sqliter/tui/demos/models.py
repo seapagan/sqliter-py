@@ -8,7 +8,7 @@ from typing import Optional, Union
 
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
-from sqliter.tui.demos.base import Demo, DemoCategory
+from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
 def _run_basic_model() -> str:
@@ -165,122 +165,6 @@ def _run_complex_types() -> str:
     return output.getvalue()
 
 
-BASIC_MODEL_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class User(BaseDBModel):
-    name: str
-    age: int
-    email: str
-
-db = SqliterDB(memory=True)
-db.create_table(User)
-
-user = db.insert(User(name="Alice", age=30, email="alice@example.com"))
-print(f"Created user: {user.name}")
-print(f"Primary key: {user.pk}")
-"""
-
-CUSTOM_TABLE_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Person(BaseDBModel):
-    '''Person model with custom table name.'''
-    __tablename__ = "people"
-    name: str
-
-db = SqliterDB(memory=True)
-db.create_table(Person)
-
-# Table created as 'people' instead of 'persons'
-"""
-
-FIELD_TYPES_CODE = """
-from datetime import datetime
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Product(BaseDBModel):
-    name: str
-    price: float
-    in_stock: bool
-    quantity: int
-    created_at: datetime
-
-db = SqliterDB(memory=True)
-db.create_table(Product)
-
-product = db.insert(
-    Product(
-        name="Widget",
-        price=19.99,
-        in_stock=True,
-        quantity=100,
-        created_at=datetime.now(),
-    )
-)
-"""
-
-OPTIONAL_FIELDS_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-from typing import Optional
-
-class Article(BaseDBModel):
-    title: str
-    content: Optional[str]
-    author: Optional[str] = "Anonymous"
-
-db = SqliterDB(memory=True)
-db.create_table(Article)
-
-article = db.insert(Article(title="First Post"))
-print(article.content)  # None
-print(article.author)   # "Anonymous" (default)
-"""
-
-DEFAULT_VALUES_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Task(BaseDBModel):
-    title: str
-    completed: bool = False
-    priority: int = 1
-
-db = SqliterDB(memory=True)
-db.create_table(Task)
-
-task = db.insert(Task(title="New task"))
-print(task.completed)  # False (default)
-print(task.priority)    # 1 (default)
-"""
-
-COMPLEX_TYPES_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-from typing import List, Union
-
-class Document(BaseDBModel):
-    title: str
-    tags: List[str]
-    metadata: dict[str, Union[str, int]]
-
-db = SqliterDB(memory=True)
-db.create_table(Document)
-
-doc = db.insert(
-    Document(
-        title="Guide",
-        tags=["python", "database"],
-        metadata={"views": 1000, "rating": 4},
-    )
-)
-"""
-
-
 def get_category() -> DemoCategory:
     """Get the Models & Tables demo category."""
     return DemoCategory(
@@ -293,7 +177,7 @@ def get_category() -> DemoCategory:
                 title="Basic Model",
                 description="Define a simple model with fields",
                 category="models",
-                code=BASIC_MODEL_CODE,
+                code=extract_demo_code(_run_basic_model),
                 execute=_run_basic_model,
             ),
             Demo(
@@ -301,7 +185,7 @@ def get_category() -> DemoCategory:
                 title="Custom Table Name",
                 description="Specify a custom table name",
                 category="models",
-                code=CUSTOM_TABLE_CODE,
+                code=extract_demo_code(_run_custom_table_name),
                 execute=_run_custom_table_name,
             ),
             Demo(
@@ -309,7 +193,7 @@ def get_category() -> DemoCategory:
                 title="Field Types",
                 description="Various field type examples",
                 category="models",
-                code=FIELD_TYPES_CODE,
+                code=extract_demo_code(_run_field_types),
                 execute=_run_field_types,
             ),
             Demo(
@@ -317,7 +201,7 @@ def get_category() -> DemoCategory:
                 title="Optional Fields",
                 description="Fields with None values and defaults",
                 category="models",
-                code=OPTIONAL_FIELDS_CODE,
+                code=extract_demo_code(_run_optional_fields),
                 execute=_run_optional_fields,
             ),
             Demo(
@@ -325,7 +209,7 @@ def get_category() -> DemoCategory:
                 title="Default Values",
                 description="Fields with default values",
                 category="models",
-                code=DEFAULT_VALUES_CODE,
+                code=extract_demo_code(_run_default_values),
                 execute=_run_default_values,
             ),
             Demo(
@@ -333,7 +217,7 @@ def get_category() -> DemoCategory:
                 title="Complex Types",
                 description="Lists and dicts (stored as BLOBs)",
                 category="models",
-                code=COMPLEX_TYPES_CODE,
+                code=extract_demo_code(_run_complex_types),
                 execute=_run_complex_types,
             ),
         ],

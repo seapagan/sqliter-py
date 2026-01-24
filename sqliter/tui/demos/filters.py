@@ -6,7 +6,7 @@ import io
 
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
-from sqliter.tui.demos.base import Demo, DemoCategory
+from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
 def _run_equals() -> str:
@@ -215,151 +215,6 @@ def _run_combined_operators() -> str:
     return output.getvalue()
 
 
-EQUALS_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class User(BaseDBModel):
-    name: str
-    age: int
-
-db = SqliterDB(memory=True)
-db.create_table(User)
-
-# Find users named 'Alice'
-results = db.select(User).filter(name__eq="Alice").fetch_all()
-for user in results:
-    print(user.name, user.age)
-"""
-
-COMPARISON_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Product(BaseDBModel):
-    name: str
-    price: float
-
-db = SqliterDB(memory=True)
-db.create_table(Product)
-
-# Greater than: price > 15
-expensive = db.select(Product).filter(price__gt=15.0).fetch_all()
-
-# Less than or equal: price <= 20
-cheap = db.select(Product).filter(price__le=20.0).fetch_all()
-"""
-
-IN_OPERATOR_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Task(BaseDBModel):
-    title: str
-    status: str
-
-db = SqliterDB(memory=True)
-db.create_table(Task)
-
-# Find tasks in specific statuses
-results = db.select(Task).filter(
-    status__in=["todo", "in_progress"]
-).fetch_all()
-"""
-
-LIKE_OPERATOR_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class File(BaseDBModel):
-    name: str
-
-db = SqliterDB(memory=True)
-db.create_table(File)
-
-# Find files ending in .txt
-# Use % as wildcard
-results = db.select(File).filter(name__like="%.txt").fetch_all()
-"""
-
-NOT_EQUALS_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Item(BaseDBModel):
-    name: str
-    status: str
-
-db = SqliterDB(memory=True)
-db.create_table(Item)
-
-# Find items not archived
-results = db.select(Item).filter(status__ne="archived").fetch_all()
-"""
-
-MULTIPLE_FILTERS_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class User(BaseDBModel):
-    name: str
-    age: int
-    city: str
-
-db = SqliterDB(memory=True)
-db.create_table(User)
-
-# Chain multiple filters (AND logic)
-results = (
-    db.select(User)
-    .filter(age__gte=30)
-    .filter(city__eq="NYC")
-    .fetch_all()
-)
-"""
-
-RANGE_FILTERS_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Product(BaseDBModel):
-    name: str
-    price: float
-
-db = SqliterDB(memory=True)
-db.create_table(Product)
-
-# Range query: price between 30 and 70
-results = (
-    db.select(Product)
-    .filter(price__gte=30.0)
-    .filter(price__lte=70.0)
-    .fetch_all()
-)
-"""
-
-COMBINED_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Order(BaseDBModel):
-    id: str
-    amount: float
-    status: str
-
-db = SqliterDB(memory=True)
-db.create_table(Order)
-
-# Combine status and amount filters
-results = (
-    db.select(Order)
-    .filter(status__eq="pending")
-    .filter(amount__gt=50.0)
-    .fetch_all()
-)
-"""
-
-
 def get_category() -> DemoCategory:
     """Get the Query Filters demo category."""
     return DemoCategory(
@@ -372,7 +227,7 @@ def get_category() -> DemoCategory:
                 title="Equals (__eq)",
                 description="Exact match filter",
                 category="filters",
-                code=EQUALS_CODE,
+                code=extract_demo_code(_run_equals),
                 execute=_run_equals,
             ),
             Demo(
@@ -380,7 +235,7 @@ def get_category() -> DemoCategory:
                 title="Comparison Operators",
                 description="__gt, __lt, __gte, __lte (less/greater than)",
                 category="filters",
-                code=COMPARISON_CODE,
+                code=extract_demo_code(_run_comparison),
                 execute=_run_comparison,
             ),
             Demo(
@@ -388,7 +243,7 @@ def get_category() -> DemoCategory:
                 title="IN Operator (__in)",
                 description="Match against list of values",
                 category="filters",
-                code=IN_OPERATOR_CODE,
+                code=extract_demo_code(_run_in_operator),
                 execute=_run_in_operator,
             ),
             Demo(
@@ -396,7 +251,7 @@ def get_category() -> DemoCategory:
                 title="LIKE Operator (__like)",
                 description="Pattern matching with wildcards",
                 category="filters",
-                code=LIKE_OPERATOR_CODE,
+                code=extract_demo_code(_run_like_operator),
                 execute=_run_like_operator,
             ),
             Demo(
@@ -404,7 +259,7 @@ def get_category() -> DemoCategory:
                 title="Not Equals (__ne)",
                 description="Exclude specific values",
                 category="filters",
-                code=NOT_EQUALS_CODE,
+                code=extract_demo_code(_run_not_equals),
                 execute=_run_not_equals,
             ),
             Demo(
@@ -412,7 +267,7 @@ def get_category() -> DemoCategory:
                 title="Multiple Filters",
                 description="Chain filters for AND logic",
                 category="filters",
-                code=MULTIPLE_FILTERS_CODE,
+                code=extract_demo_code(_run_multiple_filters),
                 execute=_run_multiple_filters,
             ),
             Demo(
@@ -420,7 +275,7 @@ def get_category() -> DemoCategory:
                 title="Range Queries",
                 description="Query within a value range",
                 category="filters",
-                code=RANGE_FILTERS_CODE,
+                code=extract_demo_code(_run_range_filters),
                 execute=_run_range_filters,
             ),
             Demo(
@@ -428,7 +283,7 @@ def get_category() -> DemoCategory:
                 title="Combined Operators",
                 description="Multiple filter types together",
                 category="filters",
-                code=COMBINED_CODE,
+                code=extract_demo_code(_run_combined_operators),
                 execute=_run_combined_operators,
             ),
         ],

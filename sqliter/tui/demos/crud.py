@@ -7,7 +7,7 @@ from typing import cast
 
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
-from sqliter.tui.demos.base import Demo, DemoCategory
+from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
 def _run_insert() -> str:
@@ -102,73 +102,6 @@ def _run_delete() -> str:
     return output.getvalue()
 
 
-INSERT_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class User(BaseDBModel):
-    name: str
-    email: str
-
-db = SqliterDB(memory=True)
-db.create_table(User)
-
-user = db.insert(User(name="Alice", email="alice@example.com"))
-print(f"Inserted: {user.name} with pk={user.pk}")
-"""
-
-GET_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Task(BaseDBModel):
-    title: str
-    done: bool = False
-
-db = SqliterDB(memory=True)
-db.create_table(Task)
-
-task = db.insert(Task(title="Buy groceries"))
-retrieved = db.get(Task, task.pk)
-
-print(f"Retrieved: {retrieved.title}")
-"""
-
-UPDATE_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Item(BaseDBModel):
-    name: str
-    quantity: int
-
-db = SqliterDB(memory=True)
-db.create_table(Item)
-
-item = db.insert(Item(name="Apples", quantity=5))
-item.quantity = 10
-db.update(item)
-
-print(f"Updated quantity: {item.quantity}")
-"""
-
-DELETE_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Note(BaseDBModel):
-    content: str
-
-db = SqliterDB(memory=True)
-db.create_table(Note)
-
-note = db.insert(Note(content="Temporary note"))
-db.delete(Note, note.pk)
-
-print(f"Deleted note with pk: {note.pk}")
-"""
-
-
 def get_category() -> DemoCategory:
     """Get the CRUD Operations demo category."""
     return DemoCategory(
@@ -181,7 +114,7 @@ def get_category() -> DemoCategory:
                 title="Insert Records",
                 description="Create new records in the database",
                 category="crud",
-                code=INSERT_CODE,
+                code=extract_demo_code(_run_insert),
                 execute=_run_insert,
             ),
             Demo(
@@ -189,7 +122,7 @@ def get_category() -> DemoCategory:
                 title="Get by Primary Key",
                 description="Retrieve a record by its primary key",
                 category="crud",
-                code=GET_CODE,
+                code=extract_demo_code(_run_get_by_pk),
                 execute=_run_get_by_pk,
             ),
             Demo(
@@ -197,7 +130,7 @@ def get_category() -> DemoCategory:
                 title="Update Records",
                 description="Modify existing records",
                 category="crud",
-                code=UPDATE_CODE,
+                code=extract_demo_code(_run_update),
                 execute=_run_update,
             ),
             Demo(
@@ -205,7 +138,7 @@ def get_category() -> DemoCategory:
                 title="Delete Records",
                 description="Remove records from the database",
                 category="crud",
-                code=DELETE_CODE,
+                code=extract_demo_code(_run_delete),
                 execute=_run_delete,
             ),
         ],

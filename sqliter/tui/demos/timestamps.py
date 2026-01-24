@@ -7,7 +7,7 @@ import time
 
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
-from sqliter.tui.demos.base import Demo, DemoCategory
+from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
 def _run_created_at() -> str:
@@ -65,46 +65,6 @@ def _run_updated_at() -> str:
     return output.getvalue()
 
 
-CREATED_AT_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Article(BaseDBModel):
-    title: str
-
-db = SqliterDB(memory=True)
-db.create_table(Article)
-
-article = db.insert(Article(title="My Post"))
-
-# Automatically set on creation
-print(article.created_at)
-"""
-
-UPDATED_AT_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
-class Task(BaseDBModel):
-    title: str
-    done: bool = False
-
-db = SqliterDB(memory=True)
-db.create_table(Task)
-
-task = db.insert(Task(title="Original"))
-
-# Update the record
-task.title = "Updated"
-task.done = True
-db.update(task)
-
-# Both timestamps are tracked
-print(f"Created: {task.created_at}")
-print(f"Updated: {task.updated_at}")
-"""
-
-
 def get_category() -> DemoCategory:
     """Get the Auto Timestamp demo category."""
     return DemoCategory(
@@ -117,7 +77,7 @@ def get_category() -> DemoCategory:
                 title="Auto created_at",
                 description="Track when records are created",
                 category="timestamps",
-                code=CREATED_AT_CODE,
+                code=extract_demo_code(_run_created_at),
                 execute=_run_created_at,
             ),
             Demo(
@@ -125,7 +85,7 @@ def get_category() -> DemoCategory:
                 title="Auto updated_at",
                 description="Track when records are modified",
                 category="timestamps",
-                code=UPDATED_AT_CODE,
+                code=extract_demo_code(_run_updated_at),
                 execute=_run_updated_at,
             ),
         ],

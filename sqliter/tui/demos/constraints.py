@@ -9,7 +9,7 @@ from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 from sqliter.model.unique import unique
 from sqliter.orm.foreign_key import ForeignKey
-from sqliter.tui.demos.base import Demo, DemoCategory
+from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
 def _run_unique_field() -> str:
@@ -140,111 +140,6 @@ def _run_foreign_key_set_null() -> str:
     return output.getvalue()
 
 
-UNIQUE_FIELD_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-from sqliter.model.unique import unique
-
-class User(BaseDBModel):
-    email: str = unique()
-    name: str
-
-db = SqliterDB(memory=True)
-db.create_table(User)
-
-# Each email must be unique
-user1 = db.insert(User(email="alice@example.com", name="Alice"))
-user2 = db.insert(User(email="bob@example.com", name="Bob"))
-
-# Duplicate email will raise error
-# user3 = db.insert(User(email="alice@example.com", name="Carol"))
-"""
-
-MULTI_UNIQUE_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-from sqliter.model.unique import unique
-
-class Enrollment(BaseDBModel):
-    student_id: int = unique()
-    course_id: int = unique()
-
-db = SqliterDB(memory=True)
-db.create_table(Enrollment)
-
-# Each field is unique individually
-enrollment = db.insert(Enrollment(student_id=1, course_id=101))
-"""
-
-FK_CASCADE_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-from sqliter.orm.foreign_key import ForeignKey
-
-class Author(BaseDBModel):
-    name: str
-
-class Book(BaseDBModel):
-    title: str
-    author_id: ForeignKey[Author] = ForeignKey(
-        Author,
-        on_delete="CASCADE",
-        on_update="CASCADE",
-        null=True,
-    )
-
-db = SqliterDB(memory=True)
-db.create_table(Author)
-db.create_table(Book)
-
-# Deleting author will delete their books
-"""
-
-FK_RESTRICT_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-from sqliter.orm.foreign_key import ForeignKey
-
-class Category(BaseDBModel):
-    name: str
-
-class Product(BaseDBModel):
-    name: str
-    category_id: ForeignKey[Category] = ForeignKey(
-        Category, on_delete="RESTRICT"
-    )
-
-db = SqliterDB(memory=True)
-db.create_table(Category)
-db.create_table(Product)
-
-# Cannot delete category if products reference it
-"""
-
-FK_SET_NULL_CODE = """
-from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-from sqliter.orm.foreign_key import ForeignKey
-
-class Department(BaseDBModel):
-    name: str
-
-class Employee(BaseDBModel):
-    name: str
-    department_id: Optional[int] = ForeignKey(
-        Department,
-        on_delete="SET NULL",
-        null=True,
-    )
-
-db = SqliterDB(memory=True)
-db.create_table(Department)
-db.create_table(Employee)
-
-# Deleting department sets employee.department_id to NULL
-"""
-
-
 def get_category() -> DemoCategory:
     """Get the Constraints demo category."""
     return DemoCategory(
@@ -257,7 +152,7 @@ def get_category() -> DemoCategory:
                 title="Unique Field",
                 description="Enforce uniqueness on a field",
                 category="constraints",
-                code=UNIQUE_FIELD_CODE,
+                code=extract_demo_code(_run_unique_field),
                 execute=_run_unique_field,
             ),
             Demo(
@@ -265,7 +160,7 @@ def get_category() -> DemoCategory:
                 title="Multiple Unique Fields",
                 description="Multiple unique fields in one table",
                 category="constraints",
-                code=MULTI_UNIQUE_CODE,
+                code=extract_demo_code(_run_multi_field_unique),
                 execute=_run_multi_field_unique,
             ),
             Demo(
@@ -273,7 +168,7 @@ def get_category() -> DemoCategory:
                 title="Foreign Key CASCADE",
                 description="Cascade deletes to related records",
                 category="constraints",
-                code=FK_CASCADE_CODE,
+                code=extract_demo_code(_run_foreign_key_cascade),
                 execute=_run_foreign_key_cascade,
             ),
             Demo(
@@ -281,7 +176,7 @@ def get_category() -> DemoCategory:
                 title="Foreign Key RESTRICT",
                 description="Prevent deletion of referenced records",
                 category="constraints",
-                code=FK_RESTRICT_CODE,
+                code=extract_demo_code(_run_foreign_key_restrict),
                 execute=_run_foreign_key_restrict,
             ),
             Demo(
@@ -289,7 +184,7 @@ def get_category() -> DemoCategory:
                 title="Foreign Key SET NULL",
                 description="Set field to NULL on reference deletion",
                 category="constraints",
-                code=FK_SET_NULL_CODE,
+                code=extract_demo_code(_run_foreign_key_set_null),
                 execute=_run_foreign_key_set_null,
             ),
         ],

@@ -14,7 +14,7 @@ from sqliter.exceptions import (
 from sqliter.model import BaseDBModel
 from sqliter.model.unique import unique
 from sqliter.orm.foreign_key import ForeignKey
-from sqliter.tui.demos.base import Demo, DemoCategory
+from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
 def _run_record_not_found() -> str:
@@ -130,86 +130,6 @@ def _run_generic_error_handling() -> str:
     return output.getvalue()
 
 
-RECORD_NOT_FOUND_CODE = """
-from sqliter import SqliterDB, RecordNotFoundError
-from sqliter.model import BaseDBModel
-
-class User(BaseDBModel):
-    name: str
-
-db = SqliterDB(memory=True)
-db.create_table(User)
-
-try:
-    # Will raise RecordNotFoundError
-    db.delete(User, 9999)
-except RecordNotFoundError as e:
-    print(f"User not found: {e}")
-"""
-
-UNIQUE_CONSTRAINT_CODE = """
-from sqliter import SqliterDB, RecordInsertionError
-from sqliter.model import BaseDBModel
-from sqliter.model.unique import unique
-
-class User(BaseDBModel):
-    email: str = unique()
-    name: str
-
-db = SqliterDB(memory=True)
-db.create_table(User)
-
-db.insert(User(email="alice@example.com", name="Alice"))
-
-try:
-    # Will raise RecordInsertionError for unique constraint
-    db.insert(User(email="alice@example.com", name="Alice 2"))
-except RecordInsertionError as e:
-    print(f"Duplicate email: {e}")
-"""
-
-FK_CONSTRAINT_CODE = """
-from sqliter import SqliterDB, ForeignKeyConstraintError
-from sqliter.model import BaseDBModel
-from sqliter.orm.foreign_key import ForeignKey
-
-class Author(BaseDBModel):
-    name: str
-
-class Book(BaseDBModel):
-    title: str
-    author: ForeignKey[Author] = ForeignKey(Author, on_delete="RESTRICT")
-
-db = SqliterDB(memory=True)
-db.create_table(Author)
-db.create_table(Book)
-
-try:
-    # Will raise ForeignKeyConstraintError
-    db.insert(Book(title="Orphan", author=9999))
-except ForeignKeyConstraintError as e:
-    print(f"Invalid author: {e}")
-"""
-
-GENERIC_ERROR_CODE = """
-from sqliter import SqliterDB, SqliterError
-from sqliter.model import BaseDBModel
-
-class Task(BaseDBModel):
-    title: str
-
-db = SqliterDB(memory=True)
-db.create_table(Task)
-
-try:
-    # Any SQLiter error
-    result = db.get(Task, 9999)
-except SqliterError as e:
-    print(f"Database error: {type(e).__name__}")
-    print(f"Message: {e}")
-"""
-
-
 def get_category() -> DemoCategory:
     """Get the Error Handling demo category."""
     return DemoCategory(
@@ -222,7 +142,7 @@ def get_category() -> DemoCategory:
                 title="Record Not Found",
                 description="Handle missing records gracefully",
                 category="errors",
-                code=RECORD_NOT_FOUND_CODE,
+                code=extract_demo_code(_run_record_not_found),
                 execute=_run_record_not_found,
             ),
             Demo(
@@ -230,7 +150,7 @@ def get_category() -> DemoCategory:
                 title="Unique Constraint",
                 description="Handle duplicate value errors",
                 category="errors",
-                code=UNIQUE_CONSTRAINT_CODE,
+                code=extract_demo_code(_run_unique_constraint),
                 execute=_run_unique_constraint,
             ),
             Demo(
@@ -238,7 +158,7 @@ def get_category() -> DemoCategory:
                 title="Foreign Key Constraint",
                 description="Handle invalid foreign key references",
                 category="errors",
-                code=FK_CONSTRAINT_CODE,
+                code=extract_demo_code(_run_foreign_key_constraint),
                 execute=_run_foreign_key_constraint,
             ),
             Demo(
@@ -246,7 +166,7 @@ def get_category() -> DemoCategory:
                 title="Generic Error Handling",
                 description="Catch-all for SQLiter errors",
                 category="errors",
-                code=GENERIC_ERROR_CODE,
+                code=extract_demo_code(_run_generic_error_handling),
                 execute=_run_generic_error_handling,
             ),
         ],
