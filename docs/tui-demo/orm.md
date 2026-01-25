@@ -229,7 +229,7 @@ db.close()
 
 ### Note on Constraints
 
-By default, SQLite doesn't enforce foreign key constraints for backwards compatibility. Enable with `PRAGMA foreign_keys = ON` if needed.
+By default, SQLite doesn't enforce foreign key constraints for backwards compatibility. However, SQLiter automatically enables foreign key enforcement on every database connection, so you don't need to manually set `PRAGMA foreign_keys = ON`.
 
 ## ORM Best Practices
 
