@@ -204,6 +204,9 @@ print(f"Last updated {now - updated} ago")
 Mark records as deleted instead of removing them:
 
 ```python
+import time
+from typing import Optional
+
 class Record(BaseDBModel):
     data: str
     deleted_at: Optional[int] = None  # Manual timestamp

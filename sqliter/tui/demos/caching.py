@@ -68,8 +68,6 @@ def _run_enable_cache() -> str:
             speedup = miss_time / hit_time
             output.write(f"\nCache hit is {speedup:.1f}x faster!\n")
         output.write("(Benefits increase with query complexity and data size)")
-
-        db.close()
     finally:
         if db is not None:
             db.close()

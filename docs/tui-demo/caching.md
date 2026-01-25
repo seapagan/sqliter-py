@@ -132,7 +132,7 @@ class Product(BaseDBModel):
     name: str
     price: float
 
-db = SqliterDB(memory=True, cache_enabled=True)
+db = SqliterDB(memory=True, cache_enabled=False)
 db.create_table(Product)
 
 product = db.insert(Product(name="Widget", price=19.99))
