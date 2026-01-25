@@ -113,7 +113,7 @@ class QueryBuilder(Generic[T]):
             )
             raise ValueError(err_message)
 
-    def filter(self, **conditions: str | float | None) -> Self:
+    def filter(self, **conditions: FilterValue) -> Self:
         """Apply filter conditions to the query.
 
         This method allows adding one or more filter conditions to the query.
@@ -295,7 +295,7 @@ class QueryBuilder(Generic[T]):
             self.filters.append((field_name, value, operator))
 
     def _handle_null(
-        self, field_name: str, value: Union[str, float, None], operator: str
+        self, field_name: str, value: FilterValue, operator: str
     ) -> None:
         """Handle IS NULL and IS NOT NULL filter conditions.
 

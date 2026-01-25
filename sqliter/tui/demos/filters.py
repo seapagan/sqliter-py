@@ -87,7 +87,7 @@ def _run_in_operator() -> str:
     db.insert(Task(title="Task 4", status="done"))
 
     results = (
-        db.select(Task).filter(status__in=["todo", "in_progress"]).fetch_all()  # type: ignore[arg-type]
+        db.select(Task).filter(status__in=["todo", "in_progress"]).fetch_all()
     )
     output.write(f"Active tasks: {len(results)}\n")
     for task in results:
