@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from sqliter.tui.demos import DemoRegistry
 from sqliter.tui.demos.base import Demo, DemoCategory
 
@@ -35,7 +37,7 @@ class TestDemoRegistry:
 
         categories = DemoRegistry.get_categories()
         assert len(categories) == 3
-        assert categories == [cat1, cat2, cat3]
+        assert categories == (cat1, cat2, cat3)
 
     def test_get_demo_by_id(self, reset_demo_registry) -> None:
         """Test retrieving a demo by its ID."""
@@ -116,7 +118,7 @@ class TestDemoRegistry:
         assert DemoRegistry.get_demo("test") is None
 
     def test_demo_id_uniqueness(self, reset_demo_registry) -> None:
-        """Test that demo IDs must be unique."""
+        """Test that duplicate demo IDs raise ValueError."""
         demo1 = Demo(
             id="duplicate",
             title="Demo 1",
@@ -138,12 +140,10 @@ class TestDemoRegistry:
         cat2 = DemoCategory(id="cat2", title="Cat 2", demos=[demo2])
 
         DemoRegistry.register_category(cat1)
-        DemoRegistry.register_category(cat2)
 
-        # The second demo with the same ID should overwrite the first
-        retrieved = DemoRegistry.get_demo("duplicate")
-        assert retrieved is not None
-        assert retrieved.title == "Demo 2"
+        # Registering a duplicate ID should raise ValueError
+        with pytest.raises(ValueError, match="Duplicate demo id: duplicate"):
+            DemoRegistry.register_category(cat2)
 
     def test_get_categories_returns_sequence(self, reset_demo_registry) -> None:
         """Test that get_categories returns a sequence."""

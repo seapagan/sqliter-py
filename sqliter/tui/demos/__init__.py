@@ -38,12 +38,15 @@ class DemoRegistry:
         """Register a demo category with all its demos."""
         cls._categories.append(category)
         for demo in category.demos:
+            if demo.id in cls._demos_by_id:
+                msg = f"Duplicate demo id: {demo.id}"
+                raise ValueError(msg)
             cls._demos_by_id[demo.id] = demo
 
     @classmethod
     def get_categories(cls) -> Sequence[DemoCategory]:
         """Get all registered categories in order."""
-        return cls._categories
+        return tuple(cls._categories)
 
     @classmethod
     def get_demo(cls, demo_id: str) -> Demo | None:
