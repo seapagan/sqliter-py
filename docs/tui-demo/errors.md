@@ -114,8 +114,8 @@ print("\nAttempting to create product with invalid data...")
 
 try:
     # Wrong types: price should be float, quantity should be int
-    invalid_product = Product(name="Invalid Widget", price="free", quantity="lots")
-    db.insert(invalid_product)
+    # ValidationError is raised by Pydantic during model instantiation
+    Product(name="Invalid Widget", price="free", quantity="lots")
 except ValidationError as e:
     print(f"\nCaught error: {type(e).__name__}")
     print(f"Message: {e}")
@@ -316,12 +316,12 @@ try:
         raise ValueError("Invalid operation")
 except ValueError as e:
     print(f"Transaction failed: {e}")
-    # Note: Changes are NOT rolled back due to bug (issue #104)
+    print("Changes rolled back automatically")
 
-# Verify balance unchanged
+# Verify balance unchanged (rollback restored original value)
 reloaded = db.get(Account, account.pk)
 if reloaded is not None:
-    print(f"Balance: {reloaded.balance}")  # Was 100.0
+    print(f"Balance: {reloaded.balance}")  # Still 100.0
 ```
 
 ## Error Handling Best Practices

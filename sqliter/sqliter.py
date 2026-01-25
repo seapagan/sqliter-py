@@ -888,12 +888,15 @@ class SqliterDB:
         """  # noqa: S608
 
         try:
-            with self.connect() as conn:
-                cursor = conn.cursor()
-                cursor.execute(insert_sql, values)
-                self._maybe_commit()
+            conn = self.connect()
+            cursor = conn.cursor()
+            cursor.execute(insert_sql, values)
+            self._maybe_commit()
 
         except sqlite3.IntegrityError as exc:
+            # Rollback implicit transaction if not in user-managed transaction
+            if not self._in_transaction and self.conn:
+                self.conn.rollback()
             # Check for foreign key constraint violation
             if "FOREIGN KEY constraint failed" in str(exc):
                 fk_operation = "insert"
@@ -903,6 +906,9 @@ class SqliterDB:
                 ) from exc
             raise RecordInsertionError(table_name) from exc
         except sqlite3.Error as exc:
+            # Rollback implicit transaction if not in user-managed transaction
+            if not self._in_transaction and self.conn:
+                self.conn.rollback()
             raise RecordInsertionError(table_name) from exc
         else:
             self._cache_invalidate_table(table_name)
@@ -936,10 +942,10 @@ class SqliterDB:
         """  # noqa: S608
 
         try:
-            with self.connect() as conn:
-                cursor = conn.cursor()
-                cursor.execute(select_sql, (primary_key_value,))
-                result = cursor.fetchone()
+            conn = self.connect()
+            cursor = conn.cursor()
+            cursor.execute(select_sql, (primary_key_value,))
+            result = cursor.fetchone()
 
             if result:
                 result_dict = {
@@ -990,18 +996,26 @@ class SqliterDB:
         """  # noqa: S608
 
         try:
-            with self.connect() as conn:
-                cursor = conn.cursor()
-                cursor.execute(update_sql, (*values, primary_key_value))
+            conn = self.connect()
+            cursor = conn.cursor()
+            cursor.execute(update_sql, (*values, primary_key_value))
 
-                # Check if any rows were updated
-                if cursor.rowcount == 0:
-                    raise RecordNotFoundError(primary_key_value)
+            # Check if any rows were updated
+            if cursor.rowcount == 0:
+                raise RecordNotFoundError(primary_key_value)  # noqa: TRY301
 
-                self._maybe_commit()
-                self._cache_invalidate_table(table_name)
+            self._maybe_commit()
+            self._cache_invalidate_table(table_name)
 
+        except RecordNotFoundError:
+            # Rollback implicit transaction if not in user-managed transaction
+            if not self._in_transaction and self.conn:
+                self.conn.rollback()
+            raise
         except sqlite3.Error as exc:
+            # Rollback implicit transaction if not in user-managed transaction
+            if not self._in_transaction and self.conn:
+                self.conn.rollback()
             raise RecordUpdateError(table_name) from exc
 
     def delete(
@@ -1026,15 +1040,23 @@ class SqliterDB:
         """  # noqa: S608
 
         try:
-            with self.connect() as conn:
-                cursor = conn.cursor()
-                cursor.execute(delete_sql, (primary_key_value,))
+            conn = self.connect()
+            cursor = conn.cursor()
+            cursor.execute(delete_sql, (primary_key_value,))
 
-                if cursor.rowcount == 0:
-                    raise RecordNotFoundError(primary_key_value)
-                self._maybe_commit()
-                self._cache_invalidate_table(table_name)
+            if cursor.rowcount == 0:
+                raise RecordNotFoundError(primary_key_value)  # noqa: TRY301
+            self._maybe_commit()
+            self._cache_invalidate_table(table_name)
+        except RecordNotFoundError:
+            # Rollback implicit transaction if not in user-managed transaction
+            if not self._in_transaction and self.conn:
+                self.conn.rollback()
+            raise
         except sqlite3.IntegrityError as exc:
+            # Rollback implicit transaction if not in user-managed transaction
+            if not self._in_transaction and self.conn:
+                self.conn.rollback()
             # Check for foreign key constraint violation (RESTRICT)
             if "FOREIGN KEY constraint failed" in str(exc):
                 fk_operation = "delete"
@@ -1044,6 +1066,9 @@ class SqliterDB:
                 ) from exc
             raise RecordDeletionError(table_name) from exc
         except sqlite3.Error as exc:
+            # Rollback implicit transaction if not in user-managed transaction
+            if not self._in_transaction and self.conn:
+                self.conn.rollback()
             raise RecordDeletionError(table_name) from exc
 
     def select(

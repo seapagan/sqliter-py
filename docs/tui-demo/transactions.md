@@ -43,8 +43,8 @@ db.close()
 
 ### What Happens
 
-- Both updates succeed or both fail (intended behaviour)
-- If an error occurs, changes should be rolled back (see warning below about current limitations)
+- Both updates succeed or both fail
+- If an error occurs, changes are rolled back
 - Database remains in a consistent state
 
 ## Transaction Rollback
@@ -82,12 +82,6 @@ except RuntimeError:
 db.close()
 # --8<-- [end:transaction-rollback]
 ```
-
-!!! warning
-    **Known Issue:** Transaction rollback is currently broken in SQLiter.
-    The `update()`, `insert()`, and `delete()` methods use nested context
-    managers that commit prematurely. This demo shows the expected behavior,
-    but actual rollback may not work correctly until this is fixed.
 
 ### Rollback Behavior
 
