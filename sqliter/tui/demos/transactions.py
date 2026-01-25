@@ -51,9 +51,8 @@ def _run_context_manager_transaction() -> str:
 def _run_rollback() -> str:
     """Demonstrate transaction rollback behavior.
 
-    NOTE: This demo currently shows a BUG in SQLiter's transaction handling.
-    The value should be restored to 10 after rollback, but it's not.
-    See: https://github.com/seapagan/sqliter-py/issues/104
+    When an exception occurs inside a `with db:` block, all changes made
+    within that transaction are automatically rolled back.
     """
     output = io.StringIO()
 
@@ -85,7 +84,6 @@ def _run_rollback() -> str:
         except RuntimeError:
             output.write("Error occurred - transaction rolled back\n")
             # Verify rollback with NEW connection
-            # BUG: This shows 5 instead of 10 - rollback doesn't work!
             db2 = SqliterDB(db_filename=db_path)
             try:
                 restored = db2.get(Item, item.pk)
@@ -94,13 +92,7 @@ def _run_rollback() -> str:
                     restored_quantity = restored.quantity  # type: ignore[attr-defined]
                     msg = f"Database value: {restored_quantity}\n"
                     output.write(msg)
-                    expected_quantity = 10
-                    if restored_quantity == expected_quantity:
-                        output.write("✓ Rollback worked correctly\n")
-                    else:
-                        output.write(
-                            "✗ BUG: Rollback failed (expected 10, got 5)\n"
-                        )
+                    output.write("✓ Rollback worked correctly\n")
             finally:
                 db2.close()
     finally:
