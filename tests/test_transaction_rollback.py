@@ -219,16 +219,15 @@ class TestTransactionRollback:
 
         assert count == 1, "Data should be visible after transaction commits"
 
-    def test_nested_context_not_allowed(self, tmp_path) -> None:
-        """Verify behavior when nesting transactions (should still work)."""
+    def test_context_manager_sets_transaction_flag(self, tmp_path) -> None:
+        """Verify that context manager correctly sets _in_transaction flag."""
         db_file = tmp_path / "test_rollback.db"
         db = SqliterDB(db_filename=str(db_file))
         db.create_table(Item)
         db.close()
 
         db = SqliterDB(db_filename=str(db_file))
-        # While nested transactions aren't explicitly supported,
-        # this verifies the code doesn't break
+        # Verify the context manager sets the transaction flag correctly
         with db:
             db.insert(Item(name="Widget", quantity=10))
             # The flag is already set, but operations should still work
