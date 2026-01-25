@@ -197,6 +197,34 @@ class TestDemoRunner:
         assert "DemoTestError" in result.traceback
         assert DEMO_FAILED_ERROR in result.traceback
 
+    def test_exception_with_stderr(self) -> None:
+        """Test that stderr is captured when demo raises exception."""
+
+        def failing_demo_with_stderr() -> str:
+            import sys
+
+            print("Error from demo", file=sys.stderr)
+            raise DemoTestError(DEMO_FAILED_ERROR)
+
+        demo = Demo(
+            id="test",
+            title="Test",
+            description="Test",
+            category="test",
+            code="code",
+            execute=failing_demo_with_stderr,
+        )
+
+        runner = DemoRunner()
+        result = runner.run(demo)
+
+        assert result.success is False
+        assert result.error == "Exception in demo code"
+        assert result.traceback is not None
+        # Verify stderr is included in error output
+        assert "[stderr]" in result.output
+        assert "Error from demo" in result.output
+
     def test_traceback_capture(self) -> None:
         """Test that full traceback is captured."""
 

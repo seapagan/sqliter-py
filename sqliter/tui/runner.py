@@ -79,9 +79,16 @@ class DemoRunner:
         # type
         except Exception:  # noqa: BLE001
             tb = traceback.format_exc()
+
+            # Combine stdout and stderr for error output
+            combined_output = stdout_capture.getvalue()
+            stderr_val = stderr_capture.getvalue()
+            if stderr_val:
+                combined_output += f"\n[stderr]\n{stderr_val}"
+
             self._last_result = ExecutionResult(
                 success=False,
-                output=stdout_capture.getvalue(),
+                output=combined_output,
                 error="Exception in demo code",
                 traceback=tb,
             )
