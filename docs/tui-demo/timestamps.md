@@ -25,7 +25,7 @@ formatted_dt1 = dt1.strftime("%Y-%m-%d %H:%M:%S")
 print(f"Article: {article1.title}")
 print(f"Created: {article1.created_at} ({formatted_dt1} UTC)")
 
-time.sleep(0.1)
+time.sleep(1)
 
 article2 = db.insert(Article(title="Second Post"))
 dt2 = datetime.fromtimestamp(article2.created_at, tz=timezone.utc)
@@ -153,12 +153,23 @@ Convert Unix timestamps to readable dates.
 # --8<-- [start:convert-timestamps]
 from datetime import datetime, timezone
 
+from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
+
+class Article(BaseDBModel):
+    title: str
+
+db = SqliterDB(memory=True)
+db.create_table(Article)
+
 article = db.insert(Article(title="Test"))
 
 # Convert to human-readable format
 dt = datetime.fromtimestamp(article.created_at, tz=timezone.utc)
 readable = dt.strftime("%Y-%m-%d %H:%M:%S")
 print(f"Created: {article.created_at} ({readable} UTC)")
+
+db.close()
 ```
 
 ## When to Use Timestamps
@@ -207,13 +218,26 @@ Mark records as deleted instead of removing them:
 import time
 from typing import Optional
 
+from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
+
 class Record(BaseDBModel):
     data: str
     deleted_at: Optional[int] = None  # Manual timestamp
 
+db = SqliterDB(memory=True)
+db.create_table(Record)
+
 def soft_delete(record: Record) -> None:
     record.deleted_at = int(time.time())
     db.update(record)
+
+# Example usage
+record = db.insert(Record(data="Important data"))
+soft_delete(record)
+print(f"Record deleted at: {record.deleted_at}")
+
+db.close()
 ```
 
 ## Timestamp Precision

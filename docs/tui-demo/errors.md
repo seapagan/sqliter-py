@@ -258,12 +258,12 @@ try:
         raise ValueError("Invalid operation")
 except ValueError as e:
     print(f"Transaction failed: {e}")
-    # Changes are automatically rolled back
+    # Note: Changes are NOT rolled back due to bug (issue #104)
 
 # Verify balance unchanged
 reloaded = db.get(Account, account.pk)
 if reloaded is not None:
-    print(f"Balance: {reloaded.balance}")  # Still 100.0
+    print(f"Balance: {reloaded.balance}")  # Was 100.0
 ```
 
 ## Error Handling Best Practices
@@ -296,12 +296,14 @@ except SqliterError as e:
 Translate technical errors for users:
 
 ```python
+from typing import Annotated
+
 from sqliter.model import BaseDBModel
 from sqliter.model.unique import unique
 from sqliter.exceptions import RecordInsertionError
 
 class User(BaseDBModel):
-    username: str = unique()
+    username: Annotated[str, unique()]
 
 try:
     db.insert(User(username="alice"))

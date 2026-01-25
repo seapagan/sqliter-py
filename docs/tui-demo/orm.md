@@ -53,7 +53,7 @@ class Author(BaseDBModel):
 
 class Book(BaseDBModel):
     title: str
-    author: ForeignKey[Author]
+    author = ForeignKey(Author)
 
 db = SqliterDB(memory=True)
 db.create_table(Author)
@@ -71,9 +71,11 @@ db.close()
 # --8<-- [end:insert-foreign-key]
 ```
 
-### Storage
+### Storage vs Access
 
-The `author` field stores the primary key (integer), not the full Author object.
+- **Storage**: The `author` field stores only the primary key (integer)
+- **Access**: When you access `book.author`, lazy loading fetches the full Author object
+- This dual behavior lets you store efficiently but access conveniently
 
 ## Lazy Loading
 
@@ -184,9 +186,9 @@ class Book(BaseDBModel):
 
 The reverse relationship is dynamically added and accessed as a query builder.
 
-## Deleting with Foreign Keys
+## Navigating with Foreign Keys
 
-Handle deleting records that are referenced by other records.
+Navigate from child records to parent records using foreign keys.
 
 ```python
 # --8<-- [start:delete-foreign-key]
@@ -219,8 +221,15 @@ db.close()
 # --8<-- [end:delete-foreign-key]
 ```
 
-!!! warning
-    By default, SQLite doesn't enforce foreign key constraints for backwards compatibility. Enable with `PRAGMA foreign_keys = ON` if needed.
+### What This Shows
+
+- Child objects (Player) can access parent objects (Team) via FK
+- Lazy loading fetches the Team when you access `player.team`
+- No need to manually query the parent table
+
+### Note on Constraints
+
+By default, SQLite doesn't enforce foreign key constraints for backwards compatibility. Enable with `PRAGMA foreign_keys = ON` if needed.
 
 ## ORM Best Practices
 

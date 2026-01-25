@@ -62,7 +62,6 @@ try:
         print(f"\nCache hit is {speedup:.1f}x faster!")
     print("(Benefits increase with query complexity and data size)")
 
-    db.close()
 finally:
     if db is not None:
         db.close()
@@ -234,18 +233,18 @@ db.close()
 
 ```python
 # Enable cache at database creation
-db = SqliterDB(database="mydb.db", cache_enabled=True, cache_ttl=60)
+db = SqliterDB(db_filename="mydb.db", cache_enabled=True, cache_ttl=60)
 ```
 
 ### Selective Caching
 
 ```python
 # For read-heavy workloads
-db_cached = SqliterDB(database="mydb.db", cache_enabled=True, cache_ttl=300)
+db_cached = SqliterDB(db_filename="mydb.db", cache_enabled=True, cache_ttl=300)
 reports = db_cached.select(Sales).fetch_all()
 
 # For write-heavy workloads
-db_fresh = SqliterDB(database="mydb.db", cache_enabled=False)
+db_fresh = SqliterDB(db_filename="mydb.db", cache_enabled=False)
 for record in new_records:
     db_fresh.insert(record)
 ```
