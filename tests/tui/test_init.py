@@ -7,16 +7,16 @@ import pytest
 import sqliter.tui
 from sqliter.tui import (
     _TEXTUAL_AVAILABLE,
-    SQLiterDemoApp,
     _missing_dependency_error,
     get_app,
     run,
 )
+from sqliter.tui.app import SQLiterDemoApp
 
 # Error message for missing textual dependency
 _MISSING_DEPENDENCY_ERROR = (
     "The SQLiter TUI demo requires the 'textual' library.\n"
-    "Install it with: pip install sqliter-py[demo]\n"
+    "Install it with: uv add sqliter-py[demo]\n"
 )
 
 
@@ -28,7 +28,7 @@ class TestMissingDependencyError:
         with pytest.raises(ImportError) as exc_info:
             _missing_dependency_error()
         assert "textual" in str(exc_info.value)
-        assert "pip install" in str(exc_info.value)
+        assert "uv add" in str(exc_info.value)
 
 
 class TestGetApp:
@@ -55,7 +55,7 @@ class TestRunFunction:
 
     def test_run_calls_app_run(self, mocker) -> None:
         """Test that run() calls app.run()."""
-        mock_run = mocker.patch("sqliter.tui.SQLiterDemoApp.run")
+        mock_run = mocker.patch("sqliter.tui.app.SQLiterDemoApp.run")
         run()
         mock_run.assert_called_once()
 

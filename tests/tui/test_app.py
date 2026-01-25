@@ -6,7 +6,7 @@ import pytest
 from textual.css.query import NoMatches
 from textual.widgets import Button, Footer, Header, Tree
 
-from sqliter.tui import SQLiterDemoApp
+from sqliter.tui.app import SQLiterDemoApp
 from sqliter.tui.demos import DemoRegistry
 from sqliter.tui.demos.base import Demo, DemoCategory
 from sqliter.tui.widgets import (

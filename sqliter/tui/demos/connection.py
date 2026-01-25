@@ -68,8 +68,11 @@ def _run_debug_mode() -> str:
     output.write("Debug mode enables SQL query logging.\n")
     output.write("When debug=True, all SQL queries are logged.\n\n")
 
+    class User(BaseDBModel):
+        name: str
+
     db = SqliterDB(memory=True, debug=True)
-    db.create_table(BaseDBModel)
+    db.create_table(User)
 
     output.write("SQL queries would be logged to console:\n")
     output.write('  CREATE TABLE IF NOT EXISTS "users" (...)\n')

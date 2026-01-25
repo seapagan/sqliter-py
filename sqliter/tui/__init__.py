@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 
 _TEXTUAL_AVAILABLE = find_spec("textual") is not None
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from sqliter.tui.app import SQLiterDemoApp
 
 
