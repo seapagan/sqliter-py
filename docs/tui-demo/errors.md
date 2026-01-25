@@ -87,9 +87,9 @@ else:
     print(f"Found: {user.name}")
 ```
 
-## Validation Errors
+## Generic Error Handling
 
-Pydantic validates data before database insert.
+Catch all SQLiter errors with the base `SqliterError` class when you don't need to distinguish between specific error types.
 
 ```python
 # --8<-- [start:validation-error]
@@ -119,11 +119,29 @@ db.close()
 # --8<-- [end:validation-error]
 ```
 
-### Benefits
+### When to Use Generic Error Handling
 
-- Data never reaches the database in invalid form
-- Clear error messages
-- Type checking and validation
+- **Simplified error handling**: When you don't need to take different actions based on error type
+- **Logging or reporting**: When you just need to log that an error occurred
+- **Top-level error handlers**: When you want to catch any SQLiter error at the application boundary
+
+### Specific vs Generic
+
+```python
+# Specific - handle different error types differently
+try:
+    db.insert(user)
+except RecordInsertionError:
+    print("Duplicate user")
+except ValidationError as e:
+    print(f"Invalid data: {e}")
+
+# Generic - catch all SQLiter errors
+try:
+    db.insert(user)
+except SqliterError as e:
+    print(f"Database error: {e}")
+```
 
 ## Database Connection Errors
 
