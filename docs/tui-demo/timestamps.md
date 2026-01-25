@@ -153,7 +153,7 @@ Convert Unix timestamps to readable dates.
 # --8<-- [start:convert-timestamps]
 from datetime import datetime, timezone
 
-article = db.insert(Article(title="Test")))
+article = db.insert(Article(title="Test"))
 
 # Convert to human-readable format
 dt = datetime.fromtimestamp(article.created_at, tz=timezone.utc)
@@ -190,8 +190,13 @@ if remote_doc.updated_at > local_doc.updated_at:
 Understand the lifecycle of records:
 
 ```python
-print(f"User created {datetime.now() - user.created_at} ago")
-print(f"Last updated {datetime.now() - user.updated_at} ago")
+from datetime import datetime, timezone
+
+now = datetime.now(tz=timezone.utc)
+created = datetime.fromtimestamp(user.created_at, tz=timezone.utc)
+updated = datetime.fromtimestamp(user.updated_at, tz=timezone.utc)
+print(f"User created {now - created} ago")
+print(f"Last updated {now - updated} ago")
 ```
 
 ### Soft Delete
@@ -220,7 +225,7 @@ Unix timestamps are in **seconds** since the epoch (January 1, 1970).
 
 ### Example Values
 
-```
+```text
 1737739200 -> 2025-01-25 00:00:00 UTC
 1737742800 -> 2025-01-25 01:00:00 UTC
 ```

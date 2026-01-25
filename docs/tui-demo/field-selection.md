@@ -45,7 +45,7 @@ db.close()
 ### When to Use
 
 - **API responses**: Only send needed fields to clients
-- **Large records**: Records with many fields but you only need a few
+- **Large records**: Records with many fields, but you only need a few
 - **Sensitive data**: Exclude fields like passwords
 
 ## Exclude Fields

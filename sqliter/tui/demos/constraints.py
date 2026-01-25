@@ -38,10 +38,10 @@ def _run_unique_field() -> str:
 
 
 def _run_multi_field_unique() -> str:
-    """Enforce uniqueness across multiple fields together.
+    """Enforce uniqueness on multiple fields.
 
-    Multiple unique() fields create a composite constraint - the
-    combination of values must be unique.
+    Each unique() field is constrained independently (not a composite
+    unique constraint).
     """
     output = io.StringIO()
 
@@ -52,7 +52,7 @@ def _run_multi_field_unique() -> str:
     db = SqliterDB(memory=True)
     db.create_table(Enrollment)
 
-    output.write("Table created with unique fields\n")
+    output.write("Table created with unique fields (each column independent)\n")
     enrollment = db.insert(Enrollment(student_id=1, course_id=101))
     output.write(
         f"Enrolled student {enrollment.student_id} in course "
