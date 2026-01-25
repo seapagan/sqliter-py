@@ -15,6 +15,8 @@ if TYPE_CHECKING:  # pragma: no cover
 class OutputDisplay(ScrollableContainer):
     """Display demo execution output with status styling."""
 
+    _PLACEHOLDER = "Run a demo to see output here"
+
     def __init__(
         self,
         *,
@@ -31,7 +33,7 @@ class OutputDisplay(ScrollableContainer):
 
     def compose(self) -> ComposeResult:
         """Compose the output display."""
-        yield Static("Run a demo to see output here", id="output-content")
+        yield Static(self._PLACEHOLDER, id="output-content")
 
     def show_output(self, output: str, *, success: bool = True) -> None:
         """Display output from demo execution.
@@ -70,7 +72,7 @@ class OutputDisplay(ScrollableContainer):
         """
         content = self.query_one("#output-content", Static)
 
-        self.remove_class("success")
+        self.remove_class("error", "success")
         self.add_class("error")
 
         text = Text()
@@ -86,5 +88,5 @@ class OutputDisplay(ScrollableContainer):
     def clear(self) -> None:
         """Clear the output display."""
         content = self.query_one("#output-content", Static)
-        content.update("Run a demo to see output here")
+        content.update(self._PLACEHOLDER)
         self.remove_class("error", "success")
