@@ -122,6 +122,7 @@ Most models track both creation and modification times.
 # --8<-- [start:both-timestamps]
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
+import time
 
 class Document(BaseDBModel):
     """Document with both timestamps."""
@@ -135,6 +136,9 @@ db.create_table(Document)
 doc = db.insert(Document(title="Draft", content="..."))
 print(f"Created: {doc.created_at}")
 print(f"Updated: {doc.updated_at}")
+
+# Sleep for 1 second to ensure different timestamps on fast machines
+time.sleep(1)
 
 # Update document
 doc.content = "Revised content"
