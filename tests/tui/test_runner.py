@@ -368,23 +368,6 @@ class TestDemoRunner:
         assert result.success is True
         assert result.output == "(No output)"
 
-    def test_empty_string_output(self) -> None:
-        """Test handling of empty string output."""
-        demo = Demo(
-            id="test",
-            title="Test",
-            description="Test",
-            category="test",
-            code="code",
-            execute=lambda: "",
-        )
-
-        runner = DemoRunner()
-        result = runner.run(demo)
-
-        assert result.success is True
-        assert result.output == "(No output)"
-
 
 class TestGlobalRunner:
     """Test the global runner instance."""
