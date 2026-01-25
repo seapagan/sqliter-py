@@ -34,6 +34,7 @@ class TestMissingDependencyError:
 class TestGetApp:
     """Test the get_app function."""
 
+    @pytest.mark.skipif(not _TEXTUAL_AVAILABLE, reason="textual not installed")
     def test_get_app_with_textual(self) -> None:
         """Test that get_app returns an app when textual is available."""
         app = get_app()
@@ -53,6 +54,7 @@ class TestGetApp:
 class TestRunFunction:
     """Test the run function."""
 
+    @pytest.mark.skipif(not _TEXTUAL_AVAILABLE, reason="textual not installed")
     def test_run_calls_app_run(self, mocker) -> None:
         """Test that run() calls app.run()."""
         mock_run = mocker.patch("sqliter.tui.app.SQLiterDemoApp.run")
@@ -69,6 +71,7 @@ class TestModuleExports:
         assert "run" in sqliter.tui.__all__
         assert len(sqliter.tui.__all__) == 2
 
+    @pytest.mark.skipif(not _TEXTUAL_AVAILABLE, reason="textual not installed")
     def test_sqliter_demo_app_import(self) -> None:
         """Test that SQLiterDemoApp can be imported."""
         assert SQLiterDemoApp is not None

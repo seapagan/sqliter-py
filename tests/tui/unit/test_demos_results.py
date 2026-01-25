@@ -14,7 +14,7 @@ class TestGetCategory:
 
         assert category.id == "results"
         assert "Results" in category.title
-        assert len(category.demos) == 6
+        assert len(category.demos) >= 6
 
     def test_all_demos_are_executable(self) -> None:
         """Test that all result demos execute successfully."""

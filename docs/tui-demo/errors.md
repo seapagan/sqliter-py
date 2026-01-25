@@ -106,10 +106,9 @@ db.create_table(Task)
 task = db.insert(Task(title="My Task"))
 print(f"Created task: {task.title}")
 
-# Try to update non-existent record
+# Try to update a deleted record
 try:
     task.title = "Updated"
-    db.update(task)  # task has been deleted
     db.delete(Task, task.pk)
     db.update(task)  # This will fail
 except SqliterError as e:

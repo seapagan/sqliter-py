@@ -38,14 +38,19 @@ class DemoList(ScrollableContainer):
 
         # Populate tree with categories and demos
         for category in DemoRegistry.get_categories():
+            label = (
+                f"{category.icon} {category.title}"
+                if category.icon
+                else category.title
+            )
             cat_node = tree.root.add(
-                f"{category.icon} {category.title}",
+                label,
                 data=category,
                 expand=category.expanded,
             )
             for demo in category.demos:
                 cat_node.add_leaf(
-                    f"  {demo.title}",
+                    demo.title,
                     data=demo,
                 )
 

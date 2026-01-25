@@ -30,6 +30,7 @@ def _run_enable_cache() -> str:
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = f.name
 
+    db = None
     try:
         db = SqliterDB(db_path, cache_enabled=True)
         db.create_table(User)
@@ -70,6 +71,8 @@ def _run_enable_cache() -> str:
 
         db.close()
     finally:
+        if db is not None:
+            db.close()
         # Cleanup
         Path(db_path).unlink(missing_ok=True)
 

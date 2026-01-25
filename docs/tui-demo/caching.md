@@ -23,6 +23,7 @@ class User(BaseDBModel):
 with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
     db_path = f.name
 
+db = None
 try:
     db = SqliterDB(db_path, cache_enabled=True)
     db.create_table(User)
@@ -63,6 +64,8 @@ try:
 
     db.close()
 finally:
+    if db is not None:
+        db.close()
     # Cleanup
     Path(db_path).unlink(missing_ok=True)
 # --8<-- [end:enable-cache]

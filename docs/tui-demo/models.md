@@ -86,6 +86,9 @@ class Article(BaseDBModel):
 - **`created_at`**: Unix timestamp set when the record is inserted
 - **`updated_at`**: Unix timestamp updated automatically when the record is modified
 
+> **Note:** For practical examples of using timestamp fields in real scenarios,
+> see the [Auto Timestamps](timestamps.md) documentation.
+
 ## Field Types
 
 SQLiter supports all Pydantic field types:

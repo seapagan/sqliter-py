@@ -81,8 +81,7 @@ def _run_update() -> str:
 
     item.quantity = 10
     db.update(item)
-    updated = item
-    output.write(f"Updated: {updated.name} x{updated.quantity}\n")
+    output.write(f"Updated: {item.name} x{item.quantity}\n")
 
     db.close()
     return output.getvalue()
@@ -105,8 +104,7 @@ def _run_delete() -> str:
     output.write(f"Created note (pk={note.pk})\n")
 
     db.delete(Note, note.pk)
-    deleted = note.pk
-    output.write(f"Deleted: {deleted}\n")
+    output.write(f"Deleted note with pk={note.pk}\n")
 
     all_notes = db.select(Note).fetch_all()
     output.write(f"Remaining notes: {len(all_notes)}\n")

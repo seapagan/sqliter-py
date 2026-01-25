@@ -31,9 +31,14 @@ def extract_demo_code(func: Callable[..., str]) -> str:
     source = inspect.getsource(func)
     lines = source.splitlines()
 
-    # Remove function definition line
-    if lines and lines[0].strip().startswith("def "):
-        lines = lines[1:]
+    # Skip decorator lines and function definition
+    start_idx = 0
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("def "):
+            start_idx = i + 1
+            break
+    lines = lines[start_idx:]
 
     # Dedent the remaining code
     code = textwrap.dedent("\n".join(lines))

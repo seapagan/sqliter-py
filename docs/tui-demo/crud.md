@@ -88,8 +88,7 @@ print(f"Created: {item.name} x{item.quantity}")
 
 item.quantity = 10
 db.update(item)
-updated = item
-print(f"Updated: {updated.name} x{updated.quantity}")
+print(f"Updated: {item.name} x{item.quantity}")
 
 db.close()
 ```
@@ -123,8 +122,7 @@ note = db.insert(Note(content="Temporary note"))
 print(f"Created note (pk={note.pk})")
 
 db.delete(Note, note.pk)
-deleted = note.pk
-print(f"Deleted: {deleted}")
+print(f"Deleted note with pk={note.pk}")
 
 all_notes = db.select(Note).fetch_all()
 print(f"Remaining notes: {len(all_notes)}")

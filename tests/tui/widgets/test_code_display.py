@@ -80,8 +80,7 @@ class TestCodeDisplay:
             # Rich Syntax adds line numbers by default
             assert content.content is not None
 
-    @pytest.mark.asyncio
-    async def test_code_property_getter(self) -> None:
+    def test_code_property_getter(self) -> None:
         """Test the code property getter."""
         code = "x = 42"
         code_display = CodeDisplay(code=code)
@@ -107,8 +106,7 @@ class TestCodeDisplay:
             # The Syntax object's code property should contain the updated code
             assert "updated" in content.content.code
 
-    @pytest.mark.asyncio
-    async def test_not_mounted_handling(self) -> None:
+    def test_not_mounted_handling(self) -> None:
         """Test graceful handling before widget is mounted."""
         code_display = CodeDisplay(code="test")
 
