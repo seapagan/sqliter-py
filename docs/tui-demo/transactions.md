@@ -278,7 +278,7 @@ def create_or_update(db: SqliterDB, user: User) -> None:
 
 ### DO
 
-- Use transactions for multi-step operations
+- Use transactions for multistep operations
 - Keep transactions short (don't hold locks)
 - Use context managers for automatic cleanup
 - Handle exceptions appropriately
