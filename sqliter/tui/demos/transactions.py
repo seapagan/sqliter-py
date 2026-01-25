@@ -92,7 +92,15 @@ def _run_rollback() -> str:
                     restored_quantity = restored.quantity  # type: ignore[attr-defined]
                     msg = f"Database value: {restored_quantity}\n"
                     output.write(msg)
-                    output.write("✓ Rollback worked correctly\n")
+                    expected_quantity = 10
+                    if restored_quantity == expected_quantity:
+                        output.write("✓ Rollback worked correctly\n")
+                    else:
+                        msg = (
+                            f"✗ Rollback failed: expected {expected_quantity}, "
+                            f"got {restored_quantity}\n"
+                        )
+                        output.write(msg)
             finally:
                 db2.close()
     finally:
