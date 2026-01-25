@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import io
+import tempfile
+from pathlib import Path
 
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
@@ -47,10 +49,11 @@ def _run_context_manager_transaction() -> str:
 
 
 def _run_rollback() -> str:
-    """Automatically roll back changes when an error occurs.
+    """Demonstrate transaction rollback behavior.
 
-    If an exception is raised inside a transaction context, all changes
-    are automatically undone.
+    NOTE: This demo currently shows a BUG in SQLiter's transaction handling.
+    The value should be restored to 10 after rollback, but it's not.
+    See: https://github.com/seapagan/sqliter-py/issues/104
     """
     output = io.StringIO()
 
@@ -58,26 +61,51 @@ def _run_rollback() -> str:
         name: str
         quantity: int
 
-    db = SqliterDB(memory=True)
-    db.create_table(Item)
+    # Use file database so we can reconnect after connection closes
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+        db_path = f.name
 
-    item: Item = db.insert(Item(name="Widget", quantity=10))
-    output.write(f"Initial quantity: {item.quantity}\n")
-
-    # Use context manager for automatic rollback on error
+    db = None
     try:
-        with db:
-            item.quantity = 5
-            db.update(item)
-            output.write("Inside transaction: updated to 5\n")
-            # If error occurs, changes are rolled back
-            error_msg = "Intentional error for rollback"
-            raise RuntimeError(error_msg)  # noqa: TRY301
-    except RuntimeError:
-        output.write("Error occurred - transaction rolled back\n")
-        output.write("(Value restored to original state)\n")
+        db = SqliterDB(db_filename=db_path)
+        db.create_table(Item)
 
-    db.close()
+        item: Item = db.insert(Item(name="Widget", quantity=10))
+        output.write(f"Initial quantity: {item.quantity}\n")
+
+        # Use context manager for automatic rollback on error
+        try:
+            with db:
+                item.quantity = 5
+                db.update(item)
+                output.write("Inside transaction: updated to 5\n")
+                # If error occurs, changes are rolled back
+                error_msg = "Intentional error for rollback"
+                raise RuntimeError(error_msg)  # noqa: TRY301
+        except RuntimeError:
+            output.write("Error occurred - transaction rolled back\n")
+            # Verify rollback with NEW connection
+            # BUG: This shows 5 instead of 10 - rollback doesn't work!
+            db2 = SqliterDB(db_filename=db_path)
+            restored = db2.get(Item, item.pk)
+            if restored is not None:
+                # Type ignore: restored is Item, but mypy can't infer that
+                restored_quantity = restored.quantity  # type: ignore[attr-defined]
+                msg = f"Database value: {restored_quantity}\n"
+                output.write(msg)
+                expected_quantity = 10
+                if restored_quantity == expected_quantity:
+                    output.write("✓ Rollback worked correctly\n")
+                else:
+                    output.write(
+                        "✗ BUG: Rollback failed (expected 10, got 5)\n"
+                    )
+            db2.close()
+    finally:
+        if db is not None:
+            db.close()
+        Path(db_path).unlink(missing_ok=True)
+
     return output.getvalue()
 
 

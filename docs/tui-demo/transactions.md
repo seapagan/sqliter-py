@@ -77,16 +77,22 @@ try:
         raise RuntimeError(error_msg)  # noqa: TRY301
 except RuntimeError:
     print("Error occurred - transaction rolled back")
-    print("(Value restored to original state)")
+    print("Original value preserved (quantity=10)")
 
 db.close()
 # --8<-- [end:transaction-rollback]
 ```
 
+!!! warning
+    **Known Issue:** Transaction rollback is currently broken in SQLiter.
+    The `update()`, `insert()`, and `delete()` methods use nested context
+    managers that commit prematurely. This demo shows the expected behavior,
+    but actual rollback may not work correctly until this is fixed.
+
 ### Rollback Behavior
 
-- All changes within the transaction are undone
-- Database state is as if nothing happened
+- All changes within the transaction should be undone
+- Database state should be as if nothing happened
 - Exception continues to propagate unless caught
 
 ## Manual Transaction Control
