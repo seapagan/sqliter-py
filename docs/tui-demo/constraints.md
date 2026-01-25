@@ -188,7 +188,7 @@ class Product(BaseDBModel):
 | Constraint | How to Define | Purpose |
 |------------|---------------|---------|
 | **Primary Key** | Automatic (`pk` field) | Unique identifier for each record |
-| **Unique** | `unique(str)` | Field values must be unique |
+| **Unique** | `Annotated[str, unique()]` | Field values must be unique |
 | **Not Null** | No default value | Field must have a value |
 | **Default Value** | `field: type = value` | Default value if not provided |
 | **Check** | Pydantic validator | Custom validation logic |

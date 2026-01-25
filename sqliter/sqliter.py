@@ -482,7 +482,10 @@ class SqliterDB:
         Use this when you want to:
         - Free memory used by the cache
         - Force fresh queries after external data changes
-        - Reset cache statistics
+
+        Note:
+            Cache statistics (hits/misses) are preserved. To reset statistics,
+            create a new database connection.
 
         Example:
             >>> db.clear_cache()

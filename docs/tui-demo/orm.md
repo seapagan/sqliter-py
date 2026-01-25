@@ -48,19 +48,24 @@ Create records linked to other records.
 from sqliter import SqliterDB
 from sqliter.orm import BaseDBModel, ForeignKey
 
-class User(BaseDBModel):
+class Author(BaseDBModel):
     name: str
-    email: str
+
+class Book(BaseDBModel):
+    title: str
+    author: ForeignKey[Author]
 
 db = SqliterDB(memory=True)
-db.create_table(User)
+db.create_table(Author)
+db.create_table(Book)
 
-user = db.insert(User(name="Alice", email="alice@example.com"))
-print("Created user:")
-print(f"  name: {user.name}")
-print(f"  email: {user.email}")
-print(f"  pk: {user.pk}")
-print("\nAccess fields like object attributes")
+author = db.insert(Author(name="Jane Austen"))
+book = db.insert(Book(title="Pride and Prejudice", author=author.pk))
+
+print("Created book:")
+print(f"  title: {book.title}")
+print(f"  author (stored pk): {book.author}")
+print("\nForeign key stores the primary key, not the full object")
 
 db.close()
 # --8<-- [end:insert-foreign-key]

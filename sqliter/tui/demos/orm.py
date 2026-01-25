@@ -48,26 +48,32 @@ def _run_lazy_loading() -> str:
 
 
 def _run_orm_style_access() -> str:
-    """Access model fields as object attributes.
+    """Insert records with foreign key relationships.
 
     BaseDBModel provides attribute-style access to fields, with automatic
-    primary key generation via the pk field.
+    primary key generation via the pk field. Foreign keys store related
+    object primary keys.
     """
     output = io.StringIO()
 
-    class User(BaseDBModel):
+    class Author(BaseDBModel):
         name: str
-        email: str
+
+    class Book(BaseDBModel):
+        title: str
+        author: ForeignKey[Author] = ForeignKey(Author)
 
     db = SqliterDB(memory=True)
-    db.create_table(User)
+    db.create_table(Author)
+    db.create_table(Book)
 
-    user = db.insert(User(name="Alice", email="alice@example.com"))
-    output.write("Created user:\n")
-    output.write(f"  name: {user.name}\n")
-    output.write(f"  email: {user.email}\n")
-    output.write(f"  pk: {user.pk}\n")
-    output.write("\nAccess fields like object attributes\n")
+    author = db.insert(Author(name="Jane Austen"))
+    book = db.insert(Book(title="Pride and Prejudice", author=author.pk))
+
+    output.write("Created book:\n")
+    output.write(f"  title: {book.title}\n")
+    output.write(f"  author (stored pk): {book.author}\n")
+    output.write("\nForeign key stores the primary key, not the full object\n")
 
     db.close()
     return output.getvalue()
@@ -163,9 +169,9 @@ def get_category() -> DemoCategory:
                 execute=_run_lazy_loading,
             ),
             Demo(
-                id="orm_access",
-                title="ORM-Style Access",
-                description="Access fields as object attributes",
+                id="orm_fk_insert",
+                title="Inserting with Foreign Keys",
+                description="Create records linked to other records",
                 category="orm",
                 code=extract_demo_code(_run_orm_style_access),
                 execute=_run_orm_style_access,
