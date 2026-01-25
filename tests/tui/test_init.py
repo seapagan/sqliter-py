@@ -11,7 +11,11 @@ from sqliter.tui import (
     get_app,
     run,
 )
-from sqliter.tui.app import SQLiterDemoApp
+
+if _TEXTUAL_AVAILABLE:
+    from sqliter.tui.app import SQLiterDemoApp
+else:
+    SQLiterDemoApp = None  # type: ignore[assignment,misc]
 
 
 class TestMissingDependencyError:
