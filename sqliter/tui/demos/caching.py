@@ -97,9 +97,12 @@ def _run_cache_stats() -> str:
     for _ in range(5):
         db.get(Product, product.pk)
 
+    stats = db.get_cache_stats()
     output.write("Cache statistics:\n")
-    output.write("  - Queries executed: 5\n")
-    output.write("  - Cache hits: 4 (after first query)\n")
+    output.write(f"  - Total queries: {stats['total']}\n")
+    output.write(f"  - Cache hits: {stats['hits']}\n")
+    output.write(f"  - Cache misses: {stats['misses']}\n")
+    output.write(f"  - Hit rate: {stats['hit_rate']}%\n")
 
     db.close()
     return output.getvalue()

@@ -138,9 +138,12 @@ product = db.insert(Product(name="Widget", price=19.99))
 for _ in range(5):
     db.get(Product, product.pk)
 
+stats = db.get_cache_stats()
 print("Cache statistics:")
-print("  - Queries executed: 5")
-print("  - Cache hits: 4 (after first query)")
+print(f"  - Total queries: {stats['total']}")
+print(f"  - Cache hits: {stats['hits']}")
+print(f"  - Cache misses: {stats['misses']}")
+print(f"  - Hit rate: {stats['hit_rate']}%")
 
 db.close()
 # --8<-- [end:disable-cache]
