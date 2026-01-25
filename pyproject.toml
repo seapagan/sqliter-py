@@ -3,7 +3,7 @@
 
 [project]
 name = "sqliter-py"
-version = "0.13.0"
+version = "0.14.0"
 description = "Interact with SQLite databases using Python and Pydantic"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -29,14 +29,9 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-demo = [
-    "textual>=7.3.0",
-]
+demo = ["textual>=7.3.0"]
 extras = ["inflect==7.0.0"]
-full = [
-    "inflect>=7.0.0",
-    "textual>=7.3.0",
-]
+full = ["inflect>=7.0.0", "textual>=7.3.0"]
 
 [project.scripts]
 sqliter-demo = "sqliter.tui:run"
