@@ -87,12 +87,56 @@ else:
     print(f"Found: {user.name}")
 ```
 
+## Validation Errors
+
+Pydantic validates data before it reaches the database, ensuring type safety and data integrity.
+
+```python
+# --8<-- [start:validation-error]
+from pydantic import ValidationError
+
+from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
+
+class Product(BaseDBModel):
+    name: str
+    price: float
+    quantity: int
+
+db = SqliterDB(memory=True)
+db.create_table(Product)
+
+product = db.insert(Product(name="Widget", price=19.99, quantity=100))
+print(f"Created product: {product.name}, price: ${product.price}")
+
+# Try to create product with invalid data (wrong types)
+print("\nAttempting to create product with invalid data...")
+
+try:
+    # Wrong types: price should be float, quantity should be int
+    invalid_product = Product(name="Invalid Widget", price="free", quantity="lots")
+    db.insert(invalid_product)
+except ValidationError as e:
+    print(f"\nCaught error: {type(e).__name__}")
+    print(f"Message: {e}")
+
+db.close()
+# --8<-- [end:validation-error]
+```
+
+### Benefits
+
+- **Data never reaches the database in invalid form** - Validation happens before insert
+- **Clear error messages** - Pydantic tells you exactly what's wrong
+- **Type safety** - Catch type mismatches at model instantiation, not at database insert
+- **Automatic** - No manual validation code needed, Pydantic handles it
+
 ## Generic Error Handling
 
 Catch all SQLiter errors with the base `SqliterError` class when you don't need to distinguish between specific error types.
 
 ```python
-# --8<-- [start:validation-error]
+# --8<-- [start:generic-error]
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 from sqliter.exceptions import SqliterError
@@ -116,7 +160,7 @@ except SqliterError as e:
     print(f"Message: {e}")
 
 db.close()
-# --8<-- [end:validation-error]
+# --8<-- [end:generic-error]
 ```
 
 ### When to Use Generic Error Handling

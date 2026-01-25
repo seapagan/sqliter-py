@@ -5,6 +5,8 @@ from __future__ import annotations
 import io
 from typing import Annotated
 
+from pydantic import ValidationError
+
 from sqliter import SqliterDB
 from sqliter.exceptions import (
     ForeignKeyConstraintError,
@@ -69,6 +71,42 @@ def _run_unique_constraint() -> str:
         # Try to insert duplicate email
         db.insert(User(email="alice@example.com", name="Alice 2"))
     except RecordInsertionError as e:
+        output.write(f"\nCaught error: {type(e).__name__}\n")
+        output.write(f"Message: {e}\n")
+
+    db.close()
+    return output.getvalue()
+
+
+def _run_validation_error() -> str:
+    """Handle Pydantic validation errors.
+
+    ValidationError occurs when data doesn't match the field type
+    or constraints defined in the model.
+    """
+    output = io.StringIO()
+
+    class Product(BaseDBModel):
+        name: str
+        price: float
+        quantity: int
+
+    db = SqliterDB(memory=True)
+    db.create_table(Product)
+
+    product = db.insert(Product(name="Widget", price=19.99, quantity=100))
+    output.write(f"Created product: {product.name}, price: ${product.price}\n")
+
+    # Try to create product with invalid data (wrong types)
+    output.write("\nAttempting to create product with invalid data...\n")
+
+    try:
+        # Wrong types: price should be float, quantity should be int
+        invalid_product = Product(
+            name="Invalid Widget", price="free", quantity="lots"
+        )
+        db.insert(invalid_product)
+    except ValidationError as e:
         output.write(f"\nCaught error: {type(e).__name__}\n")
         output.write(f"Message: {e}\n")
 
@@ -166,6 +204,14 @@ def get_category() -> DemoCategory:
                 category="errors",
                 code=extract_demo_code(_run_unique_constraint),
                 execute=_run_unique_constraint,
+            ),
+            Demo(
+                id="error_validation",
+                title="Validation Error",
+                description="Handle Pydantic validation errors",
+                category="errors",
+                code=extract_demo_code(_run_validation_error),
+                execute=_run_validation_error,
             ),
             Demo(
                 id="error_fk",
