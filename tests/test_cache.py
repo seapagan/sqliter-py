@@ -331,8 +331,8 @@ class TestCacheClear:
 
         db.close()
 
-    def test_clear_cache_resets_statistics(self) -> None:
-        """clear_cache() resets cache statistics."""
+    def test_clear_cache_preserves_statistics(self) -> None:
+        """clear_cache() preserves cache statistics."""
         db = SqliterDB(memory=True, cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))

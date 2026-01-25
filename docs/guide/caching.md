@@ -170,7 +170,7 @@ db.clear_cache()
 - **Data synchronization**: When the database is modified by another process or
   connection
 
-**Example: Force fresh queries after external changes**
+### Example: Force fresh queries after external changes
 
 ```python
 # Query and cache results
