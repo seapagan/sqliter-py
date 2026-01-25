@@ -27,6 +27,7 @@ class TestGetCategories:
         for demo in category.demos:
             output = demo.execute()
             assert isinstance(output, str)
+            assert len(output) > 0
 
     def test_errors_category_valid(self) -> None:
         """Test that errors category is valid."""
@@ -40,6 +41,7 @@ class TestGetCategories:
         for demo in category.demos:
             output = demo.execute()
             assert isinstance(output, str)
+            assert len(output) > 0
 
     def test_orm_category_valid(self) -> None:
         """Test that ORM category is valid."""
@@ -53,6 +55,7 @@ class TestGetCategories:
         for demo in category.demos:
             output = demo.execute()
             assert isinstance(output, str)
+            assert len(output) > 0
 
     def test_ordering_category_valid(self) -> None:
         """Test that ordering category is valid."""
@@ -66,6 +69,7 @@ class TestGetCategories:
         for demo in category.demos:
             output = demo.execute()
             assert isinstance(output, str)
+            assert len(output) > 0
 
     def test_timestamps_category_valid(self) -> None:
         """Test that timestamps category is valid."""
@@ -79,6 +83,7 @@ class TestGetCategories:
         for demo in category.demos:
             output = demo.execute()
             assert isinstance(output, str)
+            assert len(output) > 0
 
     def test_transactions_category_valid(self) -> None:
         """Test that transactions category is valid."""
@@ -92,3 +97,4 @@ class TestGetCategories:
         for demo in category.demos:
             output = demo.execute()
             assert isinstance(output, str)
+            assert len(output) > 0
