@@ -143,6 +143,8 @@ db.update(doc)
 # Check timestamps
 print(f"Created: {doc.created_at}")  # Unchanged
 print(f"Updated: {doc.updated_at}")  # Changed
+
+db.close()
 ```
 
 ## Converting Timestamps
@@ -283,6 +285,8 @@ cutoff = entry1.created_at
 recent = db.select(LogEntry).filter(
     created_at__gt=cutoff
 ).fetch_all()
+
+db.close()
 ```
 
 ## Best Practices

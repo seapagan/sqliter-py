@@ -375,9 +375,14 @@ Log errors for debugging:
 
 ```python
 import logging
+
+from sqliter.model import BaseDBModel
 from sqliter.exceptions import RecordInsertionError
 
 logger = logging.getLogger(__name__)
+
+class User(BaseDBModel):
+    username: str
 
 try:
     db.insert(User(username="alice"))
