@@ -51,6 +51,10 @@ result = db.select(User).filter(age__gte=20).filter(age__lte=30).fetch_all()
 - `__not_in`: Not in a list of values
   - Example: `category__not_in=["archived", "deleted"]`
 
+> **Note:** List values are only valid with `__in` and `__not_in` operators.
+> Using lists with equality or comparison operators (`__eq`, `__lt`, `__gt`, etc.)
+> will raise a `TypeError`. These operators require scalar values.
+
 ## Pattern Matching
 
 - `__like`: SQL LIKE pattern matching (SQLite default is case-insensitive for ASCII)

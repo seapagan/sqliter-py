@@ -271,6 +271,143 @@ class TestCacheMaxSizeLru:
         db.close()
 
 
+class TestCacheClear:
+    """Test manual cache clearing functionality."""
+
+    def test_clear_cache_removes_all_entries(self) -> None:
+        """clear_cache() removes all cached entries from all tables."""
+        db = SqliterDB(memory=True, cache_enabled=True)
+        db.create_table(User)
+        db.insert(User(name="Alice", age=30))
+        db.insert(User(name="Bob", age=25))
+
+        # Cache some queries
+        db.select(User).filter(name="Alice").fetch_all()
+        db.select(User).filter(name="Bob").fetch_all()
+        db.select(User).fetch_all()
+
+        # Verify cache is populated
+        table_name = User.get_table_name()
+        assert len(db._cache.get(table_name, {})) == 3
+
+        # Clear cache
+        db.clear_cache()
+
+        # Verify all entries are cleared
+        assert len(db._cache.get(table_name, {})) == 0
+
+        db.close()
+
+    def test_clear_cache_with_multiple_tables(self) -> None:
+        """clear_cache() clears cache for all tables."""
+
+        class Product(BaseDBModel):
+            name: str
+            price: float
+
+        db = SqliterDB(memory=True, cache_enabled=True)
+        db.create_table(User)
+        db.create_table(Product)
+
+        # Insert and cache data for both tables
+        db.insert(User(name="Alice", age=30))
+        db.insert(Product(name="Widget", price=9.99))
+
+        db.select(User).fetch_all()
+        db.select(Product).fetch_all()
+
+        # Verify both tables have cached entries
+        user_table = User.get_table_name()
+        product_table = Product.get_table_name()
+        assert len(db._cache.get(user_table, {})) == 1
+        assert len(db._cache.get(product_table, {})) == 1
+
+        # Clear cache
+        db.clear_cache()
+
+        # Verify all tables are cleared
+        assert len(db._cache.get(user_table, {})) == 0
+        assert len(db._cache.get(product_table, {})) == 0
+
+        db.close()
+
+    def test_clear_cache_preserves_statistics(self) -> None:
+        """clear_cache() preserves cache statistics."""
+        db = SqliterDB(memory=True, cache_enabled=True)
+        db.create_table(User)
+        db.insert(User(name="Alice", age=30))
+
+        # Generate some cache activity
+        db.select(User).fetch_all()  # miss
+        db.select(User).fetch_all()  # hit
+
+        stats_before = db.get_cache_stats()
+        assert stats_before["hits"] > 0 or stats_before["misses"] > 0
+
+        # Clear cache doesn't reset statistics
+        db.clear_cache()
+        stats_after = db.get_cache_stats()
+        assert stats_after["hits"] == stats_before["hits"]
+        assert stats_after["misses"] == stats_before["misses"]
+
+        # But subsequent queries will hit DB again
+        db.select(User).fetch_all()  # miss (cache was cleared)
+        stats_final = db.get_cache_stats()
+        assert stats_final["misses"] > stats_before["misses"]
+
+        db.close()
+
+    def test_clear_cache_when_cache_disabled(self) -> None:
+        """clear_cache() works even when cache is disabled."""
+        db = SqliterDB(memory=True, cache_enabled=False)
+        db.create_table(User)
+        db.insert(User(name="Alice", age=30))
+
+        # Cache should be empty
+        assert len(db._cache) == 0
+
+        # clear_cache() should not raise an error
+        db.clear_cache()
+
+        # Cache should still be empty
+        assert len(db._cache) == 0
+
+        db.close()
+
+    def test_clear_cache_allows_fresh_queries(self) -> None:
+        """Queries after clear_cache() hit the database."""
+        db = SqliterDB(memory=True, cache_enabled=True)
+        db.create_table(User)
+        user = db.insert(User(name="Alice", age=30))
+
+        # Query and cache
+        result1 = db.select(User).filter(name="Alice").fetch_one()
+        assert result1 is not None
+        assert result1.age == 30
+        stats_before = db.get_cache_stats()
+        assert stats_before["misses"] == 1
+
+        # Update the record directly (bypass ORM to avoid cache invalidation)
+        conn = db.conn
+        assert conn is not None
+        conn.execute("UPDATE users SET age = 31 WHERE pk = ?", (user.pk,))
+
+        # Query again - should return cached result (age=30)
+        result2 = db.select(User).filter(name="Alice").fetch_one()
+        assert result2 is not None
+        assert result2.age == 30  # Still cached value
+
+        # Clear cache
+        db.clear_cache()
+
+        # Query again - should hit database and get fresh data (age=31)
+        result3 = db.select(User).filter(name="Alice").fetch_one()
+        assert result3 is not None
+        assert result3.age == 31  # Fresh from database
+
+        db.close()
+
+
 class TestCacheKeyVariations:
     """Test that different query parameters create different cache keys."""
 

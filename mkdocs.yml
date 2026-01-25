@@ -86,6 +86,22 @@ nav:
       - Field Control: guide/fields.md
       - Exceptions: guide/exceptions.md
       - Debug Logging: guide/debug.md
+  - Interactive Demo:
+      - Overview: tui-demo/index.md
+      - Database Connection: tui-demo/connection.md
+      - Models: tui-demo/models.md
+      - CRUD Operations: tui-demo/crud.md
+      - Filtering: tui-demo/filters.md
+      - String Filters: tui-demo/string-filters.md
+      - Field Selection: tui-demo/field-selection.md
+      - Query Results: tui-demo/results.md
+      - Ordering: tui-demo/ordering.md
+      - Constraints: tui-demo/constraints.md
+      - ORM Features: tui-demo/orm.md
+      - Caching: tui-demo/caching.md
+      - Auto Timestamps: tui-demo/timestamps.md
+      - Transactions: tui-demo/transactions.md
+      - Error Handling: tui-demo/errors.md
   - Changelog:
       - changelog/index.md
   - Contributing:

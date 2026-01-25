@@ -404,7 +404,7 @@ class TestForeignKeyFiltering:
         # Filter books where author_id in [author1.pk, author3.pk]
         books = (
             db.select(Book)
-            .filter(author_id__in=[author1.pk, author3.pk])  # type: ignore[arg-type]
+            .filter(author_id__in=[author1.pk, author3.pk])
             .fetch_all()
         )
         assert len(books) == 2

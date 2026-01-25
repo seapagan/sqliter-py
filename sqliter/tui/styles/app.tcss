@@ -1,0 +1,130 @@
+/* Main application styles for SQLiter TUI Demo */
+
+Screen {
+    background: $surface;
+}
+
+#main-container {
+    layout: grid;
+    grid-size: 2;
+    grid-columns: auto 1fr;
+    height: 100%;
+    padding: 0 1;
+}
+
+/* Left panel - Demo list */
+#demo-list {
+    border: solid $primary;
+    border-title-color: $text;
+    padding: 1;
+}
+
+#demo-list Tree {
+    padding: 0;
+}
+
+#demo-list Tree > .tree--cursor {
+    background: $primary;
+    color: $text;
+}
+
+#demo-list Tree > .tree--highlight {
+    background: $primary 30%;
+}
+
+/* Right panel container */
+#right-panel {
+    padding-left: 1;
+}
+
+/* Code display */
+#code-display {
+    height: 55%;
+    border: solid $primary;
+    border-title-color: $text;
+    padding: 1;
+}
+
+#code-display Static {
+    padding: 0;
+}
+
+/* Output display */
+#output-display {
+    height: 35%;
+    border: solid $secondary;
+    border-title-color: $text;
+    padding: 1;
+}
+
+#output-display.success {
+    border: solid $success;
+}
+
+#output-display.error {
+    border: solid $error;
+}
+
+#output-display Static {
+    padding: 0;
+}
+
+/* Button bar */
+#button-bar {
+    height: auto;
+    align: center middle;
+    padding: 1 0;
+}
+
+#button-bar Button {
+    margin: 0 1;
+}
+
+#run-btn {
+    background: $success;
+}
+
+#clear-btn {
+    background: $primary-darken-2;
+}
+
+/* Help screen */
+HelpScreen {
+    align: center middle;
+}
+
+#help-scroll {
+    width: 70;
+    height: auto;
+    max-height: 80%;
+    padding: 2;
+    border: solid $primary;
+    background: $surface;
+}
+
+#help-content {
+    padding: 0;
+}
+
+/* Footer styling */
+Footer {
+    background: $primary-darken-3;
+}
+
+/* Header styling */
+Header {
+    background: $primary;
+}
+
+/* Scrollbars */
+ScrollableContainer > .scrollbar {
+    background: $surface;
+}
+
+ScrollableContainer > .scrollbar--bar {
+    background: $primary 50%;
+}
+
+ScrollableContainer > .scrollbar--bar:hover {
+    background: $primary;
+}

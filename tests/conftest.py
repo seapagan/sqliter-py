@@ -10,9 +10,12 @@ import pytest
 
 from sqliter.model import BaseDBModel
 from sqliter.sqliter import SqliterDB
+from sqliter.tui.demos import DemoRegistry
+from sqliter.tui.demos.base import Demo, DemoCategory
 
 if TYPE_CHECKING:
     from collections.abc import Generator
+
 
 memory_db = ":memory:"
 
@@ -198,3 +201,50 @@ def db_mock_complex_debug() -> SqliterDB:
 def temp_db_path(tmp_path) -> str:
     """Fixture to create a temporary database file path."""
     return str(tmp_path / "test_db.sqlite")
+
+
+# TUI-specific fixtures
+
+
+@pytest.fixture
+def reset_demo_registry() -> Generator[None, None, None]:
+    """Reset the demo registry before each test.
+
+    This ensures tests don't interfere with each other.
+    """
+    DemoRegistry.reset()
+    yield
+    DemoRegistry.reset()
+
+
+@pytest.fixture
+def sample_demo() -> Demo:
+    """Create a sample demo for testing."""
+    return Demo(
+        id="test_demo",
+        title="Test Demo",
+        description="A test demo",
+        category="test",
+        code="print('hello')",
+        execute=lambda: "hello",
+    )
+
+
+@pytest.fixture
+def sample_category() -> DemoCategory:
+    """Create a sample demo category for testing."""
+    return DemoCategory(
+        id="test_category",
+        title="Test Category",
+        icon="🧪",
+        demos=[
+            Demo(
+                id="demo1",
+                title="Demo 1",
+                description="First demo",
+                category="test_category",
+                code="print('demo1')",
+                execute=lambda: "demo1",
+            ),
+        ],
+    )

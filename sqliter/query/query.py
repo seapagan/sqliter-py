@@ -113,7 +113,7 @@ class QueryBuilder(Generic[T]):
             )
             raise ValueError(err_message)
 
-    def filter(self, **conditions: str | float | None) -> Self:
+    def filter(self, **conditions: FilterValue) -> Self:
         """Apply filter conditions to the query.
 
         This method allows adding one or more filter conditions to the query.
@@ -286,16 +286,22 @@ class QueryBuilder(Generic[T]):
             value: The value to compare against.
             operator: The operator string (usually '__eq').
 
+        Raises:
+            TypeError: If the value is a list (lists only valid with __in).
+
         This method adds an equality condition to the filters list, handling
         NULL values separately.
         """
+        if isinstance(value, list):
+            msg = f"{field_name} requires scalar for '{operator}', not list"
+            raise TypeError(msg)
         if value is None:
             self.filters.append((f"{field_name} IS NULL", None, "__isnull"))
         else:
             self.filters.append((field_name, value, operator))
 
     def _handle_null(
-        self, field_name: str, value: Union[str, float, None], operator: str
+        self, field_name: str, value: FilterValue, operator: str
     ) -> None:
         """Handle IS NULL and IS NOT NULL filter conditions.
 
@@ -398,8 +404,14 @@ class QueryBuilder(Generic[T]):
             value: The value to compare against.
             operator: The comparison operator string (e.g., '__lt', '__gte').
 
+        Raises:
+            TypeError: If the value is a list (lists only valid with __in).
+
         This method adds a comparison condition to the filters list.
         """
+        if isinstance(value, list):
+            msg = f"{field_name} requires scalar for '{operator}', not list"
+            raise TypeError(msg)
         sql_operator = OPERATOR_MAPPING[operator]
         self.filters.append((f"{field_name} {sql_operator} ?", value, operator))
 

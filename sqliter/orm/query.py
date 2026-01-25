@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional, Protocol, runtime_checkable
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Optional,
+    Protocol,
+    overload,
+    runtime_checkable,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from sqliter.model.model import BaseDBModel
@@ -172,6 +179,16 @@ class ReverseRelationship:
         self.from_model = from_model
         self.fk_field = fk_field
         self.related_name = related_name
+
+    @overload
+    def __get__(
+        self, instance: None, owner: type[object]
+    ) -> ReverseRelationship: ...
+
+    @overload
+    def __get__(
+        self, instance: HasPKAndContext, owner: type[object]
+    ) -> ReverseQuery: ...
 
     def __get__(
         self, instance: Optional[HasPKAndContext], owner: type[object]

@@ -473,6 +473,25 @@ class SqliterDB:
             "hit_rate": round(hit_rate, 2),
         }
 
+    def clear_cache(self) -> None:
+        """Clear all cached query results.
+
+        This method removes all cached data from memory, freeing up resources
+        and forcing subsequent queries to fetch fresh data from the database.
+
+        Use this when you want to:
+        - Free memory used by the cache
+        - Force fresh queries after external data changes
+
+        Note:
+            Cache statistics (hits/misses) are preserved. To reset statistics,
+            create a new database connection.
+
+        Example:
+            >>> db.clear_cache()
+        """
+        self._cache.clear()
+
     def close(self) -> None:
         """Close the database connection.
 
