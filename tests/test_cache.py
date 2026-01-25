@@ -390,9 +390,7 @@ class TestCacheClear:
         # Update the record directly (bypass ORM to avoid cache invalidation)
         conn = db.conn
         assert conn is not None
-        conn.execute(
-            f'UPDATE users SET age = 31 WHERE pk = "{user.pk}"'  # noqa: S608
-        )
+        conn.execute("UPDATE users SET age = 31 WHERE pk = ?", (user.pk,))
 
         # Query again - should return cached result (age=30)
         result2 = db.select(User).filter(name="Alice").fetch_one()
