@@ -60,12 +60,12 @@ db.create_table(Author)
 db.create_table(Book)
 
 author = db.insert(Author(name="Jane Austen"))
-book = db.insert(Book(title="Pride and Prejudice", author=author.pk))
+book = db.insert(Book(title="Pride and Prejudice", author=author))
 
 print("Created book:")
 print(f"  title: {book.title}")
-print(f"  author (stored pk): {book.author}")
-print("\nForeign key stores the primary key, not the full object")
+print(f"  author: {book.author.name}")
+print("\nForeign key stores the primary key internally, but access returns the object")
 
 db.close()
 # --8<-- [end:insert-foreign-key]

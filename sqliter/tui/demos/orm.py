@@ -68,12 +68,15 @@ def _run_orm_style_access() -> str:
     db.create_table(Book)
 
     author = db.insert(Author(name="Jane Austen"))
-    book = db.insert(Book(title="Pride and Prejudice", author=author.pk))
+    book = db.insert(Book(title="Pride and Prejudice", author=author))
 
     output.write("Created book:\n")
     output.write(f"  title: {book.title}\n")
-    output.write(f"  author (stored pk): {book.author}\n")
-    output.write("\nForeign key stores the primary key, not the full object\n")
+    output.write(f"  author: {book.author.name}\n")
+    output.write(
+        "\nForeign key stores the primary key internally,\n"
+        "but access returns the object\n"
+    )
 
     db.close()
     return output.getvalue()

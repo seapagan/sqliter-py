@@ -40,9 +40,9 @@ db.close()
 Check if record exists before inserting:
 
 ```python
-existing = db.select(User).filter(name__eq="alice").fetch_one()
+existing = db.select(User).filter(email__eq="alice@example.com").fetch_one()
 if not existing:
-    db.insert(User(name="alice", email="alice@example.com"))
+    db.insert(User(name="Alice", email="alice@example.com"))
 ```
 
 ## Record Not Found
