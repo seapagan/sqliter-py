@@ -67,7 +67,10 @@ class DemoRegistry:
 
     @classmethod
     def reset(cls) -> None:
-        """Reset the registry (for testing)."""
+        """Reset the registry (for testing).
+
+        After calling reset(), call _init_registry() to repopulate.
+        """
         cls._categories = []
         cls._demos_by_id = {}
 

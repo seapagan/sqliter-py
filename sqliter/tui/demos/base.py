@@ -35,7 +35,7 @@ def extract_demo_code(func: Callable[..., str]) -> str:
     start_idx = 0
     for i, line in enumerate(lines):
         stripped = line.strip()
-        if stripped.startswith("def "):
+        if stripped.startswith(("def ", "async def ")):
             start_idx = i + 1
             break
     lines = lines[start_idx:]

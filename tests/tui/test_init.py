@@ -86,5 +86,10 @@ class TestModuleExports:
 
     def test_textual_available_flag(self) -> None:
         """Test that textual availability flag is set correctly."""
-        # Since we're running with textual installed, it should be True
-        assert _TEXTUAL_AVAILABLE is True
+        # This test verifies the flag matches actual textual availability
+        try:
+            import textual  # noqa: F401, PLC0415
+
+            assert _TEXTUAL_AVAILABLE is True
+        except ImportError:
+            assert _TEXTUAL_AVAILABLE is False

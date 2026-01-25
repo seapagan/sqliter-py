@@ -43,8 +43,8 @@ db.close()
 
 ### What Happens
 
-- Both updates succeed or both fail
-- If an error occurs, all changes are rolled back
+- Both updates succeed or both fail (intended behaviour)
+- If an error occurs, changes should be rolled back (see warning below about current limitations)
 - Database remains in a consistent state
 
 ## Transaction Rollback
@@ -163,6 +163,8 @@ with db:
 reloaded = db.get(Counter, counter.pk)
 if reloaded is not None:
     print(f"After commit: {reloaded.value}")
+
+db.close()
 ```
 
 ## Nested Transactions

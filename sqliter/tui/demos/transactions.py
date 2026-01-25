@@ -87,20 +87,22 @@ def _run_rollback() -> str:
             # Verify rollback with NEW connection
             # BUG: This shows 5 instead of 10 - rollback doesn't work!
             db2 = SqliterDB(db_filename=db_path)
-            restored = db2.get(Item, item.pk)
-            if restored is not None:
-                # Type ignore: restored is Item, but mypy can't infer that
-                restored_quantity = restored.quantity  # type: ignore[attr-defined]
-                msg = f"Database value: {restored_quantity}\n"
-                output.write(msg)
-                expected_quantity = 10
-                if restored_quantity == expected_quantity:
-                    output.write("✓ Rollback worked correctly\n")
-                else:
-                    output.write(
-                        "✗ BUG: Rollback failed (expected 10, got 5)\n"
-                    )
-            db2.close()
+            try:
+                restored = db2.get(Item, item.pk)
+                if restored is not None:
+                    # Type ignore: restored is Item, but mypy can't infer that
+                    restored_quantity = restored.quantity  # type: ignore[attr-defined]
+                    msg = f"Database value: {restored_quantity}\n"
+                    output.write(msg)
+                    expected_quantity = 10
+                    if restored_quantity == expected_quantity:
+                        output.write("✓ Rollback worked correctly\n")
+                    else:
+                        output.write(
+                            "✗ BUG: Rollback failed (expected 10, got 5)\n"
+                        )
+            finally:
+                db2.close()
     finally:
         if db is not None:
             db.close()

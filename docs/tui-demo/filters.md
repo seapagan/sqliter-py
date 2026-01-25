@@ -125,7 +125,7 @@ db.insert(Task(title="Task 3", status="in_progress"))
 db.insert(Task(title="Task 4", status="done"))
 
 results = (
-    db.select(Task).filter(status__in=["todo", "in_progress"]).fetch_all()  # type: ignore[arg-type]
+    db.select(Task).filter(status__in=["todo", "in_progress"]).fetch_all()
 )
 print(f"Active tasks: {len(results)}")
 for task in results:
