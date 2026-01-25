@@ -888,10 +888,10 @@ class SqliterDB:
         """  # noqa: S608
 
         try:
-            with self.connect() as conn:
-                cursor = conn.cursor()
-                cursor.execute(insert_sql, values)
-                self._maybe_commit()
+            conn = self.connect()
+            cursor = conn.cursor()
+            cursor.execute(insert_sql, values)
+            self._maybe_commit()
 
         except sqlite3.IntegrityError as exc:
             # Check for foreign key constraint violation
@@ -936,10 +936,10 @@ class SqliterDB:
         """  # noqa: S608
 
         try:
-            with self.connect() as conn:
-                cursor = conn.cursor()
-                cursor.execute(select_sql, (primary_key_value,))
-                result = cursor.fetchone()
+            conn = self.connect()
+            cursor = conn.cursor()
+            cursor.execute(select_sql, (primary_key_value,))
+            result = cursor.fetchone()
 
             if result:
                 result_dict = {
@@ -990,16 +990,16 @@ class SqliterDB:
         """  # noqa: S608
 
         try:
-            with self.connect() as conn:
-                cursor = conn.cursor()
-                cursor.execute(update_sql, (*values, primary_key_value))
+            conn = self.connect()
+            cursor = conn.cursor()
+            cursor.execute(update_sql, (*values, primary_key_value))
 
-                # Check if any rows were updated
-                if cursor.rowcount == 0:
-                    raise RecordNotFoundError(primary_key_value)
+            # Check if any rows were updated
+            if cursor.rowcount == 0:
+                raise RecordNotFoundError(primary_key_value)
 
-                self._maybe_commit()
-                self._cache_invalidate_table(table_name)
+            self._maybe_commit()
+            self._cache_invalidate_table(table_name)
 
         except sqlite3.Error as exc:
             raise RecordUpdateError(table_name) from exc
@@ -1026,14 +1026,14 @@ class SqliterDB:
         """  # noqa: S608
 
         try:
-            with self.connect() as conn:
-                cursor = conn.cursor()
-                cursor.execute(delete_sql, (primary_key_value,))
+            conn = self.connect()
+            cursor = conn.cursor()
+            cursor.execute(delete_sql, (primary_key_value,))
 
-                if cursor.rowcount == 0:
-                    raise RecordNotFoundError(primary_key_value)
-                self._maybe_commit()
-                self._cache_invalidate_table(table_name)
+            if cursor.rowcount == 0:
+                raise RecordNotFoundError(primary_key_value)
+            self._maybe_commit()
+            self._cache_invalidate_table(table_name)
         except sqlite3.IntegrityError as exc:
             # Check for foreign key constraint violation (RESTRICT)
             if "FOREIGN KEY constraint failed" in str(exc):
