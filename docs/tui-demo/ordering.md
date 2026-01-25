@@ -11,26 +11,29 @@ Sort results by a single field.
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 
-class Product(BaseDBModel):
+class User(BaseDBModel):
     name: str
-    price: float
+    age: int
 
 db = SqliterDB(memory=True)
-db.create_table(Product)
+db.create_table(User)
 
-db.insert(Product(name="Widget", price=10.0))
-db.insert(Product(name="Gadget", price=5.0))
-db.insert(Product(name="Tool", price=15.0))
+db.insert(User(name="Charlie", age=35))
+db.insert(User(name="Alice", age=25))
+db.insert(User(name="Bob", age=30))
 
-# Order by price (ascending)
-products = db.select(Product).order_by("price").fetch_all()
-for product in products:
-    print(f"{product.name}: ${product.price}")
+results = db.select(User).order("age").fetch_all()
+print("Users ordered by age (ascending):")
+for user in results:
+    print(f"  - {user.name}: {user.age}")
+
+db.close()
+# --8<-- [end:order-by]
 ```
 
 ### Default Order
 
-By default, `order_by()` sorts in **ascending** order (lowest to highest).
+By default, `order()` sorts in **ascending** order (lowest to highest).
 
 ## Descending Order
 
@@ -41,98 +44,109 @@ Sort results in reverse order.
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 
-class Article(BaseDBModel):
-    title: str
+class Product(BaseDBModel):
+    name: str
+    price: float
 
 db = SqliterDB(memory=True)
-db.create_table(Article)
+db.create_table(Product)
 
-articles = [
-    "First Post",
-    "Second Post",
-    "Third Post",
-]
-for title in articles:
-    db.insert(Article(title=title))
+db.insert(Product(name="Item A", price=10.0))
+db.insert(Product(name="Item B", price=30.0))
+db.insert(Product(name="Item C", price=20.0))
 
-# Order by primary key in descending order (newest first)
-recent = db.select(Article).order_by("-pk").fetch_all()
+results = db.select(Product).order("price", reverse=True).fetch_all()
+print("Products ordered by price (descending):")
+for product in results:
+    print(f"  - {product.name}: ${product.price}")
+
+db.close()
+# --8<-- [end:order-by-desc]
 ```
 
 ### Descending Syntax
 
-Prefix the field name with `-` for descending order:
+Use `reverse=True` for descending order:
 
-- `"price"` → Ascending (low to high)
-- `"-price"` → Descending (high to low)
-- `"pk"` → Oldest first
-- `"-pk"` → Newest first
+- `order("price")` → Ascending (low to high)
+- `order("price", reverse=True)` → Descending (high to low)
+- `order("pk")` → Oldest first
+- `order("pk", reverse=True)` → Newest first
 
-## Order by Multiple Fields
+## Limit Results
 
-Sort by multiple fields for complex ordering.
+Limit the number of results returned for pagination.
 
 ```python
 # --8<-- [start:order-by-multiple]
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 
-class Task(BaseDBModel):
-    priority: int
+class Article(BaseDBModel):
     title: str
 
 db = SqliterDB(memory=True)
-db.create_table(Task)
+db.create_table(Article)
 
-db.insert(Task(priority=1, title="Low priority task"))
-db.insert(Task(priority=1, title="Another low priority task"))
-db.insert(Task(priority=2, title="High priority task"))
+for i in range(1, 11):
+    db.insert(Article(title=f"Article {i}"))
 
-# Order by priority (ascending), then by title (alphabetically)
-tasks = db.select(Task).order_by("priority", "title").fetch_all()
+results = db.select(Article).limit(3).fetch_all()
+print("Top 3 articles:")
+for article in results:
+    print(f"  - {article.title}")
+
+db.close()
+# --8<-- [end:order-by-multiple]
 ```
 
-### How It Works
+### Use Cases
 
-Results are sorted by the first field, then by the second field within ties, and so on.
+- **Pagination**: Display first page of results
+- **Previews**: Show sample data
+- **Performance**: Avoid loading too many records
 
-### Common Pattern
+## Offset Results (Pagination)
 
-```python
-# Sort by category, then by name within each category
-items = db.select(Item).order_by("category", "name").fetch_all()
-```
-
-## Ordering with Filtering
-
-Combine filtering and ordering.
+Skip a specified number of results for pagination.
 
 ```python
 # --8<-- [start:order-with-filter]
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 
-class User(BaseDBModel):
+class Item(BaseDBModel):
     name: str
-    age: int
 
 db = SqliterDB(memory=True)
-db.create_table(User)
+db.create_table(Item)
 
-# Filter adults, order by age
-adults = db.select(User).filter(
-    age__gte=18
-).order_by("age").fetch_all()
+for i in range(1, 11):
+    db.insert(Item(name=f"Item {i}"))
+
+results = db.select(Item).limit(5).offset(5).fetch_all()
+print("Items 6-10:")
+for item in results:
+    print(f"  - {item.name}")
+
+db.close()
+# --8<-- [end:order-with-filter]
 ```
 
-### Order Matters
+### How Pagination Works
 
-The order of method chaining doesn't matter for the result, but affects readability:
+- `offset(5)` skips the first 5 records
+- `limit(5)` takes the next 5 records
+- Together they implement page 2 of a paginated result set
+
+### Common Pattern
 
 ```python
-# Both are equivalent
-db.select(User).filter(age__gte=18).order_by("age").fetch_all()
-db.select(User).order_by("age").filter(age__gte=18).fetch_all()
+page = 2
+page_size = 10
+offset_value = (page - 1) * page_size
+
+results = db.select(User).limit(page_size).offset(offset_value).fetch_all()
 ```
 
 ## Ordering Field Types
@@ -162,15 +176,17 @@ Sorted chronologically (oldest to newest for `created_at`)
 Ordering by indexed fields is much faster:
 
 ```python
+from sqliter.model.unique import unique
+
 class User(BaseDBModel):
-    username: unique(str)  # Indexed
+    username: str = unique()  # Indexed
     age: int  # Not indexed
 
 # Fast: Uses index
-db.select(User).order_by("username").fetch_all()
+db.select(User).order("username").fetch_all()
 
 # Slower: Requires full table scan
-db.select(User).order_by("age").fetch_all()
+db.select(User).order("age").fetch_all()
 ```
 
 ### Large Result Sets
@@ -182,8 +198,8 @@ Ordering requires the database to process all matching records before returning 
 ### DO
 
 - Order by indexed fields for better performance
-- Use descending order (`-field`) for "newest first" queries
-- Order by multiple fields when you need secondary sorting
+- Use descending order (`reverse=True`) for "newest first" queries
+- Combine with `limit()` for pagination on large datasets
 
 ### DON'T
 

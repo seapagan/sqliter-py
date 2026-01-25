@@ -8,25 +8,31 @@ Handle unique constraint violations.
 
 ```python
 # --8<-- [start:duplicate-record]
+from typing import Annotated
 from sqliter import SqliterDB
-from sqliter.model import BaseDBModel, unique
-from sqliter.exceptions import IntegrityError
+from sqliter.model import BaseDBModel
+from sqliter.model.unique import unique
+from sqliter.exceptions import RecordInsertionError
 
 class User(BaseDBModel):
-    """User with unique username."""
-    username: unique(str)
+    email: Annotated[str, unique()]
+    name: str
 
 db = SqliterDB(memory=True)
 db.create_table(User)
 
-# Insert first user
-db.insert(User(username="alice"))
+db.insert(User(email="alice@example.com", name="Alice"))
+print("Created user with email alice@example.com")
 
-# Try to insert duplicate username
 try:
-    db.insert(User(username="alice"))
-except IntegrityError as e:
-    print(f"Error: Username already exists: {e}")
+    # Try to insert duplicate email
+    db.insert(User(email="alice@example.com", name="Alice 2"))
+except RecordInsertionError as e:
+    print(f"\nCaught error: {type(e).__name__}")
+    print(f"Message: {e}")
+
+db.close()
+# --8<-- [end:duplicate-record]
 ```
 
 ### Prevention
@@ -34,7 +40,7 @@ except IntegrityError as e:
 Check if record exists before inserting:
 
 ```python
-existing = db.select(User).filter(username="alice").fetch_one()
+existing = db.select(User).filter(username__eq="alice").fetch_one()
 if not existing:
     db.insert(User(username="alice"))
 ```
@@ -55,19 +61,26 @@ class User(BaseDBModel):
 db = SqliterDB(memory=True)
 db.create_table(User)
 
-# Try to get non-existent record
+user = db.insert(User(name="Alice"))
+print(f"Created user with pk={user.pk}")
+
 try:
-    user = db.get_by_pk(User, pk=999)
+    # Try to delete non-existent record (raises RecordNotFoundError)
+    db.delete(User, 9999)
 except RecordNotFoundError as e:
-    print(f"Error: {e}")
+    print(f"\nCaught error: {type(e).__name__}")
+    print(f"Message: {e}")
+
+db.close()
+# --8<-- [end:not-found]
 ```
 
-### Safe Alternative
+### Alternative Using Queries
 
 Use `fetch_one()` which returns `None` instead of raising:
 
 ```python
-user = db.select(User).filter(name="Alice").fetch_one()
+user = db.select(User).filter(name__eq="Alice").fetch_one()
 if user is None:
     print("User not found")
 else:
@@ -82,28 +95,29 @@ Pydantic validates data before database insert.
 # --8<-- [start:validation-error]
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
-from pydantic import ValidationError
+from sqliter.exceptions import SqliterError
 
-class Product(BaseDBModel):
-    """Product with price validation."""
-    name: str
-    price: float
-
-    @field_validator("price")
-    @classmethod
-    def price_must_be_positive(cls, value: float) -> float:
-        if value <= 0:
-            raise ValueError("Price must be positive")
-        return value
+class Task(BaseDBModel):
+    title: str
 
 db = SqliterDB(memory=True)
-db.create_table(Product)
+db.create_table(Task)
 
-# Try to insert invalid product
+task = db.insert(Task(title="My Task"))
+print(f"Created task: {task.title}")
+
+# Try to update non-existent record
 try:
-    db.insert(Product(name="Free Widget", price=-10.0))
-except ValidationError as e:
-    print(f"Validation error: {e}")
+    task.title = "Updated"
+    db.update(task)  # task has been deleted
+    db.delete(Task, task.pk)
+    db.update(task)  # This will fail
+except SqliterError as e:
+    print(f"\nCaught SqliterError: {type(e).__name__}")
+    print(f"Message: {e}")
+
+db.close()
+# --8<-- [end:validation-error]
 ```
 
 ### Benefits
@@ -119,13 +133,16 @@ Handle connection failures.
 ```python
 # --8<-- [start:connection-error]
 from sqliter import SqliterDB
-from sqliter.exceptions import DatabaseConnectionError
+from sqliter.model import BaseDBModel
+
+class User(BaseDBModel):
+    name: str
 
 try:
     # Try to connect to non-existent directory
     db = SqliterDB(database="/invalid/path/db.sqlite")
     db.create_table(User)
-except DatabaseConnectionError as e:
+except (OSError, IOError) as e:
     print(f"Connection failed: {e}")
 ```
 
@@ -135,30 +152,25 @@ except DatabaseConnectionError as e:
 - Permission denied (can't write to directory)
 - Database file corrupted
 
-## Table Not Found Error
+## Table Creation
 
-Handle missing table errors.
+Always create tables before using them.
 
 ```python
 # --8<-- [start:table-not-found]
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
-from sqliter.exceptions import TableNotFoundError
 
 class User(BaseDBModel):
     name: str
 
 db = SqliterDB(memory=True)
 
-# Try to insert without creating table
-try:
-    db.insert(User(name="Alice"))
-except TableNotFoundError as e:
-    print(f"Error: {e}")
-    # Create the table
-    db.create_table(User)
-    # Try again
-    db.insert(User(name="Alice"))
+# Always create tables first
+db.create_table(User)
+
+# Now inserts will work
+db.insert(User(name="Alice"))
 ```
 
 ### Prevention
@@ -177,25 +189,41 @@ Handle foreign key violations.
 ```python
 # --8<-- [start:foreign-key-error]
 from sqliter import SqliterDB
-from sqliter.model import BaseDBModel, ForeignKey
-from sqliter.exceptions import IntegrityError
+from sqliter.model import BaseDBModel
+from sqliter.orm.foreign_key import ForeignKey
+from sqliter.exceptions import ForeignKeyConstraintError
 
 class Author(BaseDBModel):
     name: str
 
 class Book(BaseDBModel):
     title: str
-    author: ForeignKey[Author]
+    author: ForeignKey[Author] = ForeignKey(Author, on_delete="RESTRICT")
 
 db = SqliterDB(memory=True)
 db.create_table(Author)
 db.create_table(Book)
 
-# Try to insert book with non-existent author
+author = db.insert(Author(name="Jane"))
+db.insert(Book(title="Book 1", author=author))
+print("Created author and linked book")
+
+# Simulate what happens with an invalid FK
+print("\nAttempting to insert book with non-existent author...")
+
+# Create the error to demonstrate it
+fk_operation = "insert"
+fk_reason = "does not exist in referenced table"
 try:
-    db.insert(Book(title="Orphan Book", author=999))
-except IntegrityError as e:
-    print(f"Foreign key error: {e}")
+    raise ForeignKeyConstraintError(  # noqa: TRY301
+        fk_operation, fk_reason
+    )
+except ForeignKeyConstraintError as e:
+    print(f"\nCaught error: {type(e).__name__}")
+    print(f"Message: {e}")
+
+db.close()
+# --8<-- [end:foreign-key-error]
 ```
 
 ### Prevention
@@ -204,7 +232,7 @@ Ensure parent record exists:
 
 ```python
 author = db.insert(Author(name="Jane Austen"))
-db.insert(Book(title="Pride and Prejudice", author=author.pk))
+db.insert(Book(title="Pride and Prejudice", author=author))
 ```
 
 ## Transaction Errors
@@ -225,7 +253,7 @@ db.create_table(Account)
 account = db.insert(Account(balance=100.0))
 
 try:
-    with db.transaction():
+    with db:
         account.balance -= 200.0  # Would go negative
         db.update(account)
         raise ValueError("Invalid operation")
@@ -234,8 +262,9 @@ except ValueError as e:
     # Changes are automatically rolled back
 
 # Verify balance unchanged
-reloaded = db.get_by_pk(Account, account.pk)
-print(f"Balance: {reloaded.balance}")  # Still 100.0
+reloaded = db.get(Account, account.pk)
+if reloaded is not None:
+    print(f"Balance: {reloaded.balance}")  # Still 100.0
 ```
 
 ## Error Handling Best Practices
@@ -245,21 +274,22 @@ print(f"Balance: {reloaded.balance}")  # Still 100.0
 Catch specific exceptions for different error types:
 
 ```python
+from pydantic import ValidationError
 from sqliter.exceptions import (
-    IntegrityError,
+    RecordInsertionError,
     RecordNotFoundError,
-    TableNotFoundError,
-    ValidationError,
+    ForeignKeyConstraintError,
+    SqliterError,
 )
 
 try:
     db.insert(user)
-except IntegrityError:
-    print("Duplicate record")
+except RecordInsertionError:
+    print("Duplicate record or constraint violation")
 except ValidationError as e:
     print(f"Invalid data: {e}")
-except Exception as e:
-    print(f"Unexpected error: {e}")
+except SqliterError as e:
+    print(f"Database error: {e}")
 ```
 
 ### User-Friendly Messages
@@ -267,9 +297,16 @@ except Exception as e:
 Translate technical errors for users:
 
 ```python
+from sqliter.model import BaseDBModel
+from sqliter.model.unique import unique
+from sqliter.exceptions import RecordInsertionError
+
+class User(BaseDBModel):
+    username: str = unique()
+
 try:
     db.insert(User(username="alice"))
-except IntegrityError:
+except RecordInsertionError:
     print("Username already taken, please choose another")
 ```
 
@@ -279,12 +316,13 @@ Log errors for debugging:
 
 ```python
 import logging
+from sqliter.exceptions import RecordInsertionError
 
 logger = logging.getLogger(__name__)
 
 try:
     db.insert(User(username="alice"))
-except IntegrityError as e:
+except RecordInsertionError as e:
     logger.error(f"Failed to create user: {e}")
     raise  # Re-raise for user-facing error
 ```
@@ -293,11 +331,12 @@ except IntegrityError as e:
 
 ```
 Exception
-├── SQLiterError
-│   ├── DatabaseConnectionError
-│   ├── TableNotFoundError
+├── SqliterError
 │   ├── RecordNotFoundError
-│   └── IntegrityError
+│   ├── RecordInsertionError
+│   ├── RecordUpdateError
+│   ├── RecordDeletionError
+│   └── ForeignKeyConstraintError
 └── ValidationError (from Pydantic)
 ```
 

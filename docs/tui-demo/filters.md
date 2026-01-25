@@ -11,22 +11,24 @@ Find records where a field exactly matches a value.
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 
-class Product(BaseDBModel):
+class User(BaseDBModel):
     name: str
-    price: float
-    category: str
+    age: int
 
 db = SqliterDB(memory=True)
-db.create_table(Product)
+db.create_table(User)
 
-db.insert(Product(name="Widget", price=10.0, category="gadgets"))
-db.insert(Product(name="Gadget", price=15.0, category="gadgets"))
-db.insert(Product(name="Tool", price=20.0, category="tools"))
+db.insert(User(name="Alice", age=30))
+db.insert(User(name="Bob", age=25))
+db.insert(User(name="Alice", age=35))
 
-# Filter using exact match
-results = db.select(Product).filter(category__eq="gadgets").fetch_all()
-for product in results:
-    print(f"{product.name}: ${product.price}")
+results = db.select(User).filter(name__eq="Alice").fetch_all()
+print(f"Found {len(results)} users named 'Alice':")
+for user in results:
+    print(f"  - {user.name}, age {user.age}")
+
+db.close()
+# --8<-- [end:filter-eq]
 ```
 
 ### Alternative Syntax
@@ -42,20 +44,22 @@ Find records where a field doesn't match a value.
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 
-class Task(BaseDBModel):
-    title: str
+class Item(BaseDBModel):
+    name: str
     status: str
 
 db = SqliterDB(memory=True)
-db.create_table(Task)
+db.create_table(Item)
 
-db.insert(Task(title="Task 1", status="done"))
-db.insert(Task(title="Task 2", status="pending"))
-db.insert(Task(title="Task 3", status="done"))
+db.insert(Item(name="Item 1", status="active"))
+db.insert(Item(name="Item 2", status="archived"))
+db.insert(Item(name="Item 3", status="active"))
 
-# Find tasks that are not done
-pending = db.select(Task).filter(status__ne="done").fetch_all()
-print(f"Pending tasks: {len(pending)}")
+results = db.select(Item).filter(status__ne="archived").fetch_all()
+print(f"Non-archived items: {len(results)}")
+
+db.close()
+# --8<-- [end:filter-ne]
 ```
 
 ## Greater Than / Less Than
@@ -67,22 +71,27 @@ Filter numeric fields using comparison operators.
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 
-class User(BaseDBModel):
+class Product(BaseDBModel):
     name: str
-    age: int
+    price: float
 
 db = SqliterDB(memory=True)
-db.create_table(User)
+db.create_table(Product)
 
-# Insert users of various ages
-for i in range(10, 50, 10):
-    db.insert(User(name=f"User {i}", age=i))
+db.insert(Product(name="Item A", price=10.0))
+db.insert(Product(name="Item B", price=20.0))
+db.insert(Product(name="Item C", price=30.0))
 
-# Find users older than 25
-adults = db.select(User).filter(age__gt=25).fetch_all()
+# Greater than
+expensive = db.select(Product).filter(price__gt=15.0).fetch_all()
+print(f"Products > $15: {len(expensive)}")
 
-# Find users 30 or younger
-young_users = db.select(User).filter(age__lte=30).fetch_all()
+# Less than or equal
+cheap = db.select(Product).filter(price__lte=20.0).fetch_all()
+print(f"Products <= $20: {len(cheap)}")
+
+db.close()
+# --8<-- [end:filter-comparison]
 ```
 
 ### Available Operators
@@ -103,21 +112,27 @@ Find records where a field matches any value in a list.
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 
-class Order(BaseDBModel):
-    product_name: str
+class Task(BaseDBModel):
+    title: str
     status: str
 
 db = SqliterDB(memory=True)
-db.create_table(Order)
+db.create_table(Task)
 
-statuses = ["pending", "processing", "shipped"]
-for status in statuses:
-    db.insert(Order(product_name="Widget", status=status))
+db.insert(Task(title="Task 1", status="todo"))
+db.insert(Task(title="Task 2", status="done"))
+db.insert(Task(title="Task 3", status="in_progress"))
+db.insert(Task(title="Task 4", status="done"))
 
-# Find only pending or processing orders
-active_orders = db.select(Order).filter(
-    status__in=["pending", "processing"]
-).fetch_all()
+results = (
+    db.select(Task).filter(status__in=["todo", "in_progress"]).fetch_all()  # type: ignore[arg-type]
+)
+print(f"Active tasks: {len(results)}")
+for task in results:
+    print(f"  - {task.title}: {task.status}")
+
+db.close()
+# --8<-- [end:filter-in]
 ```
 
 ### When to Use
@@ -143,15 +158,25 @@ class Task(BaseDBModel):
 db = SqliterDB(memory=True)
 db.create_table(Task)
 
-# Insert some tasks with and without assignment
-db.insert(Task(title="Unassigned task"))
-db.insert(Task(title="Assigned task", assigned_to="Alice"))
+db.insert(Task(title="Task 1", assigned_to="Alice"))
+db.insert(Task(title="Task 2", assigned_to=None))  # Unassigned
+db.insert(Task(title="Task 3", assigned_to="Bob"))
+db.insert(Task(title="Task 4", assigned_to=None))  # Unassigned
 
 # Find unassigned tasks
 unassigned = db.select(Task).filter(assigned_to__isnull=True).fetch_all()
+print(f"Unassigned tasks: {len(unassigned)}")
+for task in unassigned:
+    print(f"  - {task.title}")
 
 # Find assigned tasks
 assigned = db.select(Task).filter(assigned_to__notnull=True).fetch_all()
+print(f"Assigned tasks: {len(assigned)}")
+for task in assigned:
+    print(f"  - {task.title}: {task.assigned_to}")
+
+db.close()
+# --8<-- [end:filter-null]
 ```
 
 ### Null vs Empty String
@@ -169,24 +194,27 @@ Combine multiple filter conditions.
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 
-class Product(BaseDBModel):
+class User(BaseDBModel):
     name: str
-    price: float
-    stock: int
+    age: int
+    city: str
 
 db = SqliterDB(memory=True)
-db.create_table(Product)
+db.create_table(User)
 
-db.insert(Product(name="Cheap Widget", price=5.0, stock=100))
-db.insert(Product(name="Expensive Gadget", price=50.0, stock=5))
-db.insert(Product(name="Cheap Tool", price=8.0, stock=50))
+db.insert(User(name="Alice", age=30, city="NYC"))
+db.insert(User(name="Bob", age=25, city="LA"))
+db.insert(User(name="Charlie", age=30, city="NYC"))
 
-# Filter by multiple conditions (AND logic)
-affordable = db.select(Product).filter(
-    price__lt=20.0
-).filter(
-    stock__gte=50
-).fetch_all()
+results = (
+    db.select(User).filter(age__gte=30).filter(city__eq="NYC").fetch_all()
+)
+print(f"Users in NYC aged 30+: {len(results)}")
+for user in results:
+    print(f"  - {user.name}, {user.age}")
+
+db.close()
+# --8<-- [end:filter-chain]
 ```
 
 ### How It Works

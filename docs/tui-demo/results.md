@@ -11,19 +11,28 @@ Get a single record from a query.
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 
-class User(BaseDBModel):
-    name: str
-    email: str
+class Task(BaseDBModel):
+    title: str
+    priority: int
 
 db = SqliterDB(memory=True)
-db.create_table(User)
+db.create_table(Task)
 
-db.insert(User(name="Alice", email="alice@example.com"))
-db.insert(User(name="Bob", email="bob@example.com"))
+db.insert(Task(title="High priority", priority=1))
+db.insert(Task(title="Medium priority", priority=2))
+db.insert(Task(title="Low priority", priority=3))
 
-# Get the first matching record
-user = db.select(User).fetch_one()
-print(f"First user: {user.name}")
+task = db.select(Task).filter(priority__eq=1).fetch_one()
+if task is not None:
+    print(f"Single result: {task.title}")
+
+# Also test no results case
+no_task = db.select(Task).filter(priority__eq=999).fetch_one()
+if no_task is None:
+    print("No task found with priority 999")
+
+db.close()
+# --8<-- [end:fetch-one]
 ```
 
 ### When No Results
@@ -45,21 +54,23 @@ Get all matching records.
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 
-class Product(BaseDBModel):
+class User(BaseDBModel):
     name: str
-    price: float
+    age: int
 
 db = SqliterDB(memory=True)
-db.create_table(Product)
+db.create_table(User)
 
-db.insert(Product(name="Widget", price=10.0))
-db.insert(Product(name="Gadget", price=15.0))
-db.insert(Product(name="Tool", price=20.0))
+for i in range(5):
+    db.insert(User(name=f"User {i}", age=20 + i))
 
-# Get all products
-products = db.select(Product).fetch_all()
-for product in products:
-    print(f"{product.name}: ${product.price}")
+results = db.select(User).fetch_all()
+print(f"Total users: {len(results)}")
+for user in results:
+    print(f"  - {user.name}, age {user.age}")
+
+db.close()
+# --8<-- [end:fetch-all]
 ```
 
 ### Return Type
@@ -70,7 +81,7 @@ Returns a list of model instances. Empty list if no results.
 
 Be careful with large result sets - all records are loaded into memory.
 
-## Fetch First
+## Fetch First / Limit Results
 
 Get only the first N records (pagination).
 
@@ -79,19 +90,25 @@ Get only the first N records (pagination).
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 
-class Article(BaseDBModel):
-    title: str
+class Item(BaseDBModel):
+    name: str
 
 db = SqliterDB(memory=True)
-db.create_table(Article)
+db.create_table(Item)
 
-# Insert many articles
-for i in range(100):
-    db.insert(Article(title=f"Article {i}"))
+for name in ["Alpha", "Beta", "Gamma", "Delta"]:
+    db.insert(Item(name=name))
 
-# Get only the first 10
-recent = db.select(Article).fetch_first(10)
-print(f"Showing {len(recent)} articles")
+first = db.select(Item).fetch_first()
+if first is not None:
+    print(f"First: {first.name}")
+
+last = db.select(Item).fetch_last()
+if last is not None:
+    print(f"Last: {last.name}")
+
+db.close()
+# --8<-- [end:fetch-first]
 ```
 
 ### Use Cases
@@ -109,21 +126,25 @@ Count matching records without fetching them.
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 
-class Order(BaseDBModel):
-    status: str
+class Product(BaseDBModel):
+    name: str
+    category: str
 
 db = SqliterDB(memory=True)
-db.create_table(Order)
+db.create_table(Product)
 
-# Insert various orders
-for status in ["pending", "shipped", "delivered"]:
-    for _ in range(5):
-        db.insert(Order(status=status))
+db.insert(Product(name="Laptop", category="electronics"))
+db.insert(Product(name="Phone", category="electronics"))
+db.insert(Product(name="Desk", category="furniture"))
 
-# Count pending orders
-pending_count = db.select(Order).filter(
-    status="pending"
-).count()
+total = db.select(Product).count()
+print(f"Total products: {total}")
+
+electronics = db.select(Product).filter(category__eq="electronics").count()
+print(f"Electronics: {electronics}")
+
+db.close()
+# --8<-- [end:count]
 ```
 
 ### Benefits
@@ -148,11 +169,16 @@ db = SqliterDB(memory=True)
 db.create_table(User)
 
 db.insert(User(username="alice"))
+db.insert(User(username="bob"))
 
-# Check if username exists
-has_alice = db.select(User).filter(
-    username="alice"
-).exists()
+exists = db.select(User).filter(username__eq="alice").exists()
+print(f"User 'alice' exists: {exists}")
+
+not_exists = db.select(User).filter(username__eq="charlie").exists()
+print(f"User 'charlie' exists: {not_exists}")
+
+db.close()
+# --8<-- [end:exists]
 ```
 
 ### Use Cases
@@ -167,7 +193,7 @@ has_alice = db.select(User).filter(
 |--------|---------|----------|
 | `fetch_one()` | Single record or `None` | You need exactly one record |
 | `fetch_all()` | List of records (all) | You need all matching records |
-| `fetch_first(n)` | List of records (max n) | Pagination, limiting results |
+| `limit(n).fetch_all()` | List of records (max n) | Pagination, limiting results |
 | `count()` | Integer count | Statistics, validation |
 | `exists()` | Boolean | Quick existence check |
 
@@ -179,13 +205,16 @@ has_alice = db.select(User).filter(
 # ❌ BAD: Loads all records into memory
 all_users = db.select(User).fetch_all()
 
-# ✅ GOOD: Process in batches or use pagination
+# ✅ GOOD: Process in batches using limit and offset
+offset = 0
+batch_size = 100
 while True:
-    batch = db.select(User).fetch_first(100)
+    batch = db.select(User).limit(batch_size).offset(offset).fetch_all()
     if not batch:
         break
     for user in batch:
         process(user)
+    offset += batch_size
 ```
 
 ### Counting
@@ -204,7 +233,7 @@ count = db.select(User).count()
 
 - Use `fetch_one()` when you expect a single result
 - Use `count()` for statistics instead of counting in Python
-- Use `fetch_first()` for pagination
+- Use `limit()` with `offset()` for pagination
 - Check for `None` when using `fetch_one()`
 
 ### DON'T

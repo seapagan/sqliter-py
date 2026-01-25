@@ -15,25 +15,25 @@ class User(BaseDBModel):
     name: str
     email: str
     age: int
-    address: str
-    phone: str
+    city: str
 
 db = SqliterDB(memory=True)
 db.create_table(User)
 
-db.insert(User(
-    name="Alice",
-    email="alice@example.com",
-    age=30,
-    address="123 Main St",
-    phone="555-1234"
-))
+db.insert(User(name="Alice", email="alice@example.com", age=30, city="NYC"))
+db.insert(User(name="Bob", email="bob@example.com", age=25, city="LA"))
 
-# Select only name and email (other fields will be None)
+# Select only name and email
 users = db.select(User).fields(["name", "email"]).fetch_all()
+print("Selected only name and email fields:")
 for user in users:
-    print(f"{user.name}: {user.email}")
-    print(f"Age is None: {user.age is None}")  # True
+    print(f"  - {user.name}, {user.email}")
+
+# Note: age and city are None since they weren't selected
+print("(age and city not selected, set to None)")
+
+db.close()
+# --8<-- [end:select-fields]
 ```
 
 ### Benefits
@@ -66,17 +66,24 @@ class Product(BaseDBModel):
 db = SqliterDB(memory=True)
 db.create_table(Product)
 
-db.insert(Product(
-    name="Widget",
-    price=10.0,
-    description="A useful widget",
-    stock=100
-))
+db.insert(
+    Product(
+        name="Laptop",
+        price=999.99,
+        description="Fast laptop",
+        stock=10,
+    )
+)
 
-# Exclude description and stock from results
-product = db.select(Product).exclude(
-    ["description", "stock"]
-).fetch_one()
+# Exclude description and stock
+product = db.select(Product).exclude(["description", "stock"]).fetch_one()
+if product is not None:
+    print(f"Product: {product.name}")
+    print(f"Price: ${product.price}")
+    print("(description and stock excluded)")
+
+db.close()
+# --8<-- [end:exclude-fields]
 ```
 
 ### Use Cases
@@ -96,25 +103,30 @@ from sqliter.model import BaseDBModel
 
 class Task(BaseDBModel):
     title: str
-    description: str
     status: str
     priority: int
+    assigned_to: str
 
 db = SqliterDB(memory=True)
 db.create_table(Task)
 
-db.insert(Task(
-    title="Buy groceries",
-    description="Get milk and eggs",
-    status="pending",
-    priority=5
-))
+db.insert(
+    Task(title="Fix bug", status="todo", priority=1, assigned_to="Alice")
+)
+db.insert(
+    Task(title="Add feature", status="done", priority=2, assigned_to="Bob")
+)
 
-# Fetch only the titles
+# Select only the title field
 tasks = db.select(Task).only("title").fetch_all()
+print("Selected only title field:")
 for task in tasks:
-    print(task.title)  # Only title is set
-    # Other fields are None
+    print(f"  - {task.title}")
+
+print("(status, priority, assigned_to not selected)")
+
+db.close()
+# --8<-- [end:only-field]
 ```
 
 ### When to Use

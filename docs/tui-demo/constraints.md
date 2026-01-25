@@ -8,13 +8,37 @@ Ensure values in a field are unique across all records.
 
 ```python
 # --8<-- [start:unique-field]
-from sqliter.model import BaseDBModel, unique
+from typing import Annotated
+from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
+from sqliter.model.unique import unique
 
 class User(BaseDBModel):
-    """User with unique username and email."""
-    username: unique(str)
-    email: unique(str)
+    email: Annotated[str, unique()]
+    name: str
+
+db = SqliterDB(memory=True)
+db.create_table(User)
+
+user1 = db.insert(User(email="alice@example.com", name="Alice"))
+print(f"Created: {user1.name} ({user1.email})")
+
+user2 = db.insert(User(email="bob@example.com", name="Bob"))
+print(f"Created: {user2.name} ({user2.email})")
+
+db.close()
+# --8<-- [end:unique-field]
 ```
+
+### Using Annotated
+
+We use `Annotated[str, unique()]` instead of `email: str = unique()` because:
+
+- **Type Safety**: Passes `mypy` type checking without errors
+- **Best Practice**: Recommended by Pydantic for metadata on fields
+- **Clarity**: Makes it clear that `unique()` is metadata, not a default value
+
+You can use `email: str = unique()` if you don't use type checkers, but it will fail mypy.
 
 ### What It Does
 
@@ -55,7 +79,7 @@ print(f"Primary key: {product.pk}")  # Auto-generated
 - Field named `pk` is automatically added
 - Auto-increments with each insert
 - Guaranteed unique for each record
-- Used by `get_by_pk()` and foreign keys
+- Used by `get()` and foreign keys
 
 ### Don't Define Your Own
 
@@ -175,12 +199,14 @@ When constraints are violated:
 
 ```python
 # --8<-- [start:error-handling]
+from typing import Annotated
 from sqliter import SqliterDB
-from sqliter.model import BaseDBModel, unique
-from sqliter.exceptions import IntegrityError
+from sqliter.model import BaseDBModel
+from sqliter.model.unique import unique
+from sqliter.exceptions import RecordInsertionError
 
 class User(BaseDBModel):
-    username: unique(str)
+    username: Annotated[str, unique()]
 
 db = SqliterDB(memory=True)
 db.create_table(User)
@@ -191,7 +217,7 @@ db.insert(User(username="alice"))
 # Try to insert duplicate
 try:
     db.insert(User(username="alice"))
-except IntegrityError as e:
+except RecordInsertionError as e:
     print(f"Error: {e}")
 ```
 
@@ -202,7 +228,7 @@ except IntegrityError as e:
 - Use `unique()` for fields that must be unique
 - Provide sensible defaults for optional fields
 - Use Pydantic validators for complex constraints
-- Handle `IntegrityError` for constraint violations
+- Handle `RecordInsertionError` for constraint violations
 
 ### DON'T
 

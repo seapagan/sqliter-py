@@ -9,20 +9,17 @@ The fastest option for temporary data or testing. Data is lost when the database
 ```python
 # --8<-- [start:memory-db]
 from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
 
-class User(BaseDBModel):
-    name: str
-    email: str
-
-# Create an in-memory database
 db = SqliterDB(memory=True)
-db.create_table(User)
+print(f"Created database: {db}")
+print(f"Is memory: {db.is_memory}")
+print(f"Filename: {db.filename}")
 
-# Data exists only for the lifetime of the connection
-user = db.insert(User(name="Alice", email="alice@example.com"))
+db.connect()
+print(f"Connected: {db.is_connected}")
+
 db.close()
-# Data is lost after close()
+print(f"After close: {db.is_connected}")
 # --8<-- [end:memory-db]
 ```
 
@@ -43,35 +40,24 @@ For persistent data storage that survives application restarts.
 ```python
 # --8<-- [start:file-db]
 from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-
 import tempfile
-import os
+from pathlib import Path
 
-class User(BaseDBModel):
-    name: str
-    email: str
-
-# Create a temporary database file
 with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
     db_path = f.name
 
 try:
-    db = SqliterDB(database=db_path)
-    db.create_table(User)
+    db = SqliterDB(db_path)
+    print("Created file database")
+    print(f"Filename: {db.filename}")
+    print(f"Is memory: {db.is_memory}")
 
-    # Data persists even after closing
-    user = db.insert(User(name="Bob", email="bob@example.com"))
+    db.connect()
+    print(f"Connected to: {db_path}")
     db.close()
-
-    # Reconnect and data is still there
-    db = SqliterDB(database=db_path)
-    users = db.select(User).fetch_all()
-    print(f"Found {len(users)} users")
 finally:
-    # Clean up the test database
-    if os.path.exists(db_path):
-        os.remove(db_path)
+    Path(db_path).unlink(missing_ok=True)
+    print("Cleaned up database file")
 # --8<-- [end:file-db]
 ```
 
@@ -89,7 +75,7 @@ finally:
 
 ## Context Manager
 
-Using SQLiter as a context manager ensures the database connection is properly closed, even if an error occurs.
+Using SQLiter as a context manager provides automatic transaction management with auto-commit on success.
 
 ```python
 # --8<-- [start:context-manager]
@@ -100,25 +86,31 @@ class Task(BaseDBModel):
     title: str
     done: bool = False
 
-# Connection automatically closes when exiting the context
-with SqliterDB(memory=True) as db:
+print("Using context manager for transactions:\n")
+
+db = SqliterDB(memory=True)
+
+with db:
     db.create_table(Task)
-    task = db.insert(Task(title="Buy groceries"))
-    # Connection is automatically closed here
+    task = db.insert(Task(title="Learn SQLiter", done=False))
+    print(f"Inserted: {task.title} (pk={task.pk})")
+    print("Transaction auto-commits on exit")
+
+print(f"\nAfter context: connected={db.is_connected}")
 # --8<-- [end:context-manager]
 ```
 
 ### Benefits
 
-- **Automatic Cleanup**: Guaranteed connection closure
-- **Exception Safety**: Connection closes even if errors occur
-- **Cleaner Code**: No need to remember `db.close()`
+- **Automatic Commit**: Transaction commits when context exits successfully
+- **Automatic Rollback**: Changes are rolled back if an error occurs
+- **Cleaner Code**: No need to manually call `db.commit()`
 
 ### When to Use
 
-- **Scripts**: Short-lived scripts that need database access
-- **Batch Jobs**: Operations that open, process, and close
-- **Testing**: Ensures clean test isolation
+- **Grouped Operations**: Multiple operations that should succeed or fail together
+- **Data Integrity**: Operations that must be atomic
+- **Error Safety**: Ensure changes aren't partially applied
 
 ## Debug Mode
 
@@ -129,17 +121,16 @@ Enable SQL query logging to see exactly what SQL SQLiter is executing.
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 
-class Product(BaseDBModel):
-    name: str
-    price: float
+print("Debug mode enables SQL query logging.")
+print("When debug=True, all SQL queries are logged.\n")
 
-# Enable debug mode to see SQL queries
 db = SqliterDB(memory=True, debug=True)
-db.create_table(Product)
+db.create_table(BaseDBModel)
 
-product = db.insert(Product(name="Widget", price=19.99))
-# Output shows: CREATE TABLE products...
-# Output shows: INSERT INTO products...
+print("SQL queries would be logged to console:")
+print('  CREATE TABLE IF NOT EXISTS "users" (...)')
+
+db.close()
 # --8<-- [end:debug-mode]
 ```
 

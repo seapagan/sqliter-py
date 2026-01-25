@@ -18,17 +18,13 @@ class User(BaseDBModel):
 db = SqliterDB(memory=True)
 db.create_table(User)
 
-# Insert a single record
-user = db.insert(User(name="Alice", email="alice@example.com"))
-print(f"Created user with pk={user.pk}")
+user1 = db.insert(User(name="Alice", email="alice@example.com"))
+print(f"Inserted: {user1.name} (pk={user1.pk})")
 
-# Insert multiple records
-users = [
-    User(name="Bob", email="bob@example.com"),
-    User(name="Charlie", email="charlie@example.com"),
-]
-for user in users:
-    db.insert(user)
+user2 = db.insert(User(name="Bob", email="bob@example.com"))
+print(f"Inserted: {user2.name} (pk={user2.pk})")
+
+db.close()
 ```
 
 ### Return Value
@@ -48,19 +44,23 @@ Retrieve a single record by its primary key.
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 
-class User(BaseDBModel):
-    name: str
-    email: str
+class Task(BaseDBModel):
+    title: str
+    done: bool = False
 
 db = SqliterDB(memory=True)
-db.create_table(User)
+db.create_table(Task)
 
-# Insert a user
-user = db.insert(User(name="Alice", email="alice@example.com"))
+task: Task = db.insert(Task(title="Buy groceries"))
+print(f"Created: {task.title} (pk={task.pk})")
 
-# Retrieve by primary key
-retrieved_user = db.get_by_pk(User, user.pk)
-print(f"Retrieved: {retrieved_user.name}")
+retrieved = db.get(Task, task.pk)
+if retrieved is not None:
+    task_retrieved = retrieved
+    print(f"Retrieved: {task_retrieved.title}")
+    print(f"Same object: {task_retrieved.pk == task.pk}")
+
+db.close()
 ```
 
 ### When Record Doesn't Exist
@@ -76,24 +76,22 @@ Modify existing records.
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 
-class Task(BaseDBModel):
-    title: str
-    done: bool = False
+class Item(BaseDBModel):
+    name: str
+    quantity: int
 
 db = SqliterDB(memory=True)
-db.create_table(Task)
+db.create_table(Item)
 
-# Insert a task
-task = db.insert(Task(title="Buy groceries"))
+item = db.insert(Item(name="Apples", quantity=5))
+print(f"Created: {item.name} x{item.quantity}")
 
-# Update the task
-task.title = "Buy groceries and cook dinner"
-task.done = True
-db.update(task)
+item.quantity = 10
+db.update(item)
+updated = item
+print(f"Updated: {updated.name} x{updated.quantity}")
 
-# Verify the update
-updated_task = db.get_by_pk(Task, task.pk)
-print(f"Task status: {updated_task.done}")
+db.close()
 ```
 
 ### Update Process
@@ -121,15 +119,17 @@ class Note(BaseDBModel):
 db = SqliterDB(memory=True)
 db.create_table(Note)
 
-# Insert a note
 note = db.insert(Note(content="Temporary note"))
+print(f"Created note (pk={note.pk})")
 
-# Delete the note
-db.delete(note)
+db.delete(Note, note.pk)
+deleted = note.pk
+print(f"Deleted: {deleted}")
 
-# Verify deletion
-deleted_note = db.get_by_pk(Note, note.pk)
-print(f"Note exists: {deleted_note is not None}")  # False
+all_notes = db.select(Note).fetch_all()
+print(f"Remaining notes: {len(all_notes)}")
+
+db.close()
 ```
 
 ### Foreign Key Constraints
@@ -141,23 +141,23 @@ If other records reference this record (via foreign keys), the delete will fail 
 | Operation | Method | Returns |
 |-----------|--------|---------|
 | **Create** | `db.insert(Model(...))` | The model with `pk` set |
-| **Read** | `db.get_by_pk(Model, pk)` | The model or `None` |
+| **Read** | `db.get(Model, pk)` | The model or `None` |
 | **Update** | `db.update(model)` | Nothing (modifies in-place) |
-| **Delete** | `db.delete(model)` | Nothing |
+| **Delete** | `db.delete(Model, pk)` | Nothing |
 
 ## Best Practices
 
 ### DO
 
 - Keep the returned model from `insert()` for later use
-- Use `get_by_pk()` when you know the primary key
+- Use `get()` when you know the primary key
 - Validate data before inserting (Pydantic does this automatically)
 - Use transactions for multiple related operations
 
 ### DON'T
 
 - Forget to call `db.update()` after modifying a model
-- Assume `get_by_pk()` always returns a record (check for `None`)
+- Assume `get()` always returns a record (check for `None`)
 - Delete records without checking for foreign key dependencies
 
 ## Related Documentation

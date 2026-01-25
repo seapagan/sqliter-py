@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+from typing import Annotated
 
 from sqliter import SqliterDB
 from sqliter.exceptions import (
@@ -54,7 +55,7 @@ def _run_unique_constraint() -> str:
     output = io.StringIO()
 
     class User(BaseDBModel):
-        email: str = unique()
+        email: Annotated[str, unique()]
         name: str
 
     db = SqliterDB(memory=True)

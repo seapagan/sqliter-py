@@ -10,23 +10,31 @@ Track when records are created.
 # --8<-- [start:created-at]
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
+from datetime import datetime, timezone
+import time
 
 class Article(BaseDBModel):
-    """Article with automatic creation timestamp."""
     title: str
 
 db = SqliterDB(memory=True)
 db.create_table(Article)
 
 article1 = db.insert(Article(title="First Post"))
-print(f"Created: {article1.created_at}")
+dt1 = datetime.fromtimestamp(article1.created_at, tz=timezone.utc)
+formatted_dt1 = dt1.strftime("%Y-%m-%d %H:%M:%S")
+print(f"Article: {article1.title}")
+print(f"Created: {article1.created_at} ({formatted_dt1} UTC)")
 
-# Slight delay for demonstration
-import time
 time.sleep(0.1)
 
 article2 = db.insert(Article(title="Second Post"))
-print(f"Created: {article2.created_at}")
+dt2 = datetime.fromtimestamp(article2.created_at, tz=timezone.utc)
+formatted_dt2 = dt2.strftime("%Y-%m-%d %H:%M:%S")
+print(f"\nArticle: {article2.title}")
+print(f"Created: {article2.created_at} ({formatted_dt2} UTC)")
+
+db.close()
+# --8<-- [end:created-at]
 ```
 
 ### What It Does
@@ -47,9 +55,10 @@ Track when records are last modified.
 # --8<-- [start:updated-at]
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
+from datetime import datetime, timezone
+import time
 
 class Task(BaseDBModel):
-    """Task with automatic modification timestamp."""
     title: str
     done: bool = False
 
@@ -57,20 +66,46 @@ db = SqliterDB(memory=True)
 db.create_table(Task)
 
 task = db.insert(Task(title="Original Task"))
-print(f"Updated: {task.updated_at}")
+created_dt = datetime.fromtimestamp(task.created_at, tz=timezone.utc)
+updated_dt = datetime.fromtimestamp(task.updated_at, tz=timezone.utc)
+formatted_created_dt = created_dt.strftime("%Y-%m-%d %H:%M:%S")
+formatted_updated_dt = updated_dt.strftime("%Y-%m-%d %H:%M:%S")
+print(f"Task: {task.title}")
+print(f"Created: {task.created_at} ({formatted_created_dt} UTC)")
+print(f"Updated: {task.updated_at} ({formatted_updated_dt} UTC)")
 
-# Slight delay for demonstration
-import time
+# Sleep for 1 second to ensure different timestamps on fast machines
 time.sleep(1)
 
-# Update the task
 task.title = "Updated Task"
 task.done = True
 db.update(task)
+updated_task = task
+updated_created_dt = datetime.fromtimestamp(
+    updated_task.created_at, tz=timezone.utc
+)
+updated_updated_dt = datetime.fromtimestamp(
+    updated_task.updated_at, tz=timezone.utc
+)
+formatted_updated_created_dt = updated_created_dt.strftime(
+    "%Y-%m-%d %H:%M:%S"
+)
+formatted_updated_updated_dt = updated_updated_dt.strftime(
+    "%Y-%m-%d %H:%M:%S"
+)
+print("\nAfter update:")
+print(f"Title: {updated_task.title}")
+print(
+    f"Created: {updated_task.created_at} "
+    f"({formatted_updated_created_dt} UTC)"
+)
+print(
+    f"Updated: {updated_task.updated_at} "
+    f"({formatted_updated_updated_dt} UTC)"
+)
 
-# updated_at has changed
-updated_task = db.get_by_pk(Task, task.pk)
-print(f"Updated: {updated_task.updated_at}")
+db.close()
+# --8<-- [end:updated-at]
 ```
 
 ### How It Works

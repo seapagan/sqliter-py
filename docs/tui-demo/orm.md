@@ -8,16 +8,29 @@ Link records from different tables using foreign keys.
 
 ```python
 # --8<-- [start:foreign-key]
-from sqliter.model import BaseDBModel, ForeignKey
+from sqliter import SqliterDB
+from sqliter.orm import BaseDBModel, ForeignKey
 
 class Author(BaseDBModel):
-    """An author of books."""
     name: str
 
 class Book(BaseDBModel):
-    """A book linked to an author."""
     title: str
-    author: ForeignKey[Author]
+    author: ForeignKey[Author] = ForeignKey(Author)
+
+db = SqliterDB(memory=True)
+db.create_table(Author)
+db.create_table(Book)
+
+author = db.insert(Author(name="J.K. Rowling"))
+book1 = db.insert(Book(title="Harry Potter 1", author=author))
+book2 = db.insert(Book(title="Harry Potter 2", author=author))
+
+print(f"Author: {author.name}")
+print(f"Author ID: {author.pk}")
+
+db.close()
+# --8<-- [end:foreign-key]
 ```
 
 ### What Happens
@@ -33,25 +46,24 @@ Create records linked to other records.
 ```python
 # --8<-- [start:insert-foreign-key]
 from sqliter import SqliterDB
-from sqliter.model import BaseDBModel, ForeignKey
+from sqliter.orm import BaseDBModel, ForeignKey
 
-class Author(BaseDBModel):
+class User(BaseDBModel):
     name: str
-
-class Book(BaseDBModel):
-    title: str
-    author: ForeignKey[Author]
+    email: str
 
 db = SqliterDB(memory=True)
-db.create_table(Author)
-db.create_table(Book)
+db.create_table(User)
 
-# Insert an author
-author = db.insert(Author(name="Jane Austen"))
+user = db.insert(User(name="Alice", email="alice@example.com"))
+print("Created user:")
+print(f"  name: {user.name}")
+print(f"  email: {user.email}")
+print(f"  pk: {user.pk}")
+print("\nAccess fields like object attributes")
 
-# Insert books linked to the author
-book1 = db.insert(Book(title="Pride and Prejudice", author=author.pk))
-book2 = db.insert(Book(title="Emma", author=author.pk))
+db.close()
+# --8<-- [end:insert-foreign-key]
 ```
 
 ### Storage
@@ -65,28 +77,36 @@ Access related objects on-demand.
 ```python
 # --8<-- [start:lazy-loading]
 from sqliter import SqliterDB
-from sqliter.model import BaseDBModel, ForeignKey
+from sqliter.orm import BaseDBModel, ForeignKey
 
 class Author(BaseDBModel):
     name: str
 
 class Book(BaseDBModel):
     title: str
-    author: ForeignKey[Author]
+    author: ForeignKey[Author] = ForeignKey(Author)
 
 db = SqliterDB(memory=True)
 db.create_table(Author)
 db.create_table(Book)
 
-# Setup data
 author = db.insert(Author(name="J.K. Rowling"))
-db.insert(Book(title="Harry Potter", author=author.pk))
+book1 = db.insert(Book(title="Harry Potter 1", author=author))
+book2 = db.insert(Book(title="Harry Potter 2", author=author))
 
-# Access author later (lazy-loaded)
-books = db.select(Book).fetch_all()
-for book in books:
-    # author is loaded automatically when accessed
-    print(f"{book.title} by {book.author.name}")
+print(f"Author: {author.name}")
+print(f"Author ID: {author.pk}")
+
+# Access related author through foreign key - triggers lazy load
+print("\nAccessing book.author triggers lazy load:")
+book_author = book1.author  # LazyLoader fetches author from DB
+print(f"  '{book1.title}' was written by {book_author.name}")
+
+print(f"\n'{book2.title}' was written by {book2.author.name}")
+print("Related objects loaded on-demand from database")
+
+db.close()
+# --8<-- [end:lazy-loading]
 ```
 
 ### How Lazy Loading Works
@@ -109,34 +129,43 @@ for book in books:  # N queries here (one per book)
 
 ## Reverse Relationships
 
-Access all books by an author.
+Access all books by an author using queries.
 
 ```python
 # --8<-- [start:reverse-relationship]
 from sqliter import SqliterDB
-from sqliter.model import BaseDBModel, ForeignKey, ReverseRelationship
+from sqliter.orm import BaseDBModel, ForeignKey
 
 class Author(BaseDBModel):
     name: str
-    books: ReverseRelationship
 
 class Book(BaseDBModel):
     title: str
-    author: ForeignKey[Author]
+    author: ForeignKey[Author] = ForeignKey(Author, related_name="books")
 
 db = SqliterDB(memory=True)
 db.create_table(Author)
 db.create_table(Book)
 
-# Create author and books
-author = db.insert(Author(name="Isaac Asimov"))
-db.insert(Book(title="Foundation", author=author.pk))
-db.insert(Book(title="I, Robot", author=author.pk))
+author = db.insert(Author(name="Jane Austen"))
+db.insert(Book(title="Pride and Prejudice", author=author))
+db.insert(Book(title="Emma", author=author))
+db.insert(Book(title="Sense and Sensibility", author=author))
 
-# Access author's books
-fetched_author = db.get_by_pk(Author, author.pk)
-for book in fetched_author.books:
+print(f"Author: {author.name}")
+
+# Access reverse relationship - get all books by this author
+# Note: 'books' attribute added dynamically by ForeignKey descriptor
+print("\nAccessing author.books (reverse relationship):")
+books = author.books.fetch_all()  # type: ignore[attr-defined]
+for book in books:
     print(f"  - {book.title}")
+
+print(f"\nTotal books: {len(books)}")
+print("Reverse relationships auto-generated from FKs")
+
+db.close()
+# --8<-- [end:reverse-relationship]
 ```
 
 ### Setting Up Reverse Relationships
@@ -145,15 +174,10 @@ Use the `related_name` parameter when defining the ForeignKey:
 
 ```python
 class Book(BaseDBModel):
-    author: ForeignKey[Author, related_name="books"]
+    author: ForeignKey[Author] = ForeignKey(Author, related_name="books")
 ```
 
-Or define it as a class attribute:
-
-```python
-class Author(BaseDBModel):
-    books: ReverseRelationship
-```
+The reverse relationship is dynamically added and accessed as a query builder.
 
 ## Deleting with Foreign Keys
 
@@ -162,27 +186,32 @@ Handle deleting records that are referenced by other records.
 ```python
 # --8<-- [start:delete-foreign-key]
 from sqliter import SqliterDB
-from sqliter.model import BaseDBModel, ForeignKey
+from sqliter.orm import BaseDBModel, ForeignKey
 
-class Author(BaseDBModel):
+class Team(BaseDBModel):
     name: str
 
-class Book(BaseDBModel):
-    title: str
-    author: ForeignKey[Author]
+class Player(BaseDBModel):
+    name: str
+    team: ForeignKey[Team] = ForeignKey(Team)
 
 db = SqliterDB(memory=True)
-db.create_table(Author)
-db.create_table(Book)
+db.create_table(Team)
+db.create_table(Player)
 
-author = db.insert(Author(name="Author"))
-db.insert(Book(title="Book", author=author.pk))
+team = db.insert(Team(name="Lakers"))
+player1 = db.insert(Player(name="LeBron", team=team))
+player2 = db.insert(Player(name="Davis", team=team))
 
-# Delete the author
-db.delete(author)
+print(f"Team: {team.name}")
 
-# Book still exists but references a deleted author
-orphaned_books = db.select(Book).fetch_all()
+# Navigate from player to team via FK
+print(f"\n{player1.name} plays for: {player1.team.name}")
+print(f"{player2.name} plays for: {player2.team.name}")
+print("Foreign keys enable relationship navigation")
+
+db.close()
+# --8<-- [end:delete-foreign-key]
 ```
 
 !!! warning

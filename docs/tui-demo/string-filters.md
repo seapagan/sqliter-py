@@ -17,14 +17,18 @@ class User(BaseDBModel):
 db = SqliterDB(memory=True)
 db.create_table(User)
 
-db.insert(User(username="alice_wonderland"))
-db.insert(User(username="alice_in_chains"))
+db.insert(User(username="alice_wonder"))
+db.insert(User(username="alice_smith"))
 db.insert(User(username="bob_builder"))
 
-# Find all usernames starting with "alice"
+# Find usernames starting with "alice"
 results = db.select(User).filter(username__startswith="alice").fetch_all()
+print(f"Users starting with 'alice': {len(results)}")
 for user in results:
-    print(user.username)
+    print(f"  - {user.username}")
+
+db.close()
+# --8<-- [end:startswith]
 ```
 
 ### Use Cases
@@ -50,10 +54,17 @@ db.create_table(File)
 
 db.insert(File(filename="document.txt"))
 db.insert(File(filename="image.png"))
-db.insert(File(filename="script.py"))
+db.insert(File(filename="notes.txt"))
+db.insert(File(filename="data.csv"))
 
-# Find all text files
-text_files = db.select(File).filter(filename__endswith=".txt").fetch_all()
+# Find files ending with ".txt"
+results = db.select(File).filter(filename__endswith=".txt").fetch_all()
+print(f"Text files: {len(results)}")
+for file in results:
+    print(f"  - {file.filename}")
+
+db.close()
+# --8<-- [end:endswith]
 ```
 
 ### Use Cases
@@ -73,24 +84,23 @@ from sqliter.model import BaseDBModel
 
 class Product(BaseDBModel):
     name: str
-    description: str
 
 db = SqliterDB(memory=True)
 db.create_table(Product)
 
-db.insert(Product(
-    name="Apple iPhone",
-    description="A smartphone from Apple"
-))
-db.insert(Product(
-    name="Orange Juice",
-    description="Freshly squeezed orange juice"
-))
+db.insert(Product(name="Apple iPhone"))
+db.insert(Product(name="Samsung Galaxy"))
+db.insert(Product(name="Apple iPad"))
+db.insert(Product(name="Google Pixel"))
 
-# Find products containing "Apple" in name or description
-apple_products = db.select(Product).filter(
-    name__contains="Apple"
-).fetch_all()
+# Find products containing "Apple"
+results = db.select(Product).filter(name__contains="Apple").fetch_all()
+print(f"Products containing 'Apple': {len(results)}")
+for product in results:
+    print(f"  - {product.name}")
+
+db.close()
+# --8<-- [end:contains]
 ```
 
 ### Use Cases
@@ -114,13 +124,24 @@ class User(BaseDBModel):
 db = SqliterDB(memory=True)
 db.create_table(User)
 
-db.insert(User(email="alice@EXAMPLE.com"))
-db.insert(User(email="bob@test.com"))
+db.insert(User(email="ALICE@example.com"))
+db.insert(User(email="bob@EXAMPLE.com"))
+db.insert(User(email="charlie@test.com"))
 
 # Find emails ending with "@example.com" (case-insensitive)
-results = db.select(User).filter(
-    email__iendswith="@example.com"
-).fetch_all()
+results = (
+    db.select(User).filter(email__iendswith="@example.com").fetch_all()
+)
+print(f"Emails ending with '@example.com': {len(results)}")
+for user in results:
+    print(f"  - {user.email}")
+
+# Find emails starting with "BOB" (case-insensitive)
+bob_results = db.select(User).filter(email__istartswith="bob").fetch_all()
+print(f"\nEmails starting with 'bob': {len(bob_results)}")
+
+db.close()
+# --8<-- [end:case-insensitive]
 ```
 
 ### Case-Insensitive Operators

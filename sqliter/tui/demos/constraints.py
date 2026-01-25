@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import io
-from typing import Optional
+from typing import Annotated, Optional
 
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
@@ -21,7 +21,7 @@ def _run_unique_field() -> str:
     output = io.StringIO()
 
     class User(BaseDBModel):
-        email: str = unique()
+        email: Annotated[str, unique()]
         name: str
 
     db = SqliterDB(memory=True)
@@ -46,8 +46,8 @@ def _run_multi_field_unique() -> str:
     output = io.StringIO()
 
     class Enrollment(BaseDBModel):
-        student_id: int = unique()
-        course_id: int = unique()
+        student_id: Annotated[int, unique()]
+        course_id: Annotated[int, unique()]
 
     db = SqliterDB(memory=True)
     db.create_table(Enrollment)

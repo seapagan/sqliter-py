@@ -18,17 +18,27 @@ class Account(BaseDBModel):
 db = SqliterDB(memory=True)
 db.create_table(Account)
 
-# Create two accounts
-account1 = db.insert(Account(name="Alice", balance=100.0))
-account2 = db.insert(Account(name="Bob", balance=50.0))
+alice: Account = db.insert(Account(name="Alice", balance=100.0))
+bob: Account = db.insert(Account(name="Bob", balance=50.0))
 
-# Transfer funds using a transaction
-with db.transaction():
-    account1.balance -= 10.0
-    db.update(account1)
+print(f"Before: Alice=${alice.balance}, Bob=${bob.balance}")
 
-    account2.balance += 10.0
-    db.update(account2)
+# Transfer money using context manager
+with db:
+    alice.balance = alice.balance - 20.0
+    bob.balance = bob.balance + 20.0
+    db.update(alice)
+    db.update(bob)
+    alice_updated = alice
+    bob_updated = bob
+
+print(
+    f"After: Alice=${alice_updated.balance}, Bob=${bob_updated.balance}"
+)
+print("Transaction auto-committed on success")
+
+db.close()
+# --8<-- [end:basic-transaction]
 ```
 
 ### What Happens
@@ -46,28 +56,31 @@ Automatically rollback on errors.
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 
-class Account(BaseDBModel):
+class Item(BaseDBModel):
     name: str
-    balance: float
+    quantity: int
 
 db = SqliterDB(memory=True)
-db.create_table(Account)
+db.create_table(Item)
 
-account1 = db.insert(Account(name="Alice", balance=100.0))
+item: Item = db.insert(Item(name="Widget", quantity=10))
+print(f"Initial quantity: {item.quantity}")
 
+# Use context manager for automatic rollback on error
 try:
-    with db.transaction():
-        account1.balance -= 200.0  # Would make balance negative
-        db.update(account1)
-        # Some validation that raises an error
-        if account1.balance < 0:
-            raise ValueError("Insufficient funds")
-except ValueError:
-    print("Transaction failed, changes rolled back")
+    with db:
+        item.quantity = 5
+        db.update(item)
+        print("Inside transaction: updated to 5")
+        # If error occurs, changes are rolled back
+        error_msg = "Intentional error for rollback"
+        raise RuntimeError(error_msg)  # noqa: TRY301
+except RuntimeError:
+    print("Error occurred - transaction rolled back")
+    print("(Value restored to original state)")
 
-# Verify balance is unchanged
-reloaded = db.get_by_pk(Account, account1.pk)
-print(f"Balance: {reloaded.balance}")  # Still 100.0
+db.close()
+# --8<-- [end:transaction-rollback]
 ```
 
 ### Rollback Behavior
@@ -78,31 +91,35 @@ print(f"Balance: {reloaded.balance}")  # Still 100.0
 
 ## Manual Transaction Control
 
-Explicitly commit or rollback.
+Explicitly commit using the context manager or connect/commit methods.
 
 ```python
 # --8<-- [start:manual-transaction]
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 
-class Task(BaseDBModel):
-    title: str
+class Log(BaseDBModel):
+    message: str
 
 db = SqliterDB(memory=True)
-db.create_table(Task)
+db.create_table(Log)
 
-# Start transaction
-db.begin_transaction()
+# Manual transaction control
+db.connect()
+log1 = db.insert(Log(message="First entry"))
+print(f"Inserted: {log1.message}")
+print("Not committed yet")
+db.commit()
+print("Committed")
 
-try:
-    db.insert(Task(title="Task 1"))
-    db.insert(Task(title="Task 2"))
+db.insert(Log(message="Second entry"))
+db.commit()
 
-    # Commit if successful
-    db.commit()
-except Exception:
-    # Rollback on error
-    db.rollback()
+all_logs = db.select(Log).fetch_all()
+print(f"Total logs: {len(all_logs)}")
+
+db.close()
+# --8<-- [end:manual-transaction]
 ```
 
 ### When to Use
@@ -128,7 +145,7 @@ db.create_table(Counter)
 
 counter = db.insert(Counter(value=0))
 
-with db.transaction():
+with db:
     # Increment counter
     counter.value += 1
     db.update(counter)
@@ -137,13 +154,14 @@ with db.transaction():
     print(f"Inside: {counter.value}")
 
 # Value is still 1 after commit
-reloaded = db.get_by_pk(Counter, counter.pk)
-print(f"After commit: {reloaded.value}")
+reloaded = db.get(Counter, counter.pk)
+if reloaded is not None:
+    print(f"After commit: {reloaded.value}")
 ```
 
 ## Nested Transactions
 
-SQLiter supports nested transaction contexts.
+SQLiter supports nested context manager usage.
 
 ```python
 # --8<-- [start:nested]
@@ -161,30 +179,35 @@ db.create_table(Order)
 db.create_table(Payment)
 
 # Outer transaction
-with db.transaction():
+with db:
     order = db.insert(Order(total=100.0))
 
-    # Inner transaction (conceptually part of outer)
-    with db.transaction():
+    # Inner context (part of same transaction)
+    with db:
         payment = db.insert(Payment(amount=100.0))
 
     # Both are committed together
 ```
 
 !!! note
-    SQLite's nested transactions are actually savepoints - the outermost `commit()` finalizes everything.
+    SQLite's nested contexts are part of the same transaction - the outermost context exit finalizes everything.
 
 ## Performance Considerations
 
 ### Bulk Operations with Transactions
 
 ```python
+from sqliter.model import BaseDBModel
+
+class User(BaseDBModel):
+    name: str
+
 # ❌ SLOW: Each insert is its own transaction
 for i in range(1000):
     db.insert(User(name=f"User {i}"))
 
 # ✅ FAST: All inserts in one transaction
-with db.transaction():
+with db:
     for i in range(1000):
         db.insert(User(name=f"User {i}"))
 ```
@@ -219,9 +242,9 @@ with db.transaction():
 ### Transfer Pattern
 
 ```python
-def transfer(from_account: Account, to_account: Account, amount: float) -> None:
+def transfer(db: SqliterDB, from_account: Account, to_account: Account, amount: float) -> None:
     """Transfer funds between accounts."""
-    with db.transaction():
+    with db:
         from_account.balance -= amount
         to_account.balance += amount
         db.update(from_account)
@@ -231,11 +254,17 @@ def transfer(from_account: Account, to_account: Account, amount: float) -> None:
 ### Create or Update Pattern
 
 ```python
-def create_or_update(user: User) -> None:
+from sqliter.model import BaseDBModel
+
+class User(BaseDBModel):
+    name: str
+    email: str
+
+def create_or_update(db: SqliterDB, user: User) -> None:
     """Insert or update a user."""
-    with db.transaction():
+    with db:
         existing = db.select(User).filter(
-            email=user.email
+            email__eq=user.email
         ).fetch_one()
 
         if existing:

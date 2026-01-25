@@ -9,7 +9,7 @@ The **SQLiter Interactive Demo** is a terminal-based Textual TUI application tha
 - **Interactive Demo Browser**: Navigate through categorized demo examples using an intuitive tree view
 - **Live Code Display**: View the complete source code for each demo with syntax highlighting
 - **One-Click Execution**: Run demos directly within the TUI and see real output
-- **Organized Categories**: Demas are grouped by feature area for easy exploration
+- **Organized Categories**: Demos are grouped by feature area for easy exploration
 - **Vim-Style Navigation**: Support for j/k keys for navigation (in addition to arrow keys)
 
 ## Installation
@@ -67,13 +67,13 @@ sqliter-tui
 
 ## Demo Categories
 
-The demos are organized into the following categories:
+The demos are organized into the following categories (in the order they appear in the TUI):
 
-### [Database Connection](connection.md)
+### [Connection & Setup](connection.md)
 
 Learn different ways to connect to SQLite databases, including in-memory and file-based databases.
 
-### [Models](models.md)
+### [Models & Tables](models.md)
 
 Understand how to define Pydantic models for your database tables, including field types and constraints.
 
@@ -81,33 +81,33 @@ Understand how to define Pydantic models for your database tables, including fie
 
 Basic Create, Read, Update, and Delete operations for managing your data.
 
-### [Filtering](filters.md)
+### [Query Filters](filters.md)
 
 Query your data using various filter operators like equals, greater than, less than, and more.
-
-### [String Filters](string-filters.md)
-
-Special filtering options for string fields, including starts with, ends with, and contains.
-
-### [Field Selection](field-selection.md)
-
-Control which fields are returned in your queries to optimize performance.
 
 ### [Query Results](results.md)
 
 Different ways to fetch results: single records, all records, or using pagination.
 
-### [Ordering](ordering.md)
+### [Ordering & Pagination](ordering.md)
 
-Sort your query results by one or more fields in ascending or descending order.
+Sort your query results and use limit/offset for pagination.
+
+### [Field Selection](field-selection.md)
+
+Control which fields are returned in your queries to optimize performance.
+
+### [String Filters](string-filters.md)
+
+Special filtering options for string fields, including starts with, ends with, and contains.
 
 ### [Constraints](constraints.md)
 
-Define database constraints like unique fields and primary keys.
+Define database constraints like unique fields and foreign key relationships.
 
 ### [ORM Features](orm.md)
 
-Advanced ORM features including foreign keys and relationships between models.
+Advanced ORM features including foreign keys, lazy loading, and reverse relationships.
 
 ### [Caching](caching.md)
 

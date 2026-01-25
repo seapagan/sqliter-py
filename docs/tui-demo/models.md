@@ -8,12 +8,25 @@ The simplest model definition with a primary key and string field.
 
 ```python
 # --8<-- [start:basic-model]
+from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 
 class User(BaseDBModel):
-    """A simple user model."""
     name: str
+    age: int
     email: str
+
+db = SqliterDB(memory=True)
+db.create_table(User)
+
+user = db.insert(User(name="Alice", age=30, email="alice@example.com"))
+print(f"Created user: {user.name}")
+print(f"Primary key: {user.pk}")
+print(f"Age: {user.age}")
+print(f"Email: {user.email}")
+
+db.close()
+# --8<-- [end:basic-model]
 ```
 
 ### What Happens Automatically
@@ -28,13 +41,24 @@ Set default values for fields that are optional.
 
 ```python
 # --8<-- [start:defaults]
+from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
 
 class Task(BaseDBModel):
-    """Task model with default values."""
     title: str
     completed: bool = False
-    priority: int = 5
+    priority: int = 1
+
+db = SqliterDB(memory=True)
+db.create_table(Task)
+
+task = db.insert(Task(title="New task"))
+print(f"Task: {task.title}")
+print(f"Completed: {task.completed} (default)")
+print(f"Priority: {task.priority} (default)")
+
+db.close()
+# --8<-- [end:defaults]
 ```
 
 ### Field Behavior
@@ -68,16 +92,37 @@ SQLiter supports all Pydantic field types:
 
 ```python
 # --8<-- [start:field-types]
-from typing import List
+from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
+from datetime import datetime, timezone
 
 class Product(BaseDBModel):
-    """Product demonstrating various field types."""
-    name: str                # String
-    price: float             # Decimal number
-    in_stock: bool           # Boolean
-    quantity: int            # Integer
-    tags: List[str]          # List (serialized as BLOB)
+    name: str
+    price: float
+    in_stock: bool
+    quantity: int
+    created_at: int
+
+db = SqliterDB(memory=True)
+db.create_table(Product)
+
+product = db.insert(
+    Product(
+        name="Widget",
+        price=19.99,
+        in_stock=True,
+        quantity=100,
+        created_at=int(datetime.now(timezone.utc).timestamp()),
+    ),
+)
+print(f"Product: {product.name}")
+print(f"Price: ${product.price}")
+print(f"In stock: {product.in_stock}")
+print(f"Quantity: {product.quantity}")
+print(f"Created: {product.created_at}")
+
+db.close()
+# --8<-- [end:field-types]
 ```
 
 ## Model Relationships
@@ -86,7 +131,8 @@ Define relationships between models using foreign keys.
 
 ```python
 # --8<-- [start:relationships]
-from sqliter.model import BaseDBModel, ForeignKey
+from sqliter.model import BaseDBModel
+from sqliter.orm.foreign_key import ForeignKey
 
 class Author(BaseDBModel):
     """An author of books."""
@@ -95,21 +141,40 @@ class Author(BaseDBModel):
 class Book(BaseDBModel):
     """A book with a foreign key to Author."""
     title: str
-    author: ForeignKey[Author]
+    author: ForeignKey[Author] = ForeignKey(Author)
 ```
 
-## Unique Fields
+## Complex Data Types
 
-Ensure field values are unique across all records.
+Store lists, dicts, and other complex types in your models.
 
 ```python
 # --8<-- [start:unique-fields]
-from sqliter.model import BaseDBModel, unique
+from typing import Union
+from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
 
-class User(BaseDBModel):
-    """User with unique email."""
-    username: unique(str)
-    email: unique(str)
+class Document(BaseDBModel):
+    title: str
+    tags: list[str]
+    metadata: dict[str, Union[str, int]]
+
+db = SqliterDB(memory=True)
+db.create_table(Document)
+
+doc = db.insert(
+    Document(
+        title="Guide",
+        tags=["python", "database", "tutorial"],
+        metadata={"views": 1000, "rating": 4},
+    ),
+)
+print(f"Document: {doc.title}")
+print(f"Tags: {doc.tags}")
+print(f"Metadata: {doc.metadata}")
+
+db.close()
+# --8<-- [end:unique-fields]
 ```
 
 ## Related Documentation

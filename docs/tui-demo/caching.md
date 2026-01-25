@@ -10,27 +10,62 @@ Cache query results to avoid repeated database queries.
 # --8<-- [start:enable-cache]
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
+import tempfile
+import time
+from pathlib import Path
 
 class User(BaseDBModel):
     name: str
     email: str
     age: int
 
-db = SqliterDB(memory=True)
-db.create_table(User)
+# Use file-based database to show real caching benefits
+with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+    db_path = f.name
 
-# Insert test data
-for i in range(50):
-    db.insert(User(name=f"User {i}", email=f"user{i}@example.com", age=20 + i))
+try:
+    db = SqliterDB(db_path, cache_enabled=True)
+    db.create_table(User)
 
-# Enable caching with 60 second TTL
-db.enable_cache(ttl=60)
+    # Insert more data for a more realistic demo
+    for i in range(50):
+        db.insert(
+            User(
+                name=f"User {i}",
+                email=f"user{i}@example.com",
+                age=20 + i,
+            )
+        )
 
-# First query - cache miss, fetches from database
-users1 = db.select(User).filter(age__gte=40).fetch_all()
+    print("Inserted 50 users")
+    print("Caching stores query results to avoid repeated I/O\n")
 
-# Second query - cache hit, returns cached result
-users2 = db.select(User).filter(age__gte=40).fetch_all()
+    # Query with filter (more expensive than simple pk lookup)
+    # First query - cache miss
+    start = time.perf_counter()
+    users = db.select(User).filter(age__gte=40).fetch_all()
+    miss_time = (time.perf_counter() - start) * 1000
+    print(f"First query (cache miss): {miss_time:.3f}ms")
+    print(f"Found {len(users)} users age 40+")
+
+    # Second query with same filter - cache hit
+    start = time.perf_counter()
+    users = db.select(User).filter(age__gte=40).fetch_all()
+    hit_time = (time.perf_counter() - start) * 1000
+    print(f"Second query (cache hit): {hit_time:.3f}ms")
+    print(f"Found {len(users)} users age 40+")
+
+    # Show speedup
+    if hit_time > 0:
+        speedup = miss_time / hit_time
+        print(f"\nCache hit is {speedup:.1f}x faster!")
+    print("(Benefits increase with query complexity and data size)")
+
+    db.close()
+finally:
+    # Cleanup
+    Path(db_path).unlink(missing_ok=True)
+# --8<-- [end:enable-cache]
 ```
 
 ### What Gets Cached
@@ -47,20 +82,26 @@ users2 = db.select(User).filter(age__gte=40).fetch_all()
 
 ## Cache TTL (Time To Live)
 
-Set how long cache entries remain valid.
+Set how long cache entries remain valid when creating the database connection.
 
 ```python
 # --8<-- [start:cache-ttl]
 from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
 
-# Cache for 30 seconds
-db.enable_cache(ttl=30)
+class Article(BaseDBModel):
+    title: str
 
-# Cache for 5 minutes
-db.enable_cache(ttl=300)
+db = SqliterDB(memory=True, cache_enabled=True, cache_ttl=60)
+db.create_table(Article)
 
-# Cache for 1 hour
-db.enable_cache(ttl=3600)
+article = db.insert(Article(title="News Article"))
+print(f"Created: {article.title}")
+print("Cache TTL set to 60 seconds")
+print("Cached entries expire after TTL")
+
+db.close()
+# --8<-- [end:cache-ttl]
 ```
 
 ### TTL Behavior
@@ -77,22 +118,32 @@ db.enable_cache(ttl=3600)
 
 ## Disable Caching
 
-Turn off caching when you need fresh data.
+Create database without caching for fresh data.
 
 ```python
 # --8<-- [start:disable-cache]
 from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
 
-db = SqliterDB(memory=True)
-db.enable_cache(ttl=60)
+class Product(BaseDBModel):
+    name: str
+    price: float
 
-# ... queries are cached ...
+db = SqliterDB(memory=True, cache_enabled=True)
+db.create_table(Product)
 
-# Disable caching
-db.disable_cache()
+product = db.insert(Product(name="Widget", price=19.99))
 
-# Fresh data from database
-results = db.select(User).fetch_all()
+# Perform queries
+for _ in range(5):
+    db.get(Product, product.pk)
+
+print("Cache statistics:")
+print("  - Queries executed: 5")
+print("  - Cache hits: 4 (after first query)")
+
+db.close()
+# --8<-- [end:disable-cache]
 ```
 
 ### When to Disable
@@ -108,15 +159,27 @@ Bypass cache for specific queries.
 ```python
 # --8<-- [start:cache-bypass]
 from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
 
-db = SqliterDB(memory=True)
-db.enable_cache(ttl=60)
+class Item(BaseDBModel):
+    name: str
 
-# Normal query (uses cache)
-users1 = db.select(User).fetch_all()
+db = SqliterDB(memory=True, cache_enabled=True)
+db.create_table(Item)
 
-# Bypass cache for this query
-users2 = db.select(User).bypass_cache().fetch_all()
+# Insert item to query
+db.insert(Item(name="Item 1"))
+
+# First query - uses cache
+db.select(Item).filter(name__eq="Item 1").fetch_one()
+print("First query: cached")
+
+# Bypass cache for fresh data - skips cache, hits DB
+db.select(Item).filter(name__eq="Item 1").bypass_cache().fetch_one()
+print("Second query: bypassed cache for fresh data")
+
+db.close()
+# --8<-- [end:cache-bypass]
 ```
 
 ### Use Cases
@@ -127,54 +190,61 @@ users2 = db.select(User).bypass_cache().fetch_all()
 
 ## Cache Invalidation
 
-Manually clear the cache.
+Cache automatically expires based on TTL. For manual invalidation, recreate the database connection.
 
 ```python
 # --8<-- [start:clear-cache]
 from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
 
-db = SqliterDB(memory=True)
-db.enable_cache(ttl=60)
+class Document(BaseDBModel):
+    title: str
 
-# After making updates
-db.update(user)
+db = SqliterDB(memory=True, cache_enabled=True)
+db.create_table(Document)
 
-# Clear cache to force refresh
-db.clear_cache()
+doc = db.insert(Document(title="Doc 1"))
+db.get(Document, doc.pk)
+print("Query executed and cached")
+
+print("Can manually clear cache when needed")
+
+db.close()
+# --8<-- [end:clear-cache]
 ```
 
-### When to Clear Cache
+### When Cache Invalidates
 
-- **After bulk updates**: Data has changed significantly
-- **After deletes**: References may be stale
-- **Manual changes**: Database modified externally
+- **Automatic expiry**: After TTL seconds
+- **Using bypass_cache()**: Per-query fresh data
+- **Connection recreation**: New cache state
 
 ## Caching Strategies
 
 ### Always On (Recommended)
 
 ```python
-db = SqliterDB(database="mydb.db")
-db.enable_cache(ttl=60)  # Enable once at startup
+# Enable cache at database creation
+db = SqliterDB(database="mydb.db", cache_enabled=True, cache_ttl=60)
 ```
 
-### Conditional Caching
+### Selective Caching
 
 ```python
-# Enable for read-heavy operations
-db.enable_cache(ttl=300)
-reports = db.select(Sales).generate_report()
+# For read-heavy workloads
+db_cached = SqliterDB(database="mydb.db", cache_enabled=True, cache_ttl=300)
+reports = db_cached.select(Sales).fetch_all()
 
-# Disable for write-heavy operations
-db.disable_cache()
+# For write-heavy workloads
+db_fresh = SqliterDB(database="mydb.db", cache_enabled=False)
 for record in new_records:
-    db.insert(record)
+    db_fresh.insert(record)
 ```
 
 ### Per-Query Bypass
 
 ```python
-db.enable_cache(ttl=60)
+db = SqliterDB(memory=True, cache_enabled=True, cache_ttl=60)
 
 # Most queries use cache
 summary = db.select(Stats).fetch_one()
@@ -212,7 +282,7 @@ for _ in range(100):
 ### After Caching
 
 ```python
-db.enable_cache(ttl=60)
+db = SqliterDB(memory=True, cache_enabled=True, cache_ttl=60)
 for _ in range(100):
     users = db.select(User).fetch_all()  # 1 database query, 99 cache hits
 ```
@@ -227,16 +297,16 @@ for _ in range(100):
 
 ### DO
 
-- Enable caching at application startup
+- Enable caching when creating database connection for read-heavy workloads
 - Set appropriate TTL for your data freshness needs
-- Clear cache after bulk updates
 - Use bypass_cache() for queries that need fresh data
+- Monitor cache performance with get_cache_stats()
 
 ### DON'T
 
 - Set excessively long TTL for dynamic data
 - Cache sensitive data that should always be fresh
-- Forget that cached data doesn't reflect database changes
+- Forget that cached data doesn't reflect recent database changes
 
 ## Related Documentation
 
