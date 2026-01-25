@@ -161,13 +161,17 @@ class TestDemoRegistry:
 
         def make_demo(idx: int) -> Demo:
             """Factory to create a demo with proper closure binding."""
+
+            def execute() -> str:
+                return f"output{idx}"
+
             return Demo(
                 id=f"demo{idx}",
                 title=f"Demo {idx}",
                 description=f"Demo {idx}",
                 category="test",
                 code=f"code{idx}",
-                execute=lambda: f"output{idx}",
+                execute=execute,
             )
 
         demos = [make_demo(i) for i in range(5)]
