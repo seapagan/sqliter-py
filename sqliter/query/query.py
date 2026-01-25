@@ -918,6 +918,9 @@ class QueryBuilder(Generic[T]):
             self.db._maybe_commit()  # noqa: SLF001
             self.db._cache_invalidate_table(self.table_name)  # noqa: SLF001
         except sqlite3.Error as exc:
+            # Rollback implicit transaction if not in user-managed transaction
+            if not self.db._in_transaction and self.db.conn:  # noqa: SLF001
+                self.db.conn.rollback()
             raise RecordDeletionError(self.table_name) from exc
         else:
             return deleted_count

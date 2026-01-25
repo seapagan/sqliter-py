@@ -894,6 +894,9 @@ class SqliterDB:
             self._maybe_commit()
 
         except sqlite3.IntegrityError as exc:
+            # Rollback implicit transaction if not in user-managed transaction
+            if not self._in_transaction and self.conn:
+                self.conn.rollback()
             # Check for foreign key constraint violation
             if "FOREIGN KEY constraint failed" in str(exc):
                 fk_operation = "insert"
@@ -903,6 +906,9 @@ class SqliterDB:
                 ) from exc
             raise RecordInsertionError(table_name) from exc
         except sqlite3.Error as exc:
+            # Rollback implicit transaction if not in user-managed transaction
+            if not self._in_transaction and self.conn:
+                self.conn.rollback()
             raise RecordInsertionError(table_name) from exc
         else:
             self._cache_invalidate_table(table_name)
@@ -1002,6 +1008,9 @@ class SqliterDB:
             self._cache_invalidate_table(table_name)
 
         except sqlite3.Error as exc:
+            # Rollback implicit transaction if not in user-managed transaction
+            if not self._in_transaction and self.conn:
+                self.conn.rollback()
             raise RecordUpdateError(table_name) from exc
 
     def delete(
@@ -1035,6 +1044,9 @@ class SqliterDB:
             self._maybe_commit()
             self._cache_invalidate_table(table_name)
         except sqlite3.IntegrityError as exc:
+            # Rollback implicit transaction if not in user-managed transaction
+            if not self._in_transaction and self.conn:
+                self.conn.rollback()
             # Check for foreign key constraint violation (RESTRICT)
             if "FOREIGN KEY constraint failed" in str(exc):
                 fk_operation = "delete"
@@ -1044,6 +1056,9 @@ class SqliterDB:
                 ) from exc
             raise RecordDeletionError(table_name) from exc
         except sqlite3.Error as exc:
+            # Rollback implicit transaction if not in user-managed transaction
+            if not self._in_transaction and self.conn:
+                self.conn.rollback()
             raise RecordDeletionError(table_name) from exc
 
     def select(
