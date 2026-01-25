@@ -40,7 +40,7 @@ python -m sqliter.tui
 Or if you have SQLiter installed:
 
 ```bash
-sqliter-tui
+sqliter-demo
 ```
 
 ## Navigation

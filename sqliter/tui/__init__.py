@@ -9,23 +9,25 @@ Usage:
     sqliter-demo
 
 Requires:
-    pip install sqliter-py[demo]
+    uv add sqliter-py[demo]
 """
 
 from __future__ import annotations
 
 from importlib.util import find_spec
-
-from sqliter.tui.app import SQLiterDemoApp
+from typing import TYPE_CHECKING
 
 _TEXTUAL_AVAILABLE = find_spec("textual") is not None
+
+if TYPE_CHECKING:
+    from sqliter.tui.app import SQLiterDemoApp
 
 
 def _missing_dependency_error() -> None:
     """Raise informative error when textual is not installed."""
     msg = (
         "The SQLiter TUI demo requires the 'textual' library.\n"
-        "Install it with: pip install sqliter-py[demo]\n"
+        "Install it with: uv add sqliter-py[demo]\n"
     )
     raise ImportError(msg)
 
@@ -41,6 +43,8 @@ def get_app() -> SQLiterDemoApp:
     """
     if not _TEXTUAL_AVAILABLE:
         _missing_dependency_error()
+
+    from sqliter.tui.app import SQLiterDemoApp  # noqa: PLC0415
 
     return SQLiterDemoApp()
 
