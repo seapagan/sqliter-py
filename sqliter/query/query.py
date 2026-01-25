@@ -286,9 +286,15 @@ class QueryBuilder(Generic[T]):
             value: The value to compare against.
             operator: The operator string (usually '__eq').
 
+        Raises:
+            TypeError: If the value is a list (lists only valid with __in).
+
         This method adds an equality condition to the filters list, handling
         NULL values separately.
         """
+        if isinstance(value, list):
+            msg = f"{field_name} requires scalar for '{operator}', not list"
+            raise TypeError(msg)
         if value is None:
             self.filters.append((f"{field_name} IS NULL", None, "__isnull"))
         else:
@@ -398,8 +404,14 @@ class QueryBuilder(Generic[T]):
             value: The value to compare against.
             operator: The comparison operator string (e.g., '__lt', '__gte').
 
+        Raises:
+            TypeError: If the value is a list (lists only valid with __in).
+
         This method adds a comparison condition to the filters list.
         """
+        if isinstance(value, list):
+            msg = f"{field_name} requires scalar for '{operator}', not list"
+            raise TypeError(msg)
         sql_operator = OPERATOR_MAPPING[operator]
         self.filters.append((f"{field_name} {sql_operator} ?", value, operator))
 
