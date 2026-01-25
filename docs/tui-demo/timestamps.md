@@ -205,11 +205,24 @@ Understand the lifecycle of records:
 ```python
 from datetime import datetime, timezone
 
+from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
+
+class User(BaseDBModel):
+    username: str
+
+db = SqliterDB(memory=True)
+db.create_table(User)
+
+user = db.insert(User(username="alice"))
+
 now = datetime.now(tz=timezone.utc)
 created = datetime.fromtimestamp(user.created_at, tz=timezone.utc)
 updated = datetime.fromtimestamp(user.updated_at, tz=timezone.utc)
 print(f"User created {now - created} ago")
 print(f"Last updated {now - updated} ago")
+
+db.close()
 ```
 
 ### Soft Delete

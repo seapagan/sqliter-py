@@ -53,7 +53,7 @@ class Author(BaseDBModel):
 
 class Book(BaseDBModel):
     title: str
-    author = ForeignKey(Author)
+    author: ForeignKey[Author] = ForeignKey(Author)
 
 db = SqliterDB(memory=True)
 db.create_table(Author)
