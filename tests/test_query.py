@@ -560,6 +560,85 @@ class TestQuery:
                 name="Valid Name", non_existent_field="Invalid"
             ).fetch_all()
 
+    def test_filter_rejects_list_for_equality_operators(self, db_mock) -> None:
+        """Test that equality operators reject list values."""
+        db_mock.create_table(ExampleModel)
+
+        # Test __eq rejects list
+        with pytest.raises(TypeError, match=r"requires scalar.*not list"):
+            db_mock.select(ExampleModel).filter(
+                name__eq=["value1", "value2"]
+            ).fetch_all()
+
+        # Test __ne rejects list
+        with pytest.raises(TypeError, match=r"requires scalar.*not list"):
+            db_mock.select(ExampleModel).filter(
+                name__ne=["value1", "value2"]
+            ).fetch_all()
+
+    def test_filter_rejects_list_for_comparison_operators(
+        self, db_mock
+    ) -> None:
+        """Test that comparison operators reject list values."""
+        db_mock.create_table(ExampleModel)
+
+        # Test __lt rejects list
+        with pytest.raises(TypeError, match=r"requires scalar.*not list"):
+            db_mock.select(ExampleModel).filter(name__lt=["a", "b"]).fetch_all()
+
+        # Test __lte rejects list
+        with pytest.raises(TypeError, match=r"requires scalar.*not list"):
+            db_mock.select(ExampleModel).filter(
+                name__lte=["a", "b"]
+            ).fetch_all()
+
+        # Test __gt rejects list
+        with pytest.raises(TypeError, match=r"requires scalar.*not list"):
+            db_mock.select(ExampleModel).filter(name__gt=["a", "b"]).fetch_all()
+
+        # Test __gte rejects list
+        with pytest.raises(TypeError, match=r"requires scalar.*not list"):
+            db_mock.select(ExampleModel).filter(
+                name__gte=["a", "b"]
+            ).fetch_all()
+
+    def test_filter_accepts_list_for_in_operators(self, db_mock) -> None:
+        """Test that __in and __not_in accept and require list values."""
+        db_mock.create_table(ExampleModel)
+
+        # Insert test data
+        db_mock.insert(
+            ExampleModel(slug="alice", name="Alice", content="Content A")
+        )
+        db_mock.insert(
+            ExampleModel(slug="bob", name="Bob", content="Content B")
+        )
+        db_mock.insert(
+            ExampleModel(slug="charlie", name="Charlie", content="Content C")
+        )
+
+        # Test __in accepts list and works correctly
+        results = (
+            db_mock.select(ExampleModel)
+            .filter(name__in=["Alice", "Bob"])
+            .fetch_all()
+        )
+        assert len(results) == 2
+        assert {r.name for r in results} == {"Alice", "Bob"}
+
+        # Test __not_in accepts list and works correctly
+        results = (
+            db_mock.select(ExampleModel)
+            .filter(name__not_in=["Alice"])
+            .fetch_all()
+        )
+        assert len(results) == 2
+        assert {r.name for r in results} == {"Bob", "Charlie"}
+
+        # Test that __in rejects non-list values
+        with pytest.raises(TypeError, match="requires a list"):
+            db_mock.select(ExampleModel).filter(name__in="Alice").fetch_all()
+
     def test_fetch_result_with_list_of_tuples(self, mocker) -> None:
         """Test _fetch_result when _execute_query returns list of tuples."""
         # ensure we get a dependable timestamp
