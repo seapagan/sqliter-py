@@ -188,8 +188,7 @@ Handle foreign key violations.
 ```python
 # --8<-- [start:foreign-key-error]
 from sqliter import SqliterDB
-from sqliter.model import BaseDBModel
-from sqliter.orm.foreign_key import ForeignKey
+from sqliter.orm import BaseDBModel, ForeignKey
 from sqliter.exceptions import ForeignKeyConstraintError
 
 class Author(BaseDBModel):
@@ -207,16 +206,13 @@ author = db.insert(Author(name="Jane"))
 db.insert(Book(title="Book 1", author=author))
 print("Created author and linked book")
 
-# Simulate what happens with an invalid FK
+# Attempt to insert book with non-existent author
 print("\nAttempting to insert book with non-existent author...")
 
-# Create the error to demonstrate it
-fk_operation = "insert"
-fk_reason = "does not exist in referenced table"
 try:
-    raise ForeignKeyConstraintError(  # noqa: TRY301
-        fk_operation, fk_reason
-    )
+    # Create book with invalid author_id (doesn't exist in database)
+    invalid_book = Book(title="Orphan Book", author_id=9999)
+    db.insert(invalid_book)
 except ForeignKeyConstraintError as e:
     print(f"\nCaught error: {type(e).__name__}")
     print(f"Message: {e}")

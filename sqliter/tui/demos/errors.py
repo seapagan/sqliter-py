@@ -14,7 +14,8 @@ from sqliter.exceptions import (
 )
 from sqliter.model import BaseDBModel
 from sqliter.model.unique import unique
-from sqliter.orm.foreign_key import ForeignKey
+from sqliter.orm import BaseDBModel as ORMBaseDBModel
+from sqliter.orm import ForeignKey
 from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
@@ -83,10 +84,10 @@ def _run_foreign_key_constraint() -> str:
     """
     output = io.StringIO()
 
-    class Author(BaseDBModel):
+    class Author(ORMBaseDBModel):
         name: str
 
-    class Book(BaseDBModel):
+    class Book(ORMBaseDBModel):
         title: str
         author: ForeignKey[Author] = ForeignKey(Author, on_delete="RESTRICT")
 
@@ -98,16 +99,13 @@ def _run_foreign_key_constraint() -> str:
     db.insert(Book(title="Book 1", author=author))
     output.write("Created author and linked book\n")
 
-    # Simulate what happens with an invalid FK
+    # Attempt to insert book with non-existent author
     output.write("\nAttempting to insert book with non-existent author...\n")
 
-    # Create the error to demonstrate it
-    fk_operation = "insert"
-    fk_reason = "does not exist in referenced table"
     try:
-        raise ForeignKeyConstraintError(  # noqa: TRY301
-            fk_operation, fk_reason
-        )
+        # Create book with invalid author_id (doesn't exist in database)
+        invalid_book = Book(title="Orphan Book", author_id=9999)
+        db.insert(invalid_book)
     except ForeignKeyConstraintError as e:
         output.write(f"\nCaught error: {type(e).__name__}\n")
         output.write(f"Message: {e}\n")

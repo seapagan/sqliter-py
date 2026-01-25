@@ -13,12 +13,6 @@ from sqliter.tui import (
 )
 from sqliter.tui.app import SQLiterDemoApp
 
-# Error message for missing textual dependency
-_MISSING_DEPENDENCY_ERROR = (
-    "The SQLiter TUI demo requires the 'textual' library.\n"
-    "Install it with: uv add sqliter-py[demo]\n"
-)
-
 
 class TestMissingDependencyError:
     """Test the _missing_dependency_error function."""

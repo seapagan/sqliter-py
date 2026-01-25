@@ -639,6 +639,12 @@ class TestQuery:
         with pytest.raises(TypeError, match="requires a list"):
             db_mock.select(ExampleModel).filter(name__in="Alice").fetch_all()
 
+        # Test that __not_in rejects non-list values
+        with pytest.raises(TypeError, match="requires a list"):
+            db_mock.select(ExampleModel).filter(
+                name__not_in="Alice"
+            ).fetch_all()
+
     def test_fetch_result_with_list_of_tuples(self, mocker) -> None:
         """Test _fetch_result when _execute_query returns list of tuples."""
         # ensure we get a dependable timestamp
