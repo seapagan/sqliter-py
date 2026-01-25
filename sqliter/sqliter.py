@@ -1002,11 +1002,16 @@ class SqliterDB:
 
             # Check if any rows were updated
             if cursor.rowcount == 0:
-                raise RecordNotFoundError(primary_key_value)
+                raise RecordNotFoundError(primary_key_value)  # noqa: TRY301
 
             self._maybe_commit()
             self._cache_invalidate_table(table_name)
 
+        except RecordNotFoundError:
+            # Rollback implicit transaction if not in user-managed transaction
+            if not self._in_transaction and self.conn:
+                self.conn.rollback()
+            raise
         except sqlite3.Error as exc:
             # Rollback implicit transaction if not in user-managed transaction
             if not self._in_transaction and self.conn:
@@ -1040,9 +1045,14 @@ class SqliterDB:
             cursor.execute(delete_sql, (primary_key_value,))
 
             if cursor.rowcount == 0:
-                raise RecordNotFoundError(primary_key_value)
+                raise RecordNotFoundError(primary_key_value)  # noqa: TRY301
             self._maybe_commit()
             self._cache_invalidate_table(table_name)
+        except RecordNotFoundError:
+            # Rollback implicit transaction if not in user-managed transaction
+            if not self._in_transaction and self.conn:
+                self.conn.rollback()
+            raise
         except sqlite3.IntegrityError as exc:
             # Rollback implicit transaction if not in user-managed transaction
             if not self._in_transaction and self.conn:
