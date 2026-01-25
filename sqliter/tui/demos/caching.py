@@ -175,7 +175,8 @@ def _run_cache_clear() -> str:
     db.get(Document, doc.pk)
     output.write("Query executed and cached\n")
 
-    output.write("Can manually clear cache when needed\n")
+    db.clear_cache()
+    output.write("Cache cleared\n")
 
     db.close()
     return output.getvalue()

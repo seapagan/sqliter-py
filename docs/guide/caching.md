@@ -148,6 +148,45 @@ print(stats)
 - **`total`**: Total cache lookups (hits + misses)
 - **`hit_rate`**: Percentage of cache hits (0-100)
 
+## Clearing the Cache
+
+Manually clear all cached query results using the `clear_cache()` method:
+
+```python
+# Cache some queries
+db.select(User).fetch_all()
+db.select(User).filter(name="Alice").fetch_one()
+
+# Clear all cached entries from all tables
+db.clear_cache()
+```
+
+**Use cases for `clear_cache()`:**
+
+- **Force fresh data**: After external database changes, clear the cache to ensure
+  subsequent queries fetch the latest data
+- **Free memory**: Explicitly release memory used by cached results when needed
+- **Reset state**: Clear cached data before running tests or batch operations
+- **Data synchronization**: When the database is modified by another process or
+  connection
+
+**Example: Force fresh queries after external changes**
+
+```python
+# Query and cache results
+users = db.select(User).fetch_all()
+
+# External process modifies the database...
+# Clear the cache to force fresh queries
+db.clear_cache()
+
+# This query now fetches fresh data from the database
+users = db.select(User).fetch_all()
+```
+
+**Note:** `clear_cache()` does not reset cache statistics (hits/misses). It only
+removes the cached query results themselves.
+
 ## Query-Level Controls
 
 ### Bypassing the Cache

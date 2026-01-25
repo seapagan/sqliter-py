@@ -190,7 +190,8 @@ db.close()
 
 ## Cache Invalidation
 
-Cache automatically expires based on TTL. For manual invalidation, recreate the database connection.
+Cache automatically expires based on TTL. For manual invalidation, use the
+`clear_cache()` method.
 
 ```python
 # --8<-- [start:clear-cache]
@@ -207,7 +208,8 @@ doc = db.insert(Document(title="Doc 1"))
 db.get(Document, doc.pk)
 print("Query executed and cached")
 
-print("Can manually clear cache when needed")
+db.clear_cache()
+print("Cache cleared")
 
 db.close()
 # --8<-- [end:clear-cache]
@@ -217,7 +219,8 @@ db.close()
 
 - **Automatic expiry**: After TTL seconds
 - **Using bypass_cache()**: Per-query fresh data
-- **Connection recreation**: New cache state
+- **Manual clearing**: Call `clear_cache()` to free memory or force refresh
+- **Write operations**: Insert/update/delete automatically invalidate affected tables
 
 ## Caching Strategies
 
