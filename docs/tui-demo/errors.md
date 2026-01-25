@@ -329,7 +329,7 @@ except RecordInsertionError as e:
 
 ## Exception Hierarchy
 
-```
+```text
 Exception
 ├── SqliterError
 │   ├── RecordNotFoundError
