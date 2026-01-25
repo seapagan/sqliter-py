@@ -102,10 +102,8 @@ def _run_validation_error() -> str:
 
     try:
         # Wrong types: price should be float, quantity should be int
-        invalid_product = Product(
-            name="Invalid Widget", price="free", quantity="lots"
-        )
-        db.insert(invalid_product)
+        # ValidationError is raised by Pydantic during model instantiation
+        Product(name="Invalid Widget", price="free", quantity="lots")
     except ValidationError as e:
         output.write(f"\nCaught error: {type(e).__name__}\n")
         output.write(f"Message: {e}\n")
