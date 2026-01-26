@@ -319,7 +319,8 @@ db.close()
 1. Use `__` to access fields on related models: `author__name`
 2. SQLiter automatically creates JOINs to traverse relationships
 3. Filter is applied in SQL, not in Python
-4. Works with all filter operators
+4. Works with most filter operators (note: `__isnull`/`__notnull`
+   are not applied via relationship traversal)
 
 ### Filter Operators on Relationships
 

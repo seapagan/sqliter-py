@@ -619,8 +619,8 @@ class TestSelectRelatedWithComplexFilters:
         assert len(results) == 1
         assert results[0].title == "Pride and Prejudice"
 
-    def test_select_related_with_exclude(self, db: SqliterDB) -> None:
-        """Verify exclude works with select_related (JOINs disabled)."""
+    def test_select_related_with_filter_by_year(self, db: SqliterDB) -> None:
+        """Verify filter with select_related works correctly."""
         results = (
             db.select(Book)
             .select_related("author")
