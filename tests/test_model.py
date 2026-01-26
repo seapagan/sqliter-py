@@ -35,6 +35,47 @@ class TestBaseDBModel:
 
         assert TestModel.get_table_name() == "custom_table"
 
+    def test_get_table_name_invalid_characters(self) -> None:
+        """Test that 'get_table_name' rejects invalid characters."""
+
+        class TestModel(BaseDBModel):
+            class Meta:
+                table_name = "invalid-table-name"
+
+        with pytest.raises(ValueError, match="Invalid table name"):
+            TestModel.get_table_name()
+
+    def test_get_table_name_sql_injection_attempt(self) -> None:
+        """Test that 'get_table_name' prevents SQL injection."""
+
+        class TestModel(BaseDBModel):
+            class Meta:
+                table_name = 'users"; DROP TABLE users; --'
+
+        with pytest.raises(ValueError, match="Invalid table name"):
+            TestModel.get_table_name()
+
+    def test_get_table_name_starts_with_number(self) -> None:
+        """Test that 'get_table_name' rejects names starting with numbers."""
+
+        class TestModel(BaseDBModel):
+            class Meta:
+                table_name = "123table"
+
+        with pytest.raises(
+            ValueError, match=r"Invalid table name.*must start with"
+        ):
+            TestModel.get_table_name()
+
+    def test_get_table_name_with_underscore(self) -> None:
+        """Test that 'get_table_name' allows underscores."""
+
+        class TestModel(BaseDBModel):
+            class Meta:
+                table_name = "my_table_name"
+
+        assert TestModel.get_table_name() == "my_table_name"
+
     def test_model_validate_partial(self) -> None:
         """Test 'model_validate_partial' with partial data."""
 

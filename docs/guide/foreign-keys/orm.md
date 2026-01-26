@@ -123,8 +123,8 @@ for book in books:
     print(f"{book.title} by {book.author.name}")  # ✅ No N+1 problem
 ```
 
-This executes a single JOIN query instead of 101 separate queries (1 for books
-+ 100 for authors).
+This executes a single JOIN query instead of 101 separate queries (1 for books,
+100 for authors).
 
 #### Single-Level Relationships
 
@@ -388,16 +388,16 @@ print(book.author.name)  # Works automatically
 
 **When `db_context` is set automatically:**
 
-- `db.insert()` - Returns instance with `db_context` set
-- `db.get()` - Returns instance with `db_context` set
-- `db.select().fetch_all()` - All instances have `db_context` set
-- `db.select().fetch_one()` - Instance has `db_context` set
++ `db.insert()` - Returns instance with `db_context` set
++ `db.get()` - Returns instance with `db_context` set
++ `db.select().fetch_all()` - All instances have `db_context` set
++ `db.select().fetch_one()` - Instance has `db_context` set
 
 **When you need to set it manually:**
 
-- Creating instances with `Model(...)` constructor
-- Deserializing objects from JSON or other sources
-- Using objects in contexts where they weren't retrieved from the database
++ Creating instances with `Model(...)` constructor
++ Deserializing objects from JSON or other sources
++ Using objects in contexts where they weren't retrieved from the database
 
 ### LazyLoader Not Hashable
 

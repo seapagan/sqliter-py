@@ -28,7 +28,7 @@ from typing import (
     overload,
 )
 
-from typing_extensions import LiteralString, Self
+from typing_extensions import Self
 
 from sqliter.constants import OPERATOR_MAPPING
 from sqliter.exceptions import (
@@ -869,7 +869,7 @@ class QueryBuilder(Generic[T]):
                 f'"{field}"' for field in self.model_class.model_fields
             )
 
-        sql = f'SELECT {fields} FROM "{self.table_name}"'  # noqa: S608 # nosec
+        sql = f'SELECT {fields} FROM "{self.table_name}"'  # noqa: S608
 
         # Build the WHERE clause with special handling for None (NULL in SQL)
         values, where_clause = self._parse_filter()
@@ -902,7 +902,7 @@ class QueryBuilder(Generic[T]):
         else:
             return (results, [])  # Empty column_names for backward compat
 
-    def _parse_filter(self) -> tuple[list[Any], LiteralString]:
+    def _parse_filter(self) -> tuple[list[Any], str]:
         """Parse the filter conditions into SQL clauses and values.
 
         Returns:
@@ -1323,7 +1323,7 @@ class QueryBuilder(Generic[T]):
         Raises:
             RecordDeletionError: If there's an error deleting the records.
         """
-        sql = f'DELETE FROM "{self.table_name}"'  # noqa: S608 # nosec
+        sql = f'DELETE FROM "{self.table_name}"'  # nosec  # noqa: S608
 
         # Build the WHERE clause with special handling for None (NULL in SQL)
         values, where_clause = self._parse_filter()
