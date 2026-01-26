@@ -836,6 +836,7 @@ class QueryBuilder(Generic[T]):
 
             # For count_only with JOINs, we don't need all the columns
             if count_only and needs_join_for_filters:
+                # table_name validated - safe from SQL injection
                 sql = (
                     f'SELECT COUNT(*) FROM "{self.table_name}" AS t0 '  # noqa: S608
                     f"{join_clause}"
@@ -843,6 +844,7 @@ class QueryBuilder(Generic[T]):
             elif self._fields:
                 # Build custom field selection with JOINs
                 field_list = ", ".join(f't0."{f}"' for f in self._fields)
+                # table_name and fields validated - safe from SQL injection
                 sql = (
                     f"SELECT {field_list} FROM "  # noqa: S608
                     f'"{self.table_name}" AS t0 {join_clause}'
@@ -852,6 +854,7 @@ class QueryBuilder(Generic[T]):
                     ("t0", field, self.model_class) for field in self._fields
                 ]
             else:
+                # table_name validated - safe from SQL injection
                 sql = (
                     f"SELECT {select_clause} FROM "  # noqa: S608
                     f'"{self.table_name}" AS t0 {join_clause}'
