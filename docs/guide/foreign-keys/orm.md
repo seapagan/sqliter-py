@@ -109,48 +109,106 @@ for book in books:
 In this example, SQLiter makes 101 database queries total: 1 to fetch all books,
 then 100 more queries (one per book) to fetch each author.
 
-### Avoiding N+1 Queries
+### Eager Loading with select_related()
 
-**Use reverse relationships** when possible to avoid N+1 queries:
-
-```python
-# ✅ Good: Fetch authors, use reverse relationship for books
-authors = db.select(Author).fetch_all()
-for author in authors:
-    # One query per author to fetch all their books
-    books = author.books.fetch_all()
-    print(f"{author.name} wrote:")
-    for book in books:
-        print(f"  - {book.title}")
-```
-
-**Restructure your queries** to minimize relationship traversal:
+Use `select_related()` to fetch related objects in a single JOIN query instead
+of lazy loading:
 
 ```python
-# ✅ Good: Group by author first
-authors = db.select(Author).fetch_all()
-for author in authors:
-    # Single query fetches all books for this author
-    books = author.books.fetch_all()
-    for book in books:
-        print(f"{book.title} by {author.name}")
-```
+# Fetch books with authors in ONE query
+books = db.select(Book).select_related("author").fetch_all()
 
-**Consider explicit foreign keys** for read-heavy scenarios where you only need IDs:
-
-```python
-# ✅ Good: Just use the ID if you don't need related data
-books = db.select(Book).fetch_all()
+# Access authors without triggering additional queries
 for book in books:
-    print(f"{book.title} (author_id: {book.author_id})")  # No queries
+    print(f"{book.title} by {book.author.name}")  # ✅ No N+1 problem
 ```
 
-> [!WARNING]
+This executes a single JOIN query instead of 101 separate queries (1 for books,
+100 for authors).
+
+#### Single-Level Relationships
+
+```python
+# Load single relationship
+book = db.select(Book).select_related("author").fetch_one()
+print(book.author.name)  # "Jane Austen" - already loaded
+```
+
+#### Nested Relationships
+
+```python
+class Comment(BaseDBModel):
+    text: str
+    book: ForeignKey[Book] = ForeignKey(Book, on_delete="CASCADE")
+
+db.create_table(Comment)
+
+# Load nested relationships using double underscore
+comment = db.select(Comment).select_related("book__author").fetch_one()
+print(comment.book.author.name)  # "Jane" - already loaded
+```
+
+#### Multiple Relationships
+
+```python
+class Publisher(BaseDBModel):
+    name: str
+
+class Book(BaseDBModel):
+    title: str
+    author: ForeignKey[Author] = ForeignKey(Author, on_delete="CASCADE")
+    publisher: ForeignKey[Publisher] = ForeignKey(Publisher, on_delete="CASCADE")
+
+# Load multiple relationships at once
+book = db.select(Book).select_related("author", "publisher").fetch_one()
+print(f"{book.title} by {book.author.name} from {book.publisher.name}")
+```
+
+### Relationship Filter Traversal
+
+Filter on related object fields using double underscore (`__`) syntax:
+
+```python
+# Filter by related field
+books = db.select(Book).filter(author__name="Jane Austen").fetch_all()
+
+# Supports all comparison operators
+books = db.select(Book).filter(author__name__like="Jane%").fetch_all()
+books = db.select(Book).filter(author__name__in=["Jane", "Charles"]).fetch_all()
+
+# Works with nested relationships
+comments = db.select(Comment).filter(book__author__name="Charles").fetch_all()
+```
+
+This automatically adds the necessary JOINs behind the scenes.
+
+#### Combining with select_related()
+
+You can combine eager loading with relationship filters:
+
+```python
+# Load related objects AND filter by them
+results = (
+    db.select(Book)
+    .select_related("author")
+    .filter(author__name__startswith="J")
+    .fetch_all()
+)
+
+for book in results:
+    print(f"{book.title} by {book.author.name}")  # No additional query
+```
+
+> [!NOTE]
 >
-> Always be mindful of N+1 queries when looping through objects and accessing
-> foreign keys. Lazy loading is convenient for single objects but can cause
-> performance problems with collections. Consider whether you need the related
-> data in a loop before accessing it.
+> `select_related()` only works with ORM foreign keys (`sqliter.orm.ForeignKey`).
+> For explicit foreign keys, use manual joins or separate queries.
+
+> [!TIP]
+>
+> Always use `select_related()` when you know you'll need related data in a loop.
+> Lazy loading is convenient for single objects or conditional access, but eager
+> loading prevents N+1 queries in most scenarios.
 
 ## Null Foreign Keys
 
@@ -330,16 +388,16 @@ print(book.author.name)  # Works automatically
 
 **When `db_context` is set automatically:**
 
-- `db.insert()` - Returns instance with `db_context` set
-- `db.get()` - Returns instance with `db_context` set
-- `db.select().fetch_all()` - All instances have `db_context` set
-- `db.select().fetch_one()` - Instance has `db_context` set
++ `db.insert()` - Returns instance with `db_context` set
++ `db.get()` - Returns instance with `db_context` set
++ `db.select().fetch_all()` - All instances have `db_context` set
++ `db.select().fetch_one()` - Instance has `db_context` set
 
 **When you need to set it manually:**
 
-- Creating instances with `Model(...)` constructor
-- Deserializing objects from JSON or other sources
-- Using objects in contexts where they weren't retrieved from the database
++ Creating instances with `Model(...)` constructor
++ Deserializing objects from JSON or other sources
++ Using objects in contexts where they weren't retrieved from the database
 
 ### LazyLoader Not Hashable
 
@@ -390,19 +448,21 @@ author_name = book.author.name  # Fetches latest author data
 
 ### Foreign Keys in Filters
 
-When filtering by foreign key relationships, use the `_id` field, not the
-relationship field:
+When filtering by foreign key relationships, you have several options:
 
 ```python
-# ❌ Won't work - can't filter by FK field
-books = db.select(Book).filter(author=author_obj).fetch_all()
-
 # ✅ Works - filter by _id field
 books = db.select(Book).filter(author_id=author.pk).fetch_all()
 
 # ✅ Also works - use the ID directly
 books = db.select(Book).filter(author_id=42).fetch_all()
+
+# ✅ NEW - Filter by related model fields (requires ORM FK)
+books = db.select(Book).filter(author__name="Jane Austen").fetch_all()
 ```
+
+The relationship filter traversal (e.g., `author__name`) only works with
+`sqliter.orm.ForeignKey` and automatically joins the related tables.
 
 ## Complete Example
 

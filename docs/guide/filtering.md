@@ -129,3 +129,64 @@ users = db.select(User).filter(name__istartswith="café").fetch_all()
   - Example: `email__iendswith=".COM"`
 - `__icontains`: Contains (case-insensitive)
   - Example: `description__icontains="IMPORTANT"`
+
+## Relationship Filter Traversal
+
+Filter on fields across related models using double underscore (`__`) syntax.
+This feature works with ORM foreign keys (`sqliter.orm.ForeignKey`):
+
+```python
+from sqliter.orm import BaseDBModel, ForeignKey
+
+class Author(BaseDBModel):
+    name: str
+
+class Book(BaseDBModel):
+    title: str
+    author: ForeignKey[Author] = ForeignKey(Author, on_delete="CASCADE")
+
+# Filter by related model field
+books = db.select(Book).filter(author__name="Jane Austen").fetch_all()
+
+# Works with all comparison operators
+books = db.select(Book).filter(author__name__like="Jane%").fetch_all()
+books = db.select(Book).filter(author__name__in=["Jane", "Charles"]).fetch_all()
+```
+
+This is equivalent to a SQL JOIN with WHERE clause on the related table.
+
+### Nested Relationships
+
+For relationships spanning multiple levels, chain the double underscore syntax:
+
+```python
+class Comment(BaseDBModel):
+    text: str
+    book: ForeignKey[Book] = ForeignKey(Book, on_delete="CASCADE")
+
+# Filter across two levels of relationships
+comments = db.select(Comment).filter(book__author__name="Jane").fetch_all()
+```
+
+### Combining with Eager Loading
+
+For best performance, combine relationship filters with `select_related()`:
+
+```python
+# Filter AND load in single query
+results = (
+    db.select(Book)
+    .select_related("author")
+    .filter(author__name__startswith="J")
+    .fetch_all()
+)
+
+for book in results:
+    print(f"{book.title} by {book.author.name}")  # No additional query
+```
+
+> [!NOTE]
+>
+> Relationship filter traversal only works with ORM foreign keys from
+> `sqliter.orm.ForeignKey`. For explicit foreign keys, filter using the
+> `_id` field directly (e.g., `author_id=42`).

@@ -196,3 +196,16 @@ class InvalidForeignKeyError(ForeignKeyError):
     """
 
     message_template = "Invalid foreign key configuration: {}"
+
+
+class InvalidRelationshipError(SqliterError):
+    """Raised when an invalid relationship path is specified.
+
+    This error occurs when using select_related() or relationship filter
+    traversal with a non-existent relationship field or invalid path.
+    """
+
+    message_template = (
+        "Invalid relationship path '{}': field '{}' is not a valid "
+        "foreign key relationship on model {}"
+    )

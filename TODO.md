@@ -37,6 +37,12 @@ Items marked with :fire: are high priority.
 
 - Tidy up the test suite - remove any duplicates, sort them into logical files
   (many already are), try to reduce and centralize fixtures.
+- :fire: **Resolve mypy overrides for tests and demo code** - Once issue #109
+  (LazyLoader typing) is resolved, remove the `attr-defined` mypy overrides from
+  `pyproject.toml` for both `tests.*` and `sqliter.tui.demos.*`. The goal is to
+  provide excellent type support without requiring users to add type ignore
+  comments or workarounds in their code. User code should have full type safety
+  and IDE support out of the box.
 
 ## Documentation
 

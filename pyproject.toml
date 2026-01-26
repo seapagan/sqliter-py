@@ -159,6 +159,14 @@ exclude = ["docs"]
 disable_error_code = ["method-assign", "no-untyped-def", "attr-defined"]
 module = "tests.*"
 
+# TODO: Remove this override once issue #109 (LazyLoader typing) is resolved.
+# The TUI demo files have the same typing challenges as tests due to LazyLoader
+# returning `object` from __getattr__, causing attr-defined errors with nested
+# foreign key access (e.g., comment.book.author.name).
+[[tool.mypy.overrides]]
+disable_error_code = ["attr-defined"]
+module = "sqliter.tui.demos.*"
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
