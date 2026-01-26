@@ -178,8 +178,8 @@ db.close()
 ### What Happens
 
 1. `select_related("author")` tells SQLiter to include Author data in the initial query
-2. A JOIN query fetches both Book and Author data in one database call
-3. All related objects are pre-loaded and cached, avoiding the N+1 problem
+2. A JOIN fetches both Book and Author data in a single database call
+3. All related objects are preloaded and cached, avoiding the N+1 problem
 
 ### When to Use Eager Loading
 
@@ -379,7 +379,7 @@ books = (
 for book in books:
     print(f"  {book.title} ({book.year}) by {book.author.name}")
 
-print(f"\n{len(books)} result(s) with authors pre-loaded")
+print(f"\n{len(books)} result(s) with authors preloaded")
 
 db.close()
 # --8<-- [end:select-related-filter]
@@ -400,7 +400,7 @@ query = (
     .select_related("author")  # Eager load
     .filter(author__name="Jane Austen")  # Filter by related field
     .filter(year__gte=1800)  # Additional filter
-    .order_by("year")  # Sort results
+    .order("year")  # Sort results
 )
 
 results = query.fetch_all()
