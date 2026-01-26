@@ -409,38 +409,39 @@ results = query.fetch_all()
 ### Best Practices
 
 ```python
-# GOOD: Filter first, then eager load
+# Both examples produce identical SQL - QueryBuilder composes
+# the query regardless of method chaining order
 books = (
     db.select(Book)
-    .filter(author__name="Jane Austen")  # Reduce result set
-    .select_related("author")  # Load relationships for matches only
+    .filter(author__name="Jane Austen")
+    .select_related("author")
     .fetch_all()
 )
 
-# LESS OPTIMAL: Eager load everything then filter
+# Equivalent to the above - same SQL, same performance
 books = (
     db.select(Book)
-    .select_related("author")  # Loads ALL books with authors
-    .filter(author__name="Jane Austen")  # Then filters in memory
+    .select_related("author")
+    .filter(author__name="Jane Austen")
     .fetch_all()
 )
 ```
 
 ### Performance Tips
 
-1. **Filter before eager loading** - reduces JOIN size
+1. **Apply filters to limit rows returned** - reduces data transfer
 2. **Select only needed relationships** - avoid unused data
-3. **Use filters to reduce result set** - less data to transfer
-4. **Combine with ordering** - sort at database level
+3. **Combine with ordering** - sort at database level
+4. **Use pagination** - limit results with `.limit()` and `.offset()`
 
 ```python
 # Optimal query pattern
 results = (
     db.select(Model)
-    .filter(relationship__field="value")  # Filter first
-    .select_related("relationship")  # Then eager load
-    .order_by("field")  # Sort in database
-    .limit(10)  # Limit results
+    .filter(relationship__field="value")
+    .select_related("relationship")
+    .order("field")  # Sort in database
+    .limit(10)
     .fetch_all()
 )
 ```
