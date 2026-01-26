@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -27,6 +28,8 @@ if TYPE_CHECKING:  # pragma: no cover
     from sqliter.sqliter import SqliterDB
 
 T = TypeVar("T", bound=BaseDBModel)
+
+logger = logging.getLogger(__name__)
 
 
 @runtime_checkable
@@ -96,8 +99,14 @@ class LazyLoader(Generic[T]):
             try:
                 result = self._db.get(self._to_model, self._fk_id)
                 self._cached = cast("Optional[T]", result)
-            except SqliterError:
+            except SqliterError as e:
                 # DB errors (missing table, fetch errors) → treat as not found
+                logger.debug(
+                    "LazyLoader failed to fetch %s with pk=%s: %s",
+                    self._to_model.__name__,
+                    self._fk_id,
+                    e,
+                )
                 self._cached = None
 
     def __repr__(self) -> str:
