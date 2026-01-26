@@ -884,9 +884,10 @@ class QueryBuilder(Generic[T]):
                 results = (
                     cursor.fetchall() if not fetch_one else cursor.fetchone()
                 )
-                return (results, column_names)
             except sqlite3.Error as exc:
                 raise RecordFetchError(self.table_name) from exc
+            else:
+                return (results, column_names)
 
         # Non-JOIN query path (original behavior)
         if count_only:
@@ -928,9 +929,10 @@ class QueryBuilder(Generic[T]):
             cursor = conn.cursor()
             cursor.execute(sql, values)
             results = cursor.fetchall() if not fetch_one else cursor.fetchone()
-            return (results, [])  # Empty column_names for backward compat
         except sqlite3.Error as exc:
             raise RecordFetchError(self.table_name) from exc
+        else:
+            return (results, [])  # Empty column_names for backward compat
 
     def _parse_filter(self) -> tuple[list[Any], LiteralString]:
         """Parse the filter conditions into SQL clauses and values.
@@ -1184,7 +1186,7 @@ class QueryBuilder(Generic[T]):
     @overload
     def _fetch_result(self, *, fetch_one: Literal[False]) -> list[T]: ...
 
-    def _fetch_result(  # noqa: C901, PLR0911, PLR0912
+    def _fetch_result(  # noqa: C901, PLR0911
         self, *, fetch_one: bool = False
     ) -> Union[list[T], Optional[T]]:
         """Fetch and convert query results to model instances.
@@ -1266,38 +1268,36 @@ class QueryBuilder(Generic[T]):
                     ttl=self._query_cache_ttl,
                 )
             return list_results
-        else:
-            # Standard converter
-            if fetch_one:
-                std_single_row: tuple[Any, ...] = (
-                    result if isinstance(result, tuple) else result[0]
-                )
-                single_result = self._convert_row_to_model(std_single_row)
-                if not self._bypass_cache:
-                    cache_key = self._make_cache_key(fetch_one=True)
-                    self.db._cache_set(  # noqa: SLF001
-                        self.table_name,
-                        cache_key,
-                        single_result,
-                        ttl=self._query_cache_ttl,
-                    )
-                return single_result
 
-            std_row_list: list[tuple[Any, ...]] = (
-                result if isinstance(result, list) else [result]
+        # Standard converter
+        if fetch_one:
+            std_single_row: tuple[Any, ...] = (
+                result if isinstance(result, tuple) else result[0]
             )
-            list_results = [
-                self._convert_row_to_model(row) for row in std_row_list
-            ]
+            single_result = self._convert_row_to_model(std_single_row)
             if not self._bypass_cache:
-                cache_key = self._make_cache_key(fetch_one=False)
+                cache_key = self._make_cache_key(fetch_one=True)
                 self.db._cache_set(  # noqa: SLF001
                     self.table_name,
                     cache_key,
-                    list_results,
+                    single_result,
                     ttl=self._query_cache_ttl,
                 )
-            return list_results
+            return single_result
+
+        std_row_list: list[tuple[Any, ...]] = (
+            result if isinstance(result, list) else [result]
+        )
+        list_results = [self._convert_row_to_model(row) for row in std_row_list]
+        if not self._bypass_cache:
+            cache_key = self._make_cache_key(fetch_one=False)
+            self.db._cache_set(  # noqa: SLF001
+                self.table_name,
+                cache_key,
+                list_results,
+                ttl=self._query_cache_ttl,
+            )
+        return list_results
 
     def fetch_all(self) -> list[T]:
         """Fetch all results of the query.

@@ -1,10 +1,16 @@
-"""Tests for select_related() eager loading and relationship filter traversal."""
+"""Tests for select_related() eager loading and relationship filter traversal.
+
+Tests cover single-level and nested eager loading via JOINs, relationship
+filter traversal, and edge cases.
+"""
+
+from collections.abc import Generator
 
 import pytest
 
 from sqliter import SqliterDB
+from sqliter.exceptions import InvalidFilterError, InvalidRelationshipError
 from sqliter.orm import BaseDBModel, ForeignKey
-from sqliter.exceptions import InvalidRelationshipError
 
 
 class Author(BaseDBModel):
@@ -40,7 +46,7 @@ class Comment(BaseDBModel):
 
 
 @pytest.fixture
-def db():
+def db() -> Generator[SqliterDB, None, None]:
     """Create a test database with sample data."""
     db = SqliterDB(":memory:")
     db.create_table(Author)
@@ -65,7 +71,7 @@ def db():
             publisher=publisher1,
         )
     )
-    book2 = db.insert(
+    db.insert(
         Book(
             title="Sense and Sensibility",
             year=1811,
@@ -73,7 +79,7 @@ def db():
             publisher=publisher1,
         )
     )
-    book3 = db.insert(
+    db.insert(
         Book(
             title="Oliver Twist",
             year=1838,
@@ -81,13 +87,13 @@ def db():
             publisher=publisher2,
         )
     )
-    book4 = db.insert(
+    db.insert(
         Book(
             title="Independent Book", year=2000, author=author2, publisher=None
         )
     )
 
-    comment1 = db.insert(Comment(text="Great book!", book=book1))
+    db.insert(Comment(text="Great book!", book=book1))
 
     yield db
 
@@ -99,7 +105,7 @@ def db():
 class TestSelectRelated:
     """Tests for select_related() eager loading functionality."""
 
-    def test_single_level_eager_load(self, db):
+    def test_single_level_eager_load(self, db: SqliterDB) -> None:
         """Verify select_related() loads related object."""
         result = db.select(Book).select_related("author").fetch_one()
 
@@ -108,7 +114,7 @@ class TestSelectRelated:
         assert result.author.name == "Jane Austen"
         assert result.author.email == "jane@example.com"
 
-    def test_single_level_eager_load_all(self, db):
+    def test_single_level_eager_load_all(self, db: SqliterDB) -> None:
         """Verify select_related() loads all related objects."""
         results = db.select(Book).select_related("author").fetch_all()
 
@@ -118,7 +124,7 @@ class TestSelectRelated:
             assert book.author is not None
             assert isinstance(book.author.name, str)
 
-    def test_multiple_paths(self, db):
+    def test_multiple_paths(self, db: SqliterDB) -> None:
         """Verify select_related() with multiple relationship paths."""
         result = (
             db.select(Book)
@@ -133,7 +139,7 @@ class TestSelectRelated:
         assert result.publisher is not None
         assert result.publisher.name == "Penguin"
 
-    def test_nullable_fk_with_none_value(self, db):
+    def test_nullable_fk_with_none_value(self, db: SqliterDB) -> None:
         """Verify select_related() handles NULL foreign keys correctly."""
         result = (
             db.select(Book)
@@ -145,7 +151,7 @@ class TestSelectRelated:
         assert result is not None
         assert result.publisher is None  # LEFT JOIN with no match
 
-    def test_select_related_with_filters(self, db):
+    def test_select_related_with_filters(self, db: SqliterDB) -> None:
         """Verify select_related() works with filters."""
         results = (
             db.select(Book)
@@ -158,7 +164,7 @@ class TestSelectRelated:
         for book in results:
             assert book.author.name == "Charles Dickens"
 
-    def test_select_related_with_ordering(self, db):
+    def test_select_related_with_ordering(self, db: SqliterDB) -> None:
         """Verify select_related() works with ordering."""
         results = (
             db.select(Book)
@@ -170,13 +176,13 @@ class TestSelectRelated:
         assert results[0].year == 2000
         assert results[-1].year == 1811
 
-    def test_select_related_with_limit(self, db):
+    def test_select_related_with_limit(self, db: SqliterDB) -> None:
         """Verify select_related() works with limit."""
         results = db.select(Book).select_related("author").limit(2).fetch_all()
 
         assert len(results) == 2
 
-    def test_select_related_with_offset(self, db):
+    def test_select_related_with_offset(self, db: SqliterDB) -> None:
         """Verify select_related() works with offset."""
         results = (
             db.select(Book)
@@ -194,7 +200,7 @@ class TestSelectRelated:
 class TestNestedSelectRelated:
     """Tests for nested select_related() (multi-level relationships)."""
 
-    def test_nested_two_level(self, db):
+    def test_nested_two_level(self, db: SqliterDB) -> None:
         """Verify nested select_related('book__author') works."""
         result = db.select(Comment).select_related("book__author").fetch_one()
 
@@ -203,7 +209,7 @@ class TestNestedSelectRelated:
         assert result.book.author is not None
         assert result.book.author.name == "Jane Austen"
 
-    def test_nested_three_level(self, db):
+    def test_nested_three_level(self, db: SqliterDB) -> None:
         """Verify deeply nested select_related() works."""
         # This requires Comment -> Book -> Publisher relationship
         # For now, test that we can at least build the join info
@@ -218,7 +224,7 @@ class TestNestedSelectRelated:
         if result.book.publisher:
             assert isinstance(result.book.publisher.name, str)
 
-    def test_nested_with_filter(self, db):
+    def test_nested_with_filter(self, db: SqliterDB) -> None:
         """Verify nested select_related() with filter on related field."""
         results = (
             db.select(Comment)
@@ -234,7 +240,7 @@ class TestNestedSelectRelated:
 class TestRelationshipFilterTraversal:
     """Tests for relationship filter traversal (filter(author__name='...'))."""
 
-    def test_filter_on_related_field(self, db):
+    def test_filter_on_related_field(self, db: SqliterDB) -> None:
         """Verify filter traversal works."""
         results = db.select(Book).filter(author__name="Jane Austen").fetch_all()
 
@@ -242,13 +248,15 @@ class TestRelationshipFilterTraversal:
         for book in results:
             assert book.author.name == "Jane Austen"
 
-    def test_filter_on_related_field_with_operator(self, db):
+    def test_filter_on_related_field_with_operator(self, db: SqliterDB) -> None:
         """Verify filter traversal with comparison operators."""
         results = db.select(Book).filter(author__name__like="Jane%").fetch_all()
 
         assert len(results) == 2
 
-    def test_filter_on_related_field_with_multiple_conditions(self, db):
+    def test_filter_on_related_field_with_multiple_conditions(
+        self, db: SqliterDB
+    ) -> None:
         """Verify filter traversal with multiple conditions."""
         results = (
             db.select(Book)
@@ -259,7 +267,7 @@ class TestRelationshipFilterTraversal:
         assert len(results) == 1
         assert results[0].title == "Oliver Twist"
 
-    def test_filter_on_nullable_relationship(self, db):
+    def test_filter_on_nullable_relationship(self, db: SqliterDB) -> None:
         """Verify filter traversal on nullable relationship."""
         results = db.select(Book).filter(publisher__name="Penguin").fetch_all()
 
@@ -268,7 +276,7 @@ class TestRelationshipFilterTraversal:
             if book.publisher:
                 assert book.publisher.name == "Penguin"
 
-    def test_filter_on_nested_relationship(self, db):
+    def test_filter_on_nested_relationship(self, db: SqliterDB) -> None:
         """Verify filter on nested relationship (book__author__name)."""
         results = (
             db.select(Comment)
@@ -278,7 +286,7 @@ class TestRelationshipFilterTraversal:
 
         assert len(results) == 1
 
-    def test_filter_with_implicit_eager_load(self, db):
+    def test_filter_with_implicit_eager_load(self, db: SqliterDB) -> None:
         """Verify that filter traversal implicitly eager loads relationships."""
         results = db.select(Book).filter(author__name="Jane Austen").fetch_all()
 
@@ -292,37 +300,40 @@ class TestRelationshipFilterTraversal:
 class TestErrorHandling:
     """Tests for error handling in select_related() and filter traversal."""
 
-    def test_invalid_select_related_path(self, db):
+    def test_invalid_select_related_path(self, db: SqliterDB) -> None:
         """Verify invalid relationship path raises error."""
         with pytest.raises(InvalidRelationshipError):
             db.select(Book).select_related("nonexistent").fetch_all()
 
-    def test_invalid_filter_relationship_path(self, db):
+    def test_invalid_filter_relationship_path(self, db: SqliterDB) -> None:
         """Verify invalid relationship in filter raises error."""
         with pytest.raises(InvalidRelationshipError):
             db.select(Book).filter(nonexistent__name="John").fetch_all()
 
-    def test_invalid_field_in_related_filter(self, db):
+    def test_invalid_field_in_related_filter(self, db: SqliterDB) -> None:
         """Verify invalid field in related filter raises appropriate error."""
         # This should raise InvalidFilterError for the invalid field
-        with pytest.raises(Exception):  # Could be InvalidFilterError or similar
+        with pytest.raises(InvalidFilterError):
             db.select(Book).filter(author__nonexistent="John").fetch_all()
 
 
 class TestCachingBehavior:
     """Tests for _fk_cache behavior with eager loading."""
 
-    def test_eager_load_populates_fk_cache(self, db):
+    def test_eager_load_populates_fk_cache(self, db: SqliterDB) -> None:
         """Verify eager loading populates _fk_cache."""
         result = db.select(Book).select_related("author").fetch_one()
 
+        assert result is not None
         assert hasattr(result, "_fk_cache")
-        assert "author" in result._fk_cache
-        assert result._fk_cache["author"].name == "Jane Austen"
+        fk_cache = getattr(result, "_fk_cache", {})
+        assert "author" in fk_cache
+        assert fk_cache["author"].name == "Jane Austen"
 
-    def test_cached_object_reused(self, db):
+    def test_cached_object_reused(self, db: SqliterDB) -> None:
         """Verify cached object is reused on multiple access."""
         result = db.select(Book).select_related("author").fetch_one()
+        assert result is not None
 
         author1 = result.author
         author2 = result.author
@@ -330,18 +341,20 @@ class TestCachingBehavior:
         # Same object instance (from cache)
         assert author1 is author2
 
-    def test_filter_traversal_populates_fk_cache(self, db):
+    def test_filter_traversal_populates_fk_cache(self, db: SqliterDB) -> None:
         """Verify filter traversal populates _fk_cache."""
         results = db.select(Book).filter(author__name="Jane Austen").fetch_all()
 
         for book in results:
-            assert "author" in book._fk_cache
+            assert hasattr(book, "_fk_cache")
+            fk_cache = getattr(book, "_fk_cache", {})
+            assert "author" in fk_cache
 
 
 class TestCombinationFeatures:
     """Tests combining select_related() with other features."""
 
-    def test_select_related_with_fields_selection(self, db):
+    def test_select_related_with_fields_selection(self, db: SqliterDB) -> None:
         """Note: select_related() is disabled when fields() is used."""
         # This test documents current behavior - when specific fields
         # are selected, JOINs are disabled
@@ -355,7 +368,7 @@ class TestCombinationFeatures:
         # Results should be returned (with eager loading disabled)
         assert len(results) > 0
 
-    def test_select_related_with_exclude(self, db):
+    def test_select_related_with_exclude(self, db: SqliterDB) -> None:
         """Note: select_related() is disabled when exclude() is used."""
         results = (
             db.select(Book)
@@ -367,7 +380,7 @@ class TestCombinationFeatures:
         # Results should be returned (with eager loading disabled)
         assert len(results) > 0
 
-    def test_select_related_with_only(self, db):
+    def test_select_related_with_only(self, db: SqliterDB) -> None:
         """Note: select_related() is disabled when only() is used."""
         results = (
             db.select(Book).only("title").select_related("author").fetch_all()
@@ -380,7 +393,7 @@ class TestCombinationFeatures:
 class TestEdgeCases:
     """Tests for edge cases and boundary conditions."""
 
-    def test_empty_result_with_select_related(self, db):
+    def test_empty_result_with_select_related(self, db: SqliterDB) -> None:
         """Verify select_related() works with empty result set."""
         results = (
             db.select(Book)
@@ -391,7 +404,9 @@ class TestEdgeCases:
 
         assert results == []
 
-    def test_select_related_on_self_referential_model(self, db):
+    def test_select_related_on_self_referential_model(
+        self, db: SqliterDB
+    ) -> None:
         """Test select_related() works with self-referential FKs.
 
         Note: Self-referential models with forward references require special
@@ -411,10 +426,11 @@ class TestEdgeCases:
         # Skip this test for now as self-referential models with forward
         # references require module-level model definition
         pytest.skip(
-            "Self-referential models require module-level definition for forward references"
+            "Self-referential models require module-level definition for "
+            "forward references"
         )
 
-    def test_multiple_calls_to_select_related(self, db):
+    def test_multiple_calls_to_select_related(self, db: SqliterDB) -> None:
         """Verify multiple select_related() calls accumulate."""
         result = (
             db.select(Book)
