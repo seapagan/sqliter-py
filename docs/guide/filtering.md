@@ -57,13 +57,60 @@ result = db.select(User).filter(age__gte=20).filter(age__lte=30).fetch_all()
 
 ## Pattern Matching
 
-- `__like`: SQL LIKE pattern matching (SQLite default is case-insensitive for ASCII)
-  - Use `%` for any sequence of characters
-  - Use `_` for any single character
-  - Example: `name__like="A%"` (starts with A)
-  - Example: `name__like="%son"` (ends with "son")
-  - Example: `name__like="%mid%"` (contains "mid")
-  - Example: `name__like="_ob"` (3 characters ending in "ob")
+### LIKE Operator
+
+The `__like` operator provides SQL LIKE pattern matching with wildcards:
+
+- `%` matches any sequence of characters (including zero characters)
+- `_` matches any single character
+
+```python
+# Starts with 'A'
+users = db.select(User).filter(name__like="A%").fetch_all()
+
+# Ends with 'son'
+users = db.select(User).filter(name__like="%son").fetch_all()
+
+# Contains 'mid' anywhere
+users = db.select(User).filter(description__like="%mid%").fetch_all()
+
+# Exactly 3 characters ending in 'ob'
+users = db.select(User).filter(name__like="_ob").fetch_all()
+```
+
+#### Case Sensitivity Limitations
+
+SQLite's `LIKE` operator is **case-insensitive only for ASCII characters (A-Z)**:
+
+```python
+# ✅ Case-insensitive for ASCII
+users = db.select(User).filter(name__like="alice").fetch_all()
+# Matches: "Alice", "ALICE", "alice"
+
+# ❌ Case-SENSITIVE for non-ASCII Unicode characters
+users = db.select(User).filter(name__like="café").fetch_all()
+# Does NOT match: "CAFÉ" or "Café"
+# Only matches: "café"
+```
+
+**For Unicode-aware case-insensitive matching**, use the `__icontains`,
+`__istartswith`, or `__iendswith` operators instead:
+
+```python
+# ✅ Case-insensitive for all Unicode characters
+users = db.select(User).filter(name__icontains="café").fetch_all()
+# Matches: "café", "CAFÉ", "Café", "Grand Café"
+
+users = db.select(User).filter(name__istartswith="café").fetch_all()
+# Matches: "café", "CAFÉ", "Café Noir"
+```
+
+> [!WARNING]
+>
+> The `LIKE` operator in SQLite is only case-insensitive for ASCII letters.
+> If your data includes accented characters, non-Latin scripts, or any
+> non-ASCII text, use `__icontains`, `__istartswith`, or `__iendswith` for
+> reliable case-insensitive matching
 
 ## String Operations (Case-Sensitive)
 

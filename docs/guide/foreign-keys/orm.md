@@ -89,6 +89,69 @@ author2 = book.author
 assert author1 is author2
 ```
 
+## Performance Considerations
+
+### The N+1 Query Problem
+
+When iterating over multiple objects and accessing their foreign key relationships,
+you can encounter the **N+1 query problem**. This happens when you make 1 query
+to fetch N objects, then N additional queries to fetch each related object:
+
+```python
+# Fetch 100 books (1 query)
+books = db.select(Book).fetch_all()
+
+# Accessing author for each book triggers a separate query (100 queries!)
+for book in books:
+    print(f"{book.title} by {book.author.name}")  # ⚠️ N+1 problem
+```
+
+In this example, SQLiter makes 101 database queries total: 1 to fetch all books,
+then 100 more queries (one per book) to fetch each author.
+
+### Avoiding N+1 Queries
+
+**Use reverse relationships** when possible to avoid N+1 queries:
+
+```python
+# ✅ Good: Fetch authors, use reverse relationship for books
+authors = db.select(Author).fetch_all()
+for author in authors:
+    # One query per author to fetch all their books
+    books = author.books.fetch_all()
+    print(f"{author.name} wrote:")
+    for book in books:
+        print(f"  - {book.title}")
+```
+
+**Restructure your queries** to minimize relationship traversal:
+
+```python
+# ✅ Good: Group by author first
+authors = db.select(Author).fetch_all()
+for author in authors:
+    # Single query fetches all books for this author
+    books = author.books.fetch_all()
+    for book in books:
+        print(f"{book.title} by {author.name}")
+```
+
+**Consider explicit foreign keys** for read-heavy scenarios where you only need IDs:
+
+```python
+# ✅ Good: Just use the ID if you don't need related data
+books = db.select(Book).fetch_all()
+for book in books:
+    print(f"{book.title} (author_id: {book.author_id})")  # No queries
+```
+
+> [!WARNING]
+>
+> Always be mindful of N+1 queries when looping through objects and accessing
+> foreign keys. Lazy loading is convenient for single objects but can cause
+> performance problems with collections. Consider whether you need the related
+> data in a loop before accessing it.
+
 ## Null Foreign Keys
 
 When a foreign key is null, accessing it returns `None` directly:
@@ -240,6 +303,105 @@ author: ForeignKey[Author] = ForeignKey(
 
 # RESTRICT - prevent deletion if books exist (default)
 author: ForeignKey[Author] = ForeignKey(Author, on_delete="RESTRICT")
+```
+
+## Common Issues and Gotchas
+
+### Database Context Not Set
+
+Lazy loading requires `db_context` to be set on the model instance. SQLiter
+automatically sets this for objects returned from database operations, but
+manually created instances need it set explicitly:
+
+```python
+# ❌ Won't work - no db_context
+book = Book(title="Manual Book", author_id=1)
+print(book.author.name)  # AttributeError: 'NoneType' has no attribute 'name'
+
+# ✅ Works - db_context set manually
+book = Book(title="Manual Book", author_id=1)
+book.db_context = db
+print(book.author.name)  # Now works!
+
+# ✅ Automatic - db operations set db_context
+book = db.get(Book, 1)
+print(book.author.name)  # Works automatically
+```
+
+**When `db_context` is set automatically:**
+
+- `db.insert()` - Returns instance with `db_context` set
+- `db.get()` - Returns instance with `db_context` set
+- `db.select().fetch_all()` - All instances have `db_context` set
+- `db.select().fetch_one()` - Instance has `db_context` set
+
+**When you need to set it manually:**
+
+- Creating instances with `Model(...)` constructor
+- Deserializing objects from JSON or other sources
+- Using objects in contexts where they weren't retrieved from the database
+
+### LazyLoader Not Hashable
+
+Foreign key fields return `LazyLoader` proxy objects, which are **not hashable**.
+This means you cannot use them in sets or as dictionary keys:
+
+```python
+book = db.get(Book, 1)
+
+# ❌ Won't work - LazyLoader is unhashable
+authors_set = {book.author}  # TypeError: unhashable type: 'LazyLoader'
+
+# ❌ Won't work - Can't use as dict key
+author_map = {book.author: book}  # TypeError: unhashable type: 'LazyLoader'
+
+# ✅ Works - Access the underlying object's pk
+authors_set = {book.author.pk}
+
+# ✅ Works - Store the ID instead
+author_map = {book.author_id: book}
+
+# ✅ Works - Build dict from author objects after loading
+authors = [book.author for book in books]  # Triggers loading
+author_map = {author.pk: author for author in authors}
+```
+
+**Why unhashable?** `LazyLoader` uses mutable equality (based on the cached
+object), which violates Python's hash/equality contract. Setting `__hash__ = None`
+prevents subtle bugs where two "equal" objects have different hashes.
+
+### Stale Cache After Manual Updates
+
+If you modify the foreign key ID field directly and then access the relationship,
+the cache is automatically cleared. However, external database changes won't be
+reflected:
+
+```python
+book = db.get(Book, 1)
+author_name = book.author.name  # Caches author object
+
+# Another process/connection updates the author record
+# book.author still returns cached (stale) data
+
+# ✅ To get fresh data, re-fetch the book
+book = db.get(Book, 1)
+author_name = book.author.name  # Fetches latest author data
+```
+
+### Foreign Keys in Filters
+
+When filtering by foreign key relationships, use the `_id` field, not the
+relationship field:
+
+```python
+# ❌ Won't work - can't filter by FK field
+books = db.select(Book).filter(author=author_obj).fetch_all()
+
+# ✅ Works - filter by _id field
+books = db.select(Book).filter(author_id=author.pk).fetch_all()
+
+# ✅ Also works - use the ID directly
+books = db.select(Book).filter(author_id=42).fetch_all()
 ```
 
 ## Complete Example
