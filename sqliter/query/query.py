@@ -843,8 +843,10 @@ class QueryBuilder(Generic[T]):
             elif self._fields:
                 # Build custom field selection with JOINs
                 field_list = ", ".join(f't0."{f}"' for f in self._fields)
-                sql = f"SELECT {field_list} FROM "  # noqa: S608
-                f'"{self.table_name}" AS t0 {join_clause}'
+                sql = (
+                    f"SELECT {field_list} FROM "  # noqa: S608
+                    f'"{self.table_name}" AS t0 {join_clause}'
+                )
             else:
                 sql = (
                     f"SELECT {select_clause} FROM "  # noqa: S608

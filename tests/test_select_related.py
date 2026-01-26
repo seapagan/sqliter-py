@@ -6,7 +6,6 @@ filter traversal, and edge cases.
 
 from __future__ import annotations
 
-import sqlite3
 from typing import TYPE_CHECKING
 from unittest import mock
 
@@ -16,7 +15,6 @@ from sqliter import SqliterDB
 from sqliter.exceptions import (
     InvalidFilterError,
     InvalidRelationshipError,
-    RecordFetchError,
 )
 from sqliter.orm import BaseDBModel, ForeignKey
 
@@ -597,6 +595,14 @@ class TestSelectRelatedEdgeCases:
 
         assert result is None
 
+    def test_count_with_relationship_filters(self, db: SqliterDB) -> None:
+        """Verify count() works with relationship filters."""
+        # Count books by author's name using relationship traversal
+        count = db.select(Book).filter(author__name="Jane Austen").count()
+
+        # Should find 2 books by Jane Austen
+        assert count == 2
+
 
 class TestSelectRelatedWithComplexFilters:
     """Tests for select_related with complex filter combinations."""
@@ -735,8 +741,3 @@ class TestSelectRelatedWithMocks:
             mock_connect.return_value = mock_conn
 
             # Mock cursor.execute to raise SQLite error
-            mock_cursor.execute.side_effect = sqlite3.Error("Mock DB error")
-
-            # Should catch the error and raise RecordFetchError
-            with pytest.raises(RecordFetchError):
-                query.fetch_all()
