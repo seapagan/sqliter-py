@@ -250,7 +250,7 @@ db.close()
 
 ### How Nested Loading Works
 
-1. Use double underscore (`__`) to traverse relationship paths
+1. Use double underscores (`__`) to traverse relationship paths
 2. `select_related("book__author")` loads: Comment → Book → Author
 3. Creates a chain of JOINs in a single query
 4. All related objects are accessible without additional database hits
@@ -388,7 +388,7 @@ db.close()
 ### Why Combine Them?
 
 - **Filter**: Reduces result set at the database level
-- **select_related**: Pre-loads relationships for filtered results
+- **select_related**: Preloads relationships for filtered results
 - **Together**: Optimal performance - minimal data transfer, no N+1 queries
 
 ### Query Builder Chaining
@@ -565,7 +565,7 @@ By default, SQLite doesn't enforce foreign key constraints for backwards compati
 
 - [ ] Will I access related objects? Use `select_related()`
 - [ ] Am I filtering by related fields? Use `__` syntax
-- [ ] Am I iterating over results? Pre-load with `select_related()`
+- [ ] Am I iterating over results? Preload with `select_related()`
 - [ ] Can I filter before eager loading? Order operations for efficiency
 
 ## Related Documentation
