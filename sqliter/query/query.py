@@ -401,6 +401,16 @@ class QueryBuilder(Generic[T]):
             progressive_path.append(segment)
             current_path = "__".join(progressive_path)
 
+            # Check if this path segment already exists to avoid duplicate JOINs
+            if any(j.path == current_path for j in self._join_info):
+                # Path exists - find existing JoinInfo to continue chain
+                existing_join = next(
+                    j for j in self._join_info if j.path == current_path
+                )
+                current_model = existing_join.model_class
+                parent_alias = existing_join.alias
+                continue
+
             # Build JoinInfo
             join_info = JoinInfo(
                 alias=alias,
