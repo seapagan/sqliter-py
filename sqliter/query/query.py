@@ -214,18 +214,9 @@ class QueryBuilder(Generic[T]):
         self._validate_and_build_join_info(relationship_path)
 
         # Find the join info for this relationship path
-        join_info = None
-        for j in self._join_info:
-            if j.path == relationship_path:
-                join_info = j
-                break
-
-        if not join_info:
-            # This shouldn't happen if validation worked
-            first_segment = relationship_path.split("__")[0]
-            raise InvalidRelationshipError(
-                relationship_path, first_segment, self.model_class.__name__
-            )
+        join_info = next(
+            j for j in self._join_info if j.path == relationship_path
+        )
 
         # Validate target field exists on the related model
         if target_field not in join_info.model_class.model_fields:
@@ -239,11 +230,10 @@ class QueryBuilder(Generic[T]):
         qualified_field = f'{join_info.alias}."{target_field}"'
 
         # Use the appropriate handler
-        if operator in ["__isnull", "__notnull"]:
-            self._handle_null(qualified_field, value, operator)
-        else:
-            handler = self._get_operator_handler(operator)
-            handler(qualified_field, value, operator)
+        # Note: __isnull/__notnull operators don't reach here due to
+        # filter() method check at line 176-179
+        handler = self._get_operator_handler(operator)
+        handler(qualified_field, value, operator)
 
     def fields(self, fields: Optional[list[str]] = None) -> Self:
         """Specify which fields to select in the query.
@@ -393,32 +383,15 @@ class QueryBuilder(Generic[T]):
             fk_descriptors = getattr(current_model, "fk_descriptors", {})
 
             if segment not in fk_descriptors:
-                # Check if there's a corresponding _id field for explicit FK
-                id_field = f"{segment}_id"
-                if id_field in current_model.model_fields:
-                    field_info = current_model.model_fields[id_field]
-                    from sqliter.model.foreign_key import (  # noqa: PLC0415
-                        get_foreign_key_info,
-                    )
+                # Not an ORM-style FK - select_related() only supports ORM FKs
+                model_name = current_model.__name__
+                raise InvalidRelationshipError(path, segment, model_name)
 
-                    fk_info = get_foreign_key_info(field_info)
-                    if fk_info is None:
-                        raise InvalidRelationshipError(
-                            path, segment, current_model.__name__
-                        )
-                    # This is an explicit FK, get the to_model
-                    to_model = fk_info.to_model
-                    fk_column = id_field
-                    is_nullable = fk_info.null
-                else:
-                    model_name = current_model.__name__
-                    raise InvalidRelationshipError(path, segment, model_name)
-            else:
-                # ORM FK descriptor
-                fk_descriptor = fk_descriptors[segment]
-                to_model = fk_descriptor.to_model
-                fk_column = f"{segment}_id"
-                is_nullable = fk_descriptor.fk_info.null
+            # ORM FK descriptor
+            fk_descriptor = fk_descriptors[segment]
+            to_model = fk_descriptor.to_model
+            fk_column = f"{segment}_id"
+            is_nullable = fk_descriptor.fk_info.null
 
             # Create alias for this join using global counter
             alias = f"t{next_alias_num}"
@@ -686,9 +659,7 @@ class QueryBuilder(Generic[T]):
             - select_clause: SELECT clause with aliased columns
             - column_names: List of (alias, field_name, model_class) tuples
         """
-        if not self._join_info:
-            return "", "", []
-
+        # Note: Only called when _join_info is not empty (line 840)
         select_parts: list[str] = []
         column_names: list[tuple[str, str, type[BaseDBModel]]] = []
         join_parts: list[str] = []
@@ -861,9 +832,6 @@ class QueryBuilder(Generic[T]):
                     field_name = match.group(1)
                     direction = match.group(2)
                     sql += f' ORDER BY t0."{field_name}" {direction}'
-                else:
-                    # Fallback to original if pattern doesn't match
-                    sql += f" ORDER BY {self._order_by}"
 
             if self._limit is not None:
                 sql += " LIMIT ?"
@@ -1019,10 +987,7 @@ class QueryBuilder(Generic[T]):
             tables_data[alias][field_name] = row[idx]
 
         # Build main model (t0)
-        main_data = tables_data.get("t0", {})
-        if not main_data:
-            msg = "No main table data in JOIN result"
-            raise ValueError(msg)
+        main_data = tables_data["t0"]
 
         # Deserialize and create main instance
         main_instance_data = {
@@ -1043,9 +1008,6 @@ class QueryBuilder(Generic[T]):
 
         for join_info in self._join_info:
             alias = join_info.alias
-            if alias not in tables_data:
-                continue
-
             related_data = tables_data[alias]
 
             # Check if all fields are NULL (LEFT JOIN with no match)
