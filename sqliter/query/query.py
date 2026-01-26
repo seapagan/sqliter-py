@@ -817,15 +817,39 @@ class QueryBuilder(Generic[T]):
         Raises:
             RecordFetchError: If there's an error executing the query.
         """
-        # Check if we need JOINs for eager loading
-        if self._join_info and not count_only and not self._fields:
+        # Check if we need JOINs for eager loading or relationship filters
+        # Need JOIN if: we have join_info AND (not count/fields OR filters
+        # use joins)
+        needs_join_for_filters = False
+        if self._join_info and (count_only or self._fields):
+            # Parse filter to check if it references joined tables
+            values, where_clause = self._parse_filter()
+            # Check for table aliases like t1., t2., etc.
+            if re.search(r"\bt\d+\.", where_clause):
+                needs_join_for_filters = True
+
+        if self._join_info and (
+            not (count_only or self._fields) or needs_join_for_filters
+        ):
             # Use JOIN-based query
             join_clause, select_clause, column_names = self._build_join_sql()
 
-            sql = (
-                f"SELECT {select_clause} FROM "  # noqa: S608
+            # For count_only with JOINs, we don't need all the columns
+            if count_only and needs_join_for_filters:
+                sql = (
+                    f'SELECT COUNT(*) FROM "{self.table_name}" AS t0 '  # noqa: S608
+                    f"{join_clause}"
+                )
+            elif self._fields:
+                # Build custom field selection with JOINs
+                field_list = ", ".join(f't0."{f}"' for f in self._fields)
+                sql = f"SELECT {field_list} FROM "  # noqa: S608
                 f'"{self.table_name}" AS t0 {join_clause}'
-            )
+            else:
+                sql = (
+                    f"SELECT {select_clause} FROM "  # noqa: S608
+                    f'"{self.table_name}" AS t0 {join_clause}'
+                )
 
             # Build WHERE clause with special handling for NULL
             values, where_clause = self._parse_filter()
