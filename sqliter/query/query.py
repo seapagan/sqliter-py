@@ -1009,11 +1009,14 @@ class QueryBuilder(Generic[T]):
         main_instance.db_context = self.db  # type: ignore[attr-defined]
 
         # Process JOINed tables and populate _fk_cache
-        fk_cache: dict[str, BaseDBModel] = {}
+        # Track instances per alias for nested cache wiring
+        instances_by_alias: dict[str, BaseDBModel] = {"t0": main_instance}
 
         for join_info in self._join_info:
             alias = join_info.alias
-            related_data = tables_data[alias]
+            related_data = tables_data.get(alias)
+            if related_data is None:
+                continue
 
             # Check if all fields are NULL (LEFT JOIN with no match)
             if all(v is None for v in related_data.values()):
@@ -1036,14 +1039,16 @@ class QueryBuilder(Generic[T]):
             related_instance = join_info.model_class(**related_instance_data)
             related_instance.db_context = self.db  # type: ignore[attr-defined]
 
-            # Store in cache using FK field name
-            fk_cache[join_info.fk_field] = related_instance
+            instances_by_alias[alias] = related_instance
 
-        # Populate _fk_cache on main instance
-        if fk_cache:
-            # Set the cache directly - this bypasses __setattr__ validation
-            # and creates the _fk_cache attribute if it doesn't exist
-            object.__setattr__(main_instance, "_fk_cache", fk_cache)
+            # Attach to parent instance cache (supports nesting)
+            parent_instance = instances_by_alias.get(join_info.parent_alias)
+            if parent_instance is not None:
+                parent_fk_cache = getattr(parent_instance, "_fk_cache", {})
+                parent_fk_cache[join_info.fk_field] = related_instance
+                object.__setattr__(
+                    parent_instance, "_fk_cache", parent_fk_cache
+                )
 
         return main_instance
 

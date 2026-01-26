@@ -4,8 +4,10 @@ Tests cover single-level and nested eager loading via JOINs, relationship
 filter traversal, and edge cases.
 """
 
+from __future__ import annotations
+
 import sqlite3
-from collections.abc import Generator
+from typing import TYPE_CHECKING
 from unittest import mock
 
 import pytest
@@ -17,6 +19,9 @@ from sqliter.exceptions import (
     RecordFetchError,
 )
 from sqliter.orm import BaseDBModel, ForeignKey
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 
 class Author(BaseDBModel):
