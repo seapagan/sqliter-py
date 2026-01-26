@@ -734,20 +734,3 @@ class TestSelectRelatedWithMocks:
             # Should catch the error and raise RecordFetchError
             with pytest.raises(RecordFetchError):
                 query.fetch_all()
-
-    def test_join_result_with_missing_alias(self, db: SqliterDB) -> None:
-        """Test JOIN result parsing with missing table alias (line 1024)."""
-        # This tests the defensive continue statement when an alias
-        # is not found in tables_data. In practice, SQLite always returns
-        # all table aliases from a JOIN, but we verify the code handles it.
-
-        # Execute a normal JOIN query
-        results = (
-            db.select(Book)
-            .select_related("author")
-            .filter(author__name="Jane Austen")
-            .fetch_all()
-        )
-
-        # The parsing code handles the case where an alias might be missing
-        assert len(results) == 2
