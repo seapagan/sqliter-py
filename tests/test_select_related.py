@@ -533,6 +533,27 @@ class TestSelectRelatedWithOrderingAndPagination:
         assert len(results) == 2
         assert results[0].year >= 1813
 
+    def test_fetch_last_with_select_related(self, db: SqliterDB) -> None:
+        """Verify fetch_last() works with eager loading.
+
+        Regression test for bug where ORDER BY was dropped when fetch_last()
+        was used with select_related(), causing arbitrary row to be returned.
+        """
+        # Create multiple books to ensure we have a "last" one
+        author = db.insert(Author(name="Test Author", email="test@example.com"))
+        db.insert(Book(title="First", year=1800, author=author))
+        db.insert(Book(title="Middle", year=1900, author=author))
+        last_book = db.insert(Book(title="Last", year=2000, author=author))
+
+        # fetch_last with select_related should return the last book
+        result = db.select(Book).select_related("author").fetch_last()
+
+        assert result is not None
+        assert result.pk == last_book.pk
+        assert result.title == "Last"
+        # Verify author was eagerly loaded (no additional query)
+        assert result.author.name == "Test Author"
+
 
 class TestSelectRelatedEdgeCases:
     """Tests for edge cases in select_related functionality."""
