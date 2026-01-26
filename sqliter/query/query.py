@@ -847,6 +847,10 @@ class QueryBuilder(Generic[T]):
                     f"SELECT {field_list} FROM "  # noqa: S608
                     f'"{self.table_name}" AS t0 {join_clause}'
                 )
+                # Rebuild column_names to match selected fields only
+                column_names = [
+                    ("t0", field, self.model_class) for field in self._fields
+                ]
             else:
                 sql = (
                     f"SELECT {select_clause} FROM "  # noqa: S608
