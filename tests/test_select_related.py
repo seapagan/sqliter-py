@@ -631,19 +631,25 @@ class TestNestedRelationshipEdgeCases:
 
     def test_nested_select_related_missing_middle(self, db: SqliterDB) -> None:
         """Verify handling when middle relationship is NULL."""
-        # Create a comment without a book (not possible with current schema
-        # since book FK is CASCADE, but this tests the logic)
-        db.get(Comment, 1)
+        # Get the book with no publisher
+        book = db.select(Book).filter(title="Independent Book").fetch_one()
+        assert book is not None
+
+        # Create a comment linked to that book
+        db.insert(Comment(text="No publisher!", book=book))
 
         # This should work even if book.publisher is NULL
         result = (
-            db.select(Comment).select_related("book__publisher").fetch_one()
+            db.select(Comment)
+            .filter(text="No publisher!")
+            .select_related("book__publisher")
+            .fetch_one()
         )
 
         assert result is not None
-        if result.book:
-            # publisher might be NULL due to LEFT JOIN
-            assert hasattr(result.book, "publisher")
+        assert result.book is not None
+        assert result.book.publisher is None  # Publisher is NULL
+        assert hasattr(result.book, "publisher")  # But attribute exists
 
     def test_filter_on_nested_nullable_relationship(
         self, db: SqliterDB
