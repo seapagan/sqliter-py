@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sqlite3
 import warnings
+from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -33,6 +35,7 @@ from sqliter.exceptions import (
     InvalidFilterError,
     InvalidOffsetError,
     InvalidOrderError,
+    InvalidRelationshipError,
     RecordDeletionError,
     RecordFetchError,
 )
@@ -50,6 +53,33 @@ T = TypeVar("T", bound="BaseDBModel")
 FilterValue = Union[
     str, int, float, bool, None, list[Union[str, int, float, bool]]
 ]
+
+
+@dataclass
+class JoinInfo:
+    """Metadata for a JOIN clause.
+
+    Attributes:
+        alias: Table alias for the JOIN (e.g., "t1", "t2").
+        table_name: Actual table name in the database.
+        model_class: The model class for the joined table.
+        fk_field: FK field name on the parent model.
+        parent_alias: Alias of the parent table in the JOIN chain.
+        fk_column: The FK column name (e.g., "author_id").
+        join_type: Type of JOIN ("LEFT" or "INNER").
+        path: Full relationship path (e.g., "post__author").
+        is_nullable: Whether the FK is nullable.
+    """
+
+    alias: str
+    table_name: str
+    model_class: type[BaseDBModel]
+    fk_field: str
+    parent_alias: str
+    fk_column: str
+    join_type: str
+    path: str
+    is_nullable: bool
 
 
 class QueryBuilder(Generic[T]):
@@ -93,6 +123,9 @@ class QueryBuilder(Generic[T]):
         self._fields: Optional[list[str]] = fields
         self._bypass_cache: bool = False
         self._query_cache_ttl: Optional[int] = None
+        # Eager loading support
+        self._select_related_paths: list[str] = []
+        self._join_info: list[JoinInfo] = []
 
         if self._fields:
             self._validate_fields()
@@ -138,15 +171,79 @@ class QueryBuilder(Generic[T]):
 
         for field, value in conditions.items():
             field_name, operator = self._parse_field_operator(field)
-            self._validate_field(field_name, valid_fields)
 
-            if operator in ["__isnull", "__notnull"]:
-                self._handle_null(field_name, value, operator)
+            # Check for relationship traversal (e.g., author__name)
+            if "__" in field_name and operator not in {
+                "__isnull",
+                "__notnull",
+            }:
+                # Handle relationship filter traversal
+                self._handle_relationship_filter(field_name, value, operator)
             else:
-                handler = self._get_operator_handler(operator)
-                handler(field_name, value, operator)
+                # Normal field filter
+                self._validate_field(field_name, valid_fields)
+                if operator in ["__isnull", "__notnull"]:
+                    self._handle_null(field_name, value, operator)
+                else:
+                    handler = self._get_operator_handler(operator)
+                    handler(field_name, value, operator)
 
         return self
+
+    def _handle_relationship_filter(
+        self, field_name: str, value: FilterValue, operator: str
+    ) -> None:
+        """Handle filter conditions across relationships.
+
+        Args:
+            field_name: The field name with relationship path
+                (e.g., "author__name").
+            value: The filter value.
+            operator: The filter operator.
+
+        Raises:
+            InvalidRelationshipError: If the relationship path is invalid.
+        """
+        # Split into relationship path and target field
+        parts = field_name.split("__")
+        relationship_path = "__".join(parts[:-1])
+        target_field = parts[-1]
+
+        # Build JOIN info for the relationship path
+        # This validates the path and populates _join_info
+        self._validate_and_build_join_info(relationship_path)
+
+        # Find the join info for this relationship path
+        join_info = None
+        for j in self._join_info:
+            if j.path == relationship_path:
+                join_info = j
+                break
+
+        if not join_info:
+            # This shouldn't happen if validation worked
+            first_segment = relationship_path.split("__")[0]
+            raise InvalidRelationshipError(
+                relationship_path, first_segment, self.model_class.__name__
+            )
+
+        # Validate target field exists on the related model
+        if target_field not in join_info.model_class.model_fields:
+            error_msg = (
+                f"{field_name} - field '{target_field}' not found in "
+                f"{join_info.model_class.__name__}"
+            )
+            raise InvalidFilterError(error_msg)
+
+        # Apply filter with table alias
+        qualified_field = f'{join_info.alias}."{target_field}"'
+
+        # Use the appropriate handler
+        if operator in ["__isnull", "__notnull"]:
+            self._handle_null(qualified_field, value, operator)
+        else:
+            handler = self._get_operator_handler(operator)
+            handler(qualified_field, value, operator)
 
     def fields(self, fields: Optional[list[str]] = None) -> Self:
         """Specify which fields to select in the query.
@@ -229,6 +326,125 @@ class QueryBuilder(Generic[T]):
         # Set self._fields to just the single field
         self._fields = [field, "pk"]
         return self
+
+    def select_related(self, *paths: str) -> Self:
+        """Specify foreign key relationships to eager load via JOIN.
+
+        This method reduces the N+1 query problem by fetching related objects
+        in a single query using JOINs instead of lazy loading.
+
+        Args:
+            *paths: One or more relationship paths to eager load.
+                Single level: "author"
+                Nested levels: "post__author"
+                Multiple: "author", "publisher"
+
+        Returns:
+            The QueryBuilder instance for method chaining.
+
+        Raises:
+            InvalidRelationshipError: If a path contains invalid fields.
+
+        Examples:
+            >>> # Single level eager load
+            >>> db.select(Book).select_related("author").fetch_all()
+            >>> # Nested eager load
+            >>> db.select(Comment).select_related(
+            ...     "post__author"
+            ... ).fetch_all()
+            >>> # Multiple paths
+            >>> db.select(Book).select_related(
+            ...     "author", "publisher"
+            ... ).fetch_all()
+        """
+        # Store the paths
+        self._select_related_paths.extend(paths)
+
+        # Validate and build join info for each path
+        for path in paths:
+            self._validate_and_build_join_info(path)
+
+        return self
+
+    def _validate_and_build_join_info(self, path: str) -> None:
+        """Validate a relationship path and build JoinInfo entries.
+
+        Args:
+            path: Relationship path (e.g., "author" or "post__author").
+
+        Raises:
+            InvalidRelationshipError: If path contains invalid fields.
+        """
+        # Split path into segments
+        segments = path.split("__")
+
+        # Start with current model as parent
+        current_model: type[BaseDBModel] = self.model_class
+        parent_alias = "t0"  # Main table alias
+
+        # Get next available alias number based on existing joins
+        next_alias_num = len(self._join_info) + 1
+
+        # Track progressive path for nested relationships
+        progressive_path = []
+
+        for segment in segments:
+            # Check if segment is a valid FK field on current model
+            fk_descriptors = getattr(current_model, "fk_descriptors", {})
+
+            if segment not in fk_descriptors:
+                # Check if there's a corresponding _id field for explicit FK
+                id_field = f"{segment}_id"
+                if id_field in current_model.model_fields:
+                    field_info = current_model.model_fields[id_field]
+                    from sqliter.model.foreign_key import (  # noqa: PLC0415
+                        get_foreign_key_info,
+                    )
+
+                    fk_info = get_foreign_key_info(field_info)
+                    if fk_info is None:
+                        raise InvalidRelationshipError(
+                            path, segment, current_model.__name__
+                        )
+                    # This is an explicit FK, get the to_model
+                    to_model = fk_info.to_model
+                    fk_column = id_field
+                    is_nullable = fk_info.null
+                else:
+                    model_name = current_model.__name__
+                    raise InvalidRelationshipError(path, segment, model_name)
+            else:
+                # ORM FK descriptor
+                fk_descriptor = fk_descriptors[segment]
+                to_model = fk_descriptor.to_model
+                fk_column = f"{segment}_id"
+                is_nullable = fk_descriptor.fk_info.null
+
+            # Create alias for this join using global counter
+            alias = f"t{next_alias_num}"
+            next_alias_num += 1
+
+            # Build progressive path for this level
+            progressive_path.append(segment)
+            current_path = "__".join(progressive_path)
+
+            # Build JoinInfo
+            join_info = JoinInfo(
+                alias=alias,
+                table_name=to_model.get_table_name(),
+                model_class=to_model,
+                fk_field=segment,
+                parent_alias=parent_alias,
+                fk_column=fk_column,
+                join_type="LEFT" if is_nullable else "INNER",
+                path=current_path,
+                is_nullable=is_nullable,
+            )
+            self._join_info.append(join_info)
+
+            # Move to next level
+            current_model = to_model
+            parent_alias = alias
 
     def _get_operator_handler(
         self, operator: str
@@ -454,6 +670,56 @@ class QueryBuilder(Generic[T]):
         # Return the formatted string or the original value if no match
         return format_map.get(operator, value)
 
+    def _build_join_sql(
+        self,
+    ) -> tuple[
+        str,
+        str,
+        list[tuple[str, str, type[BaseDBModel]]],
+    ]:
+        """Build JOIN clauses and aliased column SELECT statements.
+
+        Returns:
+            A tuple containing:
+            - join_clause: SQL JOIN clauses
+                (e.g., "LEFT JOIN authors AS t1 ON ...")
+            - select_clause: SELECT clause with aliased columns
+            - column_names: List of (alias, field_name, model_class) tuples
+        """
+        if not self._join_info:
+            return "", "", []
+
+        select_parts: list[str] = []
+        column_names: list[tuple[str, str, type[BaseDBModel]]] = []
+        join_parts: list[str] = []
+
+        # Main table columns (t0)
+        for field in self.model_class.model_fields:
+            alias = f"t0__{field}"
+            select_parts.append(f't0."{field}" AS "{alias}"')
+            column_names.append(("t0", field, self.model_class))
+
+        # Add JOINed table columns
+        for join in self._join_info:
+            # Build JOIN clause
+            join_clause = (
+                f"{join.join_type} JOIN "
+                f'"{join.table_name}" AS {join.alias} '
+                f'ON {join.parent_alias}."{join.fk_column}" = {join.alias}."pk"'
+            )
+            join_parts.append(join_clause)
+
+            # Add columns from joined table
+            for field in join.model_class.model_fields:
+                alias = f"{join.alias}__{field}"
+                select_parts.append(f'{join.alias}."{field}" AS "{alias}"')
+                column_names.append((join.alias, field, join.model_class))
+
+        select_clause = ", ".join(select_parts)
+        join_clause = " ".join(join_parts)
+
+        return join_clause, select_clause, column_names
+
     def limit(self, limit_value: int) -> Self:
         """Limit the number of results returned by the query.
 
@@ -546,12 +812,15 @@ class QueryBuilder(Generic[T]):
         self._order_by = f'"{order_by_field}" {sort_order}'
         return self
 
-    def _execute_query(
+    def _execute_query(  # noqa: C901, PLR0912, PLR0915
         self,
         *,
         fetch_one: bool = False,
         count_only: bool = False,
-    ) -> list[tuple[Any, ...]] | Optional[tuple[Any, ...]]:
+    ) -> tuple[
+        list[tuple[Any, ...]] | tuple[Any, ...],
+        list[tuple[str, str, type[BaseDBModel]]],
+    ]:
         """Execute the constructed SQL query.
 
         Args:
@@ -559,12 +828,67 @@ class QueryBuilder(Generic[T]):
             count_only: If True, return only the count of results.
 
         Returns:
-            A list of tuples (all results), a single tuple (one result),
-            or None if no results are found.
+            A tuple containing:
+            - Query results (list of tuples or single tuple)
+            - Column metadata (list of (alias, field_name, model_class) tuples)
+              Empty list for non-JOIN queries (backward compatible).
 
         Raises:
             RecordFetchError: If there's an error executing the query.
         """
+        # Check if we need JOINs for eager loading
+        if self._join_info and not count_only and not self._fields:
+            # Use JOIN-based query
+            join_clause, select_clause, column_names = self._build_join_sql()
+
+            sql = (
+                f"SELECT {select_clause} FROM "  # noqa: S608
+                f'"{self.table_name}" AS t0 {join_clause}'
+            )
+
+            # Build WHERE clause with special handling for NULL
+            values, where_clause = self._parse_filter()
+
+            if self.filters:
+                sql += f" WHERE {where_clause}"
+
+            if self._order_by:
+                # Qualify ORDER BY column with t0 alias to avoid ambiguity
+                # Extract field name and direction from _order_by
+                # _order_by format: '"field" ASC' or '"field" DESC'
+                match = re.match(r'"([^"]+)"\s+(.*)', self._order_by)
+                if match:
+                    field_name = match.group(1)
+                    direction = match.group(2)
+                    sql += f' ORDER BY t0."{field_name}" {direction}'
+                else:
+                    # Fallback to original if pattern doesn't match
+                    sql += f" ORDER BY {self._order_by}"
+
+            if self._limit is not None:
+                sql += " LIMIT ?"
+                values.append(self._limit)
+
+            if self._offset is not None:
+                sql += " OFFSET ?"
+                values.append(self._offset)
+
+            # Log the SQL if debug is enabled
+            if self.db.debug:
+                self.db._log_sql(sql, values)  # noqa: SLF001
+
+            try:
+                conn = self.db.connect()
+                cursor = conn.cursor()
+                cursor.execute(sql, values)
+                results = (
+                    cursor.fetchall() if not fetch_one else cursor.fetchone()
+                )
+                return (results, column_names)
+            except sqlite3.Error as exc:
+                raise RecordFetchError(self.table_name) from exc
+
+        # Non-JOIN query path (original behavior)
         if count_only:
             fields = "COUNT(*)"
         elif self._fields:
@@ -595,7 +919,6 @@ class QueryBuilder(Generic[T]):
             sql += " OFFSET ?"
             values.append(self._offset)
 
-        # Print the raw SQL and values if debug is enabled
         # Log the SQL if debug is enabled
         if self.db.debug:
             self.db._log_sql(sql, values)  # noqa: SLF001
@@ -604,7 +927,8 @@ class QueryBuilder(Generic[T]):
             conn = self.db.connect()
             cursor = conn.cursor()
             cursor.execute(sql, values)
-            return cursor.fetchall() if not fetch_one else cursor.fetchone()
+            results = cursor.fetchall() if not fetch_one else cursor.fetchone()
+            return (results, [])  # Empty column_names for backward compat
         except sqlite3.Error as exc:
             raise RecordFetchError(self.table_name) from exc
 
@@ -662,6 +986,97 @@ class QueryBuilder(Generic[T]):
         if hasattr(instance, "db_context"):
             instance.db_context = self.db
         return instance
+
+    def _convert_joined_row_to_model(
+        self,
+        row: tuple[Any, ...],
+        column_names: list[tuple[str, str, type[BaseDBModel]]],
+    ) -> T:
+        """Convert a JOINed database row to model instances with relationships.
+
+        This method parses aliased columns from JOIN queries, creates the main
+        model instance, and populates related objects in the _fk_cache to avoid
+        lazy loading.
+
+        Args:
+            row: A tuple representing a database row from a JOIN query.
+            column_names: List of (alias, field_name, model_class) tuples
+                describing each column in the result.
+
+        Returns:
+            An instance of the main model class with populated relationships.
+        """
+        # Group columns by table alias
+        tables_data: dict[str, dict[str, Any]] = {}
+        tables_models: dict[str, type[BaseDBModel]] = {}
+
+        for idx, (alias, field_name, model_class) in enumerate(column_names):
+            if alias not in tables_data:
+                tables_data[alias] = {}
+                tables_models[alias] = model_class
+            tables_data[alias][field_name] = row[idx]
+
+        # Build main model (t0)
+        main_data = tables_data.get("t0", {})
+        if not main_data:
+            msg = "No main table data in JOIN result"
+            raise ValueError(msg)
+
+        # Deserialize and create main instance
+        main_instance_data = {
+            field: self._deserialize(field, main_data[field])
+            for field in self.model_class.model_fields
+            if field in main_data
+        }
+
+        # For ORM mode, exclude FK descriptor fields from data
+        for fk_field in getattr(self.model_class, "fk_descriptors", {}):
+            main_instance_data.pop(fk_field, None)
+
+        main_instance = self.model_class(**main_instance_data)
+        main_instance.db_context = self.db  # type: ignore[attr-defined]
+
+        # Process JOINed tables and populate _fk_cache
+        fk_cache: dict[str, BaseDBModel] = {}
+
+        for join_info in self._join_info:
+            alias = join_info.alias
+            if alias not in tables_data:
+                continue
+
+            related_data = tables_data[alias]
+
+            # Check if all fields are NULL (LEFT JOIN with no match)
+            if all(v is None for v in related_data.values()):
+                # No related object, skip
+                continue
+
+            # Deserialize related object
+            related_instance_data = {
+                field: self._deserialize(field, related_data[field])
+                for field in join_info.model_class.model_fields
+                if field in related_data
+            }
+
+            # Exclude FK descriptors from related data
+            for fk_field in getattr(
+                join_info.model_class, "fk_descriptors", {}
+            ):
+                related_instance_data.pop(fk_field, None)
+
+            related_instance = join_info.model_class(**related_instance_data)
+            related_instance.db_context = self.db  # type: ignore[attr-defined]
+
+            # Store in cache using FK field name
+            fk_cache[join_info.fk_field] = related_instance
+
+        # Populate _fk_cache on main instance
+        if fk_cache:
+            # Set the cache directly - this bypasses __setattr__ validation
+            # and creates the _fk_cache attribute if it doesn't exist
+            object.__setattr__(main_instance, "_fk_cache", fk_cache)
+
+        return main_instance
 
     def _deserialize(
         self, field_name: str, value: SerializableField
@@ -756,6 +1171,7 @@ class QueryBuilder(Generic[T]):
             "order_by": self._order_by,
             "fields": tuple(sorted(self._fields)) if self._fields else None,
             "fetch_one": fetch_one,
+            "select_related": tuple(sorted(self._select_related_paths)),
         }
 
         # Hash the key parts
@@ -768,7 +1184,7 @@ class QueryBuilder(Generic[T]):
     @overload
     def _fetch_result(self, *, fetch_one: Literal[False]) -> list[T]: ...
 
-    def _fetch_result(
+    def _fetch_result(  # noqa: C901, PLR0911, PLR0912
         self, *, fetch_one: bool = False
     ) -> Union[list[T], Optional[T]]:
         """Fetch and convert query results to model instances.
@@ -788,10 +1204,12 @@ class QueryBuilder(Generic[T]):
                 # Cache stores correctly typed data, cast from Any
                 return cast("Union[list[T], Optional[T]]", cached)
 
-        result = self._execute_query(fetch_one=fetch_one)
+        result, column_names = self._execute_query(fetch_one=fetch_one)
 
         if not result:
             if not self._bypass_cache:
+                # Generate cache key for empty result
+                cache_key = self._make_cache_key(fetch_one=fetch_one)
                 if fetch_one:
                     # Cache empty result
                     self.db._cache_set(  # noqa: SLF001
@@ -808,33 +1226,78 @@ class QueryBuilder(Generic[T]):
                 return []
             return None if fetch_one else []
 
-        if fetch_one:
-            # Ensure we pass a tuple, not a list, to _convert_row_to_model
-            if isinstance(result, list):
-                result = result[
-                    0
-                ]  # Get the first (and only) result if it's wrapped in a list.
-            single_result = self._convert_row_to_model(result)
-            # Cache single result (unless bypass is enabled)
+        # Convert results based on whether we have JOIN data
+        if column_names:
+            # JOIN-aware converter - needs column_names
+            if fetch_one:
+                # When fetch_one=True, result is a single tuple
+                # Narrow the type from the union
+                single_row: tuple[Any, ...] = (
+                    result if isinstance(result, tuple) else result[0]
+                )
+                single_result = self._convert_joined_row_to_model(
+                    single_row, column_names
+                )
+                if not self._bypass_cache:
+                    cache_key = self._make_cache_key(fetch_one=True)
+                    self.db._cache_set(  # noqa: SLF001
+                        self.table_name,
+                        cache_key,
+                        single_result,
+                        ttl=self._query_cache_ttl,
+                    )
+                return single_result
+
+            # When fetch_one=False, result is a list of tuples
+            # Narrow the type from the union
+            row_list: list[tuple[Any, ...]] = (
+                result if isinstance(result, list) else [result]
+            )
+            list_results = [
+                self._convert_joined_row_to_model(row, column_names)
+                for row in row_list
+            ]
             if not self._bypass_cache:
+                cache_key = self._make_cache_key(fetch_one=False)
                 self.db._cache_set(  # noqa: SLF001
                     self.table_name,
                     cache_key,
-                    single_result,
+                    list_results,
                     ttl=self._query_cache_ttl,
                 )
-            return single_result
+            return list_results
+        else:
+            # Standard converter
+            if fetch_one:
+                std_single_row: tuple[Any, ...] = (
+                    result if isinstance(result, tuple) else result[0]
+                )
+                single_result = self._convert_row_to_model(std_single_row)
+                if not self._bypass_cache:
+                    cache_key = self._make_cache_key(fetch_one=True)
+                    self.db._cache_set(  # noqa: SLF001
+                        self.table_name,
+                        cache_key,
+                        single_result,
+                        ttl=self._query_cache_ttl,
+                    )
+                return single_result
 
-        list_results = [self._convert_row_to_model(row) for row in result]
-        # Cache list result (unless bypass is enabled)
-        if not self._bypass_cache:
-            self.db._cache_set(  # noqa: SLF001
-                self.table_name,
-                cache_key,
-                list_results,
-                ttl=self._query_cache_ttl,
+            std_row_list: list[tuple[Any, ...]] = (
+                result if isinstance(result, list) else [result]
             )
-        return list_results
+            list_results = [
+                self._convert_row_to_model(row) for row in std_row_list
+            ]
+            if not self._bypass_cache:
+                cache_key = self._make_cache_key(fetch_one=False)
+                self.db._cache_set(  # noqa: SLF001
+                    self.table_name,
+                    cache_key,
+                    list_results,
+                    ttl=self._query_cache_ttl,
+                )
+            return list_results
 
     def fetch_all(self) -> list[T]:
         """Fetch all results of the query.
@@ -877,7 +1340,7 @@ class QueryBuilder(Generic[T]):
         Returns:
             The number of results that match the current query conditions.
         """
-        result = self._execute_query(count_only=True)
+        result, _column_names = self._execute_query(count_only=True)
 
         return int(result[0][0]) if result else 0
 
