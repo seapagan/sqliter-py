@@ -10,7 +10,8 @@ Items marked with :fire: are high priority.
   queries which can be chained to the 'find_first' etc methods or just used
   directly.
 - add a `rollback` method to the main class to allow manual rollbacks.
-- :fire: allow adding foreign keys and relationships to each table.
+- :fire: allow adding foreign keys and relationships to each table (partially
+  done).
 - add a migration system to allow updating the database schema without losing
   data.
 - add more tests where 'auto_commit' is set to False to ensure that commit is
