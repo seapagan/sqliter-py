@@ -88,8 +88,7 @@ def _run_rollback() -> str:
             try:
                 restored = db2.get(Item, item.pk)
                 if restored is not None:
-                    # Type ignore: restored is Item, but mypy can't infer that
-                    restored_quantity = restored.quantity  # type: ignore[attr-defined]
+                    restored_quantity = restored.quantity
                     msg = f"Database value: {restored_quantity}\n"
                     output.write(msg)
                     expected_quantity = 10
