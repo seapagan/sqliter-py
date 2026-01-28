@@ -44,6 +44,11 @@ class LazyLoader(Generic[T]):
 
     When a FK field is accessed, returns a LazyLoader that queries the database
     on first access and caches the result.
+
+    Note: This class is an implementation detail. For type checking purposes,
+    ForeignKey fields are typed as returning Optional[T] (the related model
+    type), not LazyLoader[T]. This follows the standard ORM pattern used by
+    Django, SQLAlchemy, and others, where the proxy is transparent to users.
     """
 
     def __init__(
@@ -246,16 +251,20 @@ class ForeignKey(Generic[T]):
     def __get__(self, instance: None, owner: type[object]) -> ForeignKey[T]: ...
 
     @overload
-    def __get__(
-        self, instance: object, owner: type[object]
-    ) -> LazyLoader[T]: ...
+    def __get__(self, instance: object, owner: type[object]) -> Optional[T]: ...
 
     def __get__(
         self, instance: Optional[object], owner: type[object]
-    ) -> Union[ForeignKey[T], LazyLoader[T]]:
+    ) -> Union[ForeignKey[T], Optional[T]]:
         """Return LazyLoader that loads related object on attribute access.
 
         If accessed on class (not instance), return the descriptor itself.
+
+        Note: The return type is declared as Optional[T] for type checking
+        purposes, but the actual runtime return is a LazyLoader[T] proxy.
+        This follows the standard ORM pattern (Django, SQLAlchemy) where
+        the proxy is transparent to users and type checkers see the
+        underlying model type for proper attribute access inference.
         """
         if instance is None:
             return self
@@ -264,11 +273,16 @@ class ForeignKey(Generic[T]):
         fk_id = getattr(instance, f"{self.name}_id", None)
 
         # Return LazyLoader for lazy loading
-        return LazyLoader(
-            instance=instance,
-            to_model=self.to_model,
-            fk_id=fk_id,
-            db_context=getattr(instance, "db_context", None),
+        # Cast to Optional[T] for type checking - LazyLoader is a transparent
+        # proxy that behaves like T, so this "lie" gives correct type inference
+        return cast(
+            "Optional[T]",
+            LazyLoader(
+                instance=instance,
+                to_model=self.to_model,
+                fk_id=fk_id,
+                db_context=getattr(instance, "db_context", None),
+            ),
         )
 
     def __set__(self, instance: object, value: object) -> None:

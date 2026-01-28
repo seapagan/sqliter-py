@@ -130,8 +130,9 @@ class TestSelectRelated:
         assert len(results) == 4
         # All books should have authors loaded
         for book in results:
-            assert book.author is not None
-            assert isinstance(book.author.name, str)
+            author = book.author
+            assert author is not None
+            assert isinstance(author.name, str)
 
     def test_multiple_paths(self, db: SqliterDB) -> None:
         """Verify select_related() with multiple relationship paths."""
@@ -171,7 +172,9 @@ class TestSelectRelated:
 
         assert len(results) == 2
         for book in results:
-            assert book.author.name == "Charles Dickens"
+            author = book.author
+            assert author is not None
+            assert author.name == "Charles Dickens"
 
     def test_select_related_with_ordering(self, db: SqliterDB) -> None:
         """Verify select_related() works with ordering."""
@@ -214,9 +217,11 @@ class TestNestedSelectRelated:
         result = db.select(Comment).select_related("book__author").fetch_one()
 
         assert result is not None
-        assert result.book is not None
-        assert result.book.author is not None
-        assert result.book.author.name == "Jane Austen"
+        book = result.book
+        assert book is not None
+        author = book.author
+        assert author is not None
+        assert author.name == "Jane Austen"
 
     def test_nested_three_level(self, db: SqliterDB) -> None:
         """Verify deeply nested select_related() works."""
@@ -243,7 +248,11 @@ class TestNestedSelectRelated:
         )
 
         assert len(results) == 1
-        assert results[0].book.author.name == "Jane Austen"
+        book = results[0].book
+        assert book is not None
+        author = book.author
+        assert author is not None
+        assert author.name == "Jane Austen"
 
 
 class TestRelationshipFilterTraversal:
@@ -255,7 +264,9 @@ class TestRelationshipFilterTraversal:
 
         assert len(results) == 2
         for book in results:
-            assert book.author.name == "Jane Austen"
+            author = book.author
+            assert author is not None
+            assert author.name == "Jane Austen"
 
     def test_filter_on_related_field_with_operator(self, db: SqliterDB) -> None:
         """Verify filter traversal with comparison operators."""
@@ -302,8 +313,9 @@ class TestRelationshipFilterTraversal:
         # Accessing author should not trigger additional query
         # (though we can't easily test this without counting queries)
         for book in results:
-            assert book.author is not None
-            assert isinstance(book.author.name, str)
+            author = book.author
+            assert author is not None
+            assert isinstance(author.name, str)
 
 
 class TestErrorHandling:
@@ -555,7 +567,9 @@ class TestSelectRelatedWithOrderingAndPagination:
         assert result.pk == last_book.pk
         assert result.title == "Last"
         # Verify author was eagerly loaded (no additional query)
-        assert result.author.name == "Test Author"
+        loaded_author = result.author
+        assert loaded_author is not None
+        assert loaded_author.name == "Test Author"
 
 
 class TestSelectRelatedEdgeCases:
@@ -710,8 +724,9 @@ class TestRelationshipFilterOperators:
 
         assert len(results) == 2
         for book in results:
-            assert book.author is not None
-            assert "Jane" in str(book.author.name)
+            author = book.author
+            assert author is not None
+            assert "Jane" in str(author.name)
 
     def test_filter_related_field_with_startswith(self, db: SqliterDB) -> None:
         """Verify __startswith works on related fields."""
