@@ -37,11 +37,9 @@ def _run_lazy_loading() -> str:
 
     # Access related author through foreign key - triggers lazy load
     output.write("\nAccessing book.author triggers lazy load:\n")
-    if (book_author := book1.author) is not None:
-        output.write(f"  '{book1.title}' was written by {book_author.name}\n")
+    output.write(f"  '{book1.title}' was written by {book1.author.name}\n")
 
-    if (book2_author := book2.author) is not None:
-        output.write(f"\n'{book2.title}' was written by {book2_author.name}\n")
+    output.write(f"\n'{book2.title}' was written by {book2.author.name}\n")
     output.write("Related objects loaded on-demand from database\n")
 
     db.close()
@@ -73,8 +71,7 @@ def _run_orm_style_access() -> str:
 
     output.write("Created book:\n")
     output.write(f"  title: {book.title}\n")
-    if (book_author := book.author) is not None:
-        output.write(f"  author: {book_author.name}\n")
+    output.write(f"  author: {book.author.name}\n")
     output.write(
         "\nForeign key stores the primary key internally,\n"
         "but access returns the object\n"
@@ -110,10 +107,8 @@ def _run_relationship_navigation() -> str:
     output.write(f"Team: {team.name}\n")
 
     # Navigate from player to team via FK
-    if (p1_team := player1.team) is not None:
-        output.write(f"\n{player1.name} plays for: {p1_team.name}\n")
-    if (p2_team := player2.team) is not None:
-        output.write(f"{player2.name} plays for: {p2_team.name}\n")
+    output.write(f"\n{player1.name} plays for: {player1.team.name}\n")
+    output.write(f"{player2.name} plays for: {player2.team.name}\n")
     output.write("Foreign keys enable relationship navigation\n")
 
     db.close()
@@ -194,8 +189,7 @@ def _run_select_related_basic() -> str:
     books = db.select(Book).select_related("author").fetch_all()
 
     for book in books:
-        if (author := book.author) is not None:
-            output.write(f"  '{book.title}' by {author.name}\n")
+        output.write(f"  '{book.title}' by {book.author.name}\n")
 
     output.write("\nAll authors loaded in single query (no N+1 problem)\n")
 
@@ -238,14 +232,10 @@ def _run_select_related_nested() -> str:
 
     if comment is not None:
         output.write(f"Comment: {comment.text}\n")
-        comment_book = comment.book
-        if comment_book is not None:
-            output.write(f"Book: {comment_book.title}\n")
-            # Access author through book's foreign key relationship
-            # Both book and author were loaded in a single JOIN query
-            book_author = comment_book.author
-            if book_author is not None:
-                output.write(f"Author: {book_author.name}\n")
+        output.write(f"Book: {comment.book.title}\n")
+        # Access author through book's foreign key relationship
+        # Both book and author were loaded in a single JOIN query
+        output.write(f"Author: {comment.book.author.name}\n")
 
     output.write("\nNested relationships loaded in single query\n")
 
@@ -333,8 +323,7 @@ def _run_select_related_combined() -> str:
     )
 
     for book in books:
-        if (author := book.author) is not None:
-            output.write(f"  {book.title} ({book.year}) by {author.name}\n")
+        output.write(f"  {book.title} ({book.year}) by {book.author.name}\n")
 
     output.write(f"\n{len(books)} result(s) with authors preloaded\n")
 

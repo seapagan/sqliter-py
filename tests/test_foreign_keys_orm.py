@@ -67,10 +67,8 @@ class TestLazyLoading:
         book = db.insert(Book(title="My Book", author=author))
 
         # Access the FK field - should trigger lazy load
-        loaded_author = book.author
-        assert loaded_author is not None
-        assert loaded_author.name == "John"
-        assert loaded_author.email == "john@example.com"
+        assert book.author.name == "John"
+        assert book.author.email == "john@example.com"
 
     def test_lazy_load_caching(self, db: SqliterDB) -> None:
         """Test that lazy loading caches the result."""
@@ -86,8 +84,7 @@ class TestLazyLoading:
         author2 = book.author
 
         assert author1 is author2
-        assert author1 is not None
-        assert author1.name == "Jane"
+        assert book.author.name == "Jane"
 
     def test_lazy_load_null_fk(self, db: SqliterDB) -> None:
         """Test lazy loading with null FK."""
@@ -108,9 +105,7 @@ class TestLazyLoading:
         book = db.insert(Book(title="Bob's Book", author=author.pk))
 
         # Should work with ID as well
-        loaded_author = book.author
-        assert loaded_author is not None
-        assert loaded_author.name == "Bob"
+        assert book.author.name == "Bob"
 
     def test_lazy_load_not_found(self, db: SqliterDB) -> None:
         """Test lazy loading when related object doesn't exist.
@@ -322,9 +317,7 @@ class TestDbContext:
         book = db.insert(Book(title="Mike's Book", author=author))
 
         # db_context should enable lazy loading
-        loaded_author = book.author
-        assert loaded_author is not None
-        assert loaded_author.db_context is db
+        assert book.author.db_context is db
 
 
 class TestCascadeDelete:
@@ -339,9 +332,7 @@ class TestCascadeDelete:
         book = db.insert(Book(title="Nina's Book", author=author))
 
         # Cache the author via lazy loading
-        loaded_author = book.author
-        assert loaded_author is not None
-        _ = loaded_author.name
+        _ = book.author.name
 
         # Delete the author - should cascade delete the book
         db.delete(Author, author.pk)
@@ -399,11 +390,7 @@ class TestNestedLazyLoading:
         person = db.insert(Person(name="John", city=city))
 
         # Nested lazy loading
-        person_city = person.city
-        assert person_city is not None
-        city_country = person_city.country
-        assert city_country is not None
-        assert city_country.name == "USA"
+        assert person.city.country.name == "USA"
 
 
 class TestLazyLoaderMethods:
@@ -450,13 +437,11 @@ class TestLazyLoaderMethods:
         book = db.insert(Book(title="Loaded Book", author=author))
 
         # Access to trigger load
-        loaded_author = book.author
-        assert loaded_author is not None
-        _ = loaded_author.name
+        _ = book.author.name
 
         # Get the cached LazyLoader
         lazy = book._fk_cache.get("author")
-        assert lazy is not None
+        assert lazy is not None  # LazyLoader exists in cache
 
         repr_str = repr(lazy)
         assert "LazyLoader" in repr_str
@@ -963,17 +948,13 @@ class TestFKEdgeCases:
         book = db.insert(Book(title="Test Book", author=author1))
 
         # Access author to populate cache
-        author = book.author
-        assert author is not None
-        assert author.name == "Author1"
+        assert book.author.name == "Author1"
 
         # Reassign FK using descriptor
         Book.fk_descriptors["author"].__set__(book, author2)
 
         # Cache should be cleared, so we should get author2
-        new_author = book.author
-        assert new_author is not None
-        assert new_author.name == "Author2"
+        assert book.author.name == "Author2"
 
     def test_fk_cache_cleared_on_direct_id_assignment(
         self, db: SqliterDB
@@ -987,17 +968,13 @@ class TestFKEdgeCases:
         book = db.insert(Book(title="Test Book", author=author1))
 
         # Access author to populate cache
-        author = book.author
-        assert author is not None
-        assert author.name == "Author1"
+        assert book.author.name == "Author1"
 
         # Set _id field directly (not via FK descriptor)
         book.author_id = author2.pk
 
         # Cache should be cleared, so we should get author2
-        new_author = book.author
-        assert new_author is not None
-        assert new_author.name == "Author2"
+        assert book.author.name == "Author2"
 
     def test_fk_cache_cleared_on_reassignment_to_none(
         self, db: SqliterDB
@@ -1010,9 +987,7 @@ class TestFKEdgeCases:
         magazine = db.insert(Magazine(title="Test Mag", publisher=publisher))
 
         # Access publisher to populate cache
-        pub = magazine.publisher
-        assert pub is not None
-        assert pub.name == "Test Pub"
+        assert magazine.publisher.name == "Test Pub"
 
         # Set FK to None using descriptor
         Magazine.fk_descriptors["publisher"].__set__(magazine, None)
@@ -1035,19 +1010,13 @@ class TestFKEdgeCases:
 
         # Access author - creates LazyLoader with None db_context
         # This would previously cache a broken loader
-        lazy1 = book.author
-        assert lazy1 is not None
-        assert lazy1.db_context is None
+        assert book.author.db_context is None
 
         # Now set db_context
         book.db_context = db
 
         # Access author again - should get a refreshed loader with db_context
-        lazy2 = book.author
-        assert lazy2 is not None
-        assert lazy2.db_context is db
+        assert book.author.db_context is db
 
         # And it should actually work now
-        loaded_author = book.author
-        assert loaded_author is not None
-        assert loaded_author.name == "Test Author"
+        assert book.author.name == "Test Author"

@@ -12,6 +12,9 @@ from typing import (
     TypeVar,
     Union,
     cast,
+    get_args,
+    get_origin,
+    get_type_hints,
     overload,
     runtime_checkable,
 )
@@ -46,9 +49,10 @@ class LazyLoader(Generic[T]):
     on first access and caches the result.
 
     Note: This class is an implementation detail. For type checking purposes,
-    ForeignKey fields are typed as returning Optional[T] (the related model
-    type), not LazyLoader[T]. This follows the standard ORM pattern used by
-    Django, SQLAlchemy, and others, where the proxy is transparent to users.
+    ForeignKey fields are typed as returning T (the type parameter), not
+    LazyLoader[T]. This follows the standard ORM pattern used by SQLAlchemy,
+    where the proxy is transparent to users. Use ForeignKey[Optional[Model]]
+    for nullable foreign keys.
     """
 
     def __init__(
@@ -202,6 +206,38 @@ class ForeignKey(Generic[T]):
         # Return a schema that accepts any value - the field is removed anyway
         return core_schema.any_schema()
 
+    def _detect_nullable_from_annotation(self, owner: type, name: str) -> None:
+        """Detect if FK is nullable from type annotation.
+
+        If the annotation is ForeignKey[Optional[T]], automatically set
+        null=True on the FK info. This allows users to declare nullability
+        via the type annotation alone.
+        """
+        try:
+            hints = get_type_hints(owner)
+        except Exception:  # noqa: BLE001
+            # Can fail with forward refs, NameError, etc. - just skip
+            return
+
+        if name not in hints:
+            return
+
+        annotation = hints[name]  # e.g., ForeignKey[Optional[Author]]
+        fk_args = get_args(annotation)  # e.g., (Optional[Author],)
+
+        if not fk_args:
+            return
+
+        inner_type = fk_args[0]  # e.g., Optional[Author] or Author
+
+        # Check if inner_type is Optional (Union with None)
+        origin = get_origin(inner_type)
+        if origin is Union:
+            args = get_args(inner_type)
+            if type(None) in args:
+                # It's Optional[T], so set null=True
+                self.fk_info.null = True
+
     def __set_name__(self, owner: type, name: str) -> None:
         """Called automatically during class creation.
 
@@ -212,9 +248,16 @@ class ForeignKey(Generic[T]):
         the owner class name. If the `inflect` library is installed, it provides
         grammatically correct pluralization (e.g., "Person" becomes "people").
         Otherwise, a simple "s" suffix is added.
+
+        Auto-detects nullable FKs from the type annotation: if the type is
+        ForeignKey[Optional[T]], sets null=True automatically.
         """
         self.name = name
         self.owner = owner
+
+        # Auto-detect nullable from type annotation
+        # If user writes ForeignKey[Optional[Model]], set null=True
+        self._detect_nullable_from_annotation(owner, name)
 
         # Store descriptor in class's OWN fk_descriptors dict (not inherited)
         # Check __dict__ to avoid getting inherited dict from parent class
@@ -251,20 +294,19 @@ class ForeignKey(Generic[T]):
     def __get__(self, instance: None, owner: type[object]) -> ForeignKey[T]: ...
 
     @overload
-    def __get__(self, instance: object, owner: type[object]) -> Optional[T]: ...
+    def __get__(self, instance: object, owner: type[object]) -> T: ...
 
     def __get__(
         self, instance: Optional[object], owner: type[object]
-    ) -> Union[ForeignKey[T], Optional[T]]:
+    ) -> Union[ForeignKey[T], T]:
         """Return LazyLoader that loads related object on attribute access.
 
         If accessed on class (not instance), return the descriptor itself.
 
-        Note: The return type is declared as Optional[T] for type checking
-        purposes, but the actual runtime return is a LazyLoader[T] proxy.
-        This follows the standard ORM pattern (Django, SQLAlchemy) where
-        the proxy is transparent to users and type checkers see the
-        underlying model type for proper attribute access inference.
+        Note: The return type is T (the type parameter). For nullable FKs,
+        use ForeignKey[Optional[Model]] and T will be Optional[Model].
+        The actual runtime return is a LazyLoader[T] proxy, but type checkers
+        see T for proper attribute access inference.
         """
         if instance is None:
             return self
@@ -273,10 +315,10 @@ class ForeignKey(Generic[T]):
         fk_id = getattr(instance, f"{self.name}_id", None)
 
         # Return LazyLoader for lazy loading
-        # Cast to Optional[T] for type checking - LazyLoader is a transparent
-        # proxy that behaves like T, so this "lie" gives correct type inference
+        # Cast to T for type checking - LazyLoader is a transparent proxy
+        # that behaves like T. For nullable FKs, T is Optional[Model].
         return cast(
-            "Optional[T]",
+            "T",
             LazyLoader(
                 instance=instance,
                 to_model=self.to_model,

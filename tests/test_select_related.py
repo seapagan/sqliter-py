@@ -130,9 +130,7 @@ class TestSelectRelated:
         assert len(results) == 4
         # All books should have authors loaded
         for book in results:
-            author = book.author
-            assert author is not None
-            assert isinstance(author.name, str)
+            assert isinstance(book.author.name, str)
 
     def test_multiple_paths(self, db: SqliterDB) -> None:
         """Verify select_related() with multiple relationship paths."""
@@ -144,9 +142,7 @@ class TestSelectRelated:
         )
 
         assert result is not None
-        assert result.author is not None
         assert result.author.name == "Jane Austen"
-        assert result.publisher is not None
         assert result.publisher.name == "Penguin"
 
     def test_nullable_fk_with_none_value(self, db: SqliterDB) -> None:
