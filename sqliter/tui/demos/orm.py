@@ -336,7 +336,7 @@ def _run_select_related_combined() -> str:
         if (author := book.author) is not None:
             output.write(f"  {book.title} ({book.year}) by {author.name}\n")
 
-    output.write(f"\n{len(books)} result(s) with authors pre-loaded\n")
+    output.write(f"\n{len(books)} result(s) with authors preloaded\n")
 
     db.close()
     return output.getvalue()

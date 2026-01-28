@@ -64,7 +64,8 @@ book = db.insert(Book(title="Pride and Prejudice", author=author))
 
 print("Created book:")
 print(f"  title: {book.title}")
-print(f"  author: {book.author.name}")
+if (book_author := book.author) is not None:
+    print(f"  author: {book_author.name}")
 print("\nForeign key stores the primary key internally, but access returns the object")
 
 db.close()
@@ -106,10 +107,11 @@ print(f"Author ID: {author.pk}")
 
 # Access related author through foreign key - triggers lazy load
 print("\nAccessing book.author triggers lazy load:")
-book_author = book1.author  # LazyLoader fetches author from DB
-print(f"  '{book1.title}' was written by {book_author.name}")
+if (book_author := book1.author) is not None:
+    print(f"  '{book1.title}' was written by {book_author.name}")
 
-print(f"\n'{book2.title}' was written by {book2.author.name}")
+if (book2_author := book2.author) is not None:
+    print(f"\n'{book2.title}' was written by {book2_author.name}")
 print("Related objects loaded on-demand from database")
 
 db.close()
@@ -167,7 +169,8 @@ print("Fetching books with eager loading:")
 books = db.select(Book).select_related("author").fetch_all()
 
 for book in books:
-    print(f"  '{book.title}' by {book.author.name}")
+    if (author := book.author) is not None:
+        print(f"  '{book.title}' by {author.name}")
 
 print("\nAll authors loaded in single query (no N+1 problem)")
 
@@ -237,10 +240,14 @@ comment = db.select(Comment).select_related("book__author").fetch_one()
 
 if comment is not None:
     print(f"Comment: {comment.text}")
-    print(f"Book: {comment.book.title}")
-    # Access author through book's foreign key relationship
-    # Both book and author were loaded in a single JOIN query
-    print(f"Author: {comment.book.author.name}")
+    comment_book = comment.book
+    if comment_book is not None:
+        print(f"Book: {comment_book.title}")
+        # Access author through book's foreign key relationship
+        # Both book and author were loaded in a single JOIN query
+        book_author = comment_book.author
+        if book_author is not None:
+            print(f"Author: {book_author.name}")
 
 print("\nNested relationships loaded in single query")
 
@@ -378,7 +385,8 @@ books = (
 )
 
 for book in books:
-    print(f"  {book.title} ({book.year}) by {book.author.name}")
+    if (author := book.author) is not None:
+        print(f"  {book.title} ({book.year}) by {author.name}")
 
 print(f"\n{len(books)} result(s) with authors preloaded")
 
@@ -477,7 +485,9 @@ print(f"Author: {author.name}")
 # Access reverse relationship - get all books by this author
 # Note: 'books' attribute added dynamically by ForeignKey descriptor
 print("\nAccessing author.books (reverse relationship):")
-books = author.books.fetch_all()  # type: ignore[attr-defined]
+reverse_attr = "books"  # Dynamic attribute added by FK descriptor
+books_query = getattr(author, reverse_attr)
+books = books_query.fetch_all()
 for book in books:
     print(f"  - {book.title}")
 
@@ -526,8 +536,10 @@ player2 = db.insert(Player(name="Davis", team=team))
 print(f"Team: {team.name}")
 
 # Navigate from player to team via FK
-print(f"\n{player1.name} plays for: {player1.team.name}")
-print(f"{player2.name} plays for: {player2.team.name}")
+if (p1_team := player1.team) is not None:
+    print(f"\n{player1.name} plays for: {p1_team.name}")
+if (p2_team := player2.team) is not None:
+    print(f"{player2.name} plays for: {p2_team.name}")
 print("Foreign keys enable relationship navigation")
 
 db.close()
