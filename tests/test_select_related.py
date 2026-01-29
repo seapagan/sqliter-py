@@ -6,6 +6,7 @@ filter traversal, and edge cases.
 
 from __future__ import annotations
 
+import sqlite3
 from typing import TYPE_CHECKING
 from unittest import mock
 
@@ -15,6 +16,7 @@ from sqliter import SqliterDB
 from sqliter.exceptions import (
     InvalidFilterError,
     InvalidRelationshipError,
+    RecordFetchError,
 )
 from sqliter.orm import BaseDBModel, ForeignKey
 
@@ -458,6 +460,21 @@ class TestEdgeCases:
             "Self-referential models require module-level definition for "
             "forward references"
         )
+
+    def test_join_query_sqlite_error_raises_record_fetch_error(
+        self, db: SqliterDB
+    ) -> None:
+        """Verify sqlite3.Error during JOIN query raises RecordFetchError."""
+        mock_cursor = mock.MagicMock()
+        mock_cursor.execute.side_effect = sqlite3.Error("mock error")
+        mock_conn = mock.MagicMock()
+        mock_conn.cursor.return_value = mock_cursor
+
+        with (
+            mock.patch.object(db, "connect", return_value=mock_conn),
+            pytest.raises(RecordFetchError),
+        ):
+            db.select(Book).select_related("author").fetch_all()
 
     def test_multiple_calls_to_select_related(self, db: SqliterDB) -> None:
         """Verify multiple select_related() calls accumulate."""
