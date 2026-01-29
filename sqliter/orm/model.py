@@ -7,7 +7,7 @@ from typing import Any, ClassVar, Optional
 from pydantic import Field
 
 from sqliter.model.model import BaseDBModel as _BaseDBModel
-from sqliter.orm.fields import ForeignKey, LazyLoader
+from sqliter.orm.fields import ForeignKey, HasPK, LazyLoader
 from sqliter.orm.registry import ModelRegistry
 
 __all__ = ["BaseDBModel"]
@@ -35,8 +35,8 @@ class BaseDBModel(_BaseDBModel):
         for fk_field in self.fk_descriptors:
             if fk_field in kwargs:
                 value = kwargs[fk_field]
-                if isinstance(value, _BaseDBModel):
-                    # Extract pk from model instance
+                if isinstance(value, HasPK):
+                    # Duck typing via Protocol: extract pk from model
                     kwargs[f"{fk_field}_id"] = value.pk
                     del kwargs[fk_field]
                 elif isinstance(value, int):
@@ -111,7 +111,7 @@ class BaseDBModel(_BaseDBModel):
                 setattr(self, id_field_name, None)
             elif isinstance(value, int):
                 setattr(self, id_field_name, value)
-            elif isinstance(value, _BaseDBModel):
+            elif isinstance(value, HasPK):
                 setattr(self, id_field_name, value.pk)
             else:
                 msg = (

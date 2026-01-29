@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import types
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -239,11 +240,15 @@ class ForeignKey(Generic[T]):
         inner_type = fk_args[0]  # e.g., Optional[Author] or Author
 
         # Check if inner_type is Optional (Union with None)
+        # Handle both typing.Union (Optional[T]) and types.UnionType
+        # (T | None on Python 3.10+)
         origin = get_origin(inner_type)
-        if origin is Union:
+        is_union = origin is Union
+        if not is_union and hasattr(types, "UnionType"):
+            is_union = isinstance(inner_type, types.UnionType)
+        if is_union:
             args = get_args(inner_type)
             if type(None) in args:
-                # It's Optional[T], so set null=True
                 self.fk_info.null = True
 
     def __set_name__(self, owner: type, name: str) -> None:
