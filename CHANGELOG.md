@@ -5,6 +5,23 @@ project since the first release, with the latest changes at the top.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0](https://github.com/seapagan/sqliter-py/releases/tag/0.15.0) (January 29, 2026)
+
+**Closed Issues**
+
+- Improve LazyLoader type hints for mypy strict mode ([#109](https://github.com/seapagan/sqliter-py/issues/109)) by [seapagan](https://github.com/seapagan)
+
+**New Features**
+
+- Fix ORM typing in strict mypy (nullable FKs, db.get) ([#111](https://github.com/seapagan/sqliter-py/pull/111)) by [seapagan](https://github.com/seapagan)
+- Feat: add select_related() eager loading and relationship filter traversal ([#110](https://github.com/seapagan/sqliter-py/pull/110)) by [seapagan](https://github.com/seapagan)
+
+**Documentation**
+
+- Docs: address PR #101 review improvements ([#108](https://github.com/seapagan/sqliter-py/pull/108)) by [seapagan](https://github.com/seapagan)
+
+[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.14.0...0.15.0) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.14.0...0.15.0.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.14.0...0.15.0.patch)
+
 ## [0.14.0](https://github.com/seapagan/sqliter-py/releases/tag/0.14.0) (January 25, 2026)
 
 **Closed Issues**
