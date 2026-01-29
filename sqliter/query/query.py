@@ -574,20 +574,24 @@ class QueryBuilder(Generic[T]):
                     operator,
                 )
             )
-        elif operator in ["__startswith", "__endswith", "__contains"]:
+        elif operator in [
+            "__startswith",
+            "__endswith",
+            "__contains",
+            "__istartswith",
+            "__iendswith",
+            "__icontains",
+        ]:
             formatted_value = self._format_string_for_operator(operator, value)
-            self.filters.append(
-                (
-                    f"{field_name} GLOB ?",
-                    [formatted_value],
-                    operator,
-                )
+            sql_operator = OPERATOR_MAPPING[operator]
+            field_expr = (
+                f"{field_name} COLLATE NOCASE"
+                if operator in {"__istartswith", "__iendswith", "__icontains"}
+                else field_name
             )
-        elif operator in ["__istartswith", "__iendswith", "__icontains"]:
-            formatted_value = self._format_string_for_operator(operator, value)
             self.filters.append(
                 (
-                    f"{field_name} LIKE ?",
+                    f"{field_expr} {sql_operator} ?",
                     [formatted_value],
                     operator,
                 )

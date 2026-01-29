@@ -71,12 +71,7 @@ nav:
   - Guide:
       - Overview: guide/guide.md
       - Models: guide/models.md
-      - Foreign Keys:
-          - Overview: guide/foreign-keys.md
-          - Explicit Foreign Keys: guide/foreign-keys/explicit.md
-          - ORM Foreign Keys: guide/foreign-keys/orm.md
       - Connect to a Database: guide/connecting.md
-      - Caching: guide/caching.md
       - Properties: guide/properties.md
       - Table Operations: guide/tables.md
       - Data Operations: guide/data-operations.md
@@ -84,8 +79,22 @@ nav:
       - Filtering Results: guide/filtering.md
       - Ordering: guide/ordering.md
       - Field Control: guide/fields.md
+      - Foreign Keys:
+          - Overview: guide/foreign-keys.md
+          - Explicit Foreign Keys: guide/foreign-keys/explicit.md
+          - ORM Foreign Keys: guide/foreign-keys/orm.md
+      - Caching: guide/caching.md
       - Exceptions: guide/exceptions.md
       - Debug Logging: guide/debug.md
+  - API Reference:
+      - Overview: api-reference/index.md
+      - SqliterDB: api-reference/sqliterdb.md
+      - BaseDBModel: api-reference/base-model.md
+      - QueryBuilder: api-reference/query-builder.md
+      - Foreign Keys: api-reference/foreign-keys.md
+      - ORM Mode: api-reference/orm.md
+      - Exceptions: api-reference/exceptions.md
+      - Helpers & Constants: api-reference/helpers.md
   - Interactive Demo:
       - Overview: tui-demo/index.md
       - Database Connection: tui-demo/connection.md
