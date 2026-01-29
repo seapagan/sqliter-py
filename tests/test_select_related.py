@@ -385,6 +385,18 @@ class TestCombinationFeatures:
         # Results should be returned (with eager loading disabled)
         assert len(results) > 0
 
+    def test_fields_with_relationship_filter(self, db: SqliterDB) -> None:
+        """Test .fields() with a relationship filter triggers JOIN path."""
+        results = (
+            db.select(Book)
+            .fields(["title", "year", "author_id"])
+            .filter(author__name="Jane Austen")
+            .fetch_all()
+        )
+
+        assert len(results) == 2
+        assert all(r.title for r in results)
+
     def test_select_related_with_exclude(self, db: SqliterDB) -> None:
         """Note: select_related() is disabled when exclude() is used."""
         results = (

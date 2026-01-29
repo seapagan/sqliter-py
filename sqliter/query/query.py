@@ -878,8 +878,6 @@ class QueryBuilder(Generic[T]):
                 elif self._order_by.lower().startswith("rowid"):
                     # Fallback for non-quoted patterns such as "rowid DESC"
                     sql += f" ORDER BY t0.{self._order_by}"
-                else:
-                    sql += f" ORDER BY {self._order_by}"
 
             if self._limit is not None:
                 sql += " LIMIT ?"
