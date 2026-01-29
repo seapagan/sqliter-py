@@ -7,7 +7,7 @@ from typing import Any, ClassVar, Optional
 from pydantic import Field
 
 from sqliter.model.model import BaseDBModel as _BaseDBModel
-from sqliter.orm.fields import ForeignKey, LazyLoader
+from sqliter.orm.fields import ForeignKey, HasPK, LazyLoader
 from sqliter.orm.registry import ModelRegistry
 
 __all__ = ["BaseDBModel"]
@@ -35,8 +35,8 @@ class BaseDBModel(_BaseDBModel):
         for fk_field in self.fk_descriptors:
             if fk_field in kwargs:
                 value = kwargs[fk_field]
-                if isinstance(value, _BaseDBModel):
-                    # Extract pk from model instance
+                if isinstance(value, HasPK):
+                    # Duck typing via Protocol: extract pk from model
                     kwargs[f"{fk_field}_id"] = value.pk
                     del kwargs[fk_field]
                 elif isinstance(value, int):
@@ -99,11 +99,31 @@ class BaseDBModel(_BaseDBModel):
         return object.__getattribute__(self, name)
 
     def __setattr__(self, name: str, value: object) -> None:
-        """Intercept _id field assignment to clear FK cache."""
+        """Intercept FK field assignment to convert to _id field."""
+        # Check if this is a FK field assignment
+        fk_descs = getattr(self, "fk_descriptors", {})
+        if name in fk_descs:
+            # Convert FK assignment to _id field assignment
+            # This bypasses Pydantic's validation for the FK field (which is
+            # not in model_fields) and uses the _id field instead
+            id_field_name = f"{name}_id"
+            if value is None:
+                setattr(self, id_field_name, None)
+            elif isinstance(value, int):
+                setattr(self, id_field_name, value)
+            elif isinstance(value, HasPK):
+                setattr(self, id_field_name, value.pk)
+            else:
+                msg = (
+                    f"FK value must be BaseModel, int, or None, "
+                    f"got {type(value)}"
+                )
+                raise TypeError(msg)
+            return
+
         # If setting an _id field, clear corresponding FK cache
         if name.endswith("_id"):
             fk_name = name[:-3]  # Remove "_id" suffix
-            fk_descs = getattr(self, "fk_descriptors", {})
             if fk_name in fk_descs:
                 cache = self.__dict__.get("_fk_cache")
                 if cache and fk_name in cache:
@@ -138,6 +158,12 @@ class BaseDBModel(_BaseDBModel):
                         setattr(cls, id_field_name, None)
                     else:
                         cls.__annotations__[id_field_name] = int
+
+                # Remove FK field annotation so Pydantic doesn't treat it as
+                # a field to be copied to instance __dict__ (which breaks
+                # the descriptor protocol)
+                if name in cls.__annotations__:
+                    del cls.__annotations__[name]
 
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs: Any) -> None:  # noqa: ANN401

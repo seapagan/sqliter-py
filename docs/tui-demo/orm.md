@@ -39,6 +39,62 @@ db.close()
 - Database creates a foreign key constraint
 - Referential integrity is enforced
 
+## Nullable Foreign Keys
+
+Declare nullable FKs using `Optional[T]` or `T | None` in the type annotation.
+SQLiter auto-detects nullability from the annotation.
+
+```python
+# --8<-- [start:nullable-foreign-key]
+from typing import Optional
+
+from sqliter import SqliterDB
+from sqliter.orm import BaseDBModel, ForeignKey
+
+class Author(BaseDBModel):
+    name: str
+
+class Book(BaseDBModel):
+    title: str
+    author: ForeignKey[Optional[Author]] = ForeignKey(
+        Author, on_delete="SET NULL", null=True
+    )
+
+db = SqliterDB(memory=True)
+db.create_table(Author)
+db.create_table(Book)
+
+author = db.insert(Author(name="Jane Austen"))
+book_with = db.insert(Book(title="Pride and Prejudice", author=author))
+book_without = db.insert(Book(title="Anonymous Work", author=None))
+
+book1 = db.get(Book, book_with.pk)
+book2 = db.get(Book, book_without.pk)
+
+if book1 is not None:
+    author_name = book1.author.name if book1.author else "None"
+    print(f"'{book1.title}' author: {author_name}")
+if book2 is not None:
+    print(f"'{book2.title}' author: {book2.author}")
+
+print("\nOptional[Author] auto-sets null=True on the FK column")
+
+db.close()
+# --8<-- [end:nullable-foreign-key]
+```
+
+### What Happens
+
+- `ForeignKey[Optional[Author]]` tells SQLiter the FK column is nullable
+- Books can be inserted with `author=None`
+- Accessing a null FK returns `None` instead of a model instance
+- The explicit `null=True` parameter still works, but the annotation approach
+  is preferred
+- This demo uses `ForeignKey[Optional[Author]]`, but annotation-based
+  nullability is most reliable when ORM models are defined at **module scope**
+  (especially with type aliases). Use `null=True` explicitly for local models
+  when you need guaranteed behavior.
+
 ## Inserting with Foreign Keys
 
 Create records linked to other records.
@@ -106,8 +162,7 @@ print(f"Author ID: {author.pk}")
 
 # Access related author through foreign key - triggers lazy load
 print("\nAccessing book.author triggers lazy load:")
-book_author = book1.author  # LazyLoader fetches author from DB
-print(f"  '{book1.title}' was written by {book_author.name}")
+print(f"  '{book1.title}' was written by {book1.author.name}")
 
 print(f"\n'{book2.title}' was written by {book2.author.name}")
 print("Related objects loaded on-demand from database")
@@ -477,7 +532,9 @@ print(f"Author: {author.name}")
 # Access reverse relationship - get all books by this author
 # Note: 'books' attribute added dynamically by ForeignKey descriptor
 print("\nAccessing author.books (reverse relationship):")
-books = author.books.fetch_all()  # type: ignore[attr-defined]
+reverse_attr = "books"  # Dynamic attribute added by FK descriptor
+books_query = getattr(author, reverse_attr)
+books = books_query.fetch_all()
 for book in books:
     print(f"  - {book.title}")
 

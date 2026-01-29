@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+from typing import Optional
 
 from sqliter import SqliterDB
 from sqliter.orm import BaseDBModel, ForeignKey
@@ -37,8 +38,7 @@ def _run_lazy_loading() -> str:
 
     # Access related author through foreign key - triggers lazy load
     output.write("\nAccessing book.author triggers lazy load:\n")
-    book_author = book1.author  # LazyLoader fetches author from DB
-    output.write(f"  '{book1.title}' was written by {book_author.name}\n")
+    output.write(f"  '{book1.title}' was written by {book1.author.name}\n")
 
     output.write(f"\n'{book2.title}' was written by {book2.author.name}\n")
     output.write("Related objects loaded on-demand from database\n")
@@ -77,6 +77,51 @@ def _run_orm_style_access() -> str:
         "\nForeign key stores the primary key internally,\n"
         "but access returns the object\n"
     )
+
+    db.close()
+    return output.getvalue()
+
+
+def _run_nullable_foreign_key() -> str:
+    """Declare nullable FKs using Optional[T] in the type annotation.
+
+    SQLiter auto-detects nullability from the annotation so you don't
+    need to pass null=True explicitly.
+
+    Note: this demo already uses ForeignKey[Optional[Author]], but
+    annotation-based nullability is most reliable when models are defined at
+    module level (especially if you use type aliases). We include null=True
+    here for compatibility.
+    """
+    output = io.StringIO()
+
+    class Author(BaseDBModel):
+        name: str
+
+    class Book(BaseDBModel):
+        title: str
+        author: ForeignKey[Optional[Author]] = ForeignKey(
+            Author, on_delete="SET NULL", null=True
+        )
+
+    db = SqliterDB(memory=True)
+    db.create_table(Author)
+    db.create_table(Book)
+
+    author = db.insert(Author(name="Jane Austen"))
+    book_with = db.insert(Book(title="Pride and Prejudice", author=author))
+    book_without = db.insert(Book(title="Anonymous Work", author=None))
+
+    book1 = db.get(Book, book_with.pk)
+    book2 = db.get(Book, book_without.pk)
+
+    if book1 is not None:
+        author_name = book1.author.name if book1.author else "None"
+        output.write(f"'{book1.title}' author: {author_name}\n")
+    if book2 is not None:
+        output.write(f"'{book2.title}' author: {book2.author}\n")
+
+    output.write("\nOptional[Author] auto-sets null=True on the FK column\n")
 
     db.close()
     return output.getvalue()
@@ -145,7 +190,9 @@ def _run_reverse_relationships() -> str:
     # Access reverse relationship - get all books by this author
     # Note: 'books' attribute added dynamically by ForeignKey descriptor
     output.write("\nAccessing author.books (reverse relationship):\n")
-    books = author.books.fetch_all()
+    reverse_attr = "books"  # Dynamic attribute added by FK descriptor
+    books_query = getattr(author, reverse_attr)
+    books = books_query.fetch_all()
     for book in books:
         output.write(f"  - {book.title}\n")
 
@@ -324,7 +371,7 @@ def _run_select_related_combined() -> str:
     for book in books:
         output.write(f"  {book.title} ({book.year}) by {book.author.name}\n")
 
-    output.write(f"\n{len(books)} result(s) with authors pre-loaded\n")
+    output.write(f"\n{len(books)} result(s) with authors preloaded\n")
 
     db.close()
     return output.getvalue()
@@ -352,6 +399,14 @@ def get_category() -> DemoCategory:
                 category="orm",
                 code=extract_demo_code(_run_orm_style_access),
                 execute=_run_orm_style_access,
+            ),
+            Demo(
+                id="orm_nullable_fk",
+                title="Nullable Foreign Keys",
+                description="Auto-detect nullable FKs from annotations",
+                category="orm",
+                code=extract_demo_code(_run_nullable_foreign_key),
+                execute=_run_nullable_foreign_key,
             ),
             Demo(
                 id="orm_relationships",
