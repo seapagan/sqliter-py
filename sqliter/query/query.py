@@ -584,9 +584,14 @@ class QueryBuilder(Generic[T]):
         ]:
             formatted_value = self._format_string_for_operator(operator, value)
             sql_operator = OPERATOR_MAPPING[operator]
+            field_expr = (
+                f"{field_name} COLLATE NOCASE"
+                if operator in {"__istartswith", "__iendswith", "__icontains"}
+                else field_name
+            )
             self.filters.append(
                 (
-                    f"{field_name} {sql_operator} ?",
+                    f"{field_expr} {sql_operator} ?",
                     [formatted_value],
                     operator,
                 )
