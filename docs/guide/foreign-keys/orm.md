@@ -242,7 +242,7 @@ from typing import Optional
 author: ForeignKey[Optional[Author]] = ForeignKey(Author, on_delete="SET NULL")
 author: ForeignKey[Author | None] = ForeignKey(Author, on_delete="SET NULL")  # 3.10+
 
-# Legacy — explicit null=True (may be deprecated in a future version):
+# Legacy — explicit null=True (prefer annotation-driven nullability):
 author: ForeignKey[Author] = ForeignKey(Author, on_delete="SET NULL", null=True)
 ```
 
@@ -272,6 +272,13 @@ book.author = None
 
 # Any object with a `pk` attribute also works (duck-typed)
 book.author = some_obj_with_pk
+
+# Example: custom object with pk attribute
+class AuthorReference:
+    def __init__(self, pk: int):
+        self.pk = pk
+
+book.author = AuthorReference(pk=42)  # Works!
 ```
 
 ## Reverse Relationships

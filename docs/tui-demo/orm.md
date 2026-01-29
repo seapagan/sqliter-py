@@ -88,7 +88,7 @@ db.close()
 - `ForeignKey[Optional[Author]]` tells SQLiter the FK column is nullable
 - Books can be inserted with `author=None`
 - Accessing a null FK returns `None` instead of a model instance
-- The explicit `null=True` parameter still works but the annotation approach
+- The explicit `null=True` parameter still works, but the annotation approach
   is preferred
 - Prefer defining ORM models at **module scope** so type annotations resolve
   reliably. If you use type aliases for nullable FKs in locally defined models,
