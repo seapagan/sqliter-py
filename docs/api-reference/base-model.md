@@ -79,8 +79,8 @@ class MyModel(BaseDBModel):
 | Attribute        | Type                                       | Default | Description                                                  |
 | ---------------- | ------------------------------------------ | ------- | ------------------------------------------------------------ |
 | `table_name`     | `str` &#124; `None`                        | `None`  | Custom table name; auto-generated from class name if not set |
-| `indexes`        | `list[str]` &#124; `list[tuple[str, ...]]` | `[]`    | Fields for regular indexes                                   |
-| `unique_indexes` | `list[str]` &#124; `list[tuple[str, ...]]` | `[]`    | Fields for unique indexes                                    |
+| `indexes`        | `list[str]` &#124; `list[tuple[str, ...]]` | `[]`    | Fields for regular indexes; use tuples for composite indexes |
+| `unique_indexes` | `list[str]` &#124; `list[tuple[str, ...]]` | `[]`    | Fields for unique indexes; use tuples for composite indexes  |
 
 ---
 

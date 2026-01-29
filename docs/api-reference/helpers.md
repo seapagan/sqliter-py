@@ -156,6 +156,8 @@ Maps SQLiter filter operator suffixes to their SQL equivalents. Used by
 > The `__startswith`, `__endswith`, and `__contains` operators use SQLite's
 > `GLOB` for case-sensitive matching. The `i`-prefixed variants use `LIKE`
 > for case-insensitive matching.
+> The `__like` operator expects a full SQL `LIKE` pattern (including any `%`
+> wildcards).
 
 ---
 
