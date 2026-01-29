@@ -56,9 +56,8 @@ class Author(BaseDBModel):
 
 class Book(BaseDBModel):
     title: str
-    # Optional[Author] auto-sets null=True — no need to pass it explicitly
     author: ForeignKey[Optional[Author]] = ForeignKey(
-        Author, on_delete="SET NULL"
+        Author, on_delete="SET NULL", null=True
     )
 
 db = SqliterDB(memory=True)
@@ -72,8 +71,13 @@ book_without = db.insert(Book(title="Anonymous Work", author=None))
 book1 = db.get(Book, book_with.pk)
 book2 = db.get(Book, book_without.pk)
 
-print(f"'{book1.title}' author: {book1.author.name}")
-print(f"'{book2.title}' author: {book2.author}")
+if book1 is not None:
+    author_name = book1.author.name if book1.author else "None"
+    print(f"'{book1.title}' author: {author_name}")
+if book2 is not None:
+    print(f"'{book2.title}' author: {book2.author}")
+
+print("\nOptional[Author] auto-sets null=True on the FK column")
 
 db.close()
 # --8<-- [end:nullable-foreign-key]

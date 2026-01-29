@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+from typing import Optional
 
 from sqliter import SqliterDB
 from sqliter.orm import BaseDBModel, ForeignKey
@@ -76,6 +77,50 @@ def _run_orm_style_access() -> str:
         "\nForeign key stores the primary key internally,\n"
         "but access returns the object\n"
     )
+
+    db.close()
+    return output.getvalue()
+
+
+def _run_nullable_foreign_key() -> str:
+    """Declare nullable FKs using Optional[T] in the type annotation.
+
+    SQLiter auto-detects nullability from the annotation so you don't
+    need to pass null=True explicitly.
+
+    Note: annotation auto-detection requires models defined at module
+    level. This demo uses null=True for compatibility, but at module
+    level you can write: ForeignKey[Optional[Author]]
+    """
+    output = io.StringIO()
+
+    class Author(BaseDBModel):
+        name: str
+
+    class Book(BaseDBModel):
+        title: str
+        author: ForeignKey[Optional[Author]] = ForeignKey(
+            Author, on_delete="SET NULL", null=True
+        )
+
+    db = SqliterDB(memory=True)
+    db.create_table(Author)
+    db.create_table(Book)
+
+    author = db.insert(Author(name="Jane Austen"))
+    book_with = db.insert(Book(title="Pride and Prejudice", author=author))
+    book_without = db.insert(Book(title="Anonymous Work", author=None))
+
+    book1 = db.get(Book, book_with.pk)
+    book2 = db.get(Book, book_without.pk)
+
+    if book1 is not None:
+        author_name = book1.author.name if book1.author else "None"
+        output.write(f"'{book1.title}' author: {author_name}\n")
+    if book2 is not None:
+        output.write(f"'{book2.title}' author: {book2.author}\n")
+
+    output.write("\nOptional[Author] auto-sets null=True on the FK column\n")
 
     db.close()
     return output.getvalue()
@@ -353,6 +398,14 @@ def get_category() -> DemoCategory:
                 category="orm",
                 code=extract_demo_code(_run_orm_style_access),
                 execute=_run_orm_style_access,
+            ),
+            Demo(
+                id="orm_nullable_fk",
+                title="Nullable Foreign Keys",
+                description="Auto-detect nullable FKs from annotations",
+                category="orm",
+                code=extract_demo_code(_run_nullable_foreign_key),
+                execute=_run_nullable_foreign_key,
             ),
             Demo(
                 id="orm_relationships",
