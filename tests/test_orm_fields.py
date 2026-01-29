@@ -9,7 +9,7 @@ from typing import Optional
 import pytest
 from pydantic.fields import FieldInfo
 
-from sqliter.orm.fields import ForeignKey
+from sqliter.orm.fields import ForeignKey, _annotation_is_nullable
 from sqliter.orm.model import BaseDBModel
 
 
@@ -239,3 +239,32 @@ def test_setattr_accepts_duck_typed_haspk_object() -> None:
     owner = OwnerWithFK()
     owner.related = stub
     assert owner.related_id == 77
+
+
+def test_annotation_is_nullable_no_brackets() -> None:
+    """_annotation_is_nullable should return False without type args."""
+    assert _annotation_is_nullable("ForeignKey") is False
+
+
+def test_annotation_is_nullable_optional() -> None:
+    """_annotation_is_nullable should detect Optional[T]."""
+    raw = "sqliter.orm.fields.ForeignKey[Optional[Author]]"
+    assert _annotation_is_nullable(raw) is True
+
+
+def test_annotation_is_nullable_pep604_union() -> None:
+    """_annotation_is_nullable should detect T | None."""
+    raw = "ForeignKey[Author | None]"
+    assert _annotation_is_nullable(raw) is True
+
+
+def test_annotation_is_nullable_typing_union() -> None:
+    """_annotation_is_nullable should detect Union[T, None]."""
+    raw = "typing.ForeignKey[Union[list[Author], None]]"
+    assert _annotation_is_nullable(raw) is True
+
+
+def test_annotation_is_nullable_non_optional_union() -> None:
+    """_annotation_is_nullable should return False without None."""
+    raw = "ForeignKey[Union[Author, Book]]"
+    assert _annotation_is_nullable(raw) is False

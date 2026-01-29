@@ -39,6 +39,57 @@ db.close()
 - Database creates a foreign key constraint
 - Referential integrity is enforced
 
+## Nullable Foreign Keys
+
+Declare nullable FKs using `Optional[T]` or `T | None` in the type annotation.
+SQLiter auto-detects nullability from the annotation.
+
+```python
+# --8<-- [start:nullable-foreign-key]
+from typing import Optional
+
+from sqliter import SqliterDB
+from sqliter.orm import BaseDBModel, ForeignKey
+
+class Author(BaseDBModel):
+    name: str
+
+class Book(BaseDBModel):
+    title: str
+    # Optional[Author] auto-sets null=True — no need to pass it explicitly
+    author: ForeignKey[Optional[Author]] = ForeignKey(
+        Author, on_delete="SET NULL"
+    )
+
+db = SqliterDB(memory=True)
+db.create_table(Author)
+db.create_table(Book)
+
+author = db.insert(Author(name="Jane Austen"))
+book_with = db.insert(Book(title="Pride and Prejudice", author=author))
+book_without = db.insert(Book(title="Anonymous Work", author=None))
+
+book1 = db.get(Book, book_with.pk)
+book2 = db.get(Book, book_without.pk)
+
+print(f"'{book1.title}' author: {book1.author.name}")
+print(f"'{book2.title}' author: {book2.author}")
+
+db.close()
+# --8<-- [end:nullable-foreign-key]
+```
+
+### What Happens
+
+- `ForeignKey[Optional[Author]]` tells SQLiter the FK column is nullable
+- Books can be inserted with `author=None`
+- Accessing a null FK returns `None` instead of a model instance
+- The explicit `null=True` parameter still works but the annotation approach
+  is preferred
+- Prefer defining ORM models at **module scope** so type annotations resolve
+  reliably. If you use type aliases for nullable FKs in locally defined models,
+  set `null=True` explicitly.
+
 ## Inserting with Foreign Keys
 
 Create records linked to other records.

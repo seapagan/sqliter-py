@@ -37,6 +37,49 @@ T = TypeVar("T")
 logger = logging.getLogger(__name__)
 
 
+def _split_top_level(text: str, sep: str) -> list[str]:
+    parts: list[str] = []
+    depth = 0
+    buf: list[str] = []
+    for ch in text:
+        if ch in "[(":
+            depth += 1
+        elif ch in "])":
+            depth -= 1
+        if ch == sep and depth == 0:
+            parts.append("".join(buf).strip())
+            buf = []
+        else:
+            buf.append(ch)
+    parts.append("".join(buf).strip())
+    return parts
+
+
+def _annotation_is_nullable(raw: str) -> bool:
+    """Best-effort check for Optional or | None at top level."""
+    s = raw.replace("typing.", "").replace("sqliter.orm.fields.", "").strip()
+
+    if "[" not in s or "]" not in s:
+        return False
+
+    inner = s[s.find("[") + 1 : s.rfind("]")].strip()
+
+    if inner.startswith("Optional["):
+        return True
+
+    if "|" in inner and any(
+        part == "None" for part in _split_top_level(inner, "|")
+    ):
+        return True
+
+    if inner.startswith("Union[") and inner.endswith("]"):
+        union_inner = inner[len("Union[") : -1]
+        if any(part == "None" for part in _split_top_level(union_inner, ",")):
+            return True
+
+    return False
+
+
 @runtime_checkable
 class HasPK(Protocol):
     """Protocol for objects that have a pk attribute."""
@@ -225,7 +268,10 @@ class ForeignKey(Generic[T]):
         try:
             hints = get_type_hints(owner)
         except Exception:  # noqa: BLE001
-            # Can fail with forward refs, NameError, etc. - just skip
+            # Can fail with forward refs, NameError, etc. - fallback to raw
+            raw = owner.__annotations__.get(name)
+            if isinstance(raw, str) and _annotation_is_nullable(raw):
+                self.fk_info.null = True
             return
 
         if name not in hints:
