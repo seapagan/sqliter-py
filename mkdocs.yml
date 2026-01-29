@@ -86,6 +86,15 @@ nav:
       - Field Control: guide/fields.md
       - Exceptions: guide/exceptions.md
       - Debug Logging: guide/debug.md
+  - API Reference:
+      - Overview: api-reference/index.md
+      - SqliterDB: api-reference/sqliterdb.md
+      - BaseDBModel: api-reference/base-model.md
+      - QueryBuilder: api-reference/query-builder.md
+      - Foreign Keys: api-reference/foreign-keys.md
+      - ORM Mode: api-reference/orm.md
+      - Exceptions: api-reference/exceptions.md
+      - Helpers & Constants: api-reference/helpers.md
   - Interactive Demo:
       - Overview: tui-demo/index.md
       - Database Connection: tui-demo/connection.md

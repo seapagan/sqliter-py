@@ -52,6 +52,11 @@ database-like format without needing to learn SQL or use a full ORM.
 - Can optionally output the raw SQL queries being executed for debugging
   purposes.
 
+## API Reference
+
+For detailed documentation of every class, method, property, and
+constant, see the [API Reference](api-reference/index.md).
+
 ## Interactive Demo
 
 SQLiter includes an interactive terminal-based demo (TUI) that lets you explore all features hands-on without writing any code. Run the demo to see live code examples and their output:
