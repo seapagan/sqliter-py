@@ -389,7 +389,7 @@ class TestCombinationFeatures:
         """Test .fields() with a relationship filter triggers JOIN path."""
         results = (
             db.select(Book)
-            .fields(["title", "year", "author_id"])
+            .fields(["title", "year"])
             .filter(author__name="Jane Austen")
             .fetch_all()
         )
