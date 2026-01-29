@@ -90,9 +90,10 @@ db.close()
 - Accessing a null FK returns `None` instead of a model instance
 - The explicit `null=True` parameter still works, but the annotation approach
   is preferred
-- Prefer defining ORM models at **module scope** so type annotations resolve
-  reliably. If you use type aliases for nullable FKs in locally defined models,
-  set `null=True` explicitly.
+- This demo uses `ForeignKey[Optional[Author]]`, but annotation-based
+  nullability is most reliable when ORM models are defined at **module scope**
+  (especially with type aliases). Use `null=True` explicitly for local models
+  when you need guaranteed behavior.
 
 ## Inserting with Foreign Keys
 

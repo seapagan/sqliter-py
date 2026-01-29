@@ -88,9 +88,10 @@ def _run_nullable_foreign_key() -> str:
     SQLiter auto-detects nullability from the annotation so you don't
     need to pass null=True explicitly.
 
-    Note: annotation auto-detection requires models defined at module
-    level. This demo uses null=True for compatibility, but at module
-    level you can write: ForeignKey[Optional[Author]]
+    Note: this demo already uses ForeignKey[Optional[Author]], but
+    annotation-based nullability is most reliable when models are defined at
+    module level (especially if you use type aliases). We include null=True
+    here for compatibility.
     """
     output = io.StringIO()
 
