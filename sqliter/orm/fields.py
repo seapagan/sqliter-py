@@ -22,15 +22,16 @@ from typing import (
 from pydantic_core import core_schema
 
 from sqliter.model.foreign_key import ForeignKeyInfo
-from sqliter.model.model import BaseDBModel
 
 if TYPE_CHECKING:  # pragma: no cover
     from pydantic import GetCoreSchemaHandler
 
     from sqliter.model.foreign_key import FKAction
+    from sqliter.model.model import BaseDBModel
     from sqliter.sqliter import SqliterDB
 
-T = TypeVar("T", bound=BaseDBModel)
+T = TypeVar("T")
+
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +107,11 @@ class LazyLoader(Generic[T]):
             from sqliter.exceptions import SqliterError  # noqa: PLC0415
 
             try:
-                result = self._db.get(self._to_model, self._fk_id)
+                # Cast to type[BaseDBModel] for SqliterDB.get() - T is always
+                # a BaseDBModel subclass in practice
+                result = self._db.get(
+                    cast("type[BaseDBModel]", self._to_model), self._fk_id
+                )
                 self._cached = cast("Optional[T]", result)
             except SqliterError as e:
                 # DB errors (missing table, fetch errors) → treat as not found
@@ -178,7 +183,7 @@ class ForeignKey(Generic[T]):
         """
         self.to_model = to_model
         self.fk_info = ForeignKeyInfo(
-            to_model=to_model,
+            to_model=cast("type[BaseDBModel]", to_model),
             on_delete=on_delete,
             on_update=on_update,
             null=null,
@@ -199,12 +204,15 @@ class ForeignKey(Generic[T]):
     ) -> core_schema.CoreSchema:
         """Tell Pydantic how to handle ForeignKey[T] type annotations.
 
-        Since ForeignKey fields are removed from model_fields during class
-        creation (in __init_subclass__), we just need to provide a permissive
-        schema to prevent errors during initial schema generation.
+        Uses no_info_plain_validator_function to prevent the descriptor from
+        being stored in instance __dict__, which would break the descriptor
+        protocol. The ForeignKey descriptor must remain at class level only.
         """
-        # Return a schema that accepts any value - the field is removed anyway
-        return core_schema.any_schema()
+        # Return a validator that doesn't store anything in __dict__
+        # This prevents Pydantic from copying the descriptor to instances
+        return core_schema.no_info_plain_validator_function(
+            function=lambda _: None  # Value is ignored
+        )
 
     def _detect_nullable_from_annotation(self, owner: type, name: str) -> None:
         """Detect if FK is nullable from type annotation.
