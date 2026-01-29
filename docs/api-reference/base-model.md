@@ -25,11 +25,11 @@ See also: [Guide -- Models](../guide/models.md),
 
 Every model automatically includes these fields:
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `pk` | `int` | `0` | Auto-incrementing primary key (set on insert) |
-| `created_at` | `int` | `0` | Unix timestamp when the record was created |
-| `updated_at` | `int` | `0` | Unix timestamp when the record was last updated |
+| Field        | Type  | Default | Description                                     |
+| ------------ | ----- | ------- | ----------------------------------------------- |
+| `pk`         | `int` | `0`     | Auto-incrementing primary key (set on insert)   |
+| `created_at` | `int` | `0`     | Unix timestamp when the record was created      |
+| `updated_at` | `int` | `0`     | Unix timestamp when the record was last updated |
 
 `pk` is managed by SQLite's `AUTOINCREMENT`. The `created_at` and
 `updated_at` timestamps are set automatically by
@@ -51,12 +51,12 @@ model_config = ConfigDict(
 )
 ```
 
-| Option | Value | Effect |
-|--------|-------|--------|
-| `extra` | `"ignore"` | Extra fields in input data are silently ignored |
-| `populate_by_name` | `True` | Fields can be populated by name or alias |
-| `validate_assignment` | `True` | Field values are validated on assignment |
-| `from_attributes` | `True` | Models can be created from objects with attributes |
+| Option                | Value      | Effect                                             |
+| --------------------- | ---------- | -------------------------------------------------- |
+| `extra`               | `"ignore"` | Extra fields in input data are silently ignored    |
+| `populate_by_name`    | `True`     | Fields can be populated by name or alias           |
+| `validate_assignment` | `True`     | Field values are validated on assignment           |
+| `from_attributes`     | `True`     | Models can be created from objects with attributes |
 
 ---
 
@@ -76,11 +76,11 @@ class MyModel(BaseDBModel):
 
 **Attributes:**
 
-| Attribute | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `table_name` | `str` &#124; `None` | `None` | Custom table name; auto-generated from class name if not set |
-| `indexes` | `list[str` &#124; `tuple[str]]` | `[]` | Fields for regular indexes |
-| `unique_indexes` | `list[str` &#124; `tuple[str]]` | `[]` | Fields for unique indexes |
+| Attribute        | Type                            | Default | Description                                                  |
+| ---------------- | ------------------------------- | ------- | ------------------------------------------------------------ |
+| `table_name`     | `str` &#124; `None`             | `None`  | Custom table name; auto-generated from class name if not set |
+| `indexes`        | `list[str` &#124; `tuple[str]]` | `[]`    | Fields for regular indexes                                   |
+| `unique_indexes` | `list[str` &#124; `tuple[str]]` | `[]`    | Fields for unique indexes                                    |
 
 ---
 
@@ -165,9 +165,9 @@ def serialize_field(
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `value` | `SerializableField` | *required* | The field value to serialize |
+| Parameter | Type                | Default    | Description                  |
+| --------- | ------------------- | ---------- | ---------------------------- |
+| `value`   | `SerializableField` | *required* | The field value to serialize |
 
 **Returns:**
 
@@ -197,11 +197,11 @@ def deserialize_field(
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `field_name` | `str` | *required* | Name of the field being deserialized |
-| `value` | `SerializableField` | *required* | The value from the database |
-| `return_local_time` | `bool` | *required* | Whether to localize datetime values |
+| Parameter           | Type                | Default    | Description                          |
+| ------------------- | ------------------- | ---------- | ------------------------------------ |
+| `field_name`        | `str`               | *required* | Name of the field being deserialized |
+| `value`             | `SerializableField` | *required* | The value from the database          |
+| `return_local_time` | `bool`              | *required* | Whether to localize datetime values  |
 
 **Returns:**
 
@@ -231,9 +231,9 @@ def model_validate_partial(
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `obj` | `dict[str, Any]` | *required* | Dictionary of field names and values |
+| Parameter | Type             | Default    | Description                          |
+| --------- | ---------------- | ---------- | ------------------------------------ |
+| `obj`     | `dict[str, Any]` | *required* | Dictionary of field names and values |
 
 **Returns:**
 
@@ -273,10 +273,10 @@ def unique(
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `default` | `Any` | `...` | Default value for the field |
-| `**kwargs` | `Any` | | Additional arguments passed to Pydantic `Field` |
+| Parameter  | Type  | Default | Description                                     |
+| ---------- | ----- | ------- | ----------------------------------------------- |
+| `default`  | `Any` | `...`   | Default value for the field                     |
+| `**kwargs` | `Any` |         | Additional arguments passed to Pydantic `Field` |
 
 **Returns:**
 

@@ -18,7 +18,7 @@ See also: [Guide -- Exceptions](../guide/exceptions.md)
 
 ## Hierarchy
 
-```
+```text
 Exception
 └── SqliterError
     ├── DatabaseConnectionError
@@ -55,9 +55,9 @@ class SqliterError(Exception):
 
 **Attributes:**
 
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| `message_template` | `str` | Template string formatted with `*args` |
+| Attribute            | Type        | Description                                             |
+| -------------------- | ----------- | ------------------------------------------------------- |
+| `message_template`   | `str`       | Template string formatted with `*args`                  |
 | `original_exception` | `Exception` | The caught exception that triggered this error (if any) |
 
 **Behavior:**
@@ -261,17 +261,17 @@ class InvalidIndexError(SqliterError):
 
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
+| Parameter        | Type        | Description                           |
+| ---------------- | ----------- | ------------------------------------- |
 | `invalid_fields` | `list[str]` | Fields that do not exist in the model |
-| `model_class` | `str` | Name of the model class |
+| `model_class`    | `str`       | Name of the model class               |
 
 **Attributes:**
 
-| Attribute | Type | Description |
-|-----------|------|-------------|
+| Attribute        | Type        | Description                                         |
+| ---------------- | ----------- | --------------------------------------------------- |
 | `invalid_fields` | `list[str]` | The invalid field names (from `__init__` parameter) |
-| `model_class` | `str` | The model class name (from `__init__` parameter) |
+| `model_class`    | `str`       | The model class name (from `__init__` parameter)    |
 
 **Raised by:**
 

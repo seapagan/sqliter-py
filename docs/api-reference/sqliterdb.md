@@ -53,19 +53,19 @@ def __init__(
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `db_filename` | `str` &#124; `None` | `None` | Path to the SQLite database file |
-| `memory` | `bool` | `False` | If `True`, create an in-memory database |
-| `auto_commit` | `bool` | `True` | Auto-commit after each operation |
-| `debug` | `bool` | `False` | Enable SQL debug logging |
-| `logger` | `Logger` &#124; `None` | `None` | Custom logger for debug output |
-| `reset` | `bool` | `False` | Drop all tables on initialization |
-| `return_local_time` | `bool` | `True` | Return local time for datetime fields |
-| `cache_enabled` | `bool` | `False` | Enable query result caching |
-| `cache_max_size` | `int` | `1000` | Max cached queries per table (LRU) |
-| `cache_ttl` | `int` &#124; `None` | `None` | Time-to-live for cache entries (seconds) |
-| `cache_max_memory_mb` | `int` &#124; `None` | `None` | Max memory for cache (MB) |
+| Parameter             | Type                   | Default | Description                              |
+| --------------------- | ---------------------- | ------- | ---------------------------------------- |
+| `db_filename`         | `str` &#124; `None`    | `None`  | Path to the SQLite database file         |
+| `memory`              | `bool`                 | `False` | If `True`, create an in-memory database  |
+| `auto_commit`         | `bool`                 | `True`  | Auto-commit after each operation         |
+| `debug`               | `bool`                 | `False` | Enable SQL debug logging                 |
+| `logger`              | `Logger` &#124; `None` | `None`  | Custom logger for debug output           |
+| `reset`               | `bool`                 | `False` | Drop all tables on initialization        |
+| `return_local_time`   | `bool`                 | `True`  | Return local time for datetime fields    |
+| `cache_enabled`       | `bool`                 | `False` | Enable query result caching              |
+| `cache_max_size`      | `int`                  | `1000`  | Max cached queries per table (LRU)       |
+| `cache_ttl`           | `int` &#124; `None`    | `None`  | Time-to-live for cache entries (seconds) |
+| `cache_max_memory_mb` | `int` &#124; `None`    | `None`  | Max memory for cache (MB)                |
 
 **Raises:**
 
@@ -100,32 +100,32 @@ db = SqliterDB(
 Returns the database filename, or `None` if using an in-memory
 database.
 
-| Type | Description |
-|------|-------------|
+| Type                | Description                       |
+| ------------------- | --------------------------------- |
 | `str` &#124; `None` | File path or `None` for in-memory |
 
 ### `is_memory`
 
 Returns `True` if the database is in-memory.
 
-| Type | Description |
-|------|-------------|
+| Type   | Description                     |
+| ------ | ------------------------------- |
 | `bool` | `True` for `:memory:` databases |
 
 ### `is_autocommit`
 
 Returns `True` if auto-commit is enabled.
 
-| Type | Description |
-|------|-------------|
+| Type   | Description                 |
+| ------ | --------------------------- |
 | `bool` | Current auto-commit setting |
 
 ### `is_connected`
 
 Returns `True` if a database connection is currently open.
 
-| Type | Description |
-|------|-------------|
+| Type   | Description       |
+| ------ | ----------------- |
 | `bool` | Connection status |
 
 ### `table_names`
@@ -134,8 +134,8 @@ Returns a list of all table names in the database. Temporarily
 connects if not already connected and restores the connection state
 afterward.
 
-| Type | Description |
-|------|-------------|
+| Type        | Description                                             |
+| ----------- | ------------------------------------------------------- |
 | `list[str]` | All user table names (excludes `sqlite_` system tables) |
 
 **Example:**
@@ -206,11 +206,11 @@ def create_table(
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `model_class` | `type[BaseDBModel]` | *required* | The model class defining the table |
-| `exists_ok` | `bool` | `True` | If `True`, do not raise if table exists |
-| `force` | `bool` | `False` | If `True`, drop and recreate the table |
+| Parameter     | Type                | Default    | Description                             |
+| ------------- | ------------------- | ---------- | --------------------------------------- |
+| `model_class` | `type[BaseDBModel]` | *required* | The model class defining the table      |
+| `exists_ok`   | `bool`              | `True`     | If `True`, do not raise if table exists |
+| `force`       | `bool`              | `False`    | If `True`, drop and recreate the table  |
 
 **Raises:**
 
@@ -239,8 +239,8 @@ def drop_table(
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
+| Parameter     | Type                | Default    | Description                         |
+| ------------- | ------------------- | ---------- | ----------------------------------- |
 | `model_class` | `type[BaseDBModel]` | *required* | The model class whose table to drop |
 
 **Raises:**
@@ -268,10 +268,10 @@ def insert(
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `model_instance` | `T` | *required* | The model instance to insert |
-| `timestamp_override` | `bool` | `False` | If `True`, respect provided non-zero timestamp values |
+| Parameter            | Type   | Default    | Description                                           |
+| -------------------- | ------ | ---------- | ----------------------------------------------------- |
+| `model_instance`     | `T`    | *required* | The model instance to insert                          |
+| `timestamp_override` | `bool` | `False`    | If `True`, respect provided non-zero timestamp values |
 
 **Returns:**
 
@@ -306,10 +306,10 @@ def get(
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `model_class` | `type[T]` | *required* | The model class |
-| `primary_key_value` | `int` | *required* | The primary key value |
+| Parameter           | Type      | Default    | Description           |
+| ------------------- | --------- | ---------- | --------------------- |
+| `model_class`       | `type[T]` | *required* | The model class       |
+| `primary_key_value` | `int`     | *required* | The primary key value |
 
 **Returns:**
 
@@ -342,8 +342,8 @@ def update(
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
+| Parameter        | Type          | Default    | Description                  |
+| ---------------- | ------------- | ---------- | ---------------------------- |
 | `model_instance` | `BaseDBModel` | *required* | The model instance to update |
 
 **Raises:**
@@ -375,10 +375,10 @@ def delete(
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `model_class` | `type[BaseDBModel]` | *required* | The model class |
-| `primary_key_value` | `int` &#124; `str` | *required* | The primary key of the record to delete |
+| Parameter           | Type                | Default    | Description                             |
+| ------------------- | ------------------- | ---------- | --------------------------------------- |
+| `model_class`       | `type[BaseDBModel]` | *required* | The model class                         |
+| `primary_key_value` | `int` &#124; `str`  | *required* | The primary key of the record to delete |
 
 **Raises:**
 
@@ -411,11 +411,11 @@ def select(
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `model_class` | `type[T]` | *required* | The model class to query |
-| `fields` | `list[str]` &#124; `None` | `None` | Fields to include |
-| `exclude` | `list[str]` &#124; `None` | `None` | Fields to exclude |
+| Parameter     | Type                      | Default    | Description              |
+| ------------- | ------------------------- | ---------- | ------------------------ |
+| `model_class` | `type[T]`                 | *required* | The model class to query |
+| `fields`      | `list[str]` &#124; `None` | `None`     | Fields to include        |
+| `exclude`     | `list[str]` &#124; `None` | `None`     | Fields to exclude        |
 
 **Returns:**
 
@@ -457,11 +457,11 @@ def get_cache_stats(self) -> dict[str, int | float]:
 
 `dict[str, int | float]` -- Dictionary with keys:
 
-| Key | Type | Description |
-|-----|------|-------------|
-| `hits` | `int` | Number of cache hits |
-| `misses` | `int` | Number of cache misses |
-| `total` | `int` | Total cache lookups |
+| Key        | Type    | Description                     |
+| ---------- | ------- | ------------------------------- |
+| `hits`     | `int`   | Number of cache hits            |
+| `misses`   | `int`   | Number of cache misses          |
+| `total`    | `int`   | Total cache lookups             |
 | `hit_rate` | `float` | Hit rate as percentage (0--100) |
 
 **Example:**

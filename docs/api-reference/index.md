@@ -12,19 +12,19 @@ types, and usage examples.
 
 ## Module Overview
 
-| Module | Import | Description |
-|--------|--------|-------------|
-| `sqliter` | `from sqliter import SqliterDB` | Main database class |
-| `sqliter.model` | `from sqliter.model import BaseDBModel` | Base model (legacy mode) |
-| `sqliter.model` | `from sqliter.model import unique` | Unique constraint helper |
-| `sqliter.model` | `from sqliter.model import ForeignKey` | Foreign key factory (legacy mode) |
-| `sqliter.orm` | `from sqliter.orm import BaseDBModel` | Base model (ORM mode) |
-| `sqliter.orm` | `from sqliter.orm import ForeignKey` | Foreign key descriptor (ORM mode) |
-| `sqliter.orm` | `from sqliter.orm import ModelRegistry` | Model registry |
-| `sqliter.query` | *(internal)* | QueryBuilder (returned by `db.select()`) |
-| `sqliter.exceptions` | `from sqliter.exceptions import ...` | Exception hierarchy |
-| `sqliter.helpers` | *(internal)* | Utility functions |
-| `sqliter.constants` | *(internal)* | Constant mappings |
+| Module               | Import                                  | Description                              |
+| -------------------- | --------------------------------------- | ---------------------------------------- |
+| `sqliter`            | `from sqliter import SqliterDB`         | Main database class                      |
+| `sqliter.model`      | `from sqliter.model import BaseDBModel` | Base model (legacy mode)                 |
+| `sqliter.model`      | `from sqliter.model import unique`      | Unique constraint helper                 |
+| `sqliter.model`      | `from sqliter.model import ForeignKey`  | Foreign key factory (legacy mode)        |
+| `sqliter.orm`        | `from sqliter.orm import BaseDBModel`   | Base model (ORM mode)                    |
+| `sqliter.orm`        | `from sqliter.orm import ForeignKey`    | Foreign key descriptor (ORM mode)        |
+| `sqliter.orm`        | `from sqliter.orm import ModelRegistry` | Model registry                           |
+| `sqliter.query`      | *(internal)*                            | QueryBuilder (returned by `db.select()`) |
+| `sqliter.exceptions` | `from sqliter.exceptions import ...`    | Exception hierarchy                      |
+| `sqliter.helpers`    | *(internal)*                            | Utility functions                        |
+| `sqliter.constants`  | *(internal)*                            | Constant mappings                        |
 
 > [!NOTE]
 > The **ORM module** (`sqliter.orm`) is an alternative import mode that

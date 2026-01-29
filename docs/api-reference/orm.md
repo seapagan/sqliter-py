@@ -22,13 +22,13 @@ See also: [Guide -- ORM Foreign Keys](../guide/foreign-keys/orm.md)
 
 ## Legacy vs ORM Mode
 
-| Feature | Legacy (`sqliter.model`) | ORM (`sqliter.orm`) |
-|---------|--------------------------|---------------------|
-| FK definition | `ForeignKey()` factory function | `ForeignKey` descriptor class |
-| FK access | Manual ID lookup | Lazy loading via `book.author.name` |
-| Reverse queries | Not available | `author.books.fetch_all()` |
-| Eager loading | Not available | `select_related("author")` |
-| Import | `from sqliter.model import BaseDBModel` | `from sqliter.orm import BaseDBModel` |
+| Feature         | Legacy (`sqliter.model`)                | ORM (`sqliter.orm`)                   |
+| --------------- | --------------------------------------- | ------------------------------------- |
+| FK definition   | `ForeignKey()` factory function         | `ForeignKey` descriptor class         |
+| FK access       | Manual ID lookup                        | Lazy loading via `book.author.name`   |
+| Reverse queries | Not available                           | `author.books.fetch_all()`            |
+| Eager loading   | Not available                           | `select_related("author")`            |
+| Import          | `from sqliter.model import BaseDBModel` | `from sqliter.orm import BaseDBModel` |
 
 ---
 
@@ -42,15 +42,15 @@ from sqliter.orm import BaseDBModel
 
 **Additional Class Variables:**
 
-| Attribute | Type | Description |
-|-----------|------|-------------|
+| Attribute        | Type                              | Description                                   |
+| ---------------- | --------------------------------- | --------------------------------------------- |
 | `fk_descriptors` | `ClassVar[dict[str, ForeignKey]]` | FK descriptors for this class (not inherited) |
 
 **Additional Instance Fields:**
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `db_context` | `Any` &#124; `None` | `None` | Database connection for lazy loading (excluded from serialization) |
+| Field        | Type                | Default | Description                                                        |
+| ------------ | ------------------- | ------- | ------------------------------------------------------------------ |
+| `db_context` | `Any` &#124; `None` | `None`  | Database connection for lazy loading (excluded from serialization) |
 
 ### Overridden Behavior
 
@@ -110,15 +110,15 @@ class ForeignKey(Generic[T]):
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `to_model` | `type[T]` | *required* | The related model class |
-| `on_delete` | `FKAction` | `"RESTRICT"` | Action when related record is deleted |
-| `on_update` | `FKAction` | `"RESTRICT"` | Action when related record's PK is updated |
-| `null` | `bool` | `False` | Whether FK can be null |
-| `unique` | `bool` | `False` | Whether FK must be unique (one-to-one) |
-| `related_name` | `str` &#124; `None` | `None` | Name for reverse relationship (auto-generated if `None`) |
-| `db_column` | `str` &#124; `None` | `None` | Custom column name for `_id` field |
+| Parameter      | Type                | Default      | Description                                              |
+| -------------- | ------------------- | ------------ | -------------------------------------------------------- |
+| `to_model`     | `type[T]`           | *required*   | The related model class                                  |
+| `on_delete`    | `FKAction`          | `"RESTRICT"` | Action when related record is deleted                    |
+| `on_update`    | `FKAction`          | `"RESTRICT"` | Action when related record's PK is updated               |
+| `null`         | `bool`              | `False`      | Whether FK can be null                                   |
+| `unique`       | `bool`              | `False`      | Whether FK must be unique (one-to-one)                   |
+| `related_name` | `str` &#124; `None` | `None`       | Name for reverse relationship (auto-generated if `None`) |
+| `db_column`    | `str` &#124; `None` | `None`       | Custom column name for `_id` field                       |
 
 **Example:**
 
@@ -199,8 +199,8 @@ class LazyLoader(Generic[T]):
 
 ### Properties
 
-| Property | Type | Description |
-|----------|------|-------------|
+| Property     | Type     | Description                                  |
+| ------------ | -------- | -------------------------------------------- |
 | `db_context` | `object` | The database context (for validity checking) |
 
 ### Methods
@@ -252,8 +252,8 @@ def register_model(
 
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
+| Parameter     | Type        | Description                 |
+| ------------- | ----------- | --------------------------- |
 | `model_class` | `type[Any]` | The model class to register |
 
 Also processes any pending reverse relationships for this model.
@@ -276,13 +276,13 @@ def register_foreign_key(
 
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `from_model` | `type[Any]` | The model with the FK field |
-| `to_model` | `type[Any]` | The referenced model |
-| `fk_field` | `str` | Name of the FK field |
-| `on_delete` | `str` | Delete action |
-| `related_name` | `str` &#124; `None` | Reverse relationship name |
+| Parameter      | Type                | Description                 |
+| -------------- | ------------------- | --------------------------- |
+| `from_model`   | `type[Any]`         | The model with the FK field |
+| `to_model`     | `type[Any]`         | The referenced model        |
+| `fk_field`     | `str`               | Name of the FK field        |
+| `on_delete`    | `str`               | Delete action               |
+| `related_name` | `str` &#124; `None` | Reverse relationship name   |
 
 ### `get_model()`
 
@@ -298,8 +298,8 @@ def get_model(
 
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
+| Parameter    | Type  | Description           |
+| ------------ | ----- | --------------------- |
 | `table_name` | `str` | Table name to look up |
 
 **Returns:**
@@ -320,8 +320,8 @@ def get_foreign_keys(
 
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
+| Parameter    | Type  | Description           |
+| ------------ | ----- | --------------------- |
 | `table_name` | `str` | Table name to look up |
 
 **Returns:**
@@ -348,12 +348,12 @@ def add_reverse_relationship(
 
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `from_model` | `type[Any]` | Model with the FK (e.g., `Book`) |
-| `to_model` | `type[Any]` | Referenced model (e.g., `Author`) |
-| `fk_field` | `str` | FK field name (e.g., `"author"`) |
-| `related_name` | `str` | Reverse relationship name (e.g., `"books"`) |
+| Parameter      | Type        | Description                                 |
+| -------------- | ----------- | ------------------------------------------- |
+| `from_model`   | `type[Any]` | Model with the FK (e.g., `Book`)            |
+| `to_model`     | `type[Any]` | Referenced model (e.g., `Author`)           |
+| `fk_field`     | `str`       | FK field name (e.g., `"author"`)            |
+| `related_name` | `str`       | Reverse relationship name (e.g., `"books"`) |
 
 ---
 

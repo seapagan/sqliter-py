@@ -19,12 +19,12 @@ Type alias for the allowed foreign key actions.
 FKAction = Literal["CASCADE", "SET NULL", "RESTRICT", "NO ACTION"]
 ```
 
-| Value | Description |
-|-------|-------------|
-| `"CASCADE"` | Propagate the operation to referencing records (delete or update them) |
-| `"SET NULL"` | Set the foreign key field to `NULL` (requires `null=True`) |
-| `"RESTRICT"` | Prevent the operation if references exist (default) |
-| `"NO ACTION"` | Similar to `RESTRICT` in SQLite |
+| Value         | Description                                                            |
+| ------------- | ---------------------------------------------------------------------- |
+| `"CASCADE"`   | Propagate the operation to referencing records (delete or update them) |
+| `"SET NULL"`  | Set the foreign key field to `NULL` (requires `null=True`)             |
+| `"RESTRICT"`  | Prevent the operation if references exist (default)                    |
+| `"NO ACTION"` | Similar to `RESTRICT` in SQLite                                        |
 
 ---
 
@@ -50,17 +50,17 @@ def ForeignKey(
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `to` | `type[BaseDBModel]` | *required* | Target model class referenced by this FK |
-| `on_delete` | `FKAction` | `"RESTRICT"` | Action when referenced record is deleted |
-| `on_update` | `FKAction` | `"RESTRICT"` | Action when referenced record's PK is updated |
-| `null` | `bool` | `False` | Whether the FK field can be `NULL` |
-| `unique` | `bool` | `False` | Whether the FK must be unique (one-to-one) |
-| `related_name` | `str` &#124; `None` | `None` | Name for reverse relationship (reserved) |
-| `db_column` | `str` &#124; `None` | `None` | Custom column name; defaults to `{field_name}_id` |
-| `default` | `Any` | `...` | Default value; auto-set to `None` if `null=True` |
-| `**kwargs` | `Any` | | Additional arguments passed to Pydantic `Field` |
+| Parameter      | Type                | Default      | Description                                       |
+| -------------- | ------------------- | ------------ | ------------------------------------------------- |
+| `to`           | `type[BaseDBModel]` | *required*   | Target model class referenced by this FK          |
+| `on_delete`    | `FKAction`          | `"RESTRICT"` | Action when referenced record is deleted          |
+| `on_update`    | `FKAction`          | `"RESTRICT"` | Action when referenced record's PK is updated     |
+| `null`         | `bool`              | `False`      | Whether the FK field can be `NULL`                |
+| `unique`       | `bool`              | `False`      | Whether the FK must be unique (one-to-one)        |
+| `related_name` | `str` &#124; `None` | `None`       | Name for reverse relationship (reserved)          |
+| `db_column`    | `str` &#124; `None` | `None`       | Custom column name; defaults to `{field_name}_id` |
+| `default`      | `Any`               | `...`        | Default value; auto-set to `None` if `null=True`  |
+| `**kwargs`     | `Any`               |              | Additional arguments passed to Pydantic `Field`   |
 
 **Returns:**
 
@@ -109,15 +109,15 @@ class ForeignKeyInfo:
 
 **Fields:**
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `to_model` | `type[BaseDBModel]` | Target model class |
-| `on_delete` | `FKAction` | Delete action |
-| `on_update` | `FKAction` | Update action |
-| `null` | `bool` | Whether the FK is nullable |
-| `unique` | `bool` | Whether the FK must be unique |
-| `related_name` | `str` &#124; `None` | Reverse relationship name |
-| `db_column` | `str` &#124; `None` | Custom column name |
+| Field          | Type                | Description                   |
+| -------------- | ------------------- | ----------------------------- |
+| `to_model`     | `type[BaseDBModel]` | Target model class            |
+| `on_delete`    | `FKAction`          | Delete action                 |
+| `on_update`    | `FKAction`          | Update action                 |
+| `null`         | `bool`              | Whether the FK is nullable    |
+| `unique`       | `bool`              | Whether the FK must be unique |
+| `related_name` | `str` &#124; `None` | Reverse relationship name     |
+| `db_column`    | `str` &#124; `None` | Custom column name            |
 
 ---
 
@@ -134,8 +134,8 @@ def get_foreign_key_info(
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
+| Parameter    | Type        | Default    | Description                        |
+| ------------ | ----------- | ---------- | ---------------------------------- |
 | `field_info` | `FieldInfo` | *required* | The Pydantic field info to examine |
 
 **Returns:**

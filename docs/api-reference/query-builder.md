@@ -63,11 +63,11 @@ def __init__(
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `db` | `SqliterDB` | *required* | Database connection |
-| `model_class` | `type[T]` | *required* | The model class to query |
-| `fields` | `list[str]` &#124; `None` | `None` | Fields to select (all if `None`) |
+| Parameter     | Type                      | Default    | Description                      |
+| ------------- | ------------------------- | ---------- | -------------------------------- |
+| `db`          | `SqliterDB`               | *required* | Database connection              |
+| `model_class` | `type[T]`                 | *required* | The model class to query         |
+| `fields`      | `list[str]` &#124; `None` | `None`     | Fields to select (all if `None`) |
 
 ---
 
@@ -87,8 +87,8 @@ def filter(
 
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
+| Parameter      | Type          | Description                               |
+| -------------- | ------------- | ----------------------------------------- |
 | `**conditions` | `FilterValue` | Field-operator pairs as keyword arguments |
 
 **Returns:** `Self` for method chaining.
@@ -120,26 +120,26 @@ db.select(Book).filter(author__name="Alice")
 
 ### Filter Operators
 
-| Operator | SQL | Value Type | Description |
-|----------|-----|------------|-------------|
-| *(none)* | `=` | scalar | Equality (default) |
-| `__eq` | `=` | scalar | Explicit equality |
-| `__ne` | `!=` | scalar | Not equal |
-| `__gt` | `>` | scalar | Greater than |
-| `__lt` | `<` | scalar | Less than |
-| `__gte` | `>=` | scalar | Greater than or equal |
-| `__lte` | `<=` | scalar | Less than or equal |
-| `__in` | `IN` | `list` | Value in list |
-| `__not_in` | `NOT IN` | `list` | Value not in list |
-| `__isnull` | `IS NULL` | `bool` | Field is NULL (pass `True`) |
-| `__notnull` | `IS NOT NULL` | `bool` | Field is not NULL (pass `True`) |
-| `__like` | `LIKE` | `str` | Raw SQL LIKE pattern (user provides `%` wildcards) |
-| `__startswith` | `GLOB` | `str` | Case-sensitive starts with |
-| `__endswith` | `GLOB` | `str` | Case-sensitive ends with |
-| `__contains` | `GLOB` | `str` | Case-sensitive contains |
-| `__istartswith` | `LIKE` | `str` | Case-insensitive starts with |
-| `__iendswith` | `LIKE` | `str` | Case-insensitive ends with |
-| `__icontains` | `LIKE` | `str` | Case-insensitive contains |
+| Operator        | SQL           | Value Type | Description                                        |
+| --------------- | ------------- | ---------- | -------------------------------------------------- |
+| *(none)*        | `=`           | scalar     | Equality (default)                                 |
+| `__eq`          | `=`           | scalar     | Explicit equality                                  |
+| `__ne`          | `!=`          | scalar     | Not equal                                          |
+| `__gt`          | `>`           | scalar     | Greater than                                       |
+| `__lt`          | `<`           | scalar     | Less than                                          |
+| `__gte`         | `>=`          | scalar     | Greater than or equal                              |
+| `__lte`         | `<=`          | scalar     | Less than or equal                                 |
+| `__in`          | `IN`          | `list`     | Value in list                                      |
+| `__not_in`      | `NOT IN`      | `list`     | Value not in list                                  |
+| `__isnull`      | `IS NULL`     | `bool`     | Field is NULL (pass `True`)                        |
+| `__notnull`     | `IS NOT NULL` | `bool`     | Field is not NULL (pass `True`)                    |
+| `__like`        | `LIKE`        | `str`      | Raw SQL LIKE pattern (user provides `%` wildcards) |
+| `__startswith`  | `GLOB`        | `str`      | Case-sensitive starts with                         |
+| `__endswith`    | `GLOB`        | `str`      | Case-sensitive ends with                           |
+| `__contains`    | `GLOB`        | `str`      | Case-sensitive contains                            |
+| `__istartswith` | `LIKE`        | `str`      | Case-insensitive starts with                       |
+| `__iendswith`   | `LIKE`        | `str`      | Case-insensitive ends with                         |
+| `__icontains`   | `LIKE`        | `str`      | Case-insensitive contains                          |
 
 ---
 
@@ -158,9 +158,9 @@ def fields(
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `fields` | `list[str]` &#124; `None` | `None` | Fields to select; `pk` is always included |
+| Parameter | Type                      | Default | Description                               |
+| --------- | ------------------------- | ------- | ----------------------------------------- |
+| `fields`  | `list[str]` &#124; `None` | `None`  | Fields to select; `pk` is always included |
 
 **Returns:** `Self` for method chaining.
 
@@ -183,9 +183,9 @@ def exclude(
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `fields` | `list[str]` &#124; `None` | `None` | Fields to exclude |
+| Parameter | Type                      | Default | Description       |
+| --------- | ------------------------- | ------- | ----------------- |
+| `fields`  | `list[str]` &#124; `None` | `None`  | Fields to exclude |
 
 **Returns:** `Self` for method chaining.
 
@@ -213,9 +213,9 @@ def only(
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `field` | `str` | *required* | The single field to select |
+| Parameter | Type  | Default    | Description                |
+| --------- | ----- | ---------- | -------------------------- |
+| `field`   | `str` | *required* | The single field to select |
 
 **Returns:** `Self` for method chaining.
 
@@ -247,9 +247,9 @@ def select_related(
 
 **Parameters:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `*paths` | `str` | One or more relationship paths to eager load |
+| Parameter | Type  | Description                                  |
+| --------- | ----- | -------------------------------------------- |
+| `*paths`  | `str` | One or more relationship paths to eager load |
 
 **Returns:** `Self` for method chaining.
 
@@ -293,8 +293,8 @@ def limit(
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
+| Parameter     | Type  | Default    | Description               |
+| ------------- | ----- | ---------- | ------------------------- |
 | `limit_value` | `int` | *required* | Maximum number of records |
 
 **Returns:** `Self` for method chaining.
@@ -312,8 +312,8 @@ def offset(
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
+| Parameter      | Type  | Default    | Description               |
+| -------------- | ----- | ---------- | ------------------------- |
 | `offset_value` | `int` | *required* | Number of records to skip |
 
 **Returns:** `Self` for method chaining.
@@ -355,11 +355,11 @@ def order(
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `order_by_field` | `str` &#124; `None` | `None` | Field to order by; defaults to `pk` |
-| `direction` | `str` &#124; `None` | `None` | **Deprecated.** Use `reverse` instead |
-| `reverse` | `bool` | `False` | If `True`, sort descending |
+| Parameter        | Type                | Default | Description                           |
+| ---------------- | ------------------- | ------- | ------------------------------------- |
+| `order_by_field` | `str` &#124; `None` | `None`  | Field to order by; defaults to `pk`   |
+| `direction`      | `str` &#124; `None` | `None`  | **Deprecated.** Use `reverse` instead |
+| `reverse`        | `bool`              | `False` | If `True`, sort descending            |
 
 **Returns:** `Self` for method chaining.
 
@@ -421,9 +421,9 @@ def cache_ttl(
 
 **Parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `ttl` | `int` | *required* | TTL in seconds |
+| Parameter | Type  | Default    | Description    |
+| --------- | ----- | ---------- | -------------- |
+| `ttl`     | `int` | *required* | TTL in seconds |
 
 **Returns:** `Self` for method chaining.
 
@@ -568,14 +568,14 @@ class JoinInfo:
 
 **Fields:**
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `alias` | `str` | Table alias (e.g., `"t1"`, `"t2"`) |
-| `table_name` | `str` | Actual database table name |
-| `model_class` | `type[BaseDBModel]` | Model class for the joined table |
-| `fk_field` | `str` | FK field name on the parent model |
-| `parent_alias` | `str` | Alias of the parent table |
-| `fk_column` | `str` | FK column name (e.g., `"author_id"`) |
-| `join_type` | `str` | `"LEFT"` (nullable FK) or `"INNER"` (required FK) |
-| `path` | `str` | Full relationship path (e.g., `"post__author"`) |
-| `is_nullable` | `bool` | Whether the FK is nullable |
+| Field          | Type                | Description                                       |
+| -------------- | ------------------- | ------------------------------------------------- |
+| `alias`        | `str`               | Table alias (e.g., `"t1"`, `"t2"`)                |
+| `table_name`   | `str`               | Actual database table name                        |
+| `model_class`  | `type[BaseDBModel]` | Model class for the joined table                  |
+| `fk_field`     | `str`               | FK field name on the parent model                 |
+| `parent_alias` | `str`               | Alias of the parent table                         |
+| `fk_column`    | `str`               | FK column name (e.g., `"author_id"`)              |
+| `join_type`    | `str`               | `"LEFT"` (nullable FK) or `"INNER"` (required FK) |
+| `path`         | `str`               | Full relationship path (e.g., `"post__author"`)   |
+| `is_nullable`  | `bool`              | Whether the FK is nullable                        |
