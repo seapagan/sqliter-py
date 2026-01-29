@@ -917,9 +917,7 @@ class SqliterDB:
                 model_class, data, pk=cursor.lastrowid
             )
 
-    def get(
-        self, model_class: type[BaseDBModel], primary_key_value: int
-    ) -> BaseDBModel | None:
+    def get(self, model_class: type[T], primary_key_value: int) -> T | None:
         """Retrieve a single record from the database by its primary key.
 
         Args:
