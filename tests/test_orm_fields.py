@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+import types
 from typing import Optional
 
 import pytest
@@ -178,3 +180,62 @@ def test_fk_removed_from_model_fields_during_setup() -> None:
     # Call _setup_orm_fields which should delete it (line 247)
     OwnerModel._setup_orm_fields()
     assert "rel" not in OwnerModel.model_fields
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 10),
+    reason="PEP 604 union syntax requires Python 3.10+",
+)
+def test_fk_pep604_nullable_annotation_sets_nullable() -> None:
+    """ForeignKey[Model | None] should auto-set null=True on 3.10+."""
+
+    class PEP604Related(BaseDBModel):
+        """Related model for PEP 604 FK."""
+
+        name: str
+
+    # Create a PEP 604 union via eval, same as get_type_hints does
+    pep604_union = eval(  # noqa: S307
+        "PEP604Related | None",
+        {"PEP604Related": PEP604Related},
+    )
+    assert isinstance(pep604_union, types.UnionType)
+
+    # Build an owner class and inject the PEP 604 annotation
+    # Use __class_getitem__ to avoid mypy treating the variable as
+    # a type parameter
+    class OwnerPEP604(BaseDBModel):
+        """Owner with PEP 604 nullable FK."""
+
+        name: str
+
+    OwnerPEP604.__annotations__["rel"] = ForeignKey.__class_getitem__(
+        pep604_union
+    )
+
+    fk = ForeignKey(PEP604Related)
+    fk._detect_nullable_from_annotation(OwnerPEP604, "rel")
+    assert fk.fk_info.null is True
+
+
+class HasPKStub:
+    """Non-BaseDBModel object with a pk attribute."""
+
+    def __init__(self, pk: int) -> None:
+        """Initialize stub with a pk value."""
+        self.pk = pk
+
+
+def test_init_accepts_duck_typed_haspk_object() -> None:
+    """BaseDBModel.__init__ should accept any object with a pk attr."""
+    stub = HasPKStub(pk=99)
+    owner = OwnerWithFK(related=stub)
+    assert owner.related_id == 99
+
+
+def test_setattr_accepts_duck_typed_haspk_object() -> None:
+    """BaseDBModel.__setattr__ should accept any object with a pk attr."""
+    stub = HasPKStub(pk=77)
+    owner = OwnerWithFK()
+    owner.related = stub
+    assert owner.related_id == 77
