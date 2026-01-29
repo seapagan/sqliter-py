@@ -40,8 +40,7 @@ Items marked with :fire: are high priority.
 
 ## Documentation
 
-- Add an API Reference section to the documentation with complete details on
-  SQLiter's classes, methods, and parameters.
+None.
 
 ## Potential Filter Additions
 
