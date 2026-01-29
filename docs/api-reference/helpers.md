@@ -132,30 +132,30 @@ d = from_unix_timestamp(1705320000, datetime.date)
 Maps SQLiter filter operator suffixes to their SQL equivalents. Used by
 [`QueryBuilder.filter()`](query-builder.md#filter).
 
-| Operator        | SQL           | Description                              |
-| --------------- | ------------- | ---------------------------------------- |
-| `__lt`          | `<`           | Less than                                |
-| `__lte`         | `<=`          | Less than or equal                       |
-| `__gt`          | `>`           | Greater than                             |
-| `__gte`         | `>=`          | Greater than or equal                    |
-| `__eq`          | `=`           | Equal (default when no suffix)           |
-| `__ne`          | `!=`          | Not equal                                |
-| `__in`          | `IN`          | Value in list                            |
-| `__not_in`      | `NOT IN`      | Value not in list                        |
-| `__isnull`      | `IS NULL`     | Field is NULL                            |
-| `__notnull`     | `IS NOT NULL` | Field is not NULL                        |
-| `__like`        | `LIKE`        | Raw SQL LIKE pattern                     |
-| `__startswith`  | `LIKE`        | Case-sensitive starts with (uses `GLOB`) |
-| `__endswith`    | `LIKE`        | Case-sensitive ends with (uses `GLOB`)   |
-| `__contains`    | `LIKE`        | Case-sensitive contains (uses `GLOB`)    |
-| `__istartswith` | `LIKE`        | Case-insensitive starts with             |
-| `__iendswith`   | `LIKE`        | Case-insensitive ends with               |
-| `__icontains`   | `LIKE`        | Case-insensitive contains                |
+| Operator        | SQL           | Description                    |
+| --------------- | ------------- | ------------------------------ |
+| `__lt`          | `<`           | Less than                      |
+| `__lte`         | `<=`          | Less than or equal             |
+| `__gt`          | `>`           | Greater than                   |
+| `__gte`         | `>=`          | Greater than or equal          |
+| `__eq`          | `=`           | Equal (default when no suffix) |
+| `__ne`          | `!=`          | Not equal                      |
+| `__in`          | `IN`          | Value in list                  |
+| `__not_in`      | `NOT IN`      | Value not in list              |
+| `__isnull`      | `IS NULL`     | Field is NULL                  |
+| `__notnull`     | `IS NOT NULL` | Field is not NULL              |
+| `__like`        | `LIKE`        | Raw SQL LIKE pattern           |
+| `__startswith`  | `GLOB`        | Case-sensitive starts with     |
+| `__endswith`    | `GLOB`        | Case-sensitive ends with       |
+| `__contains`    | `GLOB`        | Case-sensitive contains        |
+| `__istartswith` | `LIKE`        | Case-insensitive starts with   |
+| `__iendswith`   | `LIKE`        | Case-insensitive ends with     |
+| `__icontains`   | `LIKE`        | Case-insensitive contains      |
 
 > [!NOTE]
-> The `__startswith`, `__endswith`, and `__contains` operators use
-> SQLite's `GLOB` function for case-sensitive matching. The `i`-prefixed
-> variants use `LIKE` for case-insensitive matching.
+> The `__startswith`, `__endswith`, and `__contains` operators use SQLite's
+> `GLOB` for case-sensitive matching. The `i`-prefixed variants use `LIKE`
+> for case-insensitive matching.
 
 ---
 
