@@ -119,10 +119,6 @@ class BaseDBModel(_BaseDBModel):
                     f"got {type(value)}"
                 )
                 raise TypeError(msg)
-            # Clear FK cache for this field
-            cache = self.__dict__.get("_fk_cache")
-            if cache and name in cache:
-                del cache[name]
             return
 
         # If setting an _id field, clear corresponding FK cache
