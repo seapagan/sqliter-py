@@ -12,9 +12,8 @@ results = db.select(User).fields(["name", "age"]).fetch_all()
 
 This will return only the `name` and `age` fields for each record.
 
-> **Note:** When using `fields()` with ORM models, ensure you select all
-> required (non-optional) fields. Pydantic validation will fail if required
-> fields are missing from the query results.
+> **Note:** When using `fields()`, unselected fields will not be present on
+> the returned model instances. Only access fields you have selected.
 
 You can also pass this as a parameter to the `select()` method:
 

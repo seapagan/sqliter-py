@@ -6,6 +6,7 @@ filter traversal, and edge cases.
 
 from __future__ import annotations
 
+import sqlite3
 from typing import TYPE_CHECKING
 from unittest import mock
 
@@ -15,6 +16,7 @@ from sqliter import SqliterDB
 from sqliter.exceptions import (
     InvalidFilterError,
     InvalidRelationshipError,
+    RecordFetchError,
 )
 from sqliter.orm import BaseDBModel, ForeignKey
 
@@ -130,7 +132,6 @@ class TestSelectRelated:
         assert len(results) == 4
         # All books should have authors loaded
         for book in results:
-            assert book.author is not None
             assert isinstance(book.author.name, str)
 
     def test_multiple_paths(self, db: SqliterDB) -> None:
@@ -143,9 +144,7 @@ class TestSelectRelated:
         )
 
         assert result is not None
-        assert result.author is not None
         assert result.author.name == "Jane Austen"
-        assert result.publisher is not None
         assert result.publisher.name == "Penguin"
 
     def test_nullable_fk_with_none_value(self, db: SqliterDB) -> None:
@@ -171,7 +170,9 @@ class TestSelectRelated:
 
         assert len(results) == 2
         for book in results:
-            assert book.author.name == "Charles Dickens"
+            author = book.author
+            assert author is not None
+            assert author.name == "Charles Dickens"
 
     def test_select_related_with_ordering(self, db: SqliterDB) -> None:
         """Verify select_related() works with ordering."""
@@ -214,9 +215,11 @@ class TestNestedSelectRelated:
         result = db.select(Comment).select_related("book__author").fetch_one()
 
         assert result is not None
-        assert result.book is not None
-        assert result.book.author is not None
-        assert result.book.author.name == "Jane Austen"
+        book = result.book
+        assert book is not None
+        author = book.author
+        assert author is not None
+        assert author.name == "Jane Austen"
 
     def test_nested_three_level(self, db: SqliterDB) -> None:
         """Verify deeply nested select_related() works."""
@@ -243,7 +246,11 @@ class TestNestedSelectRelated:
         )
 
         assert len(results) == 1
-        assert results[0].book.author.name == "Jane Austen"
+        book = results[0].book
+        assert book is not None
+        author = book.author
+        assert author is not None
+        assert author.name == "Jane Austen"
 
 
 class TestRelationshipFilterTraversal:
@@ -255,7 +262,9 @@ class TestRelationshipFilterTraversal:
 
         assert len(results) == 2
         for book in results:
-            assert book.author.name == "Jane Austen"
+            author = book.author
+            assert author is not None
+            assert author.name == "Jane Austen"
 
     def test_filter_on_related_field_with_operator(self, db: SqliterDB) -> None:
         """Verify filter traversal with comparison operators."""
@@ -302,8 +311,9 @@ class TestRelationshipFilterTraversal:
         # Accessing author should not trigger additional query
         # (though we can't easily test this without counting queries)
         for book in results:
-            assert book.author is not None
-            assert isinstance(book.author.name, str)
+            author = book.author
+            assert author is not None
+            assert isinstance(author.name, str)
 
 
 class TestErrorHandling:
@@ -377,6 +387,18 @@ class TestCombinationFeatures:
         # Results should be returned (with eager loading disabled)
         assert len(results) > 0
 
+    def test_fields_with_relationship_filter(self, db: SqliterDB) -> None:
+        """Test .fields() with a relationship filter triggers JOIN path."""
+        results = (
+            db.select(Book)
+            .fields(["title", "year"])
+            .filter(author__name="Jane Austen")
+            .fetch_all()
+        )
+
+        assert len(results) == 2
+        assert all(r.title for r in results)
+
     def test_select_related_with_exclude(self, db: SqliterDB) -> None:
         """Note: select_related() is disabled when exclude() is used."""
         results = (
@@ -413,31 +435,20 @@ class TestEdgeCases:
 
         assert results == []
 
-    def test_select_related_on_self_referential_model(
+    def test_join_query_sqlite_error_raises_record_fetch_error(
         self, db: SqliterDB
     ) -> None:
-        """Test select_related() works with self-referential FKs.
+        """Verify sqlite3.Error during JOIN query raises RecordFetchError."""
+        mock_cursor = mock.MagicMock()
+        mock_cursor.execute.side_effect = sqlite3.Error("mock error")
+        mock_conn = mock.MagicMock()
+        mock_conn.cursor.return_value = mock_cursor
 
-        Note: Self-referential models with forward references require special
-        handling. This test verifies basic functionality without forward
-        reference resolution issues.
-        """
-        # Self-referential models need to be defined at module level for
-        # forward references to work properly. For this test, we'll just
-        # verify that the JOIN logic handles same-table joins correctly
-        # without actually creating a self-referential model.
-
-        # The key thing being tested is that the alias system handles
-        # self-joins correctly (e.g., t0 -> t1 where both are "employees")
-        # This is already covered by other tests with multiple relationships
-        # which exercise the same alias assignment logic.
-
-        # Skip this test for now as self-referential models with forward
-        # references require module-level model definition
-        pytest.skip(
-            "Self-referential models require module-level definition for "
-            "forward references"
-        )
+        with (
+            mock.patch.object(db, "connect", return_value=mock_conn),
+            pytest.raises(RecordFetchError),
+        ):
+            db.select(Book).select_related("author").fetch_all()
 
     def test_multiple_calls_to_select_related(self, db: SqliterDB) -> None:
         """Verify multiple select_related() calls accumulate."""
@@ -555,7 +566,9 @@ class TestSelectRelatedWithOrderingAndPagination:
         assert result.pk == last_book.pk
         assert result.title == "Last"
         # Verify author was eagerly loaded (no additional query)
-        assert result.author.name == "Test Author"
+        loaded_author = result.author
+        assert loaded_author is not None
+        assert loaded_author.name == "Test Author"
 
 
 class TestSelectRelatedEdgeCases:
@@ -710,8 +723,9 @@ class TestRelationshipFilterOperators:
 
         assert len(results) == 2
         for book in results:
-            assert book.author is not None
-            assert "Jane" in str(book.author.name)
+            author = book.author
+            assert author is not None
+            assert "Jane" in str(author.name)
 
     def test_filter_related_field_with_startswith(self, db: SqliterDB) -> None:
         """Verify __startswith works on related fields."""

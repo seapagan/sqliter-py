@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import types
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -12,6 +13,9 @@ from typing import (
     TypeVar,
     Union,
     cast,
+    get_args,
+    get_origin,
+    get_type_hints,
     overload,
     runtime_checkable,
 )
@@ -19,17 +23,61 @@ from typing import (
 from pydantic_core import core_schema
 
 from sqliter.model.foreign_key import ForeignKeyInfo
-from sqliter.model.model import BaseDBModel
 
 if TYPE_CHECKING:  # pragma: no cover
     from pydantic import GetCoreSchemaHandler
 
     from sqliter.model.foreign_key import FKAction
+    from sqliter.model.model import BaseDBModel
     from sqliter.sqliter import SqliterDB
 
-T = TypeVar("T", bound=BaseDBModel)
+T = TypeVar("T")
+
 
 logger = logging.getLogger(__name__)
+
+
+def _split_top_level(text: str, sep: str) -> list[str]:
+    parts: list[str] = []
+    depth = 0
+    buf: list[str] = []
+    for ch in text:
+        if ch in "[(":
+            depth += 1
+        elif ch in "])":
+            depth -= 1
+        if ch == sep and depth == 0:
+            parts.append("".join(buf).strip())
+            buf = []
+        else:
+            buf.append(ch)
+    parts.append("".join(buf).strip())
+    return parts
+
+
+def _annotation_is_nullable(raw: str) -> bool:
+    """Best-effort check for Optional or | None at top level."""
+    s = raw.replace("typing.", "").replace("sqliter.orm.fields.", "").strip()
+
+    if "[" not in s or "]" not in s:
+        return False
+
+    inner = s[s.find("[") + 1 : s.rfind("]")].strip()
+
+    if inner.startswith("Optional["):
+        return True
+
+    if "|" in inner and any(
+        part == "None" for part in _split_top_level(inner, "|")
+    ):
+        return True
+
+    if inner.startswith("Union[") and inner.endswith("]"):
+        union_inner = inner[len("Union[") : -1]
+        if any(part == "None" for part in _split_top_level(union_inner, ",")):
+            return True
+
+    return False
 
 
 @runtime_checkable
@@ -44,6 +92,12 @@ class LazyLoader(Generic[T]):
 
     When a FK field is accessed, returns a LazyLoader that queries the database
     on first access and caches the result.
+
+    Note: This class is an implementation detail. For type checking purposes,
+    ForeignKey fields are typed as returning T (the type parameter), not
+    LazyLoader[T]. This follows the standard ORM pattern used by SQLAlchemy,
+    where the proxy is transparent to users. Use ForeignKey[Optional[Model]]
+    for nullable foreign keys.
     """
 
     def __init__(
@@ -97,7 +151,11 @@ class LazyLoader(Generic[T]):
             from sqliter.exceptions import SqliterError  # noqa: PLC0415
 
             try:
-                result = self._db.get(self._to_model, self._fk_id)
+                # Cast to type[BaseDBModel] for SqliterDB.get() - T is always
+                # a BaseDBModel subclass in practice
+                result = self._db.get(
+                    cast("type[BaseDBModel]", self._to_model), self._fk_id
+                )
                 self._cached = cast("Optional[T]", result)
             except SqliterError as e:
                 # DB errors (missing table, fetch errors) → treat as not found
@@ -169,7 +227,7 @@ class ForeignKey(Generic[T]):
         """
         self.to_model = to_model
         self.fk_info = ForeignKeyInfo(
-            to_model=to_model,
+            to_model=cast("type[BaseDBModel]", to_model),
             on_delete=on_delete,
             on_update=on_update,
             null=null,
@@ -190,12 +248,54 @@ class ForeignKey(Generic[T]):
     ) -> core_schema.CoreSchema:
         """Tell Pydantic how to handle ForeignKey[T] type annotations.
 
-        Since ForeignKey fields are removed from model_fields during class
-        creation (in __init_subclass__), we just need to provide a permissive
-        schema to prevent errors during initial schema generation.
+        Uses no_info_plain_validator_function to prevent the descriptor from
+        being stored in instance __dict__, which would break the descriptor
+        protocol. The ForeignKey descriptor must remain at class level only.
         """
-        # Return a schema that accepts any value - the field is removed anyway
-        return core_schema.any_schema()
+        # Return a validator that doesn't store anything in __dict__
+        # This prevents Pydantic from copying the descriptor to instances
+        return core_schema.no_info_plain_validator_function(
+            function=lambda _: None  # Value is ignored
+        )
+
+    def _detect_nullable_from_annotation(self, owner: type, name: str) -> None:
+        """Detect if FK is nullable from type annotation.
+
+        If the annotation is ForeignKey[Optional[T]], automatically set
+        null=True on the FK info. This allows users to declare nullability
+        via the type annotation alone.
+        """
+        try:
+            hints = get_type_hints(owner)
+        except Exception:  # noqa: BLE001
+            # Can fail with forward refs, NameError, etc. - fallback to raw
+            raw = owner.__annotations__.get(name)
+            if isinstance(raw, str) and _annotation_is_nullable(raw):
+                self.fk_info.null = True
+            return
+
+        if name not in hints:
+            return
+
+        annotation = hints[name]  # e.g., ForeignKey[Optional[Author]]
+        fk_args = get_args(annotation)  # e.g., (Optional[Author],)
+
+        if not fk_args:
+            return
+
+        inner_type = fk_args[0]  # e.g., Optional[Author] or Author
+
+        # Check if inner_type is Optional (Union with None)
+        # Handle both typing.Union (Optional[T]) and types.UnionType
+        # (T | None on Python 3.10+)
+        origin = get_origin(inner_type)
+        is_union = origin is Union
+        if not is_union and hasattr(types, "UnionType"):
+            is_union = isinstance(inner_type, types.UnionType)
+        if is_union:
+            args = get_args(inner_type)
+            if type(None) in args:
+                self.fk_info.null = True
 
     def __set_name__(self, owner: type, name: str) -> None:
         """Called automatically during class creation.
@@ -207,9 +307,16 @@ class ForeignKey(Generic[T]):
         the owner class name. If the `inflect` library is installed, it provides
         grammatically correct pluralization (e.g., "Person" becomes "people").
         Otherwise, a simple "s" suffix is added.
+
+        Auto-detects nullable FKs from the type annotation: if the type is
+        ForeignKey[Optional[T]], sets null=True automatically.
         """
         self.name = name
         self.owner = owner
+
+        # Auto-detect nullable from type annotation
+        # If user writes ForeignKey[Optional[Model]], set null=True
+        self._detect_nullable_from_annotation(owner, name)
 
         # Store descriptor in class's OWN fk_descriptors dict (not inherited)
         # Check __dict__ to avoid getting inherited dict from parent class
@@ -246,16 +353,19 @@ class ForeignKey(Generic[T]):
     def __get__(self, instance: None, owner: type[object]) -> ForeignKey[T]: ...
 
     @overload
-    def __get__(
-        self, instance: object, owner: type[object]
-    ) -> LazyLoader[T]: ...
+    def __get__(self, instance: object, owner: type[object]) -> T: ...
 
     def __get__(
         self, instance: Optional[object], owner: type[object]
-    ) -> Union[ForeignKey[T], LazyLoader[T]]:
+    ) -> Union[ForeignKey[T], T]:
         """Return LazyLoader that loads related object on attribute access.
 
         If accessed on class (not instance), return the descriptor itself.
+
+        Note: The return type is T (the type parameter). For nullable FKs,
+        use ForeignKey[Optional[Model]] and T will be Optional[Model].
+        The actual runtime return is a LazyLoader[T] proxy, but type checkers
+        see T for proper attribute access inference.
         """
         if instance is None:
             return self
@@ -264,11 +374,16 @@ class ForeignKey(Generic[T]):
         fk_id = getattr(instance, f"{self.name}_id", None)
 
         # Return LazyLoader for lazy loading
-        return LazyLoader(
-            instance=instance,
-            to_model=self.to_model,
-            fk_id=fk_id,
-            db_context=getattr(instance, "db_context", None),
+        # Cast to T for type checking - LazyLoader is a transparent proxy
+        # that behaves like T. For nullable FKs, T is Optional[Model].
+        return cast(
+            "T",
+            LazyLoader(
+                instance=instance,
+                to_model=self.to_model,
+                fk_id=fk_id,
+                db_context=getattr(instance, "db_context", None),
+            ),
         )
 
     def __set__(self, instance: object, value: object) -> None:

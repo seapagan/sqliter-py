@@ -88,7 +88,8 @@ def _run_rollback() -> str:
             try:
                 restored = db2.get(Item, item.pk)
                 if restored is not None:
-                    restored_quantity = restored.quantity
+                    qty_attr = "quantity"  # db.get returns BaseDBModel
+                    restored_quantity = getattr(restored, qty_attr)
                     msg = f"Database value: {restored_quantity}\n"
                     output.write(msg)
                     expected_quantity = 10

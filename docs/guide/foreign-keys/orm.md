@@ -217,8 +217,8 @@ When a foreign key is null, accessing it returns `None` directly:
 ```python
 class Book(BaseDBModel):
     title: str
-    author: ForeignKey[Author] = ForeignKey(
-        Author, on_delete="SET NULL", null=True
+    author: ForeignKey[Optional[Author]] = ForeignKey(
+        Author, on_delete="SET NULL"
     )
 
 # Insert book without author
@@ -228,6 +228,33 @@ book = db.get(Book, book.pk)
 # Returns None for null FK
 print(book.author)  # None
 ```
+
+### Auto-Detecting Nullable FKs (Preferred)
+
+The recommended way to declare a nullable FK is via the type annotation.
+SQLiter detects `Optional[T]` and `T | None` (Python 3.10+) and sets
+`null=True` automatically:
+
+```python
+from typing import Optional
+
+# Preferred — nullability declared in the type annotation:
+author: ForeignKey[Optional[Author]] = ForeignKey(Author, on_delete="SET NULL")
+author: ForeignKey[Author | None] = ForeignKey(Author, on_delete="SET NULL")  # 3.10+
+
+# Legacy — explicit null=True (prefer annotation-driven nullability):
+author: ForeignKey[Author] = ForeignKey(Author, on_delete="SET NULL", null=True)
+```
+
+> [!NOTE]
+>
+> If you pass `null=True` explicitly, it always takes effect regardless of the
+> annotation.
+>
+> For reliable type-hint resolution, define ORM models at **module scope**.
+> Models defined inside functions may not resolve annotations when using
+> type aliases (e.g., `AuthorRef = Optional[Author]`), so prefer `null=True`
+> in those cases.
 
 ## Setting Foreign Key Values
 
@@ -242,6 +269,16 @@ book.author = 42
 
 # Setting to null (if allowed)
 book.author = None
+
+# Any object with a `pk` attribute also works (duck-typed)
+book.author = some_obj_with_pk
+
+# Example: custom object with pk attribute
+class AuthorReference:
+    def __init__(self, pk: int):
+        self.pk = pk
+
+book.author = AuthorReference(pk=42)  # Works!
 ```
 
 ## Reverse Relationships
@@ -346,7 +383,7 @@ ORM foreign keys support the same actions as explicit foreign keys:
 | Action | Behavior |
 |--------|----------|
 | `CASCADE` | Delete/update related records |
-| `SET NULL` | Set foreign key to NULL (requires `null=True`) |
+| `SET NULL` | Set foreign key to NULL (requires nullable FK) |
 | `RESTRICT` | Prevent deletion/update if referenced (default) |
 | `NO ACTION` | Same as RESTRICT in SQLite |
 
@@ -355,8 +392,8 @@ ORM foreign keys support the same actions as explicit foreign keys:
 author: ForeignKey[Author] = ForeignKey(Author, on_delete="CASCADE")
 
 # SET NULL - set author to NULL when deleted
-author: ForeignKey[Author] = ForeignKey(
-    Author, on_delete="SET NULL", null=True
+author: ForeignKey[Optional[Author]] = ForeignKey(
+    Author, on_delete="SET NULL"
 )
 
 # RESTRICT - prevent deletion if books exist (default)

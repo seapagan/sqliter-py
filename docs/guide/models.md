@@ -26,6 +26,8 @@ the table.
 > [!IMPORTANT]
 >
 > - Type-hints are **REQUIRED** for each field in the model.
+> - Define models at **module scope** (ideally in their own module) for clarity
+>   and reliable type-hint resolution.
 > - The Model **automatically** creates an **auto-incrementing integer primary
 > key** for each table called `pk`, you do not need to define it yourself.
 > - The Model **automatically** creates a `created_at` and `updated_at` field

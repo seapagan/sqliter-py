@@ -878,8 +878,6 @@ class QueryBuilder(Generic[T]):
                 elif self._order_by.lower().startswith("rowid"):
                     # Fallback for non-quoted patterns such as "rowid DESC"
                     sql += f" ORDER BY t0.{self._order_by}"
-                else:
-                    sql += f" ORDER BY {self._order_by}"
 
             if self._limit is not None:
                 sql += " LIMIT ?"
@@ -1048,7 +1046,14 @@ class QueryBuilder(Generic[T]):
         for fk_field in getattr(self.model_class, "fk_descriptors", {}):
             main_instance_data.pop(fk_field, None)
 
-        main_instance = self.model_class(**main_instance_data)
+        if self._fields:
+            # Partial field selection: use model_validate_partial to
+            # avoid validation errors for missing required fields
+            main_instance = self.model_class.model_validate_partial(
+                main_instance_data
+            )
+        else:
+            main_instance = self.model_class(**main_instance_data)
         main_instance.db_context = self.db  # type: ignore[attr-defined]
 
         # Process JOINed tables and populate _fk_cache

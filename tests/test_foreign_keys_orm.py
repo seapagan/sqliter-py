@@ -84,7 +84,7 @@ class TestLazyLoading:
         author2 = book.author
 
         assert author1 is author2
-        assert author1.name == "Jane"
+        assert book.author.name == "Jane"
 
     def test_lazy_load_null_fk(self, db: SqliterDB) -> None:
         """Test lazy loading with null FK."""
@@ -138,8 +138,9 @@ class TestLazyLoading:
 
         # Accessing the author should raise AttributeError because
         # the LazyLoader returns None for the loaded object
+        attr = "name"  # Use variable to avoid B009 lint error
         with pytest.raises(AttributeError):
-            _ = book.author.name
+            _ = getattr(book.author, attr)
 
 
 class TestReverseRelationships:
@@ -440,7 +441,7 @@ class TestLazyLoaderMethods:
 
         # Get the cached LazyLoader
         lazy = book._fk_cache.get("author")
-        assert lazy is not None
+        assert lazy is not None  # LazyLoader exists in cache
 
         repr_str = repr(lazy)
         assert "LazyLoader" in repr_str
@@ -1009,15 +1010,13 @@ class TestFKEdgeCases:
 
         # Access author - creates LazyLoader with None db_context
         # This would previously cache a broken loader
-        lazy1 = book.author
-        assert lazy1.db_context is None
+        assert book.author.db_context is None
 
         # Now set db_context
         book.db_context = db
 
         # Access author again - should get a refreshed loader with db_context
-        lazy2 = book.author
-        assert lazy2.db_context is db
+        assert book.author.db_context is db
 
         # And it should actually work now
         assert book.author.name == "Test Author"

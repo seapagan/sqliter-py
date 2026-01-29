@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import io
-from typing import cast
 
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
@@ -54,9 +53,8 @@ def _run_get_by_pk() -> str:
 
     retrieved = db.get(Task, task.pk)
     if retrieved is not None:
-        task_retrieved = cast("Task", retrieved)
-        output.write(f"Retrieved: {task_retrieved.title}\n")
-        output.write(f"Same object: {task_retrieved.pk == task.pk}\n")
+        output.write(f"Retrieved: {retrieved.title}\n")
+        output.write(f"Same object: {retrieved.pk == task.pk}\n")
 
     db.close()
     return output.getvalue()
