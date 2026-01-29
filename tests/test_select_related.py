@@ -435,32 +435,6 @@ class TestEdgeCases:
 
         assert results == []
 
-    def test_select_related_on_self_referential_model(
-        self, db: SqliterDB
-    ) -> None:
-        """Test select_related() works with self-referential FKs.
-
-        Note: Self-referential models with forward references require special
-        handling. This test verifies basic functionality without forward
-        reference resolution issues.
-        """
-        # Self-referential models need to be defined at module level for
-        # forward references to work properly. For this test, we'll just
-        # verify that the JOIN logic handles same-table joins correctly
-        # without actually creating a self-referential model.
-
-        # The key thing being tested is that the alias system handles
-        # self-joins correctly (e.g., t0 -> t1 where both are "employees")
-        # This is already covered by other tests with multiple relationships
-        # which exercise the same alias assignment logic.
-
-        # Skip this test for now as self-referential models with forward
-        # references require module-level model definition
-        pytest.skip(
-            "Self-referential models require module-level definition for "
-            "forward references"
-        )
-
     def test_join_query_sqlite_error_raises_record_fetch_error(
         self, db: SqliterDB
     ) -> None:
