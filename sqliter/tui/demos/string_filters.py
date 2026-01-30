@@ -122,8 +122,10 @@ def _run_case_insensitive() -> str:
         output.write(f"  - {user.email}\n")
 
     # Find emails starting with "BOB" (case-insensitive)
-    bob_results = db.select(User).filter(email__istartswith="bob").fetch_all()
-    output.write(f"\nEmails starting with 'bob': {len(bob_results)}\n")
+    bob_results = db.select(User).filter(email__istartswith="BOB").fetch_all()
+    output.write(f"\nEmails starting with 'BOB': {len(bob_results)}\n")
+    for user in bob_results:
+        output.write(f"  - {user.email}\n")
 
     db.close()
     return output.getvalue()

@@ -132,13 +132,15 @@ db.insert(User(email="charlie@test.com"))
 results = (
     db.select(User).filter(email__iendswith="@example.com").fetch_all()
 )
-print(f"Emails ending with '@example.com': {len(results)}")
+print(f"Emails ending with '@example.com': {len(results)}\n")
 for user in results:
-    print(f"  - {user.email}")
+    print(f"  - {user.email}\n")
 
 # Find emails starting with "BOB" (case-insensitive)
-bob_results = db.select(User).filter(email__istartswith="bob").fetch_all()
-print(f"\nEmails starting with 'bob': {len(bob_results)}")
+bob_results = db.select(User).filter(email__istartswith="BOB").fetch_all()
+print(f"\nEmails starting with 'BOB': {len(bob_results)}\n")
+for user in bob_results:
+    print(f"  - {user.email}\n")
 
 db.close()
 # --8<-- [end:case-insensitive]
