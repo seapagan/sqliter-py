@@ -932,6 +932,11 @@ class SqliterDB:
         """
         table_name = model_class.get_table_name()
         primary_key = model_class.get_primary_key()
+        cache_key = f"pk:{primary_key_value}"
+
+        hit, cached = self._cache_get(table_name, cache_key)
+        if hit:
+            return cached
 
         fields = ", ".join(model_class.model_fields)
 
@@ -950,10 +955,15 @@ class SqliterDB:
                     field: result[idx]
                     for idx, field in enumerate(model_class.model_fields)
                 }
-                return self._create_instance_from_data(model_class, result_dict)
+                instance = self._create_instance_from_data(
+                    model_class, result_dict
+                )
+                self._cache_set(table_name, cache_key, instance)
+                return instance
         except sqlite3.Error as exc:
             raise RecordFetchError(table_name) from exc
         else:
+            self._cache_set(table_name, cache_key, None)
             return None
 
     def update(self, model_instance: BaseDBModel) -> None:
