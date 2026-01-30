@@ -309,12 +309,12 @@ def get(
 
 **Parameters:**
 
-| Parameter           | Type           | Default    | Description                                   |
-| ------------------- | -------------- | ---------- | --------------------------------------------- |
-| `model_class`       | `type[T]`      | *required* | The model class                               |
-| `primary_key_value` | `int`          | *required* | The primary key value                         |
-| `bypass_cache`      | `bool`         | `False`    | Skip cache read/write for this lookup         |
-| `cache_ttl`         | `int` &#124; `None` | `None` | Optional TTL override for this specific lookup |
+| Parameter           | Type                | Default    | Description                                    |
+| ------------------- | ------------------- | ---------- | ---------------------------------------------- |
+| `model_class`       | `type[T]`           | *required* | The model class                                |
+| `primary_key_value` | `int`               | *required* | The primary key value                          |
+| `bypass_cache`      | `bool`              | `False`    | Skip cache read/write for this lookup          |
+| `cache_ttl`         | `int` &#124; `None` | `None`     | Optional TTL override for this specific lookup |
 
 **Returns:**
 
