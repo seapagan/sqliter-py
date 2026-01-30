@@ -193,6 +193,48 @@ db.close()
 - **Selective fresh data**: Most queries use cache, some need fresh data
 - **Admin operations**: See current state while cache is active
 
+## Get Cache Controls
+
+Cache `get()` lookups, bypass per call, and override TTL.
+
+```python
+# --8<-- [start:get-cache-controls]
+from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
+
+class Product(BaseDBModel):
+    name: str
+    price: float
+
+db = SqliterDB(memory=True, cache_enabled=True, cache_ttl=60)
+db.create_table(Product)
+
+product = db.insert(Product(name="Widget", price=19.99))
+
+db.get(Product, product.pk)
+stats = db.get_cache_stats()
+print("After first get (miss):", stats)
+
+db.get(Product, product.pk)
+stats = db.get_cache_stats()
+print("After second get (hit):", stats)
+
+db.get(Product, product.pk, bypass_cache=True)
+stats = db.get_cache_stats()
+print("After bypass_cache=True:", stats)
+
+db.get(Product, product.pk, cache_ttl=5)
+print("Per-call TTL override set to 5s for this lookup")
+
+db.close()
+# --8<-- [end:get-cache-controls]
+```
+
+### Notes
+
+- `bypass_cache=True` skips both reading and writing the cache.
+- `cache_ttl` overrides the global TTL for that single lookup.
+
 ## Cache Invalidation
 
 Cache automatically expires based on TTL. For manual invalidation, use the

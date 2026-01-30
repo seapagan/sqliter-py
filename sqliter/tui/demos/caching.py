@@ -109,6 +109,44 @@ def _run_cache_stats() -> str:
     return output.getvalue()
 
 
+def _run_get_cache_controls() -> str:
+    """Show get() caching, bypass, and TTL overrides."""
+    output = io.StringIO()
+
+    class Product(BaseDBModel):
+        name: str
+        price: float
+
+    db = SqliterDB(memory=True, cache_enabled=True, cache_ttl=60)
+    db.create_table(Product)
+
+    product = db.insert(Product(name="Widget", price=19.99))
+
+    db.get(Product, product.pk)
+    stats = db.get_cache_stats()
+    output.write("After first get (miss):\n")
+    output.write(f"  - Hits: {stats['hits']}\n")
+    output.write(f"  - Misses: {stats['misses']}\n")
+
+    db.get(Product, product.pk)
+    stats = db.get_cache_stats()
+    output.write("After second get (hit):\n")
+    output.write(f"  - Hits: {stats['hits']}\n")
+    output.write(f"  - Misses: {stats['misses']}\n")
+
+    db.get(Product, product.pk, bypass_cache=True)
+    stats = db.get_cache_stats()
+    output.write("After bypass_cache=True (stats unchanged):\n")
+    output.write(f"  - Hits: {stats['hits']}\n")
+    output.write(f"  - Misses: {stats['misses']}\n")
+
+    db.get(Product, product.pk, cache_ttl=5)
+    output.write("Per-call TTL override set to 5s for this lookup\n")
+
+    db.close()
+    return output.getvalue()
+
+
 def _run_cache_bypass() -> str:
     """Bypass the cache to fetch fresh data from the database.
 
@@ -208,6 +246,14 @@ def get_category() -> DemoCategory:
                 category="caching",
                 code=extract_demo_code(_run_cache_stats),
                 execute=_run_cache_stats,
+            ),
+            Demo(
+                id="cache_get_controls",
+                title="Get Cache Controls",
+                description="Cache, bypass, and TTL for get()",
+                category="caching",
+                code=extract_demo_code(_run_get_cache_controls),
+                execute=_run_get_cache_controls,
             ),
             Demo(
                 id="cache_bypass",
