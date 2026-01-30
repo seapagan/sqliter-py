@@ -108,6 +108,71 @@ class TestCacheHitOnRepeatedQuery:
         db.close()
 
 
+class TestGetCacheControls:
+    """Test caching behavior for get() calls."""
+
+    def test_get_cache_hits(self, tmp_path) -> None:
+        """get() uses cache on repeated lookups."""
+        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db.create_table(User)
+        user = db.insert(User(name="Alice", age=30))
+
+        result1 = db.get(User, user.pk)
+        stats = db.get_cache_stats()
+        assert result1 is not None
+        assert stats["hits"] == 0
+        assert stats["misses"] == 1
+
+        result2 = db.get(User, user.pk)
+        stats = db.get_cache_stats()
+        assert result2 is not None
+        assert stats["hits"] == 1
+        assert stats["misses"] == 1
+
+        db.close()
+
+    def test_get_bypass_cache(self, tmp_path) -> None:
+        """get(bypass_cache=True) skips cache read/write."""
+        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db.create_table(User)
+        user = db.insert(User(name="Alice", age=30))
+
+        db.get(User, user.pk, bypass_cache=True)
+        stats = db.get_cache_stats()
+        assert stats["total"] == 0
+        assert db._cache == {}
+
+        db.close()
+
+    def test_get_cache_ttl_override(self, tmp_path) -> None:
+        """get(cache_ttl=...) overrides global TTL."""
+        db = SqliterDB(tmp_path / "test.db", cache_enabled=True, cache_ttl=100)
+        db.create_table(User)
+        user = db.insert(User(name="Alice", age=30))
+
+        with patch("sqliter.sqliter.time.time", return_value=0):
+            db.get(User, user.pk, cache_ttl=1)
+
+        with patch("sqliter.sqliter.time.time", return_value=10):
+            db.get(User, user.pk)
+
+        stats = db.get_cache_stats()
+        assert stats["hits"] == 0
+        assert stats["misses"] == 2
+
+        db.close()
+
+    def test_get_cache_ttl_negative(self, tmp_path) -> None:
+        """get(cache_ttl=...) rejects negative values."""
+        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db.create_table(User)
+
+        with pytest.raises(ValueError, match="cache_ttl must be non-negative"):
+            db.get(User, 1, cache_ttl=-1)
+
+        db.close()
+
+
 class TestCacheInvalidation:
     """Test cache invalidation on write operations."""
 

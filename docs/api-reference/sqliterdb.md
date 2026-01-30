@@ -301,15 +301,20 @@ def get(
     self,
     model_class: type[T],
     primary_key_value: int,
+    *,
+    bypass_cache: bool = False,
+    cache_ttl: int | None = None,
 ) -> T | None:
 ```
 
 **Parameters:**
 
-| Parameter           | Type      | Default    | Description           |
-| ------------------- | --------- | ---------- | --------------------- |
-| `model_class`       | `type[T]` | *required* | The model class       |
-| `primary_key_value` | `int`     | *required* | The primary key value |
+| Parameter           | Type                | Default    | Description                                    |
+| ------------------- | ------------------- | ---------- | ---------------------------------------------- |
+| `model_class`       | `type[T]`           | *required* | The model class                                |
+| `primary_key_value` | `int`               | *required* | The primary key value                          |
+| `bypass_cache`      | `bool`              | `False`    | Skip cache read/write for this lookup          |
+| `cache_ttl`         | `int` &#124; `None` | `None`     | Optional TTL override for this specific lookup |
 
 **Returns:**
 
@@ -319,6 +324,7 @@ def get(
 
 - [`RecordFetchError`](exceptions.md#recordfetcherror) -- If there is
   an error fetching the record.
+- `ValueError` -- If `cache_ttl` is negative.
 
 **Example:**
 
@@ -327,6 +333,12 @@ user = db.get(User, 1)
 if user:
     print(user.name)
 ```
+
+**Caching:**
+
+When `cache_enabled=True`, `get()` uses the query cache. Use
+`bypass_cache=True` to force a fresh lookup, or `cache_ttl` to override the
+global cache TTL for this call.
 
 ### `update()`
 
