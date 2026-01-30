@@ -5,6 +5,9 @@ database queries for frequently accessed data. The cache uses an LRU (Least
 Recently Used) eviction strategy and automatically invalidates when data is
 modified.
 
+Caching applies to both query builder results (via `select()`) and primary-key
+lookups with `db.get()` when `cache_enabled=True`.
+
 ## Enabling Caching
 
 Caching is **opt-in** and disabled by default. To enable caching, set
@@ -205,6 +208,12 @@ Use cases:
 - Debugging queries to verify database content
 - Admin operations that require absolute freshness
 
+You can also bypass caching for a single `get()` call:
+
+```python
+user = db.get(User, 1, bypass_cache=True)
+```
+
 ### Per-Query TTL
 
 Override the global `cache_ttl` setting for a specific query:
@@ -218,6 +227,12 @@ Use cases:
 
 - Shorter TTL for frequently changing data
 - Longer TTL for rarely changing reference data
+
+You can override TTL for a single `get()` call as well:
+
+```python
+user = db.get(User, 1, cache_ttl=300)
+```
 - Different TTL requirements for different query types
 
 ## Empty Result Caching
