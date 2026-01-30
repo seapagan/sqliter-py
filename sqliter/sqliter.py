@@ -13,7 +13,7 @@ import sqlite3
 import sys
 import time
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, cast
 
 from typing_extensions import Self
 
@@ -950,7 +950,7 @@ class SqliterDB:
         if not bypass_cache:
             hit, cached = self._cache_get(table_name, cache_key)
             if hit:
-                return cached
+                return cast("Optional[T]", cached)
 
         fields = ", ".join(model_class.model_fields)
 
