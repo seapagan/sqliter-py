@@ -917,12 +917,21 @@ class SqliterDB:
                 model_class, data, pk=cursor.lastrowid
             )
 
-    def get(self, model_class: type[T], primary_key_value: int) -> T | None:
+    def get(
+        self,
+        model_class: type[T],
+        primary_key_value: int,
+        *,
+        bypass_cache: bool = False,
+        cache_ttl: Optional[int] = None,
+    ) -> T | None:
         """Retrieve a single record from the database by its primary key.
 
         Args:
             model_class: The Pydantic model class representing the table.
             primary_key_value: The value of the primary key to look up.
+            bypass_cache: If True, skip reading/writing cache for this call.
+            cache_ttl: Optional TTL override for this specific lookup.
 
         Returns:
             An instance of the model class if found, None otherwise.
@@ -930,13 +939,18 @@ class SqliterDB:
         Raises:
             RecordFetchError: If there's an error fetching the record.
         """
+        if cache_ttl is not None and cache_ttl < 0:
+            msg = "cache_ttl must be non-negative"
+            raise ValueError(msg)
+
         table_name = model_class.get_table_name()
         primary_key = model_class.get_primary_key()
         cache_key = f"pk:{primary_key_value}"
 
-        hit, cached = self._cache_get(table_name, cache_key)
-        if hit:
-            return cached
+        if not bypass_cache:
+            hit, cached = self._cache_get(table_name, cache_key)
+            if hit:
+                return cached
 
         fields = ", ".join(model_class.model_fields)
 
@@ -958,12 +972,16 @@ class SqliterDB:
                 instance = self._create_instance_from_data(
                     model_class, result_dict
                 )
-                self._cache_set(table_name, cache_key, instance)
+                if not bypass_cache:
+                    self._cache_set(
+                        table_name, cache_key, instance, ttl=cache_ttl
+                    )
                 return instance
         except sqlite3.Error as exc:
             raise RecordFetchError(table_name) from exc
         else:
-            self._cache_set(table_name, cache_key, None)
+            if not bypass_cache:
+                self._cache_set(table_name, cache_key, None, ttl=cache_ttl)
             return None
 
     def update(self, model_instance: BaseDBModel) -> None:
