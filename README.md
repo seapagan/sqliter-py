@@ -13,8 +13,7 @@ is Pydantic itself.
 
 It does not aim to be a full-fledged ORM like SQLAlchemy, but rather a simple
 and easy-to-use library for basic database operations, especially for small
-projects. It is NOT asynchronous and does not support complex queries (at this
-time).
+projects. It is NOT asynchronous (at this time, though that is planned).
 
 The ideal use case is more for Python CLI tools that need to store data in a
 database-like format without needing to learn SQL or use a full ORM.
@@ -23,11 +22,10 @@ Full documentation is available on the [Website](https://sqliter.grantramsay.dev
 
 > [!CAUTION]
 >
-> This project is still in the early stages of development and is lacking some
-> planned functionality. Please use with caution - Classes and methods may
-> change until a stable release is made. I'll try to keep this to an absolute
-> minimum and the releases and documentation will be very clear about any
-> breaking changes.
+> This project is still in development and is lacking some planned
+> functionality. Please use with caution - Classes and methods may change until
+> a stable release is made. I'll try to keep this to an absolute minimum and the
+> releases and documentation will be very clear about any breaking changes.
 >
 > See the [TODO](TODO.md) for planned features and improvements.
 
