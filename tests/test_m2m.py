@@ -409,6 +409,18 @@ class TestManyToManyClear:
         with pytest.raises(ManyToManyIntegrityError, match="context"):
             article.tags.clear()
 
+    def test_clear_rolls_back_on_error(self, db: SqliterDB) -> None:
+        """clear() rolls back when a SQL error occurs."""
+        article = db.insert(Article(title="Guide"))
+        tag = db.insert(Tag(name="python"))
+        article.tags.add(tag)
+
+        conn = db.connect()
+        conn.execute('DROP TABLE "articles_tags"')
+
+        with pytest.raises(sqlite3.OperationalError):
+            article.tags.clear()
+
 
 # ── TestManyToManySet ────────────────────────────────────────────────
 
@@ -526,6 +538,11 @@ class TestManyToManyQuery:
         results = article.tags.filter(name="python").fetch_all()
         assert len(results) == 1
         assert results[0].name == "python"
+
+    def test_filter_empty_returns_no_rows(self, db: SqliterDB) -> None:
+        """filter() handles empty related set without invalid SQL."""
+        article = db.insert(Article(title="Guide"))
+        assert article.tags.filter().fetch_all() == []
 
 
 # ── TestReverseManyToMany ────────────────────────────────────────────

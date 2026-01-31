@@ -310,7 +310,13 @@ class ManyToManyManager(Generic[T]):
 
         conn = db.connect()
         cursor = conn.cursor()
-        cursor.execute(sql, params)
+        try:
+            cursor.execute(sql, params)
+        except Exception:
+            self._rollback_if_needed(db)
+            raise
+        finally:
+            cursor.close()
         db._maybe_commit()  # noqa: SLF001
 
     def set(self, *instances: T) -> None:
@@ -422,6 +428,8 @@ class ManyToManyManager(Generic[T]):
         db = self._check_context()
         model = cast("type[BaseDBModel]", self._to_model)
         pks = self._fetch_related_pks()
+        if not pks:
+            return db.select(model).filter(pk__in=[-1], **kwargs)
         pk_filter = self._as_filter_list(pks)
         return db.select(model).filter(pk__in=pk_filter, **kwargs)
 
