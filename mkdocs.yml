@@ -83,6 +83,7 @@ nav:
           - Overview: guide/foreign-keys.md
           - Explicit Foreign Keys: guide/foreign-keys/explicit.md
           - ORM Foreign Keys: guide/foreign-keys/orm.md
+      - Many-to-Many: guide/many-to-many.md
       - Caching: guide/caching.md
       - Exceptions: guide/exceptions.md
       - Debug Logging: guide/debug.md
@@ -93,6 +94,7 @@ nav:
       - QueryBuilder: api-reference/query-builder.md
       - Foreign Keys: api-reference/foreign-keys.md
       - ORM Mode: api-reference/orm.md
+      - Many-to-Many: api-reference/many-to-many.md
       - Exceptions: api-reference/exceptions.md
       - Helpers & Constants: api-reference/helpers.md
   - Interactive Demo:

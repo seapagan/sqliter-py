@@ -209,3 +209,19 @@ class InvalidRelationshipError(SqliterError):
         "Invalid relationship path '{}': field '{}' is not a valid "
         "foreign key relationship on model {}"
     )
+
+
+class ManyToManyError(SqliterError):
+    """Base exception for many-to-many relationship errors."""
+
+    message_template = "Many-to-many error: {}"
+
+
+class ManyToManyIntegrityError(ManyToManyError):
+    """Raised when a M2M operation fails due to missing context or pk.
+
+    This error occurs when attempting to use a M2M relationship without
+    a database context or on an unsaved instance (no primary key).
+    """
+
+    message_template = "Many-to-many integrity error: {}"

@@ -20,6 +20,7 @@ types, and usage examples.
 | `sqliter.model`      | `from sqliter.model import ForeignKey`  | Foreign key factory (legacy mode)        |
 | `sqliter.orm`        | `from sqliter.orm import BaseDBModel`   | Base model (ORM mode)                    |
 | `sqliter.orm`        | `from sqliter.orm import ForeignKey`    | Foreign key descriptor (ORM mode)        |
+| `sqliter.orm`        | `from sqliter.orm import ManyToMany`    | Many-to-many descriptor (ORM mode)       |
 | `sqliter.orm`        | `from sqliter.orm import ModelRegistry` | Model registry                           |
 | `sqliter.query`      | *(internal)*                            | QueryBuilder (returned by `db.select()`) |
 | `sqliter.exceptions` | `from sqliter.exceptions import ...`    | Exception hierarchy                      |
@@ -49,6 +50,9 @@ types, and usage examples.
 - **[ORM Mode](orm.md)** -- Extended `BaseDBModel` with lazy loading,
   `ForeignKey` descriptor, `LazyLoader`, `ModelRegistry`,
   `ReverseQuery`, and `ReverseRelationship`.
+
+- **[Many-to-Many](many-to-many.md)** -- `ManyToMany` descriptor,
+  `ManyToManyManager` API, reverse accessors, and junction tables.
 
 - **[Exceptions](exceptions.md)** -- Full hierarchy of 17 exception
   classes with message templates and usage context.

@@ -26,7 +26,11 @@ from typing import (
 from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import Self
 
-from sqliter.helpers import from_unix_timestamp, to_unix_timestamp
+from sqliter.helpers import (
+    from_unix_timestamp,
+    to_unix_timestamp,
+    validate_table_name,
+)
 
 
 class SerializableField(Protocol):
@@ -123,32 +127,6 @@ class BaseDBModel(BaseModel):
 
         return cast("Self", cls.model_construct(**converted_obj))
 
-    @staticmethod
-    def _validate_table_name(table_name: str) -> str:
-        """Validate that a table name contains only safe characters.
-
-        Table names must contain only alphanumeric characters and underscores,
-        and must start with a letter or underscore. This prevents SQL injection
-        through malicious table names.
-
-        Args:
-            table_name: The table name to validate.
-
-        Returns:
-            The validated table name.
-
-        Raises:
-            ValueError: If the table name contains invalid characters.
-        """
-        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", table_name):
-            msg = (
-                f"Invalid table name '{table_name}'. "
-                "Table names must start with a letter or underscore and "
-                "contain only letters, numbers, and underscores."
-            )
-            raise ValueError(msg)
-        return table_name
-
     @classmethod
     def get_table_name(cls) -> str:
         """Get the database table name for the model.
@@ -171,7 +149,7 @@ class BaseDBModel(BaseModel):
         table_name: str | None = getattr(cls.Meta, "table_name", None)
         if table_name is not None:
             # Validate custom table names
-            return cls._validate_table_name(table_name)
+            return validate_table_name(table_name)
 
         # Get class name and remove 'Model' suffix if present
         class_name = cls.__name__.removesuffix("Model")
@@ -194,7 +172,7 @@ class BaseDBModel(BaseModel):
             )
 
         # Validate auto-generated table names (should always pass)
-        return cls._validate_table_name(table_name)
+        return validate_table_name(table_name)
 
     @classmethod
     def get_primary_key(cls) -> str:

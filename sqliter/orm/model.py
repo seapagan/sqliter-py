@@ -1,4 +1,4 @@
-"""ORM model with lazy loading and reverse relationships."""
+"""ORM model with lazy loading, reverse relationships, and M2M."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from pydantic import Field
 
 from sqliter.model.model import BaseDBModel as _BaseDBModel
 from sqliter.orm.fields import ForeignKey, HasPK, LazyLoader
+from sqliter.orm.m2m import ManyToMany
 from sqliter.orm.registry import ModelRegistry
 
 __all__ = ["BaseDBModel"]
@@ -19,11 +20,15 @@ class BaseDBModel(_BaseDBModel):
     Adds:
     - Lazy loading of foreign key relationships
     - Automatic reverse relationship setup
+    - Many-to-many relationships
     - db_context for query execution
     """
 
     # Store FK descriptors per class (not inherited)
     fk_descriptors: ClassVar[dict[str, ForeignKey[Any]]] = {}
+
+    # Store M2M descriptors per class (not inherited)
+    m2m_descriptors: ClassVar[dict[str, ManyToMany[Any]]] = {}
 
     # Database context for lazy loading and reverse queries
     # Using Any since SqliterDB would cause circular import issues with Pydantic
@@ -51,15 +56,19 @@ class BaseDBModel(_BaseDBModel):
         super().__init__(**kwargs)
 
     def model_dump(self, **kwargs: Any) -> dict[str, Any]:  # noqa: ANN401
-        """Dump model, excluding FK descriptor fields.
+        """Dump model, excluding FK and M2M descriptor fields.
 
-        FK descriptor fields (like 'author') are excluded from serialization.
-        Only the _id fields (like 'author_id') are included.
+        FK descriptor fields (like 'author') are excluded from
+        serialization. Only the _id fields (like 'author_id') are
+        included. M2M descriptor fields are also excluded.
         """
         data = super().model_dump(**kwargs)
         # Remove FK descriptor fields from the dump
         for fk_field in self.fk_descriptors:
             data.pop(fk_field, None)
+        # Remove M2M descriptor fields from the dump
+        for m2m_field in self.m2m_descriptors:
+            data.pop(m2m_field, None)
         return data
 
     def __getattribute__(self, name: str) -> object:
@@ -98,8 +107,48 @@ class BaseDBModel(_BaseDBModel):
         # For non-FK fields, use normal attribute access
         return object.__getattribute__(self, name)
 
+    def _handle_reverse_m2m_set(self, name: str, value: object) -> bool:
+        """Check and handle reverse M2M descriptor assignment.
+
+        Args:
+            name: Attribute name being set.
+            value: Value being assigned.
+
+        Returns:
+            True if handled (caller should return), False otherwise.
+        """
+        cls_attr = type(self).__dict__.get(name)
+        if cls_attr is None:
+            for klass in type(self).__mro__:
+                if name in klass.__dict__:
+                    cls_attr = klass.__dict__[name]
+                    break
+        if cls_attr is not None:
+            from sqliter.orm.m2m import (  # noqa: PLC0415
+                ReverseManyToMany,
+            )
+
+            if isinstance(cls_attr, ReverseManyToMany):
+                cls_attr.__set__(self, value)
+                return True
+        return False
+
     def __setattr__(self, name: str, value: object) -> None:
-        """Intercept FK field assignment to convert to _id field."""
+        """Intercept FK, M2M, and reverse M2M field assignment."""
+        # Guard against M2M field assignment
+        m2m_descs = getattr(self, "m2m_descriptors", {})
+        if name in m2m_descs:
+            msg = (
+                f"Cannot assign to ManyToMany field '{name}'. "
+                f"Use .add(), .remove(), .clear(), or .set() "
+                f"instead."
+            )
+            raise AttributeError(msg)
+
+        # Guard against reverse M2M assignment (dynamic descriptors)
+        if self._handle_reverse_m2m_set(name, value):
+            return
+
         # Check if this is a FK field assignment
         fk_descs = getattr(self, "fk_descriptors", {})
         if name in fk_descs:
@@ -143,6 +192,10 @@ class BaseDBModel(_BaseDBModel):
         if "fk_descriptors" not in cls.__dict__:
             cls.fk_descriptors = {}
 
+        # Collect M2M descriptors from class dict
+        if "m2m_descriptors" not in cls.__dict__:
+            cls.m2m_descriptors = {}
+
         # Find all ForeignKeys in the class and add _id field annotations
         # Make a copy of items to avoid modifying dict during iteration
         class_items = list(cls.__dict__.items())
@@ -162,6 +215,13 @@ class BaseDBModel(_BaseDBModel):
                 # Remove FK field annotation so Pydantic doesn't treat it as
                 # a field to be copied to instance __dict__ (which breaks
                 # the descriptor protocol)
+                if name in cls.__annotations__:
+                    del cls.__annotations__[name]
+
+            elif isinstance(value, ManyToMany):
+                cls.m2m_descriptors[name] = value
+                # Remove M2M annotation so Pydantic doesn't create a
+                # DB column for it
                 if name in cls.__annotations__:
                     del cls.__annotations__[name]
 
@@ -241,3 +301,8 @@ class BaseDBModel(_BaseDBModel):
             # validate it
             if field_name in cls.model_fields:
                 del cls.model_fields[field_name]
+
+        # Remove M2M descriptor fields from model_fields
+        for m2m_name in cls.m2m_descriptors:
+            if m2m_name in cls.model_fields:
+                del cls.model_fields[m2m_name]

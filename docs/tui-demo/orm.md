@@ -326,6 +326,80 @@ select_related("author", "publisher")  # Loads multiple relationships
 select_related("comment__book__author__country")
 ```
 
+## Many-to-Many Basics
+
+Relate records through a junction table and use reverse accessors.
+
+```python
+# --8<-- [start:m2m-basic]
+from sqliter import SqliterDB
+from sqliter.orm import BaseDBModel, ManyToMany
+
+class Tag(BaseDBModel):
+    name: str
+
+class Article(BaseDBModel):
+    title: str
+    tags: ManyToMany[Tag] = ManyToMany(Tag, related_name="articles")
+
+db = SqliterDB(memory=True)
+db.create_table(Tag)
+db.create_table(Article)
+
+article = db.insert(Article(title="ORM Guide"))
+python = db.insert(Tag(name="python"))
+orm = db.insert(Tag(name="orm"))
+
+article.tags.add(python, orm)
+for tag in article.tags.fetch_all():
+    print(tag.name)
+
+for entry in python.articles.fetch_all():
+    print(entry.title)
+
+db.close()
+# --8<-- [end:m2m-basic]
+```
+
+!!! note "Type checkers and reverse accessors"
+    Reverse accessors are injected dynamically at runtime, so tools like mypy
+    cannot infer their type automatically. If you want strict typing, use
+    `cast()` at the call site:
+
+    ```python
+    from typing import Any, cast
+
+    entries = cast("Any", python.articles).fetch_all()
+    ```
+
+## Symmetrical Self-Referential M2M
+
+Use `symmetrical=True` for self-referential relationships.
+
+```python
+# --8<-- [start:m2m-symmetrical]
+from sqliter import SqliterDB
+from sqliter.orm import BaseDBModel, ManyToMany
+
+class User(BaseDBModel):
+    name: str
+    friends: ManyToMany[User] = ManyToMany("User", symmetrical=True)
+
+db = SqliterDB(memory=True)
+db.create_table(User)
+
+alice = db.insert(User(name="Alice"))
+bob = db.insert(User(name="Bob"))
+
+alice.friends.add(bob)
+
+print([u.name for u in alice.friends.fetch_all()])
+print([u.name for u in bob.friends.fetch_all()])
+
+db.close()
+# --8<-- [end:m2m-symmetrical]
+```
+
 ## Relationship Filter Traversal
 
 Filter records by fields on related models using double underscore syntax.
