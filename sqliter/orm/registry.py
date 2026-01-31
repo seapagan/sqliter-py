@@ -9,7 +9,16 @@ Central registry for:
 
 from __future__ import annotations
 
-from typing import Any, ClassVar, Optional
+from copy import deepcopy
+from typing import Any, ClassVar, Optional, TypedDict
+
+
+class _RegistryState(TypedDict):
+    models: dict[str, type[Any]]
+    foreign_keys: dict[str, list[dict[str, Any]]]
+    pending_reverses: dict[str, list[dict[str, Any]]]
+    m2m_relationships: dict[str, list[dict[str, Any]]]
+    pending_m2m_reverses: dict[str, list[dict[str, Any]]]
 
 
 class ModelRegistry:
@@ -24,6 +33,41 @@ class ModelRegistry:
     _pending_reverses: ClassVar[dict[str, list[dict[str, Any]]]] = {}
     _m2m_relationships: ClassVar[dict[str, list[dict[str, Any]]]] = {}
     _pending_m2m_reverses: ClassVar[dict[str, list[dict[str, Any]]]] = {}
+
+    @classmethod
+    def reset(cls) -> None:
+        """Clear all registry state.
+
+        Intended for tests that need isolation between model definitions.
+        """
+        cls._models.clear()
+        cls._foreign_keys.clear()
+        cls._pending_reverses.clear()
+        cls._m2m_relationships.clear()
+        cls._pending_m2m_reverses.clear()
+
+    @classmethod
+    def snapshot(cls) -> _RegistryState:
+        """Return a deep copy of the registry state.
+
+        Useful for temporarily isolating tests and restoring state afterward.
+        """
+        return {
+            "models": cls._models.copy(),
+            "foreign_keys": deepcopy(cls._foreign_keys),
+            "pending_reverses": deepcopy(cls._pending_reverses),
+            "m2m_relationships": deepcopy(cls._m2m_relationships),
+            "pending_m2m_reverses": deepcopy(cls._pending_m2m_reverses),
+        }
+
+    @classmethod
+    def restore(cls, state: _RegistryState) -> None:
+        """Restore registry state from a snapshot."""
+        cls._models = state["models"]
+        cls._foreign_keys = state["foreign_keys"]
+        cls._pending_reverses = state["pending_reverses"]
+        cls._m2m_relationships = state["m2m_relationships"]
+        cls._pending_m2m_reverses = state["pending_m2m_reverses"]
 
     @classmethod
     def register_model(cls, model_class: type[Any]) -> None:

@@ -14,6 +14,9 @@ Items marked with :fire: are high priority.
   done).
 - Investigate a mypy plugin to type reverse relationship accessors (avoid
   casts for dynamically injected attributes).
+- Registry lifetime: global registry can cause cross-talk when models are
+  defined repeatedly in one process (e.g., tests). Short-term fix: add a clear
+  or reset helper for tests. Longer-term option: make registry per-DB instance.
 - add a migration system to allow updating the database schema without losing
   data.
 - add more tests where 'auto_commit' is set to False to ensure that commit is

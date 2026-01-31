@@ -1,5 +1,6 @@
 """Test suite for index creation in the database."""
 
+from collections.abc import Generator
 from typing import ClassVar
 
 import pytest
@@ -7,6 +8,7 @@ from pytest_mock import MockerFixture
 
 from sqliter.exceptions import InvalidIndexError
 from sqliter.model import BaseDBModel
+from sqliter.orm.registry import ModelRegistry
 from sqliter.sqliter import SqliterDB
 
 
@@ -22,6 +24,14 @@ def get_index_names(db: SqliterDB) -> list[str]:
 
 class TestIndexes:
     """Test cases for index creation in the database."""
+
+    @pytest.fixture(autouse=True)
+    def _isolate_registry(self) -> Generator[None, None, None]:
+        """Isolate ORM registry state to avoid cross-test M2M leakage."""
+        state = ModelRegistry.snapshot()
+        ModelRegistry.reset()
+        yield
+        ModelRegistry.restore(state)
 
     def test_regular_index_creation(self, mocker: MockerFixture) -> None:
         """Test that regular indexes are created for valid fields."""
