@@ -366,6 +366,18 @@ class TestManyToManyRemove:
         with pytest.raises(ManyToManyIntegrityError, match="context"):
             article.tags.remove(tag)
 
+    def test_remove_rolls_back_on_error(self, db: SqliterDB) -> None:
+        """remove() rolls back when a SQL error occurs."""
+        article = db.insert(Article(title="Guide"))
+        tag = db.insert(Tag(name="python"))
+        article.tags.add(tag)
+
+        conn = db.connect()
+        conn.execute('DROP TABLE "articles_tags"')
+
+        with pytest.raises(sqlite3.OperationalError):
+            article.tags.remove(tag)
+
 
 # ── TestManyToManyClear ──────────────────────────────────────────────
 
@@ -956,7 +968,7 @@ class TestManyToManyEdgeCases:
         try:
             with pytest.raises(ValueError, match="Invalid table name"):
 
-                class BadThrough(BaseDBModel):
+                class BadThrough(BaseDBModel):  # pylint: disable=unused-variable
                     name: str
                     tags: ManyToMany[Any] = ManyToMany(
                         Tag,

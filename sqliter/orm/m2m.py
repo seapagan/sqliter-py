@@ -269,14 +269,19 @@ class ManyToManyManager(Generic[T]):
 
         conn = db.connect()
         cursor = conn.cursor()
-        for inst in instances:
-            to_pk = getattr(inst, "pk", None)
-            if to_pk:
-                if self._symmetrical:
-                    left_pk, right_pk = sorted([from_pk, int(to_pk)])
-                    cursor.execute(sql, (left_pk, right_pk))
-                else:
-                    cursor.execute(sql, (from_pk, to_pk))
+        try:
+            for inst in instances:
+                to_pk = getattr(inst, "pk", None)
+                if to_pk:
+                    to_pk = cast("int", to_pk)
+                    if self._symmetrical:
+                        left_pk, right_pk = sorted([from_pk, to_pk])
+                        cursor.execute(sql, (left_pk, right_pk))
+                    else:
+                        cursor.execute(sql, (from_pk, to_pk))
+        except Exception:
+            self._rollback_if_needed(db)
+            raise
 
         db._maybe_commit()  # noqa: SLF001
 
