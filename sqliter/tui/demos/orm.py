@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import io
-from typing import Optional
+from typing import Any, Optional, cast
 
 from sqliter import SqliterDB
-from sqliter.orm import BaseDBModel, ForeignKey
+from sqliter.orm import BaseDBModel, ForeignKey, ManyToMany
 from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
@@ -198,6 +198,67 @@ def _run_reverse_relationships() -> str:
 
     output.write(f"\nTotal books: {len(books)}\n")
     output.write("Reverse relationships auto-generated from FKs\n")
+
+    db.close()
+    return output.getvalue()
+
+
+def _run_many_to_many_basic() -> str:
+    """Show basic many-to-many usage with reverse access."""
+    output = io.StringIO()
+
+    class Tag(BaseDBModel):
+        name: str
+
+    class Article(BaseDBModel):
+        title: str
+        tags: ManyToMany[Tag] = ManyToMany(Tag, related_name="articles")
+
+    db = SqliterDB(memory=True)
+    db.create_table(Tag)
+    db.create_table(Article)
+
+    article = db.insert(Article(title="ORM Guide"))
+    python = db.insert(Tag(name="python"))
+    orm = db.insert(Tag(name="orm"))
+
+    article.tags.add(python, orm)
+    output.write("Article tags:\n")
+    for tag in article.tags.fetch_all():
+        output.write(f"  - {tag.name}\n")
+
+    output.write("\nReverse access (tag.articles):\n")
+    entries = cast("Any", python.articles).fetch_all()
+    for entry in entries:
+        output.write(f"  - {entry.title}\n")
+
+    db.close()
+    return output.getvalue()
+
+
+def _run_many_to_many_symmetrical() -> str:
+    """Show symmetrical self-referential many-to-many."""
+    output = io.StringIO()
+
+    class User(BaseDBModel):
+        name: str
+        friends: ManyToMany[User] = ManyToMany("User", symmetrical=True)
+
+    db = SqliterDB(memory=True)
+    db.create_table(User)
+
+    alice = db.insert(User(name="Alice"))
+    bob = db.insert(User(name="Bob"))
+
+    alice.friends.add(bob)
+
+    output.write("Alice's friends:\n")
+    for friend in alice.friends.fetch_all():
+        output.write(f"  - {friend.name}\n")
+
+    output.write("\nBob's friends (symmetrical):\n")
+    for friend in bob.friends.fetch_all():
+        output.write(f"  - {friend.name}\n")
 
     db.close()
     return output.getvalue()
@@ -423,6 +484,22 @@ def get_category() -> DemoCategory:
                 category="orm",
                 code=extract_demo_code(_run_reverse_relationships),
                 execute=_run_reverse_relationships,
+            ),
+            Demo(
+                id="orm_m2m_basic",
+                title="Many-to-Many Basics",
+                description="Relate records with a junction table",
+                category="orm",
+                code=extract_demo_code(_run_many_to_many_basic),
+                execute=_run_many_to_many_basic,
+            ),
+            Demo(
+                id="orm_m2m_symmetrical",
+                title="Many-to-Many Symmetry",
+                description="Self-referential symmetrical relationships",
+                category="orm",
+                code=extract_demo_code(_run_many_to_many_symmetrical),
+                execute=_run_many_to_many_symmetrical,
             ),
             Demo(
                 id="orm_select_related",

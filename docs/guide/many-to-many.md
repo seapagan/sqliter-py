@@ -77,7 +77,7 @@ symmetrical self-references.
 ```python
 class User(BaseDBModel):
     name: str
-    friends: ManyToMany["User"] = ManyToMany("User", symmetrical=True)
+    friends: ManyToMany[User] = ManyToMany("User", symmetrical=True)
 
 alice = db.insert(User(name="Alice"))
 bob = db.insert(User(name="Bob"))

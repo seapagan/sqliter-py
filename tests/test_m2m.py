@@ -777,6 +777,27 @@ class TestManyToManyEdgeCases:
         descriptor = Article.__dict__["tags"]
         assert descriptor.related_name is not None
 
+    def test_invalid_string_forward_ref(self) -> None:
+        """Non-self string forward refs raise ValueError."""
+
+        # Python 3.10 wraps __set_name__ errors in RuntimeError.
+        def create_invalid() -> None:
+            class Other(BaseDBModel):
+                name: str
+
+            class InvalidRef(BaseDBModel):
+                name: str
+                items: ManyToMany[Other] = ManyToMany("Other")
+
+        with pytest.raises(
+            (ValueError, RuntimeError),
+            match=r"ManyToMany to_model|__set_name__",
+        ) as exc_info:
+            create_invalid()
+
+        if isinstance(exc_info.value, RuntimeError):
+            assert isinstance(exc_info.value.__cause__, ValueError)
+
     def test_inflect_import_error_fallback(self, monkeypatch) -> None:
         """Fallback related_name used when inflect import fails."""
         original_import = builtins.__import__
@@ -864,12 +885,12 @@ class TestManyToManyEdgeCases:
 
             class Member(BaseDBModel):
                 name: str
+                friends: ManyToMany[Member] = ManyToMany(
+                    "Member", symmetrical=True
+                )
 
                 class Meta:
                     table_name = "members_sym"
-
-            Member.friends = ManyToMany(Member, symmetrical=True)
-            Member.friends.__set_name__(Member, "friends")
 
             db = SqliterDB(memory=True)
             db.create_table(Member)
@@ -899,12 +920,12 @@ class TestManyToManyEdgeCases:
 
             class Person(BaseDBModel):
                 name: str
+                peers: ManyToMany[Person] = ManyToMany(
+                    "Person", symmetrical=True
+                )
 
                 class Meta:
                     table_name = "people_sym"
-
-            Person.peers = ManyToMany(Person, symmetrical=True)
-            Person.peers.__set_name__(Person, "peers")
 
             db = SqliterDB(memory=True)
             db.create_table(Person)
@@ -934,12 +955,12 @@ class TestManyToManyEdgeCases:
 
             class User(BaseDBModel):
                 name: str
+                follows: ManyToMany[User] = ManyToMany(
+                    "User", related_name="followed_by"
+                )
 
                 class Meta:
                     table_name = "users_sym_dir"
-
-            User.follows = ManyToMany(User, related_name="followed_by")
-            User.follows.__set_name__(User, "follows")
 
             db = SqliterDB(memory=True)
             db.create_table(User)
@@ -965,14 +986,12 @@ class TestManyToManyEdgeCases:
 
             class Contact(BaseDBModel):
                 name: str
+                links: ManyToMany[Contact] = ManyToMany(
+                    "Contact", related_name="linked_to", symmetrical=True
+                )
 
                 class Meta:
                     table_name = "contacts_sym"
-
-            Contact.links = ManyToMany(
-                Contact, related_name="linked_to", symmetrical=True
-            )
-            Contact.links.__set_name__(Contact, "links")
 
             assert not hasattr(Contact, "linked_to")
         finally:

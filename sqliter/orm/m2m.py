@@ -50,7 +50,7 @@ class ManyToManyInfo:
         symmetrical: Whether self-referential relationships are symmetric.
     """
 
-    to_model: type[Any]
+    to_model: type[Any] | str
     through: Optional[str] = None
     related_name: Optional[str] = field(default=None)
     symmetrical: bool = False
@@ -416,7 +416,7 @@ class ManyToMany(Generic[T]):
 
     def __init__(
         self,
-        to_model: type[T],
+        to_model: type[T] | str,
         *,
         through: Optional[str] = None,
         related_name: Optional[str] = None,
@@ -425,7 +425,7 @@ class ManyToMany(Generic[T]):
         """Initialize M2M descriptor.
 
         Args:
-            to_model: The related model class.
+            to_model: The related model class (or self-referential string).
             through: Custom junction table name.
             related_name: Name for the reverse accessor on the target.
             symmetrical: If True, self-referential relationships are symmetric.
@@ -483,6 +483,15 @@ class ManyToMany(Generic[T]):
         """
         self.name = name
         self.owner = owner
+        if isinstance(self.to_model, str):
+            if self.to_model == owner.__name__:
+                self.to_model = owner
+            else:
+                msg = (
+                    "ManyToMany to_model must be a class, or a "
+                    "self-referential string matching the owner class name."
+                )
+                raise ValueError(msg)
         self._junction_table = self._get_junction_table_name(owner)
 
         # Store in class's own m2m_descriptors
@@ -544,9 +553,10 @@ class ManyToMany(Generic[T]):
         if instance is None:
             return self
 
+        model = cast("type[T]", self.to_model)
         return ManyToManyManager(
             instance=cast("HasPKAndContext", instance),
-            to_model=self.to_model,
+            to_model=model,
             from_model=owner,
             junction_table=self._junction_table or "",
             db_context=getattr(instance, "db_context", None),
