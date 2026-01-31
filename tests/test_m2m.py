@@ -1196,11 +1196,17 @@ class TestManyToManyRegistryEdgeCases:
                 ManyToMany, "_get_junction_table_name", bad_junction
             )
 
-            with pytest.raises(ValueError, match="junction table"):
+            with pytest.raises(
+                (ValueError, RuntimeError),
+                match=r"junction table|__set_name__",
+            ) as exc_info:
 
                 class SourceBad(BaseDBModel):
                     name: str
                     targets: ManyToMany[TargetBad] = ManyToMany(TargetBad)
+
+            if isinstance(exc_info.value, RuntimeError):
+                assert isinstance(exc_info.value.__cause__, ValueError)
         finally:
             ModelRegistry.restore(state)
 
