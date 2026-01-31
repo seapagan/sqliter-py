@@ -1201,7 +1201,7 @@ class TestManyToManyRegistryEdgeCases:
                 match=r"junction table|__set_name__",
             ) as exc_info:
 
-                class SourceBad(BaseDBModel):
+                class SourceBad(BaseDBModel):  # pylint: disable=unused-variable
                     name: str
                     targets: ManyToMany[TargetBad] = ManyToMany(TargetBad)
 
@@ -1353,7 +1353,7 @@ class TestModelRegistry:
 
             with pytest.raises(ValueError, match="junction table"):
 
-                class TargetMissing(BaseDBModel):
+                class TargetMissing(BaseDBModel):  # pylint: disable=unused-variable
                     name: str
         finally:
             ModelRegistry.restore(state)
@@ -1365,7 +1365,7 @@ class TestModelRegistry:
 
         try:
 
-            class TargetExists(BaseDBModel):
+            class TargetExists(BaseDBModel):  # pylint: disable=unused-variable
                 name: str
 
             class SourceExists(BaseDBModel):
