@@ -8,6 +8,7 @@ from pytest_mock import MockerFixture
 
 from sqliter.exceptions import InvalidIndexError
 from sqliter.model import BaseDBModel
+from sqliter.orm import ManyToMany
 from sqliter.orm.registry import ModelRegistry
 from sqliter.sqliter import SqliterDB
 
@@ -322,6 +323,57 @@ class TestIndexes:
 
         # Verify the index was created successfully
         assert "users" in db.table_names
+
+
+class TestIndexRegistryIsolation:
+    """Tests for registry isolation to avoid M2M cross-talk."""
+
+    def test_registry_reset_clears_m2m_relationships(self) -> None:
+        """Ensure registry reset prevents M2M junction indexes leaking."""
+        state = ModelRegistry.snapshot()
+
+        try:
+
+            class UserWithM2M(BaseDBModel):
+                name: str
+                friends: ManyToMany["UserWithM2M"] = ManyToMany(
+                    "UserWithM2M",
+                    symmetrical=True,
+                )
+
+                class Meta:
+                    table_name = "users"
+
+            db_with = SqliterDB(":memory:")
+            db_with.create_table(UserWithM2M)
+
+            class UserNoIndexes(BaseDBModel):
+                name: str
+
+                class Meta:
+                    table_name = "users"
+                    indexes: ClassVar[list[str]] = []
+                    unique_indexes: ClassVar[list[str]] = []
+
+            db_leaky = SqliterDB(":memory:")
+            db_leaky.create_table(UserNoIndexes)
+            assert len(get_index_names(db_leaky)) > 0
+
+            ModelRegistry.reset()
+
+            class UserNoIndexesFresh(BaseDBModel):
+                name: str
+
+                class Meta:
+                    table_name = "users"
+                    indexes: ClassVar[list[str]] = []
+                    unique_indexes: ClassVar[list[str]] = []
+
+            db_clean = SqliterDB(":memory:")
+            db_clean.create_table(UserNoIndexesFresh)
+            assert len(get_index_names(db_clean)) == 0
+        finally:
+            ModelRegistry.restore(state)
 
     def test_mixed_valid_and_invalid_fields_in_composite_index(self) -> None:
         """Test an index with both valid and invalid fields raises an error."""
