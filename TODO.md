@@ -12,6 +12,8 @@ Items marked with :fire: are high priority.
 - add a `rollback` method to the main class to allow manual rollbacks.
 - :fire: allow adding foreign keys and relationships to each table (partially
   done).
+- Investigate a mypy plugin to type reverse relationship accessors (avoid
+  casts for dynamically injected attributes).
 - add a migration system to allow updating the database schema without losing
   data.
 - add more tests where 'auto_commit' is set to False to ensure that commit is
