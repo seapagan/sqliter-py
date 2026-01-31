@@ -361,6 +361,17 @@ db.close()
 # --8<-- [end:m2m-basic]
 ```
 
+!!! note "Type checkers and reverse accessors"
+    Reverse accessors are injected dynamically at runtime, so tools like mypy
+    cannot infer their type automatically. If you want strict typing, use
+    `cast()` at the call site:
+
+    ```python
+    from typing import Any, cast
+
+    entries = cast("Any", python.articles).fetch_all()
+    ```
+
 ## Symmetrical Self-Referential M2M
 
 Use `symmetrical=True` for self-referential relationships.

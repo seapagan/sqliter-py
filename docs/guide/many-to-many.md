@@ -55,6 +55,17 @@ tag = db.insert(Tag(name="python"))
 articles = tag.articles.fetch_all()
 ```
 
+!!! note "Type checkers and reverse accessors"
+    Reverse accessors are injected dynamically at runtime, so tools like mypy
+    cannot infer their type automatically. If you want strict typing, use
+    `cast()` at the call site:
+
+    ```python
+    from typing import Any, cast
+
+    articles = cast("Any", tag.articles).fetch_all()
+    ```
+
 ## Custom Junction Table Name
 
 Use `through` to control the junction table name:
