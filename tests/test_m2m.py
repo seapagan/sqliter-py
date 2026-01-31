@@ -1073,13 +1073,20 @@ class TestManyToManyRegistryEdgeCases:
 
             TargetConflict.conflict_attr = object()
 
-            with pytest.raises(AttributeError, match="Reverse M2M accessor"):
+            # Python 3.10 wraps __set_name__ errors in RuntimeError.
+            with pytest.raises(
+                (AttributeError, RuntimeError),
+                match=r"Reverse M2M accessor|__set_name__",
+            ) as exc_info:
 
                 class SourceConflict(BaseDBModel):
                     title: str
                     targets: ManyToMany[TargetConflict] = ManyToMany(
                         TargetConflict, related_name="conflict_attr"
                     )
+
+            if isinstance(exc_info.value, RuntimeError):
+                assert isinstance(exc_info.value.__cause__, AttributeError)
         finally:
             ModelRegistry._models = orig_models
             ModelRegistry._m2m_relationships = orig_m2m
