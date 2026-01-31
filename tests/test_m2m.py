@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import builtins
 import sqlite3
+import sys
 from typing import TYPE_CHECKING, Any, cast
 
 import pytest
@@ -696,8 +697,11 @@ class TestManyToManyRegistry:
 class TestManyToManyCustomThrough:
     """Tests for custom through table name."""
 
-    def test_custom_junction_table_columns(self, db_custom: SqliterDB) -> None:
-        """Custom junction table has correct columns."""
+    def test_custom_junction_table_columns_with_inflect(
+        self, db_custom: SqliterDB
+    ) -> None:
+        """Custom junction table columns match inflect pluralization."""
+        pytest.importorskip("inflect")
         conn = db_custom.connect()
         cursor = conn.cursor()
         cursor.execute('PRAGMA table_info("post_category_links")')
@@ -706,6 +710,56 @@ class TestManyToManyCustomThrough:
         # Columns named by alphabetical sort of table names
         assert "categories_pk" in columns
         assert "posts_pk" in columns
+
+    def test_custom_junction_table_columns_without_inflect(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Custom junction table columns match fallback pluralization."""
+        state = ModelRegistry.snapshot()
+        ModelRegistry.reset()
+        original_import = builtins.__import__
+
+        def fake_import(
+            name: str,
+            globals_: dict[str, object] | None = None,
+            locals_: dict[str, object] | None = None,
+            fromlist: tuple[str, ...] = (),
+            level: int = 0,
+        ) -> object:
+            if name == "inflect":
+                msg = "no inflect"
+                raise ImportError(msg)
+            return original_import(name, globals_, locals_, fromlist, level)
+
+        monkeypatch.setattr(builtins, "__import__", fake_import)
+        sys.modules.pop("inflect", None)
+
+        try:
+
+            class Category(BaseDBModel):
+                label: str
+
+            class Post(BaseDBModel):
+                body: str
+                categories: ManyToMany[Category] = ManyToMany(
+                    Category,
+                    through="post_category_links",
+                )
+
+            db = SqliterDB(memory=True)
+            db.create_table(Category)
+            db.create_table(Post)
+
+            conn = db.connect()
+            cursor = conn.cursor()
+            cursor.execute('PRAGMA table_info("post_category_links")')
+            columns = {row[1] for row in cursor.fetchall()}
+            assert "id" in columns
+            # Fallback pluralization appends "s"
+            assert "categorys_pk" in columns
+            assert "posts_pk" in columns
+        finally:
+            ModelRegistry.restore(state)
 
     def test_custom_through_operations(self, db_custom: SqliterDB) -> None:
         """M2M operations work with custom through table."""
