@@ -777,26 +777,66 @@ class TestManyToManyEdgeCases:
         descriptor = Article.__dict__["tags"]
         assert descriptor.related_name is not None
 
-    def test_invalid_string_forward_ref(self) -> None:
-        """Non-self string forward refs raise ValueError."""
+    def test_string_forward_ref_resolves_when_target_exists(self) -> None:
+        """String forward refs resolve when target is registered."""
+        state = ModelRegistry.snapshot()
+        ModelRegistry.reset()
 
-        # Python 3.10 wraps __set_name__ errors in RuntimeError.
-        def create_invalid() -> None:
+        try:
+
             class Other(BaseDBModel):
                 name: str
 
-            class InvalidRef(BaseDBModel):
+            class Referrer(BaseDBModel):
                 name: str
                 items: ManyToMany[Other] = ManyToMany("Other")
 
-        with pytest.raises(
-            (ValueError, RuntimeError),
-            match=r"ManyToMany to_model|__set_name__",
-        ) as exc_info:
-            create_invalid()
+            descriptor = Referrer.__dict__["items"]
+            assert descriptor.to_model is Other
+        finally:
+            ModelRegistry.restore(state)
 
-        if isinstance(exc_info.value, RuntimeError):
-            assert isinstance(exc_info.value.__cause__, ValueError)
+    def test_string_forward_ref_resolves_when_target_defined_later(
+        self,
+    ) -> None:
+        """String forward refs resolve when target is defined later."""
+        state = ModelRegistry.snapshot()
+        ModelRegistry.reset()
+
+        try:
+
+            class SourceLate(BaseDBModel):
+                name: str
+                targets: ManyToMany[TargetLate] = ManyToMany(
+                    "TargetLate",
+                    related_name="sources_late",
+                )
+
+            class TargetLate(BaseDBModel):
+                name: str
+
+            descriptor = SourceLate.__dict__["targets"]
+            assert descriptor.to_model is TargetLate
+            assert hasattr(TargetLate, "sources_late")
+        finally:
+            ModelRegistry.restore(state)
+
+    def test_unresolved_string_forward_ref_raises_on_access(self) -> None:
+        """Accessing unresolved forward refs raises a clear error."""
+        state = ModelRegistry.snapshot()
+        ModelRegistry.reset()
+
+        try:
+
+            class MissingTarget(BaseDBModel):
+                name: str
+                items: ManyToMany[Any] = ManyToMany("NeverDefined")
+
+            instance = MissingTarget(name="missing")
+            with pytest.raises(TypeError, match="unresolved"):
+                _ = instance.items
+        finally:
+            ModelRegistry.restore(state)
 
     def test_inflect_import_error_fallback(self, monkeypatch) -> None:
         """Fallback related_name used when inflect import fails."""
@@ -1110,3 +1150,239 @@ class TestManyToManyRegistryEdgeCases:
             ModelRegistry._models = orig_models
             ModelRegistry._m2m_relationships = orig_m2m
             ModelRegistry._pending_m2m_reverses = orig_pending
+
+    def test_forward_ref_with_through_sets_junction_table(self) -> None:
+        """String forward refs with through set junction table immediately."""
+        state = ModelRegistry.snapshot()
+        ModelRegistry.reset()
+
+        try:
+
+            class Source(BaseDBModel):
+                name: str
+                links: ManyToMany[Any] = ManyToMany(
+                    "Target",
+                    through="custom_links",
+                )
+
+            descriptor = Source.__dict__["links"]
+            assert descriptor.junction_table == "custom_links"
+
+            class Target(BaseDBModel):
+                name: str
+
+            assert descriptor.to_model is Target
+            assert descriptor.junction_table == "custom_links"
+        finally:
+            ModelRegistry.restore(state)
+
+    def test_junction_table_resolution_failure_raises(
+        self, monkeypatch
+    ) -> None:
+        """If junction table can't be resolved, registration fails."""
+        state = ModelRegistry.snapshot()
+        ModelRegistry.reset()
+
+        try:
+
+            class TargetBad(BaseDBModel):
+                name: str
+
+            def bad_junction(self, owner: type[BaseDBModel]) -> None:
+                _ = self
+                _ = owner
+
+            monkeypatch.setattr(
+                ManyToMany, "_get_junction_table_name", bad_junction
+            )
+
+            with pytest.raises(ValueError, match="junction table"):
+
+                class SourceBad(BaseDBModel):
+                    name: str
+                    targets: ManyToMany[TargetBad] = ManyToMany(TargetBad)
+        finally:
+            ModelRegistry.restore(state)
+
+
+class TestModelRegistry:
+    """Tests for ModelRegistry helpers and pending resolution."""
+
+    def test_add_reverse_relationship_pending_then_registered(self) -> None:
+        """Pending reverse FK is processed on register."""
+        state = ModelRegistry.snapshot()
+        ModelRegistry.reset()
+
+        try:
+
+            class AuthorPending(BaseDBModel):
+                name: str
+
+            class BookPending(BaseDBModel):
+                title: str
+
+            table_name = AuthorPending.get_table_name()
+            ModelRegistry._models.pop(table_name, None)
+
+            ModelRegistry.add_reverse_relationship(
+                from_model=BookPending,
+                to_model=AuthorPending,
+                fk_field="author",
+                related_name="books",
+            )
+
+            assert table_name in ModelRegistry._pending_reverses
+            ModelRegistry.register_model(AuthorPending)
+            assert hasattr(AuthorPending, "books")
+        finally:
+            ModelRegistry.restore(state)
+
+    def test_add_reverse_relationship_immediate(self) -> None:
+        """Reverse FK added immediately when model is registered."""
+        state = ModelRegistry.snapshot()
+        ModelRegistry.reset()
+
+        try:
+
+            class AuthorNow(BaseDBModel):
+                name: str
+
+            class BookNow(BaseDBModel):
+                title: str
+
+            ModelRegistry.register_model(AuthorNow)
+            ModelRegistry.add_reverse_relationship(
+                from_model=BookNow,
+                to_model=AuthorNow,
+                fk_field="author",
+                related_name="books_now",
+            )
+
+            assert hasattr(AuthorNow, "books_now")
+        finally:
+            ModelRegistry.restore(state)
+
+    def test_reverse_relationship_conflict_raises(self) -> None:
+        """Reverse FK conflict raises AttributeError."""
+        state = ModelRegistry.snapshot()
+        ModelRegistry.reset()
+
+        try:
+
+            class AuthorConflict(BaseDBModel):
+                name: str
+
+            class BookConflict(BaseDBModel):
+                title: str
+
+            AuthorConflict.conflict = object()
+            ModelRegistry.register_model(AuthorConflict)
+
+            with pytest.raises(AttributeError, match="Reverse relationship"):
+                ModelRegistry.add_reverse_relationship(
+                    from_model=BookConflict,
+                    to_model=AuthorConflict,
+                    fk_field="author",
+                    related_name="conflict",
+                )
+        finally:
+            ModelRegistry.restore(state)
+
+    def test_register_foreign_key_and_getters(self) -> None:
+        """Register FK and confirm getters behave."""
+        state = ModelRegistry.snapshot()
+        ModelRegistry.reset()
+
+        try:
+
+            class Parent(BaseDBModel):
+                name: str
+
+            class Child(BaseDBModel):
+                name: str
+
+            ModelRegistry.register_foreign_key(
+                from_model=Child,
+                to_model=Parent,
+                fk_field="parent",
+                on_delete="CASCADE",
+                related_name="children",
+            )
+
+            assert ModelRegistry.get_model(Parent.get_table_name()) is Parent
+            assert ModelRegistry.get_foreign_keys("missing") == []
+            assert ModelRegistry.get_foreign_keys(Child.get_table_name())
+        finally:
+            ModelRegistry.restore(state)
+
+    def test_pending_m2m_target_with_missing_junction_raises(self) -> None:
+        """Pending M2M target resolution errors if junction table missing."""
+        state = ModelRegistry.snapshot()
+        ModelRegistry.reset()
+
+        try:
+
+            class Source(BaseDBModel):
+                name: str
+
+            class DescriptorMissing:
+                def resolve_forward_ref(
+                    self, model_class: type[BaseDBModel]
+                ) -> None:
+                    _ = model_class
+
+                @property
+                def junction_table(self) -> None:
+                    return None
+
+            ModelRegistry._pending_m2m_targets["TargetMissing"] = [
+                {
+                    "from_model": Source,
+                    "m2m_field": "targets",
+                    "related_name": "sources",
+                    "symmetrical": False,
+                    "descriptor": DescriptorMissing(),
+                }
+            ]
+
+            with pytest.raises(ValueError, match="junction table"):
+
+                class TargetMissing(BaseDBModel):
+                    name: str
+        finally:
+            ModelRegistry.restore(state)
+
+    def test_add_pending_m2m_existing_missing_junction_raises(self) -> None:
+        """add_pending_m2m_relationship errors if junction table missing."""
+        state = ModelRegistry.snapshot()
+        ModelRegistry.reset()
+
+        try:
+
+            class TargetExists(BaseDBModel):
+                name: str
+
+            class SourceExists(BaseDBModel):
+                name: str
+
+            class DescriptorMissing:
+                def resolve_forward_ref(
+                    self, model_class: type[BaseDBModel]
+                ) -> None:
+                    _ = model_class
+
+                @property
+                def junction_table(self) -> None:
+                    return None
+
+            with pytest.raises(ValueError, match="junction table"):
+                ModelRegistry.add_pending_m2m_relationship(
+                    from_model=SourceExists,
+                    to_model_name="TargetExists",
+                    m2m_field="targets",
+                    related_name="sources",
+                    symmetrical=False,
+                    descriptor=DescriptorMissing(),
+                )
+        finally:
+            ModelRegistry.restore(state)

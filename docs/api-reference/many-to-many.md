@@ -22,7 +22,7 @@ Descriptor used on ORM models.
 class ManyToMany(Generic[T]):
     def __init__(
         self,
-        to_model: type[T],
+        to_model: type[T] | str,
         *,
         through: str | None = None,
         related_name: str | None = None,
@@ -32,18 +32,20 @@ class ManyToMany(Generic[T]):
 
 **Parameters:**
 
-| Parameter      | Type                | Default    | Description                |
-| -------------- | ------------------- | ---------- | -------------------------- |
-| `to_model`     | `type[T]`           | *required* | Related model class        |
-| `through`      | `str` &#124; `None` | `None`     | Custom junction table name |
-| `related_name` | `str` &#124; `None` | `None`     | Reverse accessor name      |
-| `symmetrical`  | `bool`              | `False`    | Self-referential symmetry  |
+| Parameter      | Type                   | Default    | Description                  |
+| -------------- | ---------------------- | ---------- | ---------------------------- |
+| `to_model`     | `type[T]` &#124; `str` | *required* | Related model or forward ref |
+| `through`      | `str` &#124; `None`    | `None`     | Custom junction table name   |
+| `related_name` | `str` &#124; `None`    | `None`     | Reverse accessor name        |
+| `symmetrical`  | `bool`                 | `False`    | Self-referential symmetry    |
 
 **Notes:**
 
 - When `symmetrical=True` and `to_model` is the same class, SQLiter
   stores a single row per pair and returns the relationship from either
   side. No reverse accessor is created for symmetrical self-relations.
+- `to_model` can be a string forward ref. The relationship resolves when
+  the target model class is registered.
 - Reverse accessors are created automatically when `related_name` is set
   or auto-generated.
 

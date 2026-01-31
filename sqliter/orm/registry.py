@@ -10,15 +10,24 @@ Central registry for:
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Any, ClassVar, Optional, TypedDict
+from typing import Any, ClassVar, Optional, Protocol, TypedDict
+
+
+class _M2MForwardRef(Protocol):
+    def resolve_forward_ref(self, model_class: type[Any]) -> None: ...
+
+    @property
+    def junction_table(self) -> Optional[str]: ...
 
 
 class _RegistryState(TypedDict):
     models: dict[str, type[Any]]
+    models_by_name: dict[str, type[Any]]
     foreign_keys: dict[str, list[dict[str, Any]]]
     pending_reverses: dict[str, list[dict[str, Any]]]
     m2m_relationships: dict[str, list[dict[str, Any]]]
     pending_m2m_reverses: dict[str, list[dict[str, Any]]]
+    pending_m2m_targets: dict[str, list[dict[str, Any]]]
 
 
 class ModelRegistry:
@@ -29,10 +38,12 @@ class ModelRegistry:
     """
 
     _models: ClassVar[dict[str, type]] = {}
+    _models_by_name: ClassVar[dict[str, type[Any]]] = {}
     _foreign_keys: ClassVar[dict[str, list[dict[str, Any]]]] = {}
     _pending_reverses: ClassVar[dict[str, list[dict[str, Any]]]] = {}
     _m2m_relationships: ClassVar[dict[str, list[dict[str, Any]]]] = {}
     _pending_m2m_reverses: ClassVar[dict[str, list[dict[str, Any]]]] = {}
+    _pending_m2m_targets: ClassVar[dict[str, list[dict[str, Any]]]] = {}
 
     @classmethod
     def reset(cls) -> None:
@@ -41,10 +52,12 @@ class ModelRegistry:
         Intended for tests that need isolation between model definitions.
         """
         cls._models.clear()
+        cls._models_by_name.clear()
         cls._foreign_keys.clear()
         cls._pending_reverses.clear()
         cls._m2m_relationships.clear()
         cls._pending_m2m_reverses.clear()
+        cls._pending_m2m_targets.clear()
 
     @classmethod
     def snapshot(cls) -> _RegistryState:
@@ -54,20 +67,24 @@ class ModelRegistry:
         """
         return {
             "models": cls._models.copy(),
+            "models_by_name": cls._models_by_name.copy(),
             "foreign_keys": deepcopy(cls._foreign_keys),
             "pending_reverses": deepcopy(cls._pending_reverses),
             "m2m_relationships": deepcopy(cls._m2m_relationships),
             "pending_m2m_reverses": deepcopy(cls._pending_m2m_reverses),
+            "pending_m2m_targets": deepcopy(cls._pending_m2m_targets),
         }
 
     @classmethod
     def restore(cls, state: _RegistryState) -> None:
         """Restore registry state from a snapshot."""
         cls._models = state["models"]
+        cls._models_by_name = state["models_by_name"]
         cls._foreign_keys = state["foreign_keys"]
         cls._pending_reverses = state["pending_reverses"]
         cls._m2m_relationships = state["m2m_relationships"]
         cls._pending_m2m_reverses = state["pending_m2m_reverses"]
+        cls._pending_m2m_targets = state["pending_m2m_targets"]
 
     @classmethod
     def register_model(cls, model_class: type[Any]) -> None:
@@ -78,6 +95,7 @@ class ModelRegistry:
         """
         table_name = model_class.get_table_name()
         cls._models[table_name] = model_class
+        cls._models_by_name[model_class.__name__] = model_class
 
         # Process any pending reverse relationships for this model
         if table_name in cls._pending_reverses:
@@ -97,6 +115,25 @@ class ModelRegistry:
                     symmetrical=pending["symmetrical"],
                 )
             del cls._pending_m2m_reverses[table_name]
+
+        class_name = model_class.__name__
+        if class_name in cls._pending_m2m_targets:
+            for pending in cls._pending_m2m_targets[class_name]:
+                descriptor = pending["descriptor"]
+                descriptor.resolve_forward_ref(model_class)
+                junction_table = descriptor.junction_table
+                if junction_table is None:
+                    msg = "ManyToMany junction table could not be resolved."
+                    raise ValueError(msg)
+                cls.add_m2m_relationship(
+                    from_model=pending["from_model"],
+                    to_model=model_class,
+                    m2m_field=pending["m2m_field"],
+                    junction_table=junction_table,
+                    related_name=pending["related_name"],
+                    symmetrical=pending["symmetrical"],
+                )
+            del cls._pending_m2m_targets[class_name]
 
     @classmethod
     def register_foreign_key(
@@ -141,6 +178,11 @@ class ModelRegistry:
             The model class or None if not found
         """
         return cls._models.get(table_name)
+
+    @classmethod
+    def get_model_by_name(cls, class_name: str) -> Optional[type[Any]]:
+        """Get model by class name."""
+        return cls._models_by_name.get(class_name)
 
     @classmethod
     def get_foreign_keys(cls, table_name: str) -> list[dict[str, Any]]:
@@ -297,6 +339,47 @@ class ModelRegistry:
             if to_table not in cls._pending_m2m_reverses:
                 cls._pending_m2m_reverses[to_table] = []
             cls._pending_m2m_reverses[to_table].append(pending_info)
+
+    @classmethod
+    def add_pending_m2m_relationship(
+        cls,
+        *,
+        from_model: type[Any],
+        to_model_name: str,
+        m2m_field: str,
+        related_name: Optional[str],
+        symmetrical: bool,
+        descriptor: _M2MForwardRef,
+    ) -> None:
+        """Store a pending M2M relationship targeting a string forward ref."""
+        existing = cls.get_model_by_name(to_model_name)
+        if existing is not None:
+            descriptor.resolve_forward_ref(existing)
+            junction_table = descriptor.junction_table
+            if junction_table is None:
+                msg = "ManyToMany junction table could not be resolved."
+                raise ValueError(msg)
+            cls.add_m2m_relationship(
+                from_model=from_model,
+                to_model=existing,
+                m2m_field=m2m_field,
+                junction_table=junction_table,
+                related_name=related_name,
+                symmetrical=symmetrical,
+            )
+            return
+
+        if to_model_name not in cls._pending_m2m_targets:
+            cls._pending_m2m_targets[to_model_name] = []
+        cls._pending_m2m_targets[to_model_name].append(
+            {
+                "from_model": from_model,
+                "m2m_field": m2m_field,
+                "related_name": related_name,
+                "symmetrical": symmetrical,
+                "descriptor": descriptor,
+            }
+        )
 
     @classmethod
     def _add_m2m_reverse_now(

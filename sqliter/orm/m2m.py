@@ -425,7 +425,7 @@ class ManyToMany(Generic[T]):
         """Initialize M2M descriptor.
 
         Args:
-            to_model: The related model class (or self-referential string).
+            to_model: The related model class (or string forward ref).
             through: Custom junction table name.
             related_name: Name for the reverse accessor on the target.
             symmetrical: If True, self-referential relationships are symmetric.
@@ -474,6 +474,18 @@ class ManyToMany(Generic[T]):
         sorted_names = sorted([owner_table, target_table])
         return f"{sorted_names[0]}_{sorted_names[1]}"
 
+    def resolve_forward_ref(self, model_class: type[Any]) -> None:
+        """Resolve a string forward ref to a concrete model class."""
+        self.to_model = model_class
+        self.m2m_info.to_model = model_class
+        if self._junction_table is None and self.owner is not None:
+            self._junction_table = self._get_junction_table_name(self.owner)
+
+    @property
+    def junction_table(self) -> Optional[str]:
+        """Return the resolved junction table name, if available."""
+        return self._junction_table
+
     def __set_name__(self, owner: type, name: str) -> None:
         """Called during class creation to register the M2M field.
 
@@ -485,14 +497,11 @@ class ManyToMany(Generic[T]):
         self.owner = owner
         if isinstance(self.to_model, str):
             if self.to_model == owner.__name__:
-                self.to_model = owner
-            else:
-                msg = (
-                    "ManyToMany to_model must be a class, or a "
-                    "self-referential string matching the owner class name."
-                )
-                raise ValueError(msg)
-        self._junction_table = self._get_junction_table_name(owner)
+                self.resolve_forward_ref(owner)
+            elif self.m2m_info.through:
+                self._junction_table = self.m2m_info.through
+        else:
+            self._junction_table = self._get_junction_table_name(owner)
 
         # Store in class's own m2m_descriptors
         if "m2m_descriptors" not in owner.__dict__:
@@ -521,14 +530,27 @@ class ManyToMany(Generic[T]):
         # Register with ModelRegistry
         from sqliter.orm.registry import ModelRegistry  # noqa: PLC0415
 
-        ModelRegistry.add_m2m_relationship(
-            from_model=owner,
-            to_model=self.to_model,
-            m2m_field=name,
-            junction_table=self._junction_table,
-            related_name=self.related_name,
-            symmetrical=self.m2m_info.symmetrical,
-        )
+        if isinstance(self.to_model, str):
+            ModelRegistry.add_pending_m2m_relationship(
+                from_model=owner,
+                to_model_name=self.to_model,
+                m2m_field=name,
+                related_name=self.related_name,
+                symmetrical=self.m2m_info.symmetrical,
+                descriptor=self,
+            )
+        else:
+            if self.junction_table is None:
+                msg = "ManyToMany junction table could not be resolved."
+                raise ValueError(msg)
+            ModelRegistry.add_m2m_relationship(
+                from_model=owner,
+                to_model=self.to_model,
+                m2m_field=name,
+                junction_table=self.junction_table,
+                related_name=self.related_name,
+                symmetrical=self.m2m_info.symmetrical,
+            )
 
     @overload
     def __get__(self, instance: None, owner: type[object]) -> ManyToMany[T]: ...
@@ -553,10 +575,17 @@ class ManyToMany(Generic[T]):
         if instance is None:
             return self
 
-        model = cast("type[T]", self.to_model)
+        if isinstance(self.to_model, str):
+            msg = (
+                "ManyToMany target model is unresolved. "
+                "Define the target model class before accessing the "
+                "relationship."
+            )
+            raise TypeError(msg)
+
         return ManyToManyManager(
             instance=cast("HasPKAndContext", instance),
-            to_model=model,
+            to_model=self.to_model,
             from_model=owner,
             junction_table=self._junction_table or "",
             db_context=getattr(instance, "db_context", None),

@@ -15,6 +15,16 @@ class Article(BaseDBModel):
     tags: ManyToMany[Tag] = ManyToMany(Tag)
 ```
 
+You can also use a string forward reference for `to_model` when the
+target model is defined later. The relationship resolves when the target
+model is registered.
+
+```python
+class Article(BaseDBModel):
+    title: str
+    tags: ManyToMany["Tag"] = ManyToMany("Tag")
+```
+
 ## Creating and Querying Relationships
 
 M2M access returns a `ManyToManyManager` that provides a small API:
