@@ -917,9 +917,7 @@ class TestManyToManyEdgeCases:
 
     def test_self_ref_symmetrical_relationship(self) -> None:
         """Self-referential symmetrical M2M works both directions."""
-        orig_models = ModelRegistry._models.copy()
-        orig_m2m = ModelRegistry._m2m_relationships.copy()
-        orig_pending = ModelRegistry._pending_m2m_reverses.copy()
+        state = ModelRegistry.snapshot()
 
         try:
 
@@ -946,15 +944,11 @@ class TestManyToManyEdgeCases:
             bob.friends.add(alice)
             assert alice.friends.count() == 1
         finally:
-            ModelRegistry._models = orig_models
-            ModelRegistry._m2m_relationships = orig_m2m
-            ModelRegistry._pending_m2m_reverses = orig_pending
+            ModelRegistry.restore(state)
 
     def test_self_ref_symmetrical_remove(self) -> None:
         """Removing from either side works for symmetrical self-ref."""
-        orig_models = ModelRegistry._models.copy()
-        orig_m2m = ModelRegistry._m2m_relationships.copy()
-        orig_pending = ModelRegistry._pending_m2m_reverses.copy()
+        state = ModelRegistry.snapshot()
 
         try:
 
@@ -981,15 +975,11 @@ class TestManyToManyEdgeCases:
             a.peers.clear()
             assert b.peers.count() == 0
         finally:
-            ModelRegistry._models = orig_models
-            ModelRegistry._m2m_relationships = orig_m2m
-            ModelRegistry._pending_m2m_reverses = orig_pending
+            ModelRegistry.restore(state)
 
     def test_self_ref_reverse_accessor_directional(self) -> None:
         """Reverse accessor uses swapped columns for self-ref."""
-        orig_models = ModelRegistry._models.copy()
-        orig_m2m = ModelRegistry._m2m_relationships.copy()
-        orig_pending = ModelRegistry._pending_m2m_reverses.copy()
+        state = ModelRegistry.snapshot()
 
         try:
 
@@ -1012,15 +1002,11 @@ class TestManyToManyEdgeCases:
             assert {u.name for u in u2.followed_by.fetch_all()} == {"U1"}
             assert u2.follows.count() == 0
         finally:
-            ModelRegistry._models = orig_models
-            ModelRegistry._m2m_relationships = orig_m2m
-            ModelRegistry._pending_m2m_reverses = orig_pending
+            ModelRegistry.restore(state)
 
     def test_self_ref_symmetrical_skips_reverse_accessor(self) -> None:
         """Symmetrical self-ref ignores explicit related_name."""
-        orig_models = ModelRegistry._models.copy()
-        orig_m2m = ModelRegistry._m2m_relationships.copy()
-        orig_pending = ModelRegistry._pending_m2m_reverses.copy()
+        state = ModelRegistry.snapshot()
 
         try:
 
@@ -1035,9 +1021,7 @@ class TestManyToManyEdgeCases:
 
             assert not hasattr(Contact, "linked_to")
         finally:
-            ModelRegistry._models = orig_models
-            ModelRegistry._m2m_relationships = orig_m2m
-            ModelRegistry._pending_m2m_reverses = orig_pending
+            ModelRegistry.restore(state)
 
 
 # ── TestManyToManyRegistry ───────────────────────────────────────────
