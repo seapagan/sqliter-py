@@ -20,6 +20,7 @@ from typing import (
 from pydantic_core import core_schema
 
 from sqliter.exceptions import ManyToManyIntegrityError, TableCreationError
+from sqliter.helpers import validate_table_name
 
 if TYPE_CHECKING:  # pragma: no cover
     from pydantic import GetCoreSchemaHandler
@@ -430,6 +431,8 @@ class ManyToMany(Generic[T]):
             related_name: Name for the reverse accessor on the target.
             symmetrical: If True, self-referential relationships are symmetric.
         """
+        if through is not None:
+            validate_table_name(through)
         self.to_model = to_model
         self.m2m_info = ManyToManyInfo(
             to_model=to_model,

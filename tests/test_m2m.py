@@ -948,6 +948,23 @@ class TestManyToManyEdgeCases:
         finally:
             TempArticle.model_fields.pop("tags", None)
 
+    def test_invalid_through_table_name_raises(self) -> None:
+        """Invalid through table name raises ValueError."""
+        state = ModelRegistry.snapshot()
+        ModelRegistry.reset()
+
+        try:
+            with pytest.raises(ValueError, match="Invalid table name"):
+
+                class BadThrough(BaseDBModel):
+                    name: str
+                    tags: ManyToMany[Any] = ManyToMany(
+                        Tag,
+                        through="bad-name",
+                    )
+        finally:
+            ModelRegistry.restore(state)
+
     def test_create_m2m_junction_tables_import_error(self, monkeypatch) -> None:
         """ImportError in M2M setup is ignored."""
         original_import = builtins.__import__

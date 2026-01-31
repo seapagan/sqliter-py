@@ -9,9 +9,36 @@ to database schema translation.
 from __future__ import annotations
 
 import datetime
+import re
 from typing import Union
 
 from sqliter.constants import SQLITE_TYPE_MAPPING
+
+
+def validate_table_name(table_name: str) -> str:
+    """Validate that a table name contains only safe characters.
+
+    Table names must contain only alphanumeric characters and underscores,
+    and must start with a letter or underscore. This prevents SQL injection
+    through malicious table names.
+
+    Args:
+        table_name: The table name to validate.
+
+    Returns:
+        The validated table name.
+
+    Raises:
+        ValueError: If the table name contains invalid characters.
+    """
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", table_name):
+        msg = (
+            f"Invalid table name '{table_name}'. "
+            "Table names must start with a letter or underscore and "
+            "contain only letters, numbers, and underscores."
+        )
+        raise ValueError(msg)
+    return table_name
 
 
 def infer_sqlite_type(field_type: Union[type, None]) -> str:
