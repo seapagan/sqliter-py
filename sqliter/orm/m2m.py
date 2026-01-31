@@ -47,11 +47,32 @@ class ManyToManyInfo:
         to_model: The target model class.
         through: Custom junction table name (auto-generated if None).
         related_name: Name for the reverse accessor on the target model.
+        symmetrical: Whether self-referential relationships are symmetric.
     """
 
     to_model: type[Any]
     through: Optional[str] = None
     related_name: Optional[str] = field(default=None)
+    symmetrical: bool = False
+
+
+@dataclass(frozen=True)
+class ManyToManyOptions:
+    """Options for M2M manager behavior."""
+
+    symmetrical: bool = False
+    swap_columns: bool = False
+
+
+def _m2m_column_names(table_a: str, table_b: str) -> tuple[str, str]:
+    """Return junction table column names.
+
+    Uses left/right suffixes for self-referential relationships to avoid
+    duplicate column names.
+    """
+    if table_a == table_b:
+        return (f"{table_a}_pk_left", f"{table_b}_pk_right")
+    return (f"{table_a}_pk", f"{table_b}_pk")
 
 
 class ManyToManyManager(Generic[T]):
@@ -66,9 +87,9 @@ class ManyToManyManager(Generic[T]):
         instance: HasPKAndContext,
         to_model: type[T],
         from_model: type[Any],
-        m2m_field: str,
         junction_table: str,
         db_context: Optional[SqliterDB],
+        options: Optional[ManyToManyOptions] = None,
     ) -> None:
         """Initialize M2M manager.
 
@@ -76,22 +97,25 @@ class ManyToManyManager(Generic[T]):
             instance: The model instance owning this relationship.
             to_model: The target model class.
             from_model: The source model class.
-            m2m_field: Name of the M2M field.
             junction_table: Name of the junction table.
             db_context: Database connection for queries.
+            options: M2M manager options (symmetry, column swapping).
         """
+        manager_options = options or ManyToManyOptions()
         self._instance = instance
         self._to_model = to_model
         self._from_model = from_model
-        self._m2m_field = m2m_field
         self._junction_table = junction_table
         self._db = db_context
 
         # Column names based on alphabetically sorted table names
         from_table = cast("type[BaseDBModel]", from_model).get_table_name()
         to_table = cast("type[BaseDBModel]", to_model).get_table_name()
-        self._from_col = f"{from_table}_pk"
-        self._to_col = f"{to_table}_pk"
+        self._self_ref = from_table == to_table
+        self._symmetrical = bool(manager_options.symmetrical and self._self_ref)
+        self._from_col, self._to_col = _m2m_column_names(from_table, to_table)
+        if manager_options.swap_columns:
+            self._from_col, self._to_col = self._to_col, self._from_col
 
     def _check_context(self) -> SqliterDB:
         """Verify db_context and pk are available.
@@ -152,13 +176,22 @@ class ManyToManyManager(Generic[T]):
         if not pk:
             return []
 
-        sql = (
-            f'SELECT "{self._to_col}" FROM "{self._junction_table}" '  # noqa: S608
-            f'WHERE "{self._from_col}" = ?'
-        )
         conn = self._db.connect()
         cursor = conn.cursor()
-        cursor.execute(sql, (pk,))
+        if self._symmetrical:
+            sql = (
+                f'SELECT CASE WHEN "{self._from_col}" = ? '  # noqa: S608
+                f'THEN "{self._to_col}" ELSE "{self._from_col}" END '
+                f'FROM "{self._junction_table}" '
+                f'WHERE "{self._from_col}" = ? OR "{self._to_col}" = ?'
+            )
+            cursor.execute(sql, (pk, pk, pk))
+        else:
+            sql = (
+                f'SELECT "{self._to_col}" FROM "{self._junction_table}" '  # noqa: S608
+                f'WHERE "{self._from_col}" = ?'
+            )
+            cursor.execute(sql, (pk,))
         return [row[0] for row in cursor.fetchall()]
 
     def add(self, *instances: T) -> None:
@@ -191,7 +224,11 @@ class ManyToManyManager(Generic[T]):
                     "Insert it before adding to a relationship."
                 )
                 raise ManyToManyIntegrityError(msg)
-            cursor.execute(sql, (from_pk, to_pk))
+            if self._symmetrical:
+                left_pk, right_pk = sorted([from_pk, int(to_pk)])
+                cursor.execute(sql, (left_pk, right_pk))
+            else:
+                cursor.execute(sql, (from_pk, to_pk))
 
         db._maybe_commit()  # noqa: SLF001
 
@@ -219,7 +256,11 @@ class ManyToManyManager(Generic[T]):
         for inst in instances:
             to_pk = getattr(inst, "pk", None)
             if to_pk:
-                cursor.execute(sql, (from_pk, to_pk))
+                if self._symmetrical:
+                    left_pk, right_pk = sorted([from_pk, int(to_pk)])
+                    cursor.execute(sql, (left_pk, right_pk))
+                else:
+                    cursor.execute(sql, (from_pk, to_pk))
 
         db._maybe_commit()  # noqa: SLF001
 
@@ -232,13 +273,23 @@ class ManyToManyManager(Generic[T]):
         db = self._check_context()
         from_pk = self._get_instance_pk()
 
-        sql = (
-            f'DELETE FROM "{self._junction_table}" WHERE "{self._from_col}" = ?'  # noqa: S608
-        )
+        params: tuple[int, ...]
+        if self._symmetrical:
+            sql = (
+                f'DELETE FROM "{self._junction_table}" '  # noqa: S608
+                f'WHERE "{self._from_col}" = ? OR "{self._to_col}" = ?'
+            )
+            params = (from_pk, from_pk)
+        else:
+            sql = (
+                f'DELETE FROM "{self._junction_table}" '  # noqa: S608
+                f'WHERE "{self._from_col}" = ?'
+            )
+            params = (from_pk,)
 
         conn = db.connect()
         cursor = conn.cursor()
-        cursor.execute(sql, (from_pk,))
+        cursor.execute(sql, params)
         db._maybe_commit()  # noqa: SLF001
 
     def set(self, *instances: T) -> None:
@@ -303,13 +354,22 @@ class ManyToManyManager(Generic[T]):
         if not pk:
             return 0
 
-        sql = (
-            f'SELECT COUNT(*) FROM "{self._junction_table}" '  # noqa: S608
-            f'WHERE "{self._from_col}" = ?'
-        )
+        params: tuple[int, ...]
+        if self._symmetrical:
+            sql = (
+                f'SELECT COUNT(*) FROM "{self._junction_table}" '  # noqa: S608
+                f'WHERE "{self._from_col}" = ? OR "{self._to_col}" = ?'
+            )
+            params = (pk, pk)
+        else:
+            sql = (
+                f'SELECT COUNT(*) FROM "{self._junction_table}" '  # noqa: S608
+                f'WHERE "{self._from_col}" = ?'
+            )
+            params = (pk,)
         conn = self._db.connect()
         cursor = conn.cursor()
-        cursor.execute(sql, (pk,))
+        cursor.execute(sql, params)
         row = cursor.fetchone()
         return int(row[0]) if row else 0
 
@@ -360,6 +420,7 @@ class ManyToMany(Generic[T]):
         *,
         through: Optional[str] = None,
         related_name: Optional[str] = None,
+        symmetrical: bool = False,
     ) -> None:
         """Initialize M2M descriptor.
 
@@ -367,12 +428,14 @@ class ManyToMany(Generic[T]):
             to_model: The related model class.
             through: Custom junction table name.
             related_name: Name for the reverse accessor on the target.
+            symmetrical: If True, self-referential relationships are symmetric.
         """
         self.to_model = to_model
         self.m2m_info = ManyToManyInfo(
             to_model=to_model,
             through=through,
             related_name=related_name,
+            symmetrical=symmetrical,
         )
         self.related_name = related_name
         self.name: Optional[str] = None
@@ -427,8 +490,12 @@ class ManyToMany(Generic[T]):
             owner.m2m_descriptors = {}  # type: ignore[attr-defined]
         owner.m2m_descriptors[name] = self  # type: ignore[attr-defined]
 
+        self_ref = owner is self.to_model
+
         # Auto-generate related_name if not provided
-        if self.related_name is None:
+        if self.related_name is None and not (
+            self_ref and self.m2m_info.symmetrical
+        ):
             base_name = owner.__name__.lower()
             try:
                 import inflect  # noqa: PLC0415
@@ -451,6 +518,7 @@ class ManyToMany(Generic[T]):
             m2m_field=name,
             junction_table=self._junction_table,
             related_name=self.related_name,
+            symmetrical=self.m2m_info.symmetrical,
         )
 
     @overload
@@ -480,9 +548,9 @@ class ManyToMany(Generic[T]):
             instance=cast("HasPKAndContext", instance),
             to_model=self.to_model,
             from_model=owner,
-            m2m_field=self.name or "",
             junction_table=self._junction_table or "",
             db_context=getattr(instance, "db_context", None),
+            options=ManyToManyOptions(symmetrical=self.m2m_info.symmetrical),
         )
 
     def __set__(self, instance: object, value: object) -> None:
@@ -513,24 +581,25 @@ class ReverseManyToMany:
         self,
         from_model: type[Any],
         to_model: type[Any],
-        m2m_field: str,
         junction_table: str,
         related_name: str,
+        *,
+        symmetrical: bool = False,
     ) -> None:
         """Initialize reverse M2M descriptor.
 
         Args:
             from_model: The model that defined the ManyToMany field.
             to_model: The target model (where this descriptor lives).
-            m2m_field: Name of the M2M field on from_model.
             junction_table: Name of the junction table.
             related_name: Name of this reverse accessor.
+            symmetrical: Whether self-referential relationships are symmetric.
         """
         self._from_model = from_model
         self._to_model = to_model
-        self._m2m_field = m2m_field
         self._junction_table = junction_table
         self._related_name = related_name
+        self._symmetrical = symmetrical
 
     @overload
     def __get__(
@@ -562,9 +631,13 @@ class ReverseManyToMany:
             instance=cast("HasPKAndContext", instance),
             to_model=self._from_model,
             from_model=self._to_model,
-            m2m_field=self._m2m_field,
             junction_table=self._junction_table,
             db_context=getattr(instance, "db_context", None),
+            options=ManyToManyOptions(
+                symmetrical=self._symmetrical,
+                swap_columns=self._from_model is self._to_model
+                and not self._symmetrical,
+            ),
         )
 
     def __set__(self, instance: object, value: object) -> None:
@@ -602,8 +675,7 @@ def create_junction_table(
         table_a: First table name (alphabetically first).
         table_b: Second table name (alphabetically second).
     """
-    col_a = f"{table_a}_pk"
-    col_b = f"{table_b}_pk"
+    col_a, col_b = _m2m_column_names(table_a, table_b)
 
     create_sql = (
         f'CREATE TABLE IF NOT EXISTS "{junction_table}" ('

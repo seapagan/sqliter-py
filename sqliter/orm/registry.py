@@ -50,6 +50,7 @@ class ModelRegistry:
                     m2m_field=pending["m2m_field"],
                     junction_table=pending["junction_table"],
                     related_name=pending["related_name"],
+                    symmetrical=pending["symmetrical"],
                 )
             del cls._pending_m2m_reverses[table_name]
 
@@ -190,7 +191,9 @@ class ModelRegistry:
         to_model: type[Any],
         m2m_field: str,
         junction_table: str,
-        related_name: str,
+        related_name: Optional[str],
+        *,
+        symmetrical: bool = False,
     ) -> None:
         """Register a M2M relationship and set up reverse accessor.
 
@@ -204,6 +207,7 @@ class ModelRegistry:
             m2m_field: Name of the M2M field.
             junction_table: Name of the junction table.
             related_name: Name for the reverse accessor.
+            symmetrical: Whether self-referential relationships are symmetric.
         """
         from_table = from_model.get_table_name()
 
@@ -216,8 +220,15 @@ class ModelRegistry:
                 "m2m_field": m2m_field,
                 "junction_table": junction_table,
                 "related_name": related_name,
+                "symmetrical": symmetrical,
             }
         )
+
+        if related_name is None:
+            return
+
+        if from_model is to_model and symmetrical:
+            return
 
         to_table = to_model.get_table_name()
         pending_info = {
@@ -226,6 +237,7 @@ class ModelRegistry:
             "m2m_field": m2m_field,
             "junction_table": junction_table,
             "related_name": related_name,
+            "symmetrical": symmetrical,
         }
 
         if to_table in cls._models:
@@ -235,6 +247,7 @@ class ModelRegistry:
                 m2m_field=m2m_field,
                 junction_table=junction_table,
                 related_name=related_name,
+                symmetrical=symmetrical,
             )
         else:
             if to_table not in cls._pending_m2m_reverses:
@@ -249,6 +262,8 @@ class ModelRegistry:
         m2m_field: str,
         junction_table: str,
         related_name: str,
+        *,
+        symmetrical: bool = False,
     ) -> None:
         """Add reverse M2M descriptor to the target model.
 
@@ -258,8 +273,11 @@ class ModelRegistry:
             m2m_field: Name of the M2M field.
             junction_table: Name of the junction table.
             related_name: Name for the reverse accessor.
+            symmetrical: Whether self-referential relationships are symmetric.
         """
         from sqliter.orm.m2m import ReverseManyToMany  # noqa: PLC0415
+
+        _ = m2m_field
 
         if hasattr(to_model, related_name):
             msg = (
@@ -274,9 +292,9 @@ class ModelRegistry:
             ReverseManyToMany(
                 from_model=from_model,
                 to_model=to_model,
-                m2m_field=m2m_field,
                 junction_table=junction_table,
                 related_name=related_name,
+                symmetrical=symmetrical,
             ),
         )
 

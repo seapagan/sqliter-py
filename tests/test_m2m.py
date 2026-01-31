@@ -854,6 +854,132 @@ class TestManyToManyEdgeCases:
         db = SqliterDB(memory=True)
         db._create_m2m_junction_tables(Article)
 
+    def test_self_ref_symmetrical_relationship(self) -> None:
+        """Self-referential symmetrical M2M works both directions."""
+        orig_models = ModelRegistry._models.copy()
+        orig_m2m = ModelRegistry._m2m_relationships.copy()
+        orig_pending = ModelRegistry._pending_m2m_reverses.copy()
+
+        try:
+
+            class Member(BaseDBModel):
+                name: str
+
+                class Meta:
+                    table_name = "members_sym"
+
+            Member.friends = ManyToMany(Member, symmetrical=True)
+            Member.friends.__set_name__(Member, "friends")
+
+            db = SqliterDB(memory=True)
+            db.create_table(Member)
+
+            alice = db.insert(Member(name="Alice"))
+            bob = db.insert(Member(name="Bob"))
+
+            alice.friends.add(bob)
+
+            assert {m.name for m in alice.friends.fetch_all()} == {"Bob"}
+            assert {m.name for m in bob.friends.fetch_all()} == {"Alice"}
+
+            bob.friends.add(alice)
+            assert alice.friends.count() == 1
+        finally:
+            ModelRegistry._models = orig_models
+            ModelRegistry._m2m_relationships = orig_m2m
+            ModelRegistry._pending_m2m_reverses = orig_pending
+
+    def test_self_ref_symmetrical_remove(self) -> None:
+        """Removing from either side works for symmetrical self-ref."""
+        orig_models = ModelRegistry._models.copy()
+        orig_m2m = ModelRegistry._m2m_relationships.copy()
+        orig_pending = ModelRegistry._pending_m2m_reverses.copy()
+
+        try:
+
+            class Person(BaseDBModel):
+                name: str
+
+                class Meta:
+                    table_name = "people_sym"
+
+            Person.peers = ManyToMany(Person, symmetrical=True)
+            Person.peers.__set_name__(Person, "peers")
+
+            db = SqliterDB(memory=True)
+            db.create_table(Person)
+
+            a = db.insert(Person(name="A"))
+            b = db.insert(Person(name="B"))
+            a.peers.add(b)
+
+            b.peers.remove(a)
+            assert a.peers.count() == 0
+
+            a.peers.add(b)
+            a.peers.clear()
+            assert b.peers.count() == 0
+        finally:
+            ModelRegistry._models = orig_models
+            ModelRegistry._m2m_relationships = orig_m2m
+            ModelRegistry._pending_m2m_reverses = orig_pending
+
+    def test_self_ref_reverse_accessor_directional(self) -> None:
+        """Reverse accessor uses swapped columns for self-ref."""
+        orig_models = ModelRegistry._models.copy()
+        orig_m2m = ModelRegistry._m2m_relationships.copy()
+        orig_pending = ModelRegistry._pending_m2m_reverses.copy()
+
+        try:
+
+            class User(BaseDBModel):
+                name: str
+
+                class Meta:
+                    table_name = "users_sym_dir"
+
+            User.follows = ManyToMany(User, related_name="followed_by")
+            User.follows.__set_name__(User, "follows")
+
+            db = SqliterDB(memory=True)
+            db.create_table(User)
+
+            u1 = db.insert(User(name="U1"))
+            u2 = db.insert(User(name="U2"))
+
+            u1.follows.add(u2)
+            assert {u.name for u in u2.followed_by.fetch_all()} == {"U1"}
+            assert u2.follows.count() == 0
+        finally:
+            ModelRegistry._models = orig_models
+            ModelRegistry._m2m_relationships = orig_m2m
+            ModelRegistry._pending_m2m_reverses = orig_pending
+
+    def test_self_ref_symmetrical_skips_reverse_accessor(self) -> None:
+        """Symmetrical self-ref ignores explicit related_name."""
+        orig_models = ModelRegistry._models.copy()
+        orig_m2m = ModelRegistry._m2m_relationships.copy()
+        orig_pending = ModelRegistry._pending_m2m_reverses.copy()
+
+        try:
+
+            class Contact(BaseDBModel):
+                name: str
+
+                class Meta:
+                    table_name = "contacts_sym"
+
+            Contact.links = ManyToMany(
+                Contact, related_name="linked_to", symmetrical=True
+            )
+            Contact.links.__set_name__(Contact, "links")
+
+            assert not hasattr(Contact, "linked_to")
+        finally:
+            ModelRegistry._models = orig_models
+            ModelRegistry._m2m_relationships = orig_m2m
+            ModelRegistry._pending_m2m_reverses = orig_pending
+
 
 # ── TestManyToManyRegistry ───────────────────────────────────────────
 
