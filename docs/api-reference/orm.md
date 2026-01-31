@@ -4,13 +4,14 @@ The ORM module extends the legacy `sqliter.model` with lazy loading,
 reverse relationships, and a descriptor-based `ForeignKey` class.
 
 ```python
-from sqliter.orm import BaseDBModel, ForeignKey, ModelRegistry
+from sqliter.orm import BaseDBModel, ForeignKey, ManyToMany, ModelRegistry
 ```
 
 **Sources:** `sqliter/orm/model.py`, `sqliter/orm/fields.py`,
-`sqliter/orm/registry.py`, `sqliter/orm/query.py`
+`sqliter/orm/m2m.py`, `sqliter/orm/registry.py`, `sqliter/orm/query.py`
 
-See also: [Guide -- ORM Foreign Keys](../guide/foreign-keys/orm.md)
+See also: [Guide -- ORM Foreign Keys](../guide/foreign-keys/orm.md),
+[Guide -- Many-to-Many](../guide/many-to-many.md)
 
 > [!NOTE]
 > The ORM module is an **alternative** to the legacy `sqliter.model`
@@ -25,6 +26,7 @@ See also: [Guide -- ORM Foreign Keys](../guide/foreign-keys/orm.md)
 | Feature         | Legacy (`sqliter.model`)                | ORM (`sqliter.orm`)                   |
 | --------------- | --------------------------------------- | ------------------------------------- |
 | FK definition   | `ForeignKey()` factory function         | `ForeignKey` descriptor class         |
+| M2M definition  | Not available                           | `ManyToMany` descriptor class         |
 | FK access       | Manual ID lookup                        | Lazy loading via `book.author.name`   |
 | Reverse queries | Not available                           | `author.books.fetch_all()`            |
 | Eager loading   | Not available                           | `select_related("author")`            |
@@ -136,6 +138,14 @@ class Book(BaseDBModel):
         Author, on_delete="CASCADE"
     )
 ```
+
+---
+
+## `ManyToMany[T]`
+
+Descriptor class for many-to-many relationships (ORM mode only).
+
+See [Many-to-Many](many-to-many.md) for full usage and manager API.
 
 ### Auto-nullable Detection
 
