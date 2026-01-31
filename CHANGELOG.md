@@ -5,6 +5,14 @@ project since the first release, with the latest changes at the top.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0](https://github.com/seapagan/sqliter-py/releases/tag/0.17.0) (January 31, 2026)
+
+**New Features**
+
+- Feat: add many-to-many relationship support ([#116](https://github.com/seapagan/sqliter-py/pull/116)) by [seapagan](https://github.com/seapagan)
+
+[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.16.0...0.17.0) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.16.0...0.17.0.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.16.0...0.17.0.patch)
+
 ## [0.16.0](https://github.com/seapagan/sqliter-py/releases/tag/0.16.0) (January 30, 2026)
 
 **New Features**
