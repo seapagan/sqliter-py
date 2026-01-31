@@ -139,6 +139,12 @@ class Book(BaseDBModel):
     )
 ```
 
+### `ForeignKeyDescriptor`
+
+> [!CAUTION]
+> `ForeignKeyDescriptor` is a backwards-compatibility alias for
+> `ForeignKey`. Use `ForeignKey` directly.
+
 ---
 
 ## `ManyToMany[T]`
@@ -153,12 +159,6 @@ See [Many-to-Many](many-to-many.md) for full usage and manager API.
 - Reverse accessors are auto-generated when `related_name` is omitted.
 - Self-referential `symmetrical=True` relationships store a single row
   per pair and suppress the reverse accessor.
-
-### `ForeignKeyDescriptor`
-
-> [!CAUTION]
-> `ForeignKeyDescriptor` is a backwards-compatibility alias for
-> `ForeignKey`. Use `ForeignKey` directly.
 
 ---
 
