@@ -2,15 +2,24 @@
 
 from __future__ import annotations
 
+import builtins
 import sqlite3
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 
-from sqliter.exceptions import ManyToManyIntegrityError
+from sqliter.exceptions import ManyToManyIntegrityError, TableCreationError
 from sqliter.orm import BaseDBModel, ManyToMany
-from sqliter.orm.m2m import ManyToManyManager, ReverseManyToMany
+from sqliter.orm.m2m import (
+    ManyToManyManager,
+    ReverseManyToMany,
+    create_junction_table,
+)
 from sqliter.orm.registry import ModelRegistry
 from sqliter.sqliter import SqliterDB
+
+if TYPE_CHECKING:
+    from pydantic import GetCoreSchemaHandler
 
 # ── Test models ──────────────────────────────────────────────────────
 
@@ -87,6 +96,13 @@ class TestManyToManyDescriptor:
         article = db.insert(Article(title="Test"))
         with pytest.raises(AttributeError, match="Cannot assign"):
             article.tags = []
+
+    def test_descriptor_set_raises_attribute_error(self, db: SqliterDB) -> None:
+        """Descriptor __set__ raises AttributeError when called directly."""
+        article = db.insert(Article(title="Test"))
+        descriptor = Article.__dict__["tags"]
+        with pytest.raises(AttributeError, match="Cannot assign"):
+            descriptor.__set__(article, [])
 
     def test_m2m_not_in_model_fields(self) -> None:
         """M2M field should not appear in model_fields."""
@@ -203,6 +219,56 @@ class TestJunctionTableCreation:
         db.create_table(Tag)
         tables = db.table_names
         assert "articles_tags" in tables
+
+    def test_create_junction_table_error(self) -> None:
+        """create_junction_table raises TableCreationError on sqlite errors."""
+        msg = "boom"
+
+        class DummyDB(SqliterDB):
+            def __init__(self) -> None:
+                super().__init__(memory=True)
+
+            def connect(self) -> sqlite3.Connection:
+                raise sqlite3.Error(msg)
+
+        with pytest.raises(TableCreationError, match="bad_table"):
+            create_junction_table(DummyDB(), "bad_table", "a", "b")
+
+    def test_junction_table_index_error_ignored(self) -> None:
+        """Index creation errors are ignored."""
+        msg = "index fail"
+
+        class DummyCursor:
+            def __init__(self, cursor: sqlite3.Cursor) -> None:
+                self._cursor = cursor
+
+            def execute(
+                self, sql: str, params: tuple[object, ...] | None = None
+            ) -> sqlite3.Cursor:
+                if sql.startswith("CREATE INDEX"):
+                    raise sqlite3.Error(msg)
+                if params is None:
+                    return self._cursor.execute(sql)
+                return self._cursor.execute(sql, params)
+
+        class DummyConn:
+            def __init__(self) -> None:
+                self._conn = sqlite3.connect(":memory:")
+
+            def cursor(self) -> DummyCursor:
+                return DummyCursor(self._conn.cursor())
+
+            def commit(self) -> None:
+                self._conn.commit()
+
+        class DummyDB(SqliterDB):
+            def __init__(self) -> None:
+                super().__init__(memory=True)
+
+            def connect(self) -> sqlite3.Connection:
+                return cast("sqlite3.Connection", DummyConn())
+
+        create_junction_table(DummyDB(), "articles_tags", "articles", "tags")
 
 
 # ── TestManyToManyAdd ────────────────────────────────────────────────
@@ -408,6 +474,12 @@ class TestManyToManyQuery:
 
         assert article.tags.count() == 2
 
+    def test_count_no_pk_with_db_context(self, db: SqliterDB) -> None:
+        """count() returns 0 when pk missing, even with db_context."""
+        article = Article(title="Guide")
+        article.db_context = db
+        assert article.tags.count() == 0
+
     def test_exists_true(self, db: SqliterDB) -> None:
         """exists() returns True when relationships exist."""
         article = db.insert(Article(title="Guide"))
@@ -511,6 +583,30 @@ class TestReverseManyToMany:
     def test_reverse_cannot_set(self, db: SqliterDB) -> None:
         """Direct assignment to reverse M2M raises AttributeError."""
         tag = db.insert(Tag(name="python"))
+        with pytest.raises(AttributeError, match="Cannot assign"):
+            tag.articles = []
+
+    def test_reverse_set_handler_allows_noop(
+        self, db: SqliterDB, monkeypatch
+    ) -> None:
+        """Reverse M2M handler returns True when __set__ does not raise."""
+        tag = db.insert(Tag(name="python"))
+
+        def noop_set(self, instance: object, value: object) -> None:
+            return None
+
+        monkeypatch.setattr(ReverseManyToMany, "__set__", noop_set)
+        tag.articles = []
+
+    def test_reverse_set_on_subclass_uses_mro(self, db: SqliterDB) -> None:
+        """Reverse M2M assignment on subclass uses MRO lookup."""
+
+        class TagChild(Tag):
+            pass
+
+        tag = TagChild(name="python")
+        tag.db_context = db
+        tag.pk = 1
         with pytest.raises(AttributeError, match="Cannot assign"):
             tag.articles = []
 
@@ -625,3 +721,240 @@ class TestManyToManyCustomThrough:
 
         # Reverse
         assert cat.posts.count() == 1
+
+
+# ── TestManyToManyEdgeCases ──────────────────────────────────────────
+
+
+class TestManyToManyEdgeCases:
+    """Tests for M2M edge cases and error conditions."""
+
+    def test_manager_no_pk_error(self, db: SqliterDB) -> None:
+        """ManyToManyManager raises error when instance has no pk."""
+        # Create article without inserting (no pk)
+        article = Article(title="Test")
+        article.db_context = db
+
+        # Try to use M2M manager without pk
+        with pytest.raises(
+            ManyToManyIntegrityError,
+            match="Instance has no primary key",
+        ):
+            article.tags.add()
+
+    def test_fetch_related_pks_no_db(self) -> None:
+        """_fetch_related_pks returns empty list when no db_context."""
+        # Create article without db_context
+        article = Article(pk=1, title="Test")
+        manager = article.tags
+        # Should return empty list
+        assert manager._fetch_related_pks() == []
+
+    def test_fetch_related_pks_no_pk(self) -> None:
+        """_fetch_related_pks returns empty list when no pk."""
+        # Create article without pk but with db_context
+        article = Article(title="Test")
+        article.db_context = SqliterDB(memory=True)
+        manager = article.tags
+        # Should return empty list
+        assert manager._fetch_related_pks() == []
+
+    def test_pydantic_core_schema(self) -> None:
+        """__get_pydantic_core_schema__ returns validator."""
+        # Access the descriptor at class level
+        descriptor = Article.tags
+        # Get the schema - use cast to satisfy mypy
+        handler = cast("GetCoreSchemaHandler", lambda x: x)
+        schema: Any = descriptor.__get_pydantic_core_schema__(
+            ManyToMany[Tag], handler
+        )
+        # Should return a validator schema
+        assert schema is not None
+
+    def test_inflect_fallback(self) -> None:
+        """M2M related_name generation works (with or without inflect)."""
+        # The related_name should be set (either via inflect or fallback)
+        descriptor = Article.__dict__["tags"]
+        assert descriptor.related_name is not None
+
+    def test_inflect_import_error_fallback(self, monkeypatch) -> None:
+        """Fallback related_name used when inflect import fails."""
+        original_import = builtins.__import__
+
+        def fake_import(
+            name: str,
+            globals_: dict[str, object] | None = None,
+            locals_: dict[str, object] | None = None,
+            fromlist: tuple[str, ...] = (),
+            level: int = 0,
+        ) -> object:
+            if name == "inflect":
+                msg = "no inflect"
+                raise ImportError(msg)
+            return original_import(name, globals_, locals_, fromlist, level)
+
+        monkeypatch.setattr(builtins, "__import__", fake_import)
+
+        class AuthorFallback(BaseDBModel):
+            name: str
+
+        class BookFallback(BaseDBModel):
+            title: str
+            authors: ManyToMany[AuthorFallback] = ManyToMany(AuthorFallback)
+
+        descriptor = BookFallback.__dict__["authors"]
+        assert descriptor.related_name == "bookfallbacks"
+
+    def test_junction_table_idempotent_creation(self, db: SqliterDB) -> None:
+        """Creating junction table again doesn't raise error."""
+        # Create junction table successfully
+        create_junction_table(db, "articles_tags", "articles", "tags")
+
+        # Try to create it again - should be idempotent
+        create_junction_table(db, "articles_tags", "articles", "tags")
+
+    def test_m2m_removed_from_model_fields_when_present(self) -> None:
+        """_setup_orm_fields removes M2M fields from model_fields."""
+
+        class TempTag(BaseDBModel):
+            name: str
+
+        class TempArticle(BaseDBModel):
+            title: str
+            tags: ManyToMany[TempTag] = ManyToMany(
+                TempTag, related_name="temp_articles"
+            )
+
+        try:
+            TempArticle.model_fields["tags"] = TempArticle.model_fields["title"]
+            assert "tags" in TempArticle.model_fields
+            TempArticle._setup_orm_fields()
+            assert "tags" not in TempArticle.model_fields
+        finally:
+            TempArticle.model_fields.pop("tags", None)
+
+    def test_create_m2m_junction_tables_import_error(self, monkeypatch) -> None:
+        """ImportError in M2M setup is ignored."""
+        original_import = builtins.__import__
+
+        def fake_import(
+            name: str,
+            globals_: dict[str, object] | None = None,
+            locals_: dict[str, object] | None = None,
+            fromlist: tuple[str, ...] = (),
+            level: int = 0,
+        ) -> object:
+            if name in ("sqliter.orm.m2m", "sqliter.orm.registry"):
+                msg = "no orm"
+                raise ImportError(msg)
+            return original_import(name, globals_, locals_, fromlist, level)
+
+        monkeypatch.setattr(builtins, "__import__", fake_import)
+
+        db = SqliterDB(memory=True)
+        db._create_m2m_junction_tables(Article)
+
+
+# ── TestManyToManyRegistry ───────────────────────────────────────────
+
+
+class TestManyToManyRegistryEdgeCases:
+    """Tests for M2M registration edge cases."""
+
+    def test_pending_m2m_reverse_registration(self) -> None:
+        """M2M reverse relationship registered when target becomes available."""
+        # Save original state
+        orig_models = ModelRegistry._models.copy()
+        orig_m2m = ModelRegistry._m2m_relationships.copy()
+        orig_pending = ModelRegistry._pending_m2m_reverses.copy()
+
+        try:
+            # Clear registry
+            ModelRegistry._models.clear()
+            ModelRegistry._m2m_relationships.clear()
+            ModelRegistry._pending_m2m_reverses.clear()
+
+            # Define models with unique names
+            class TagPending(BaseDBModel):
+                name: str
+
+            class ArticlePending(BaseDBModel):
+                title: str
+                tags: ManyToMany[TagPending] = ManyToMany(
+                    TagPending, related_name="articles_pending"
+                )
+
+            # Register Article first (Tag not registered yet)
+            ModelRegistry.register_model(ArticlePending)
+
+            # Now register Tag - should process pending M2M reverses
+            ModelRegistry.register_model(TagPending)
+
+            # Tag should now have the reverse accessor
+            assert hasattr(TagPending, "articles_pending")
+        finally:
+            # Restore original state
+            ModelRegistry._models = orig_models
+            ModelRegistry._m2m_relationships = orig_m2m
+            ModelRegistry._pending_m2m_reverses = orig_pending
+
+    def test_pending_m2m_reverse_added_then_processed(self) -> None:
+        """Pending reverse is stored then processed on register."""
+        orig_models = ModelRegistry._models.copy()
+        orig_m2m = ModelRegistry._m2m_relationships.copy()
+        orig_pending = ModelRegistry._pending_m2m_reverses.copy()
+
+        try:
+            ModelRegistry._models.clear()
+            ModelRegistry._m2m_relationships.clear()
+            ModelRegistry._pending_m2m_reverses.clear()
+
+            class TargetPending(BaseDBModel):
+                name: str
+
+            ModelRegistry._models.pop(TargetPending.get_table_name(), None)
+
+            class SourcePending(BaseDBModel):
+                title: str
+                targets: ManyToMany[TargetPending] = ManyToMany(
+                    TargetPending, related_name="sources_pending"
+                )
+
+            to_table = TargetPending.get_table_name()
+            assert to_table in ModelRegistry._pending_m2m_reverses
+            assert not hasattr(TargetPending, "sources_pending")
+
+            ModelRegistry.register_model(TargetPending)
+            assert hasattr(TargetPending, "sources_pending")
+        finally:
+            ModelRegistry._models = orig_models
+            ModelRegistry._m2m_relationships = orig_m2m
+            ModelRegistry._pending_m2m_reverses = orig_pending
+
+    def test_reverse_accessor_conflict_raises(self) -> None:
+        """Conflict on reverse accessor raises AttributeError."""
+        orig_models = ModelRegistry._models.copy()
+        orig_m2m = ModelRegistry._m2m_relationships.copy()
+        orig_pending = ModelRegistry._pending_m2m_reverses.copy()
+
+        try:
+            ModelRegistry._models.clear()
+            ModelRegistry._m2m_relationships.clear()
+            ModelRegistry._pending_m2m_reverses.clear()
+
+            class TargetConflict(BaseDBModel):
+                name: str
+
+            TargetConflict.conflict_attr = object()
+
+            with pytest.raises(AttributeError, match="Reverse M2M accessor"):
+
+                class SourceConflict(BaseDBModel):
+                    title: str
+                    targets: ManyToMany[TargetConflict] = ManyToMany(
+                        TargetConflict, related_name="conflict_attr"
+                    )
+        finally:
+            ModelRegistry._models = orig_models
+            ModelRegistry._m2m_relationships = orig_m2m
+            ModelRegistry._pending_m2m_reverses = orig_pending
