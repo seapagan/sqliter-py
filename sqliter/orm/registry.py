@@ -65,6 +65,8 @@ class ModelRegistry:
 
         Useful for temporarily isolating tests and restoring state afterward.
         """
+        # Model class references are immutable, so shallow copies are enough
+        # for model maps; relationship dicts are deep-copied for isolation.
         return {
             "models": cls._models.copy(),
             "models_by_name": cls._models_by_name.copy(),
@@ -404,7 +406,7 @@ class ModelRegistry:
         """
         from sqliter.orm.m2m import ReverseManyToMany  # noqa: PLC0415
 
-        _ = m2m_field
+        _ = m2m_field  # kept for signature consistency / future use
 
         if hasattr(to_model, related_name):
             msg = (
