@@ -10,7 +10,8 @@ Users can choose between modes via import:
 """
 
 from sqliter.orm.foreign_key import ForeignKey
+from sqliter.orm.m2m import ManyToMany
 from sqliter.orm.model import BaseDBModel
 from sqliter.orm.registry import ModelRegistry
 
-__all__ = ["BaseDBModel", "ForeignKey", "ModelRegistry"]
+__all__ = ["BaseDBModel", "ForeignKey", "ManyToMany", "ModelRegistry"]

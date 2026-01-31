@@ -678,6 +678,47 @@ class SqliterDB:
                 model_class, model_class.Meta.unique_indexes, unique=True
             )
 
+        # Create junction tables for M2M relationships
+        self._create_m2m_junction_tables(model_class)
+
+    def _create_m2m_junction_tables(
+        self, model_class: type[BaseDBModel]
+    ) -> None:
+        """Create junction tables for M2M relationships on a model.
+
+        Queries the ModelRegistry for M2M relationships registered for
+        this model and creates the corresponding junction tables.
+
+        Args:
+            model_class: The model class to check for M2M relationships.
+        """
+        try:
+            from sqliter.orm.m2m import (  # noqa: PLC0415
+                create_junction_table,
+            )
+            from sqliter.orm.registry import (  # noqa: PLC0415
+                ModelRegistry,
+            )
+        except ImportError:
+            return
+
+        table_name = model_class.get_table_name()
+        m2m_rels = ModelRegistry.get_m2m_relationships(table_name)
+
+        for rel in m2m_rels:
+            junction_table = rel["junction_table"]
+            to_model = rel["to_model"]
+            to_table = to_model.get_table_name()
+
+            # Sort alphabetically for consistent column naming
+            sorted_tables = sorted([table_name, to_table])
+            create_junction_table(
+                self,
+                junction_table,
+                sorted_tables[0],
+                sorted_tables[1],
+            )
+
     def _create_indexes(
         self,
         model_class: type[BaseDBModel],
