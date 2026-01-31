@@ -142,6 +142,20 @@ class ManyToManyManager(Generic[T]):
             raise ManyToManyIntegrityError(msg)
         return self._db
 
+    def _rollback_if_needed(self, db: SqliterDB) -> None:
+        """Rollback implicit transaction when not in a user-managed one."""
+        if not db._in_transaction and db.conn:  # noqa: SLF001
+            db.conn.rollback()
+
+    @staticmethod
+    def _raise_missing_pk() -> None:
+        """Raise a consistent missing-pk error for related instances."""
+        msg = (
+            "Related instance has no primary key. "
+            "Insert it before adding to a relationship."
+        )
+        raise ManyToManyIntegrityError(msg)
+
     def _get_instance_pk(self) -> int:
         """Get the primary key of the owning instance.
 
@@ -217,19 +231,20 @@ class ManyToManyManager(Generic[T]):
 
         conn = db.connect()
         cursor = conn.cursor()
-        for inst in instances:
-            to_pk = getattr(inst, "pk", None)
-            if not to_pk:
-                msg = (
-                    "Related instance has no primary key. "
-                    "Insert it before adding to a relationship."
-                )
-                raise ManyToManyIntegrityError(msg)
-            if self._symmetrical:
-                left_pk, right_pk = sorted([from_pk, int(to_pk)])
-                cursor.execute(sql, (left_pk, right_pk))
-            else:
-                cursor.execute(sql, (from_pk, to_pk))
+        try:
+            for inst in instances:
+                to_pk = getattr(inst, "pk", None)
+                if not to_pk:
+                    self._raise_missing_pk()
+                to_pk = cast("int", to_pk)
+                if self._symmetrical:
+                    left_pk, right_pk = sorted([from_pk, to_pk])
+                    cursor.execute(sql, (left_pk, right_pk))
+                else:
+                    cursor.execute(sql, (from_pk, to_pk))
+        except Exception:
+            self._rollback_if_needed(db)
+            raise
 
         db._maybe_commit()  # noqa: SLF001
 

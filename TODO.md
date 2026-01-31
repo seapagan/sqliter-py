@@ -19,6 +19,8 @@ Items marked with :fire: are high priority.
   or reset helper for tests. Longer-term option: make registry per-DB instance.
 - Consider renaming to `ForeignKeyField` / `ManyToManyField` and keeping
   `ForeignKey` / `ManyToMany` as backwards-compatible aliases.
+- Consider adding full atomicity for M2M add/remove within existing
+  transactions (use savepoints to avoid partial writes).
 - add a migration system to allow updating the database schema without losing
   data.
 - add more tests where 'auto_commit' is set to False to ensure that commit is
