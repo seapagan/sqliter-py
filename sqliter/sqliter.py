@@ -36,6 +36,7 @@ from sqliter.model.model import BaseDBModel
 from sqliter.query.query import QueryBuilder
 
 if TYPE_CHECKING:  # pragma: no cover
+    from collections.abc import Sequence
     from types import TracebackType
 
     from pydantic.fields import FieldInfo
@@ -957,6 +958,132 @@ class SqliterDB:
             return self._create_instance_from_data(
                 model_class, data, pk=cursor.lastrowid
             )
+
+    def _insert_single_record(
+        self,
+        model_instance: T,
+        table_name: str,
+        cursor: sqlite3.Cursor,
+        *,
+        timestamp_override: bool,
+    ) -> T:
+        """Insert a single record and return the created instance.
+
+        Used internally by ``bulk_insert`` to insert each record within
+        a shared transaction.
+
+        Args:
+            model_instance: The model instance to insert.
+            table_name: The database table name.
+            cursor: An active database cursor.
+            timestamp_override: If True, respect provided timestamps.
+
+        Returns:
+            A new model instance with the assigned primary key.
+        """
+        model_class = type(model_instance)
+        self._set_insert_timestamps(
+            model_instance, timestamp_override=timestamp_override
+        )
+
+        raw_data = model_instance.model_dump()
+        data = {
+            name: model_instance.serialize_field(val)
+            for name, val in raw_data.items()
+        }
+
+        if data.get("pk") == 0:
+            data.pop("pk")
+
+        fields = ", ".join(data.keys())
+        placeholders = ", ".join(
+            "?" if v is not None else "NULL" for v in data.values()
+        )
+        values = tuple(v for v in data.values() if v is not None)
+
+        insert_sql = (
+            f"INSERT INTO {table_name} ({fields}) "  # noqa: S608
+            f"VALUES ({placeholders})"
+        )
+        cursor.execute(insert_sql, values)
+
+        raw_data.pop("pk", None)
+        return self._create_instance_from_data(
+            model_class, raw_data, pk=cursor.lastrowid
+        )
+
+    def bulk_insert(
+        self,
+        instances: Sequence[T],
+        *,
+        timestamp_override: bool = False,
+    ) -> list[T]:
+        """Insert multiple records into the database in a single transaction.
+
+        All instances must be of the same model type. Records are inserted
+        individually within a single transaction so that each gets its own
+        ``lastrowid``. A single commit and cache invalidation are performed
+        after all inserts succeed.
+
+        Args:
+            instances: A sequence of model instances to insert.
+            timestamp_override: If True, respect provided non-zero
+                ``created_at``/``updated_at`` values. Default is False.
+
+        Returns:
+            A list of model instances with primary keys assigned.
+
+        Raises:
+            ValueError: If the instances are not all the same model type.
+            RecordInsertionError: If an error occurs during insertion.
+            ForeignKeyConstraintError: If a foreign key constraint is violated.
+        """
+        if not instances:
+            return []
+
+        model_class = type(instances[0])
+        for inst in instances[1:]:
+            if type(inst) is not model_class:
+                msg = (
+                    "All instances must be the same model type. "
+                    f"Expected {model_class.__name__}, "
+                    f"got {type(inst).__name__}."
+                )
+                raise ValueError(msg)
+
+        table_name = model_class.get_table_name()
+
+        try:
+            conn = self.connect()
+            cursor = conn.cursor()
+            results = [
+                self._insert_single_record(
+                    inst,
+                    table_name,
+                    cursor,
+                    timestamp_override=timestamp_override,
+                )
+                for inst in instances
+            ]
+            self._maybe_commit()
+
+        except sqlite3.IntegrityError as exc:
+            if not self._in_transaction and self.conn:
+                self.conn.rollback()
+            if "FOREIGN KEY constraint failed" in str(exc):
+                fk_operation = "insert"
+                fk_reason = "does not exist in referenced table"
+                raise ForeignKeyConstraintError(
+                    fk_operation, fk_reason
+                ) from exc
+            raise RecordInsertionError(table_name) from exc
+        except sqlite3.Error as exc:
+            if not self._in_transaction and self.conn:
+                self.conn.rollback()
+            raise RecordInsertionError(table_name) from exc
+        else:
+            self._cache_invalidate_table(table_name)
+            return results
 
     def get(
         self,
