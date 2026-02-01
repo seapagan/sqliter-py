@@ -371,6 +371,60 @@ class TestM2MPrefetch:
         fresh_tags = fresh.tags.fetch_all()
         assert len(fresh_tags) == 4
 
+    def test_m2m_prefetched_remove_delegates(self, db: SqliterDB) -> None:
+        """Prefetched M2M .remove() delegates to real manager."""
+        articles = db.select(Article).prefetch_related("tags").fetch_all()
+
+        guide = next(a for a in articles if a.title == "SQLiter Guide")
+        assert isinstance(guide.tags, PrefetchedM2MResult)
+
+        # Remove a tag through the prefetched wrapper
+        python_tag = next(
+            t for t in guide.tags.fetch_all() if t.name == "python"
+        )
+        guide.tags.remove(python_tag)
+
+        # Verify through a fresh query
+        fresh = db.select(Article).filter(pk=guide.pk).fetch_one()
+        assert fresh is not None
+        fresh_tags = fresh.tags.fetch_all()
+        assert len(fresh_tags) == 2
+        assert "python" not in {t.name for t in fresh_tags}
+
+    def test_m2m_prefetched_clear_delegates(self, db: SqliterDB) -> None:
+        """Prefetched M2M .clear() delegates to real manager."""
+        articles = db.select(Article).prefetch_related("tags").fetch_all()
+
+        guide = next(a for a in articles if a.title == "SQLiter Guide")
+        assert isinstance(guide.tags, PrefetchedM2MResult)
+        assert guide.tags.count() == 3
+
+        guide.tags.clear()
+
+        # Verify through a fresh query
+        fresh = db.select(Article).filter(pk=guide.pk).fetch_one()
+        assert fresh is not None
+        assert fresh.tags.count() == 0
+
+    def test_m2m_prefetched_set_delegates(self, db: SqliterDB) -> None:
+        """Prefetched M2M .set() delegates to real manager."""
+        articles = db.select(Article).prefetch_related("tags").fetch_all()
+
+        guide = next(a for a in articles if a.title == "SQLiter Guide")
+        assert isinstance(guide.tags, PrefetchedM2MResult)
+        assert guide.tags.count() == 3
+
+        # Replace all tags with just one
+        new_tag = db.insert(Tag(name="replacement"))
+        guide.tags.set(new_tag)
+
+        # Verify through a fresh query
+        fresh = db.select(Article).filter(pk=guide.pk).fetch_one()
+        assert fresh is not None
+        fresh_tags = fresh.tags.fetch_all()
+        assert len(fresh_tags) == 1
+        assert fresh_tags[0].name == "replacement"
+
     def test_symmetrical_self_ref_m2m_prefetch(self, db: SqliterDB) -> None:
         """Symmetrical self-referential M2M prefetch works."""
         people = db.select(Person).prefetch_related("friends").fetch_all()
@@ -419,6 +473,49 @@ class TestPrefetchErrors:
         """Forward FK path raises InvalidPrefetchError."""
         with pytest.raises(InvalidPrefetchError):
             db.select(Book).prefetch_related("author")
+
+    def test_prefetch_skips_instances_without_pks(self, db: SqliterDB) -> None:
+        """Prefetch is a no-op when all instances lack PKs."""
+        query = db.select(Author).prefetch_related("books")
+
+        # Create unsaved instances (pk=None)
+        unsaved = [
+            Author(name="Ghost", email="ghost@example.com"),
+            Author(name="Phantom", email="phantom@example.com"),
+        ]
+        # Manually invoke _execute_prefetch with pk-less instances
+        query._execute_prefetch(unsaved)
+
+        # No cache should be populated (no error raised either)
+        for inst in unsaved:
+            assert not inst.__dict__.get("_prefetch_cache")
+
+    def test_resolve_m2m_columns_returns_none_for_unknown(
+        self, db: SqliterDB
+    ) -> None:
+        """_resolve_m2m_columns returns None for unsupported descriptor."""
+        query = db.select(Article).prefetch_related("tags")
+
+        # Pass a plain object as descriptor — not ManyToMany/Reverse
+        result = query._resolve_m2m_columns(object(), "articles")
+        assert result is None
+
+    def test_prefetch_m2m_skips_unresolvable_descriptor(
+        self, db: SqliterDB
+    ) -> None:
+        """_prefetch_m2m is a no-op for unresolvable descriptors."""
+        articles = db.select(Article).prefetch_related("tags").fetch_all()
+        guide = next(a for a in articles if a.title == "SQLiter Guide")
+
+        query = db.select(Article).prefetch_related("tags")
+        pks = [guide.pk]
+
+        # Call _prefetch_m2m with an unsupported descriptor
+        query._prefetch_m2m("tags", object(), articles, pks)
+
+        # Original prefetch cache should be unaffected
+        cache = guide.__dict__.get("_prefetch_cache", {})
+        assert cache.get("tags") is not None
 
 
 # ── Cache key tests ──────────────────────────────────────────────────
