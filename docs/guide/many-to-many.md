@@ -140,6 +140,21 @@ for tag in tags:
     print(f"{tag.name}: {tag.articles.count()} articles")
 ```
 
+### Nested Prefetch Paths
+
+You can prefetch nested M2M or reverse FK relationships by chaining with
+``"__"``:
+
+```python
+# Article -> tags (M2M) -> articles (reverse M2M)
+articles = db.select(Article).prefetch_related(
+    "tags__articles"
+).fetch_all()
+```
+
+Each segment must be a reverse FK or M2M relationship. Use
+`select_related()` for forward FK data.
+
 ### Symmetrical Self-Referential M2M
 
 `prefetch_related()` handles symmetrical self-referential M2M correctly.

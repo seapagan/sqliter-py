@@ -201,6 +201,25 @@ for author in authors:
           f"{author.reviews.count()} reviews")
 ```
 
+#### Nested Prefetch Paths
+
+`prefetch_related()` also accepts nested paths using ``"__"`` separators.
+Each segment must be a reverse FK or M2M descriptor:
+
+```python
+# Author -> books (reverse FK) -> reviews (reverse FK)
+authors = db.select(Author).prefetch_related(
+    "books__reviews"
+).fetch_all()
+
+for author in authors:
+    for book in author.books.fetch_all():
+        print(book.title, book.reviews.count())
+```
+
+Forward FK segments are not allowed inside a prefetch path. If you need
+forward FK data, use `select_related()` alongside `prefetch_related()`.
+
 #### Combining with select_related()
 
 `prefetch_related()` and `select_related()` can coexist on the same query.

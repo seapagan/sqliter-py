@@ -320,6 +320,11 @@ authors = db.select(Author).prefetch_related(
     "books", "reviews"
 ).fetch_all()
 
+# Nested paths
+authors = db.select(Author).prefetch_related(
+    "books__reviews"
+).fetch_all()
+
 # Combined with select_related
 books = db.select(Book).select_related("author").prefetch_related().fetch_all()
 ```
@@ -328,6 +333,8 @@ books = db.select(Book).select_related("author").prefetch_related().fetch_all()
 > Use `select_related()` for **forward** FK relationships (e.g.,
 > `book.author`) and `prefetch_related()` for **reverse** FK and M2M
 > relationships (e.g., `author.books`, `article.tags`).
+> Nested paths must only include reverse FK or M2M segments (use
+> `select_related()` for forward FK data).
 
 ---
 
