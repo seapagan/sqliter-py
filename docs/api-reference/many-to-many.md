@@ -87,6 +87,69 @@ articles = tag.articles.fetch_all()
 
 ---
 
+## `PrefetchedM2MResult`
+
+Returned when accessing an M2M relationship that was loaded via
+`prefetch_related()`. Wraps a cached list of related instances and
+provides the same interface as `ManyToManyManager`.
+
+```python
+from sqliter.orm.m2m import PrefetchedM2MResult
+```
+
+**Read methods** (served from cache, no DB query):
+
+- `fetch_all() -> list[T]`
+- `fetch_one() -> T | None`
+- `count() -> int`
+- `exists() -> bool`
+
+**Write methods** (delegated to the real `ManyToManyManager`):
+
+- `add(*instances) -> None`
+- `remove(*instances) -> None`
+- `clear() -> None`
+- `set(*instances) -> None`
+
+**Filter** (falls back to a real DB query via the manager):
+
+- `filter(**kwargs) -> QueryBuilder[Any]`
+
+**Example:**
+
+```python
+articles = db.select(Article).prefetch_related("tags").fetch_all()
+guide = articles[0]
+
+isinstance(guide.tags, PrefetchedM2MResult)  # True
+guide.tags.count()       # served from cache
+guide.tags.add(new_tag)  # delegates to ManyToManyManager
+```
+
+---
+
+## `PrefetchedResult` (Reverse FK)
+
+Returned when accessing a reverse FK relationship that was loaded via
+`prefetch_related()`. Wraps a cached list of related instances.
+
+```python
+from sqliter.orm.query import PrefetchedResult
+```
+
+**Read methods** (served from cache):
+
+- `fetch_all() -> list[BaseDBModel]`
+- `fetch_one() -> BaseDBModel | None`
+- `count() -> int`
+- `exists() -> bool`
+
+**Filter** (falls back to a real DB query via `ReverseQuery`):
+
+- `filter(**kwargs) -> ReverseQuery`
+
+---
+
 ## Junction Tables
 
 By default, the junction table name is generated from the two table

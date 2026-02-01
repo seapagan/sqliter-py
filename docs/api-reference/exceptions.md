@@ -33,6 +33,7 @@ Exception
     ├── InvalidOffsetError
     ├── InvalidOrderError
     ├── InvalidRelationshipError
+    ├── InvalidPrefetchError
     ├── InvalidIndexError
     ├── ForeignKeyError
     │   ├── ForeignKeyConstraintError
@@ -237,6 +238,24 @@ message_template = (
 - [`QueryBuilder.select_related()`](query-builder.md#select_related)
 - [`QueryBuilder.filter()`](query-builder.md#filter) (relationship
   traversal)
+
+### `InvalidPrefetchError`
+
+Raised when an invalid relationship path is specified in
+`prefetch_related()`. This includes paths that don't exist, forward FK
+paths (which should use `select_related()`), and any attribute that is
+not a reverse FK or M2M relationship.
+
+```python
+message_template = (
+    "Invalid prefetch path '{}': '{}' is not a reverse "
+    "foreign key or many-to-many relationship on model {}"
+)
+```
+
+**Raised by:**
+
+- [`QueryBuilder.prefetch_related()`](query-builder.md#prefetch_related)
 
 ---
 

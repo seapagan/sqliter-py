@@ -276,6 +276,59 @@ books = db.select(Book).select_related(
 ).fetch_all()
 ```
 
+### `prefetch_related()`
+
+Specify reverse FK and M2M relationships to eager load via a second
+query. Reduces the N+1 query problem for reverse relationships.
+
+```python
+def prefetch_related(
+    self,
+    *paths: str,
+) -> Self:
+```
+
+**Parameters:**
+
+| Parameter | Type  | Description                                         |
+| --------- | ----- | --------------------------------------------------- |
+| `*paths`  | `str` | One or more reverse FK or M2M relationship names    |
+
+**Returns:** `Self` for method chaining.
+
+**Raises:**
+
+- [`InvalidPrefetchError`](exceptions.md#invalidprefetcherror) -- If
+  a path is not a valid reverse FK or M2M relationship. Forward FK
+  paths (which should use `select_related()`) also raise this error.
+
+**Example:**
+
+```python
+# Reverse FK
+authors = db.select(Author).prefetch_related("books").fetch_all()
+# author.books.fetch_all()  -- no additional query
+
+# M2M (forward)
+articles = db.select(Article).prefetch_related("tags").fetch_all()
+
+# M2M (reverse)
+tags = db.select(Tag).prefetch_related("articles").fetch_all()
+
+# Multiple paths
+authors = db.select(Author).prefetch_related(
+    "books", "reviews"
+).fetch_all()
+
+# Combined with select_related
+books = db.select(Book).select_related("author").prefetch_related().fetch_all()
+```
+
+> [!NOTE]
+> Use `select_related()` for **forward** FK relationships (e.g.,
+> `book.author`) and `prefetch_related()` for **reverse** FK and M2M
+> relationships (e.g., `author.books`, `article.tags`).
+
 ---
 
 ## Pagination

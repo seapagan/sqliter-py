@@ -107,6 +107,85 @@ alice.friends.add(bob)
 assert {u.name for u in bob.friends.fetch_all()} == {"Alice"}
 ```
 
+## Eager Loading with prefetch_related()
+
+When iterating over a queryset and accessing M2M relationships on each
+instance, you can hit the N+1 query problem. `prefetch_related()` solves this
+by fetching all related objects in a single extra query:
+
+```python
+# Without prefetch: 1 query for articles + N queries for tags
+articles = db.select(Article).fetch_all()
+for article in articles:
+    tags = article.tags.fetch_all()  # hits the DB each time
+
+# With prefetch: 1 query for articles + 1 query for tags (2 total)
+articles = db.select(Article).prefetch_related("tags").fetch_all()
+for article in articles:
+    tags = article.tags.fetch_all()  # served from cache
+```
+
+### Forward and Reverse M2M
+
+`prefetch_related()` works for both the forward side (where `ManyToMany` is
+defined) and the reverse side:
+
+```python
+# Forward: articles with their tags
+articles = db.select(Article).prefetch_related("tags").fetch_all()
+
+# Reverse: tags with their articles
+tags = db.select(Tag).prefetch_related("articles").fetch_all()
+for tag in tags:
+    print(f"{tag.name}: {tag.articles.count()} articles")
+```
+
+### Symmetrical Self-Referential M2M
+
+`prefetch_related()` handles symmetrical self-referential M2M correctly.
+Both directions of the relationship are resolved:
+
+```python
+people = db.select(User).prefetch_related("friends").fetch_all()
+for person in people:
+    print(f"{person.name}: {person.friends.count()} friends")
+```
+
+### Prefetched M2M Data API
+
+Accessing a prefetched M2M relationship returns a `PrefetchedM2MResult` that
+provides the same read interface as `ManyToManyManager`:
+
+```python
+article.tags.fetch_all()   # list of Tag instances
+article.tags.fetch_one()   # first Tag or None
+article.tags.count()       # number of tags
+article.tags.exists()      # True if any tags exist
+```
+
+Write operations (`add`, `remove`, `clear`, `set`) are delegated to the real
+`ManyToManyManager`, so they work exactly as expected:
+
+```python
+articles = db.select(Article).prefetch_related("tags").fetch_all()
+guide = articles[0]
+
+# Write operations still work through the prefetched wrapper
+new_tag = db.insert(Tag(name="new"))
+guide.tags.add(new_tag)
+guide.tags.remove(new_tag)
+```
+
+Calling `filter()` on a prefetched M2M relationship falls back to a real
+database query.
+
+> [!TIP]
+>
+> For reverse FK relationships (e.g., `author.books`), `prefetch_related()`
+> works the same way. See
+> [ORM Foreign Keys](foreign-keys/orm.md#eager-loading-reverse-relationships-with-prefetch_related)
+> for details.
+
 ## Notes
 
 - M2M operations require a `db_context`, which is set when instances are

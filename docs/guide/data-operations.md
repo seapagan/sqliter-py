@@ -51,6 +51,60 @@ result = db.insert(user, timestamp_override=True)
 > a record with a primary key that already exists in the table or if the table
 > does not exist.
 
+## Bulk Inserting Records
+
+Use `bulk_insert()` to insert multiple records of the same model in a single
+transaction. This is more efficient than calling `insert()` in a loop because
+all records are committed together:
+
+```python
+users = [
+    User(name="Alice", age=30, email="alice@example.com"),
+    User(name="Bob", age=25, email="bob@example.com"),
+    User(name="Carol", age=28, email="carol@example.com"),
+]
+results = db.bulk_insert(users)
+```
+
+The returned list contains new model instances with primary keys assigned:
+
+```python
+for user in results:
+    print(f"Inserted {user.name} with pk={user.pk}")
+```
+
+Passing an empty list returns `[]` without touching the database. If any record
+in the batch fails (for example, a foreign key constraint violation), the
+entire batch is rolled back and no records are inserted.
+
+### Overriding the Timestamps
+
+Like `insert()`, `bulk_insert()` automatically sets `created_at` and
+`updated_at` on each record. Pass `timestamp_override=True` to preserve
+values you set manually:
+
+```python
+results = db.bulk_insert(users, timestamp_override=True)
+```
+
+### Using with Transactions
+
+When called inside a `with db:` transaction context, `bulk_insert()` defers
+the commit to the context exit, so you can combine it with other operations in
+one atomic transaction:
+
+```python
+with db:
+    authors = db.bulk_insert(author_list)
+    books = db.bulk_insert(book_list)
+    # Both batches committed together on exit
+```
+
+> [!IMPORTANT]
+>
+> All instances passed to `bulk_insert()` must be of the same model type.
+> Mixing different model types raises a `ValueError`.
+
 ## Querying Records
 
 `SQLiter` provides a simple and intuitive API for querying records from the
