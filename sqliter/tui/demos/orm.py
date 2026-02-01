@@ -526,6 +526,47 @@ def _run_prefetch_related_nested() -> str:
     return output.getvalue()
 
 
+def _run_prefetch_related_nested_m2m() -> str:
+    """Eager load nested M2M relationships with prefetch_related()."""
+    output = io.StringIO()
+
+    class Tag(BaseDBModel):
+        name: str
+
+    class Article(BaseDBModel):
+        title: str
+        tags: ManyToMany[Tag] = ManyToMany(Tag, related_name="articles")
+
+    db = SqliterDB(memory=True)
+    db.create_table(Tag)
+    db.create_table(Article)
+
+    python = db.insert(Tag(name="python"))
+    sqlite = db.insert(Tag(name="sqlite"))
+    orm_tag = db.insert(Tag(name="orm"))
+
+    a1 = db.insert(Article(title="SQLiter Guide"))
+    a2 = db.insert(Article(title="Python Tips"))
+
+    a1.tags.add(python, sqlite, orm_tag)
+    a2.tags.add(python, orm_tag)
+
+    articles = db.select(Article).prefetch_related("tags__articles").fetch_all()
+
+    for article in articles:
+        output.write(f"{article.title}:\n")
+        tags = article.tags.fetch_all()
+        for tag in tags:
+            related = cast("Any", tag).articles.fetch_all()
+            titles = ", ".join(a.title for a in related)
+            output.write(f"  {tag.name}: {titles}\n")
+
+    output.write("\nNested M2M data loaded in 3 queries total\n")
+
+    db.close()
+    return output.getvalue()
+
+
 def _run_prefetch_related_m2m() -> str:
     """Eager load M2M relationships with prefetch_related().
 
@@ -692,6 +733,14 @@ def get_category() -> DemoCategory:
                 category="orm",
                 code=extract_demo_code(_run_prefetch_related_nested),
                 execute=_run_prefetch_related_nested,
+            ),
+            Demo(
+                id="orm_prefetch_related_nested_m2m",
+                title="Nested Prefetch M2M Relationships",
+                description="Eager load nested M2M relationships",
+                category="orm",
+                code=extract_demo_code(_run_prefetch_related_nested_m2m),
+                execute=_run_prefetch_related_nested_m2m,
             ),
             Demo(
                 id="orm_prefetch_related_m2m",

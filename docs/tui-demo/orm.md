@@ -860,6 +860,57 @@ db.close()
 4. Write operations (`add`, `remove`, `clear`, `set`) still go through
    the database and update the cache
 
+## Prefetch Nested M2M Relationships
+
+Eager load nested M2M relationships using `prefetch_related()` with
+``"__"`` paths.
+
+```python
+# --8<-- [start:prefetch-related-nested-m2m]
+from typing import Any, cast
+
+from sqliter import SqliterDB
+from sqliter.orm import BaseDBModel, ManyToMany
+
+class Tag(BaseDBModel):
+    name: str
+
+class Article(BaseDBModel):
+    title: str
+    tags: ManyToMany[Tag] = ManyToMany(Tag, related_name="articles")
+
+db = SqliterDB(memory=True)
+db.create_table(Tag)
+db.create_table(Article)
+
+python = db.insert(Tag(name="python"))
+sqlite = db.insert(Tag(name="sqlite"))
+orm_tag = db.insert(Tag(name="orm"))
+
+a1 = db.insert(Article(title="SQLiter Guide"))
+a2 = db.insert(Article(title="Python Tips"))
+
+a1.tags.add(python, sqlite, orm_tag)
+a2.tags.add(python, orm_tag)
+
+articles = db.select(Article).prefetch_related(
+    "tags__articles"
+).fetch_all()
+
+for article in articles:
+    print(f"{article.title}:")
+    tags = article.tags.fetch_all()
+    for tag in tags:
+        related = cast("Any", tag).articles.fetch_all()
+        titles = ", ".join(a.title for a in related)
+        print(f"  {tag.name}: {titles}")
+
+print("\nNested M2M data loaded in 3 queries total")
+
+db.close()
+# --8<-- [end:prefetch-related-nested-m2m]
+```
+
 ### Combining with Other Methods
 
 ```python
