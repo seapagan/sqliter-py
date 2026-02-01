@@ -986,11 +986,9 @@ class SqliterDB:
             model_instance, timestamp_override=timestamp_override
         )
 
-        raw_data = model_instance.model_dump()
-        data = {
-            name: model_instance.serialize_field(val)
-            for name, val in raw_data.items()
-        }
+        data = model_instance.model_dump()
+        for field_name, value in list(data.items()):
+            data[field_name] = model_instance.serialize_field(value)
 
         if data.get("pk") == 0:
             data.pop("pk")
@@ -1007,9 +1005,9 @@ class SqliterDB:
         )
         cursor.execute(insert_sql, values)
 
-        raw_data.pop("pk", None)
+        data.pop("pk", None)
         return self._create_instance_from_data(
-            model_class, raw_data, pk=cursor.lastrowid
+            model_class, data, pk=cursor.lastrowid
         )
 
     def bulk_insert(
