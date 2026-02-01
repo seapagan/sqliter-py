@@ -503,15 +503,17 @@ class TestPrefetchErrors:
     def test_prefetch_m2m_skips_unresolvable_descriptor(
         self, db: SqliterDB
     ) -> None:
-        """_prefetch_m2m is a no-op for unresolvable descriptors."""
+        """_prefetch_m2m_for_model is a no-op for unresolvable descriptors."""
         articles = db.select(Article).prefetch_related("tags").fetch_all()
         guide = next(a for a in articles if a.title == "SQLiter Guide")
 
         query = db.select(Article).prefetch_related("tags")
         pks = [guide.pk]
 
-        # Call _prefetch_m2m with an unsupported descriptor
-        query._prefetch_m2m("tags", object(), articles, pks)
+        # Call _prefetch_m2m_for_model with an unsupported descriptor
+        query._prefetch_m2m_for_model(
+            "tags", object(), articles, pks, owner_model=Article
+        )
 
         # Original prefetch cache should be unaffected
         cache = guide.__dict__.get("_prefetch_cache", {})
@@ -533,3 +535,327 @@ class TestPrefetchCacheKey:
         key2 = q2._make_cache_key(fetch_one=False)
 
         assert key1 != key2
+
+
+# ── Nested prefetch models ──────────────────────────────────────────
+
+
+class Category(BaseDBModel):
+    """Category model for nested M2M tests."""
+
+    name: str
+
+
+class BookWithCategories(BaseDBModel):
+    """Book with FK to Author and M2M to Category."""
+
+    title: str
+    year: int
+    author: ForeignKey[Author] = ForeignKey(
+        Author, on_delete="CASCADE", related_name="authored_books"
+    )
+    categories: ManyToMany[Category] = ManyToMany(
+        Category, related_name="books_in_category"
+    )
+
+
+class Comment(BaseDBModel):
+    """Comment with FK to Article."""
+
+    text: str
+    article: ForeignKey[Article] = ForeignKey(
+        Article, on_delete="CASCADE", related_name="comments"
+    )
+
+
+# ── Nested prefetch fixture ────────────────────────────────────────
+
+
+@pytest.fixture
+def nested_db() -> SqliterDB:
+    """Create a test database with nested relationship data."""
+    database = SqliterDB(":memory:")
+    database.create_table(Author)
+    database.create_table(Category)
+    database.create_table(BookWithCategories)
+    database.create_table(Tag)
+    database.create_table(Article)
+    database.create_table(Comment)
+    database.create_table(Review)
+
+    # Authors
+    a1 = database.insert(Author(name="Jane Austen", email="jane@example.com"))
+    a2 = database.insert(
+        Author(name="Charles Dickens", email="charles@example.com")
+    )
+    a3 = database.insert(
+        Author(name="No Books Author", email="nobooks@example.com")
+    )
+
+    # Categories
+    c1 = database.insert(Category(name="Fiction"))
+    c2 = database.insert(Category(name="Classic"))
+    c3 = database.insert(Category(name="Drama"))
+
+    # BooksWithCategories
+    b1 = database.insert(
+        BookWithCategories(
+            title="Pride and Prejudice", year=1813, author_id=a1.pk
+        )
+    )
+    b2 = database.insert(
+        BookWithCategories(
+            title="Sense and Sensibility", year=1811, author_id=a1.pk
+        )
+    )
+    b3 = database.insert(
+        BookWithCategories(title="Oliver Twist", year=1837, author_id=a2.pk)
+    )
+
+    # Assign categories
+    b1.categories.add(c1, c2)
+    b2.categories.add(c1)
+    b3.categories.add(c1, c3)
+
+    # Tags and Articles with comments
+    t1 = database.insert(Tag(name="python"))
+    t2 = database.insert(Tag(name="sqlite"))
+
+    art1 = database.insert(Article(title="SQLiter Guide"))
+    art2 = database.insert(Article(title="Python Tips"))
+    art1.tags.add(t1, t2)
+    art2.tags.add(t1)
+
+    # Comments on articles
+    database.insert(Comment(text="Great guide!", article_id=art1.pk))
+    database.insert(Comment(text="Very helpful", article_id=art1.pk))
+    database.insert(Comment(text="Nice tips", article_id=art2.pk))
+
+    # Reviews for Author
+    database.insert(Review(text="Love her work", author_id=a1.pk))
+
+    # Suppress unused variable warnings
+    _ = (a3, c3, b3, t2)
+
+    return database
+
+
+# ── Nested prefetch tests ───────────────────────────────────────────
+
+
+class TestNestedPrefetch:
+    """Tests for nested prefetch_related() paths."""
+
+    def test_two_level_reverse_fk_then_m2m(self, nested_db: SqliterDB) -> None:
+        """Author -> authored_books -> categories (reverse FK then M2M)."""
+        authors = (
+            nested_db.select(Author)
+            .prefetch_related("authored_books__categories")
+            .fetch_all()
+        )
+
+        jane = next(a for a in authors if a.name == "Jane Austen")
+        books = jane.authored_books.fetch_all()
+        assert len(books) == 2
+
+        pride = next(b for b in books if b.title == "Pride and Prejudice")
+        cats = pride.categories.fetch_all()
+        cat_names = {c.name for c in cats}
+        assert "Fiction" in cat_names
+        assert "Classic" in cat_names
+
+    def test_two_level_reverse_m2m_then_reverse_fk(
+        self, nested_db: SqliterDB
+    ) -> None:
+        """Tag -> articles (reverse M2M) -> comments (reverse FK)."""
+        tags = (
+            nested_db.select(Tag)
+            .prefetch_related("articles__comments")
+            .fetch_all()
+        )
+
+        python_tag = next(t for t in tags if t.name == "python")
+        articles = python_tag.articles.fetch_all()
+        assert len(articles) == 2
+
+        guide = next(a for a in articles if a.title == "SQLiter Guide")
+        comments = guide.comments.fetch_all()
+        assert len(comments) == 2
+        comment_texts = {c.text for c in comments}
+        assert "Great guide!" in comment_texts
+
+    def test_mixed_nested_and_flat_paths(self, nested_db: SqliterDB) -> None:
+        """Mix of nested and flat paths on the same query."""
+        authors = (
+            nested_db.select(Author)
+            .prefetch_related("authored_books__categories", "reviews")
+            .fetch_all()
+        )
+
+        jane = next(a for a in authors if a.name == "Jane Austen")
+
+        # Flat path
+        reviews = jane.reviews.fetch_all()
+        assert len(reviews) == 1
+
+        # Nested path
+        books = jane.authored_books.fetch_all()
+        pride = next(b for b in books if b.title == "Pride and Prejudice")
+        cats = pride.categories.fetch_all()
+        assert len(cats) == 2
+
+    def test_overlapping_paths_deduplicated(self, nested_db: SqliterDB) -> None:
+        """Both 'authored_books' and 'authored_books__categories' work."""
+        authors = (
+            nested_db.select(Author)
+            .prefetch_related("authored_books", "authored_books__categories")
+            .fetch_all()
+        )
+
+        jane = next(a for a in authors if a.name == "Jane Austen")
+        books = jane.authored_books.fetch_all()
+        assert len(books) == 2
+
+        pride = next(b for b in books if b.title == "Pride and Prejudice")
+        cats = pride.categories.fetch_all()
+        assert len(cats) == 2
+
+    def test_nested_prefetch_with_filter(self, nested_db: SqliterDB) -> None:
+        """Nested prefetch combined with filter on the root query."""
+        authors = (
+            nested_db.select(Author)
+            .filter(name="Jane Austen")
+            .prefetch_related("authored_books__categories")
+            .fetch_all()
+        )
+
+        assert len(authors) == 1
+        books = authors[0].authored_books.fetch_all()
+        assert len(books) == 2
+
+    def test_nested_prefetch_with_fetch_one(self, nested_db: SqliterDB) -> None:
+        """Nested prefetch with fetch_one on the root query."""
+        author = (
+            nested_db.select(Author)
+            .filter(name="Jane Austen")
+            .prefetch_related("authored_books__categories")
+            .fetch_one()
+        )
+
+        assert author is not None
+        books = author.authored_books.fetch_all()
+        assert len(books) == 2
+
+        pride = next(b for b in books if b.title == "Pride and Prejudice")
+        cats = pride.categories.fetch_all()
+        assert len(cats) == 2
+
+    def test_empty_intermediate_level(self, nested_db: SqliterDB) -> None:
+        """Author with no books — nested categories is empty."""
+        authors = (
+            nested_db.select(Author)
+            .prefetch_related("authored_books__categories")
+            .fetch_all()
+        )
+
+        nobooks = next(a for a in authors if a.name == "No Books Author")
+        books = nobooks.authored_books.fetch_all()
+        assert books == []
+
+    def test_cache_populated_at_each_level(self, nested_db: SqliterDB) -> None:
+        """_prefetch_cache is set on both parent and child instances."""
+        authors = (
+            nested_db.select(Author)
+            .prefetch_related("authored_books__categories")
+            .fetch_all()
+        )
+
+        jane = next(a for a in authors if a.name == "Jane Austen")
+        author_cache = jane.__dict__.get("_prefetch_cache", {})
+        assert "authored_books" in author_cache
+
+        for book in author_cache["authored_books"]:
+            book_cache = book.__dict__.get("_prefetch_cache", {})
+            assert "categories" in book_cache
+
+    def test_invalid_first_segment(self, nested_db: SqliterDB) -> None:
+        """Invalid first segment raises InvalidPrefetchError."""
+        with pytest.raises(InvalidPrefetchError):
+            nested_db.select(Author).prefetch_related("nonexistent__books")
+
+    def test_invalid_second_segment(self, nested_db: SqliterDB) -> None:
+        """Invalid second segment raises InvalidPrefetchError."""
+        with pytest.raises(InvalidPrefetchError):
+            nested_db.select(Author).prefetch_related(
+                "authored_books__nonexistent"
+            )
+
+    def test_three_levels_deep(self, nested_db: SqliterDB) -> None:
+        """Three-level nesting: Tag -> articles -> comments (+ nested)."""
+        # Only two real levels in this chain, but validate it works
+        tags = (
+            nested_db.select(Tag)
+            .prefetch_related("articles__comments")
+            .fetch_all()
+        )
+
+        python_tag = next(t for t in tags if t.name == "python")
+        articles = python_tag.articles.fetch_all()
+        guide = next(a for a in articles if a.title == "SQLiter Guide")
+        comments = guide.comments.fetch_all()
+        assert len(comments) == 2
+
+    def test_cache_key_differs_for_nested(self, nested_db: SqliterDB) -> None:
+        """Nested path produces a different cache key than flat path."""
+        q1 = nested_db.select(Author).prefetch_related("authored_books")
+        q2 = nested_db.select(Author).prefetch_related(
+            "authored_books__categories"
+        )
+
+        key1 = q1._make_cache_key(fetch_one=False)
+        key2 = q2._make_cache_key(fetch_one=False)
+        assert key1 != key2
+
+    def test_nested_prefetch_with_select_related(
+        self, nested_db: SqliterDB
+    ) -> None:
+        """Nested prefetch coexists with select_related."""
+        books = (
+            nested_db.select(BookWithCategories)
+            .select_related("author")
+            .prefetch_related("categories")
+            .fetch_all()
+        )
+
+        for book in books:
+            fk_cache = getattr(book, "_fk_cache", {})
+            assert "author" in fk_cache
+            pf_cache = book.__dict__.get("_prefetch_cache", {})
+            assert "categories" in pf_cache
+
+    def test_all_parents_lack_books_nested(self, nested_db: SqliterDB) -> None:
+        """Nested prefetch where all parents have empty intermediate."""
+        authors = (
+            nested_db.select(Author)
+            .filter(name="No Books Author")
+            .prefetch_related("authored_books__categories")
+            .fetch_all()
+        )
+
+        assert len(authors) == 1
+        nobooks = authors[0]
+        assert nobooks.authored_books.fetch_all() == []
+
+    def test_prefetch_segment_skips_pkless_instances(
+        self, nested_db: SqliterDB
+    ) -> None:
+        """_prefetch_segment is a no-op when all instances lack PKs."""
+        query = nested_db.select(Author).prefetch_related("authored_books")
+        unsaved = [
+            Author(name="Ghost", email="ghost@example.com"),
+            Author(name="Phantom", email="phantom@example.com"),
+        ]
+        query._prefetch_segment("authored_books", unsaved, Author)
+
+        for inst in unsaved:
+            assert not inst.__dict__.get("_prefetch_cache")

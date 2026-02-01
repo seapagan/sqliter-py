@@ -46,6 +46,8 @@ if TYPE_CHECKING:  # pragma: no cover
 
     from sqliter import SqliterDB
     from sqliter.model import BaseDBModel, SerializableField
+    from sqliter.orm.m2m import ManyToMany, ReverseManyToMany
+    from sqliter.orm.query import ReverseRelationship
 
 # TypeVar for generic QueryBuilder
 T = TypeVar("T", bound="BaseDBModel")
@@ -54,6 +56,28 @@ T = TypeVar("T", bound="BaseDBModel")
 FilterValue = Union[
     str, int, float, bool, None, list[Union[str, int, float, bool]]
 ]
+
+
+def _get_prefetch_target_model(
+    descriptor: Union[ReverseRelationship, ManyToMany[Any], ReverseManyToMany],
+) -> type[BaseDBModel]:
+    """Extract the target model from a prefetch descriptor.
+
+    Args:
+        descriptor: A ReverseRelationship, ManyToMany, or
+            ReverseManyToMany descriptor.
+
+    Returns:
+        The model class on the "other side" of the relationship.
+    """
+    from sqliter.orm import m2m, query  # noqa: PLC0415
+
+    if isinstance(descriptor, query.ReverseRelationship):
+        return descriptor.from_model
+    if isinstance(descriptor, m2m.ManyToMany):
+        return cast("type[BaseDBModel]", descriptor.to_model)
+    # ReverseManyToMany (only remaining option after isinstance checks)
+    return descriptor._from_model  # noqa: SLF001
 
 
 @dataclass
@@ -389,13 +413,19 @@ class QueryBuilder(Generic[T]):
         return self
 
     def _validate_prefetch_path(self, path: str) -> None:
-        """Validate that a prefetch path is a reverse FK or M2M descriptor.
+        """Validate that a prefetch path is a valid chain of descriptors.
+
+        Supports nested paths like ``"books__categories"`` by walking
+        each segment and resolving the next model via
+        ``_get_prefetch_target_model()``.
 
         Args:
-            path: The relationship name to validate.
+            path: The relationship path to validate (e.g. ``"books"``
+                or ``"authored_books__categories"``).
 
         Raises:
-            InvalidPrefetchError: If the path is invalid.
+            InvalidPrefetchError: If any segment is not a valid
+                reverse FK or M2M descriptor on its model.
         """
         from sqliter.orm.m2m import (  # noqa: PLC0415
             ManyToMany,
@@ -403,16 +433,82 @@ class QueryBuilder(Generic[T]):
         )
         from sqliter.orm.query import ReverseRelationship  # noqa: PLC0415
 
-        # Check class-level descriptor for the path
-        descriptor = getattr(self.model_class, path, None)
-        if descriptor is None or not isinstance(
-            descriptor, (ReverseRelationship, ManyToMany, ReverseManyToMany)
-        ):
-            model_name = self.model_class.__name__
-            raise InvalidPrefetchError(path, path, model_name)
+        segments = path.split("__")
+        current_model: type[BaseDBModel] = self.model_class
+
+        for segment in segments:
+            descriptor = getattr(current_model, segment, None)
+            if descriptor is None or not isinstance(
+                descriptor,
+                (ReverseRelationship, ManyToMany, ReverseManyToMany),
+            ):
+                raise InvalidPrefetchError(
+                    path, segment, current_model.__name__
+                )
+            current_model = _get_prefetch_target_model(descriptor)
+
+    def _resolve_model_for_path(self, parent_path: str) -> type[BaseDBModel]:
+        """Resolve the model class at a given prefetch path prefix.
+
+        Args:
+            parent_path: A ``"__"``-separated path prefix (``""`` for
+                the root model).
+
+        Returns:
+            The model class that owns the descriptors at this level.
+        """
+        current_model: type[BaseDBModel] = self.model_class
+        if parent_path:
+            for prev_seg in parent_path.split("__"):
+                desc = getattr(current_model, prev_seg)
+                current_model = _get_prefetch_target_model(desc)
+        return current_model
+
+    def _prefetch_segment(
+        self,
+        segment: str,
+        parent_instances: list[Any],
+        current_model: type[BaseDBModel],
+    ) -> None:
+        """Run the prefetch query for a single relationship segment.
+
+        Args:
+            segment: The relationship name on *current_model*.
+            parent_instances: Instances at this nesting level.
+            current_model: The model class owning *segment*.
+        """
+        from sqliter.orm.m2m import (  # noqa: PLC0415
+            ManyToMany,
+            ReverseManyToMany,
+        )
+        from sqliter.orm.query import ReverseRelationship  # noqa: PLC0415
+
+        parent_pks = [inst.pk for inst in parent_instances if inst.pk]
+        if not parent_pks:
+            return
+
+        descriptor = getattr(current_model, segment)
+
+        if isinstance(descriptor, ReverseRelationship):
+            self._prefetch_reverse_fk(
+                segment, descriptor, parent_instances, parent_pks
+            )
+        elif isinstance(descriptor, (ManyToMany, ReverseManyToMany)):
+            self._prefetch_m2m_for_model(
+                segment,
+                descriptor,
+                parent_instances,
+                parent_pks,
+                owner_model=current_model,
+            )
 
     def _execute_prefetch(self, instances: list[T]) -> None:
         """Run prefetch queries and populate _prefetch_cache on instances.
+
+        Supports nested paths like ``"books__categories"`` by processing
+        one depth level at a time.  At each level the parent instances
+        are taken from the ``_prefetch_cache`` populated by the previous
+        level.
 
         Args:
             instances: The list of parent instances from the main query.
@@ -420,23 +516,41 @@ class QueryBuilder(Generic[T]):
         if not instances or not self._prefetch_related_paths:
             return
 
-        from sqliter.orm.m2m import (  # noqa: PLC0415
-            ManyToMany,
-            ReverseManyToMany,
-        )
-        from sqliter.orm.query import ReverseRelationship  # noqa: PLC0415
-
         pks = [inst.pk for inst in instances if inst.pk]
         if not pks:
             return
 
+        # ── 1. Build a depth-indexed map of unique segments ──────
+        levels: dict[int, set[tuple[str, str]]] = {}
         for path in self._prefetch_related_paths:
-            descriptor = getattr(self.model_class, path)
+            segments = path.split("__")
+            for depth, segment in enumerate(segments):
+                parent_path = "__".join(segments[:depth]) if depth > 0 else ""
+                levels.setdefault(depth, set()).add((parent_path, segment))
 
-            if isinstance(descriptor, ReverseRelationship):
-                self._prefetch_reverse_fk(path, descriptor, instances, pks)
-            elif isinstance(descriptor, (ManyToMany, ReverseManyToMany)):
-                self._prefetch_m2m(path, descriptor, instances, pks)
+        # ── 2. Track instances reachable at each path prefix ─────
+        instances_by_path: dict[str, list[Any]] = {"": list(instances)}
+
+        # ── 3. Process level by level ────────────────────────────
+        max_depth = max(levels)
+        for depth in range(max_depth + 1):
+            for parent_path, segment in levels[depth]:
+                parent_instances = instances_by_path.get(parent_path, [])
+                if not parent_instances:
+                    continue
+
+                current_model = self._resolve_model_for_path(parent_path)
+                self._prefetch_segment(segment, parent_instances, current_model)
+
+                # Collect children for the next level
+                full_path = (
+                    f"{parent_path}__{segment}" if parent_path else segment
+                )
+                children: list[Any] = []
+                for inst in parent_instances:
+                    cache = inst.__dict__.get("_prefetch_cache", {})
+                    children.extend(cache.get(segment, []))
+                instances_by_path[full_path] = children
 
     def _prefetch_reverse_fk(
         self,
@@ -527,23 +641,29 @@ class QueryBuilder(Generic[T]):
             symmetrical,
         )
 
-    def _prefetch_m2m(
+    def _prefetch_m2m_for_model(
         self,
         path: str,
         descriptor: Any,  # noqa: ANN401
-        instances: list[T],
+        instances: list[Any],
         pks: list[int],
+        owner_model: type[BaseDBModel],
     ) -> None:
-        """Prefetch M2M relationships.
+        """Prefetch M2M relationships for a given owner model.
+
+        Unlike the previous ``_prefetch_m2m``, this accepts an explicit
+        *owner_model* so it works at any nesting depth — the owner at
+        level N+1 may differ from ``self.model_class``.
 
         Args:
-            path: The relationship name.
+            path: The segment name used as the cache key.
             descriptor: The ManyToMany or ReverseManyToMany descriptor.
-            instances: Parent model instances.
-            pks: Parent primary keys.
+            instances: Parent model instances at this level.
+            pks: Primary keys of *instances*.
+            owner_model: The model class that owns the descriptor.
         """
         resolved = self._resolve_m2m_columns(
-            descriptor, self.model_class.get_table_name()
+            descriptor, owner_model.get_table_name()
         )
         if resolved is None:
             return
