@@ -438,6 +438,102 @@ def _run_select_related_combined() -> str:
     return output.getvalue()
 
 
+def _run_prefetch_related_reverse_fk() -> str:
+    """Eager load reverse FK relationships with prefetch_related().
+
+    While select_related() uses JOINs for forward FKs (book.author),
+    prefetch_related() loads reverse FKs (author.books) in a second
+    query, avoiding the N+1 problem.
+    """
+    output = io.StringIO()
+
+    class Author(BaseDBModel):
+        name: str
+
+    class Book(BaseDBModel):
+        title: str
+        author: ForeignKey[Author] = ForeignKey(Author, related_name="books")
+
+    db = SqliterDB(memory=True)
+    db.create_table(Author)
+    db.create_table(Book)
+
+    a1 = db.insert(Author(name="Jane Austen"))
+    a2 = db.insert(Author(name="Charles Dickens"))
+    db.insert(Book(title="Pride and Prejudice", author=a1))
+    db.insert(Book(title="Emma", author=a1))
+    db.insert(Book(title="Oliver Twist", author=a2))
+
+    # 2 queries total: one for authors, one for all their books
+    authors = db.select(Author).prefetch_related("books").fetch_all()
+
+    for author in authors:
+        books = cast("Any", author).books.fetch_all()
+        titles = ", ".join(b.title for b in books)
+        output.write(f"{author.name}: {titles}\n")
+
+    output.write("\nAll data loaded in 2 queries (no N+1 problem)\n")
+
+    db.close()
+    return output.getvalue()
+
+
+def _run_prefetch_related_m2m() -> str:
+    """Eager load M2M relationships with prefetch_related().
+
+    prefetch_related() works with many-to-many relationships too,
+    loading all related objects in a single extra query instead of
+    one query per instance.
+    """
+    output = io.StringIO()
+
+    class Tag(BaseDBModel):
+        name: str
+
+    class Article(BaseDBModel):
+        title: str
+        tags: ManyToMany[Tag] = ManyToMany(Tag, related_name="articles")
+
+    db = SqliterDB(memory=True)
+    db.create_table(Tag)
+    db.create_table(Article)
+
+    python = db.insert(Tag(name="python"))
+    sqlite = db.insert(Tag(name="sqlite"))
+    orm_tag = db.insert(Tag(name="orm"))
+
+    a1 = db.insert(Article(title="SQLiter Guide"))
+    a2 = db.insert(Article(title="Python Tips"))
+
+    a1.tags.add(python, sqlite, orm_tag)
+    a2.tags.add(python)
+
+    # Prefetch tags for all articles
+    articles = db.select(Article).prefetch_related("tags").fetch_all()
+
+    output.write("Articles with prefetched tags:\n")
+    for article in articles:
+        tags = article.tags.fetch_all()
+        tag_names = ", ".join(t.name for t in tags)
+        output.write(f"  {article.title}: [{tag_names}]\n")
+
+    # Reverse: prefetch articles for tags
+    tags = db.select(Tag).prefetch_related("articles").fetch_all()
+
+    output.write("\nTags with prefetched articles:\n")
+    for tag in tags:
+        entries = cast("Any", tag).articles.fetch_all()
+        entry_titles = ", ".join(e.title for e in entries)
+        count = cast("Any", tag).articles.count()
+        output.write(f"  {tag.name}: {count} article(s)")
+        if entry_titles:
+            output.write(f" [{entry_titles}]")
+        output.write("\n")
+
+    db.close()
+    return output.getvalue()
+
+
 def get_category() -> DemoCategory:
     """Get the ORM Features demo category."""
     return DemoCategory(
@@ -532,6 +628,22 @@ def get_category() -> DemoCategory:
                 category="orm",
                 code=extract_demo_code(_run_select_related_combined),
                 execute=_run_select_related_combined,
+            ),
+            Demo(
+                id="orm_prefetch_related_fk",
+                title="Prefetch Reverse FK Relationships",
+                description="Eager load reverse FKs with prefetch_related()",
+                category="orm",
+                code=extract_demo_code(_run_prefetch_related_reverse_fk),
+                execute=_run_prefetch_related_reverse_fk,
+            ),
+            Demo(
+                id="orm_prefetch_related_m2m",
+                title="Prefetch M2M Relationships",
+                description="Eager load M2M with prefetch_related()",
+                category="orm",
+                code=extract_demo_code(_run_prefetch_related_m2m),
+                execute=_run_prefetch_related_m2m,
             ),
         ],
     )

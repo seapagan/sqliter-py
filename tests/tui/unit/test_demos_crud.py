@@ -74,7 +74,7 @@ class TestGetCategory:
 
         assert category.id == "crud"
         assert category.title == "CRUD Operations"
-        assert len(category.demos) == 4
+        assert len(category.demos) == 5
 
     def test_all_demos_are_executable(self) -> None:
         """Test that all CRUD demos execute successfully."""

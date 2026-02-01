@@ -134,11 +134,58 @@ db.close()
 
 If other records reference this record (via foreign keys), the delete will fail unless you handle the dependencies first.
 
+## Bulk Insert
+
+Insert multiple records in a single transaction.
+
+```python
+# --8<-- [start:bulk-insert]
+from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
+
+class Product(BaseDBModel):
+    name: str
+    price: float
+
+db = SqliterDB(memory=True)
+db.create_table(Product)
+
+products = [
+    Product(name="Widget", price=9.99),
+    Product(name="Gadget", price=24.99),
+    Product(name="Gizmo", price=14.99),
+]
+results = db.bulk_insert(products)
+
+print(f"Inserted {len(results)} products:")
+for product in results:
+    print(f"  pk={product.pk}: {product.name} (${product.price})")
+
+total = db.select(Product).count()
+print(f"\nTotal products in database: {total}")
+
+db.close()
+```
+
+### What Happens
+
+- `db.bulk_insert()` inserts all records in a single transaction
+- Each returned instance has its `pk` field populated
+- If any insert fails, all inserts in the batch are rolled back
+- Auto-timestamps (`created_at`, `updated_at`) are set on each record
+
+### When to Use Bulk Insert
+
+- **Use** when inserting multiple records of the same model type
+- **Use** for seeding data or importing batches
+- **Don't use** for mixed model types (raises `ValueError`)
+
 ## Operation Summary
 
 | Operation | Method | Returns |
 |-----------|--------|---------|
 | **Create** | `db.insert(Model(...))` | The model with `pk` set |
+| **Create (batch)** | `db.bulk_insert([...])` | List of models with `pk` set |
 | **Read** | `db.get(Model, pk)` | The model or `None` |
 | **Update** | `db.update(model)` | Nothing (modifies in-place) |
 | **Delete** | `db.delete(Model, pk)` | Nothing |

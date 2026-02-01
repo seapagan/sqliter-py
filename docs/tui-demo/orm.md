@@ -675,12 +675,147 @@ db.close()
 
 By default, SQLite doesn't enforce foreign key constraints for backwards compatibility. However, SQLiter automatically enables foreign key enforcement on every database connection, so you don't need to manually set `PRAGMA foreign_keys = ON`.
 
+## Prefetch Reverse FK Relationships
+
+Eager load reverse FK relationships with `prefetch_related()`.
+
+```python
+# --8<-- [start:prefetch-related-fk]
+from typing import Any, cast
+
+from sqliter import SqliterDB
+from sqliter.orm import BaseDBModel, ForeignKey
+
+class Author(BaseDBModel):
+    name: str
+
+class Book(BaseDBModel):
+    title: str
+    author: ForeignKey[Author] = ForeignKey(Author, related_name="books")
+
+db = SqliterDB(memory=True)
+db.create_table(Author)
+db.create_table(Book)
+
+a1 = db.insert(Author(name="Jane Austen"))
+a2 = db.insert(Author(name="Charles Dickens"))
+db.insert(Book(title="Pride and Prejudice", author=a1))
+db.insert(Book(title="Emma", author=a1))
+db.insert(Book(title="Oliver Twist", author=a2))
+
+# 2 queries total: one for authors, one for all their books
+authors = db.select(Author).prefetch_related("books").fetch_all()
+
+for author in authors:
+    books = cast("Any", author).books.fetch_all()
+    titles = ", ".join(b.title for b in books)
+    print(f"{author.name}: {titles}")
+
+print("\nAll data loaded in 2 queries (no N+1 problem)")
+
+db.close()
+```
+
+### What Happens
+
+1. `prefetch_related("books")` tells SQLiter to preload the reverse FK
+2. The main query fetches all Authors
+3. A second query fetches all Books whose `author` FK matches any of
+   the returned Author PKs
+4. Results are grouped and cached on each Author instance
+
+### `select_related` vs `prefetch_related`
+
+| Method | Direction | Strategy | Best For |
+|--------|-----------|----------|----------|
+| `select_related()` | Forward FK (`book.author`) | JOIN | Parent lookups |
+| `prefetch_related()` | Reverse FK (`author.books`) | 2nd query | Child collections |
+
+## Prefetch M2M Relationships
+
+Eager load many-to-many relationships with `prefetch_related()`.
+
+```python
+# --8<-- [start:prefetch-related-m2m]
+from typing import Any, cast
+
+from sqliter import SqliterDB
+from sqliter.orm import BaseDBModel, ManyToMany
+
+class Tag(BaseDBModel):
+    name: str
+
+class Article(BaseDBModel):
+    title: str
+    tags: ManyToMany[Tag] = ManyToMany(Tag, related_name="articles")
+
+db = SqliterDB(memory=True)
+db.create_table(Tag)
+db.create_table(Article)
+
+python = db.insert(Tag(name="python"))
+sqlite = db.insert(Tag(name="sqlite"))
+orm_tag = db.insert(Tag(name="orm"))
+
+a1 = db.insert(Article(title="SQLiter Guide"))
+a2 = db.insert(Article(title="Python Tips"))
+
+a1.tags.add(python, sqlite, orm_tag)
+a2.tags.add(python)
+
+# Prefetch tags for all articles (forward M2M)
+articles = db.select(Article).prefetch_related("tags").fetch_all()
+
+print("Articles with prefetched tags:")
+for article in articles:
+    tags = article.tags.fetch_all()
+    tag_names = ", ".join(t.name for t in tags)
+    print(f"  {article.title}: [{tag_names}]")
+
+# Reverse: prefetch articles for tags
+tags = db.select(Tag).prefetch_related("articles").fetch_all()
+
+print("\nTags with prefetched articles:")
+for tag in tags:
+    entries = cast("Any", tag).articles.fetch_all()
+    entry_titles = ", ".join(e.title for e in entries)
+    count = cast("Any", tag).articles.count()
+    print(f"  {tag.name}: {count} article(s) [{entry_titles}]")
+
+db.close()
+```
+
+### What Happens
+
+1. **Forward M2M** (`article.tags`): queries the junction table + Tag
+   table in a single extra query, caching tags on each Article
+2. **Reverse M2M** (`tag.articles`): same approach from the other side,
+   querying junction table + Article table
+3. Cached data is served from memory — `fetch_all()`, `count()`, and
+   `exists()` do not hit the database again
+4. Write operations (`add`, `remove`, `clear`, `set`) still go through
+   the database and update the cache
+
+### Combining with Other Methods
+
+```python
+# prefetch_related chains with filter, order, limit, and select_related
+results = (
+    db.select(Article)
+    .filter(title__contains="Guide")
+    .prefetch_related("tags")
+    .order("title")
+    .fetch_all()
+)
+```
+
 ## ORM Best Practices
 
 ### DO
 
 - Use foreign keys to link related data
-- Use `select_related()` when accessing related objects in loops
+- Use `select_related()` for forward FK eager loading (parent lookups)
+- Use `prefetch_related()` for reverse FK and M2M eager loading
 - Filter by relationship fields using double underscore syntax
 - Combine eager loading with filters for optimal performance
 - Consider query count when iterating over related objects
@@ -692,12 +827,15 @@ By default, SQLite doesn't enforce foreign key constraints for backwards compati
 - Delete parent records without handling children
 - Use lazy loading in loops (causes N+1 queries)
 - Eager load relationships you won't access
+- Use `select_related()` for reverse relationships (use
+  `prefetch_related()` instead)
 
 ### Performance Checklist
 
-- [ ] Will I access related objects? Use `select_related()`
+- [ ] Will I access a parent object? Use `select_related()`
+- [ ] Will I access child collections or M2M? Use `prefetch_related()`
 - [ ] Am I filtering by related fields? Use `__` syntax
-- [ ] Am I iterating over results? Preload with `select_related()`
+- [ ] Am I iterating over results? Preload relationships
 - [ ] Can I filter before eager loading? Order operations for efficiency
 
 ## Related Documentation
