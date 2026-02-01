@@ -35,6 +35,7 @@ from sqliter.exceptions import (
     InvalidFilterError,
     InvalidOffsetError,
     InvalidOrderError,
+    InvalidPrefetchError,
     InvalidRelationshipError,
     RecordDeletionError,
     RecordFetchError,
@@ -126,6 +127,8 @@ class QueryBuilder(Generic[T]):
         # Eager loading support
         self._select_related_paths: list[str] = []
         self._join_info: list[JoinInfo] = []
+        # Prefetch support
+        self._prefetch_related_paths: list[str] = []
 
         if self._fields:
             self._validate_fields()
@@ -355,6 +358,320 @@ class QueryBuilder(Generic[T]):
             self._validate_and_build_join_info(path)
 
         return self
+
+    def prefetch_related(self, *paths: str) -> Self:
+        """Specify reverse FK or M2M relationships to prefetch.
+
+        After the main query executes, a second query is issued per path
+        to efficiently load the related objects and store them in each
+        instance's ``_prefetch_cache``.  Subsequent access through the
+        descriptor returns prefetched data without additional queries.
+
+        Args:
+            *paths: One or more relationship names to prefetch.
+                Must be reverse FK (``ReverseRelationship``) or M2M
+                (``ManyToMany`` / ``ReverseManyToMany``) descriptors.
+
+        Returns:
+            The QueryBuilder instance for method chaining.
+
+        Raises:
+            InvalidPrefetchError: If any path is not a valid reverse FK
+                or M2M relationship on the model.
+
+        Examples:
+            >>> db.select(Author).prefetch_related("books").fetch_all()
+            >>> db.select(Article).prefetch_related("tags").fetch_all()
+        """
+        for path in paths:
+            self._validate_prefetch_path(path)
+        self._prefetch_related_paths.extend(paths)
+        return self
+
+    def _validate_prefetch_path(self, path: str) -> None:
+        """Validate that a prefetch path is a reverse FK or M2M descriptor.
+
+        Args:
+            path: The relationship name to validate.
+
+        Raises:
+            InvalidPrefetchError: If the path is invalid.
+        """
+        from sqliter.orm.m2m import (  # noqa: PLC0415
+            ManyToMany,
+            ReverseManyToMany,
+        )
+        from sqliter.orm.query import ReverseRelationship  # noqa: PLC0415
+
+        # Check class-level descriptor for the path
+        descriptor = getattr(self.model_class, path, None)
+        if descriptor is None or not isinstance(
+            descriptor, (ReverseRelationship, ManyToMany, ReverseManyToMany)
+        ):
+            model_name = self.model_class.__name__
+            raise InvalidPrefetchError(path, path, model_name)
+
+    def _execute_prefetch(self, instances: list[T]) -> None:
+        """Run prefetch queries and populate _prefetch_cache on instances.
+
+        Args:
+            instances: The list of parent instances from the main query.
+        """
+        if not instances or not self._prefetch_related_paths:
+            return
+
+        from sqliter.orm.m2m import (  # noqa: PLC0415
+            ManyToMany,
+            ReverseManyToMany,
+        )
+        from sqliter.orm.query import ReverseRelationship  # noqa: PLC0415
+
+        pks = [inst.pk for inst in instances if inst.pk]
+        if not pks:
+            return
+
+        for path in self._prefetch_related_paths:
+            descriptor = getattr(self.model_class, path)
+
+            if isinstance(descriptor, ReverseRelationship):
+                self._prefetch_reverse_fk(path, descriptor, instances, pks)
+            elif isinstance(descriptor, (ManyToMany, ReverseManyToMany)):
+                self._prefetch_m2m(path, descriptor, instances, pks)
+
+    def _prefetch_reverse_fk(
+        self,
+        path: str,
+        descriptor: Any,  # noqa: ANN401
+        instances: list[T],
+        pks: list[int],
+    ) -> None:
+        """Prefetch reverse FK relationships.
+
+        Args:
+            path: The relationship name.
+            descriptor: The ReverseRelationship descriptor.
+            instances: Parent model instances.
+            pks: Parent primary keys.
+        """
+        fk_field = descriptor.fk_field
+        related_model = descriptor.from_model
+
+        # Single query: SELECT * FROM related WHERE fk_field_id IN (...)
+        pk_filter: list[Any] = list(pks)
+        related_objects = (
+            self.db.select(related_model)
+            .filter(**{f"{fk_field}_id__in": pk_filter})
+            .fetch_all()
+        )
+
+        # Group by parent PK
+        grouped: dict[int, list[Any]] = {pk: [] for pk in pks}
+        for obj in related_objects:
+            parent_pk = getattr(obj, f"{fk_field}_id", None)
+            if parent_pk and parent_pk in grouped:
+                grouped[parent_pk].append(obj)
+
+        # Populate _prefetch_cache on each instance
+        for inst in instances:
+            cache = inst.__dict__.get("_prefetch_cache", {})
+            cache[path] = grouped.get(inst.pk or 0, [])
+            object.__setattr__(inst, "_prefetch_cache", cache)
+
+    @staticmethod
+    def _resolve_m2m_columns(
+        descriptor: Any,  # noqa: ANN401
+        owner_table: str,
+    ) -> Optional[tuple[Any, str, str, str, str, str, bool]]:
+        """Resolve M2M descriptor into junction table metadata.
+
+        Args:
+            descriptor: A ManyToMany or ReverseManyToMany descriptor.
+            owner_table: The table name of the parent model.
+
+        Returns:
+            A tuple of (target_model, junction_table, col_a, col_b,
+            from_col, to_col, symmetrical), or None if not resolvable.
+        """
+        from sqliter.orm.m2m import (  # noqa: PLC0415
+            ManyToMany,
+            ReverseManyToMany,
+            _m2m_column_names,
+        )
+
+        if isinstance(descriptor, ManyToMany):
+            target_model = cast("type[BaseDBModel]", descriptor.to_model)
+            junction_table = descriptor.junction_table or ""
+            from_table = owner_table
+            to_table = target_model.get_table_name()
+            symmetrical = descriptor.m2m_info.symmetrical
+        elif isinstance(descriptor, ReverseManyToMany):
+            target_model = descriptor._from_model  # noqa: SLF001
+            junction_table = descriptor._junction_table  # noqa: SLF001
+            from_table = descriptor._to_model.get_table_name()  # noqa: SLF001
+            to_table = target_model.get_table_name()
+            symmetrical = descriptor._symmetrical  # noqa: SLF001
+        else:
+            return None
+
+        col_a, col_b = _m2m_column_names(from_table, to_table)
+        # col_a corresponds to from_table, col_b to to_table
+        from_col, to_col = col_a, col_b
+
+        return (
+            target_model,
+            junction_table,
+            col_a,
+            col_b,
+            from_col,
+            to_col,
+            symmetrical,
+        )
+
+    def _prefetch_m2m(
+        self,
+        path: str,
+        descriptor: Any,  # noqa: ANN401
+        instances: list[T],
+        pks: list[int],
+    ) -> None:
+        """Prefetch M2M relationships.
+
+        Args:
+            path: The relationship name.
+            descriptor: The ManyToMany or ReverseManyToMany descriptor.
+            instances: Parent model instances.
+            pks: Parent primary keys.
+        """
+        resolved = self._resolve_m2m_columns(
+            descriptor, self.model_class.get_table_name()
+        )
+        if resolved is None:
+            return
+
+        (
+            target_model,
+            junction_table,
+            col_a,
+            col_b,
+            from_col,
+            to_col,
+            symmetrical,
+        ) = resolved
+
+        # Query junction table
+        rows = self._query_junction_table(
+            junction_table,
+            (col_a, col_b, from_col, to_col),
+            pks,
+            symmetrical=symmetrical,
+        )
+
+        # Build parent->target mapping
+        parent_to_target, all_target_pks = self._build_m2m_mapping(
+            rows, pks, symmetrical=symmetrical
+        )
+
+        # Fetch all target objects in one query
+        target_objects: dict[int, Any] = {}
+        if all_target_pks:
+            target_filter: list[Any] = list(all_target_pks)
+            results = (
+                self.db.select(target_model)
+                .filter(pk__in=target_filter)
+                .fetch_all()
+            )
+            for obj in results:
+                if obj.pk is not None:
+                    target_objects[obj.pk] = obj
+
+        # Populate _prefetch_cache on each instance
+        for inst in instances:
+            target_pks = parent_to_target.get(inst.pk or 0, [])
+            related = [
+                target_objects[tpk]
+                for tpk in target_pks
+                if tpk in target_objects
+            ]
+            cache = inst.__dict__.get("_prefetch_cache", {})
+            cache[path] = related
+            object.__setattr__(inst, "_prefetch_cache", cache)
+
+    def _query_junction_table(
+        self,
+        junction_table: str,
+        columns: tuple[str, str, str, str],
+        pks: list[int],
+        *,
+        symmetrical: bool,
+    ) -> list[tuple[int, int]]:
+        """Query a M2M junction table for related pairs.
+
+        Args:
+            junction_table: Junction table name.
+            columns: Tuple of (col_a, col_b, from_col, to_col).
+            pks: Parent primary keys to query.
+            symmetrical: Whether the relationship is symmetrical.
+
+        Returns:
+            List of (from_pk, to_pk) tuples.
+        """
+        col_a, col_b, from_col, to_col = columns
+        conn = self.db.connect()
+        cursor = conn.cursor()
+        placeholders = ", ".join("?" for _ in pks)
+
+        if symmetrical:
+            sql = (
+                f'SELECT "{col_a}", "{col_b}" '  # noqa: S608
+                f'FROM "{junction_table}" '
+                f'WHERE "{col_a}" IN ({placeholders}) '
+                f'OR "{col_b}" IN ({placeholders})'
+            )
+            cursor.execute(sql, [*pks, *pks])
+        else:
+            sql = (
+                f'SELECT "{from_col}", "{to_col}" '  # noqa: S608
+                f'FROM "{junction_table}" '
+                f'WHERE "{from_col}" IN ({placeholders})'
+            )
+            cursor.execute(sql, pks)
+
+        return cursor.fetchall()
+
+    @staticmethod
+    def _build_m2m_mapping(
+        rows: list[tuple[int, int]],
+        pks: list[int],
+        *,
+        symmetrical: bool,
+    ) -> tuple[dict[int, list[int]], set[int]]:
+        """Build parent->target PK mapping from junction table rows.
+
+        Args:
+            rows: List of (from_pk, to_pk) tuples.
+            pks: Parent primary keys.
+            symmetrical: Whether the relationship is symmetrical.
+
+        Returns:
+            A tuple of (parent_to_target dict, all_target_pks set).
+        """
+        parent_to_target: dict[int, list[int]] = {pk: [] for pk in pks}
+        all_target_pks: set[int] = set()
+        pk_set = set(pks)
+
+        for row_from, row_to in rows:
+            if symmetrical:
+                if row_from in pk_set:
+                    parent_to_target[row_from].append(row_to)
+                    all_target_pks.add(row_to)
+                if row_to in pk_set:
+                    parent_to_target[row_to].append(row_from)
+                    all_target_pks.add(row_from)
+            elif row_from in pk_set:
+                parent_to_target[row_from].append(row_to)
+                all_target_pks.add(row_to)
+
+        return parent_to_target, all_target_pks
 
     def _validate_and_build_join_info(self, path: str) -> None:
         """Validate a relationship path and build JoinInfo entries.
@@ -1198,6 +1515,7 @@ class QueryBuilder(Generic[T]):
             "fields": tuple(sorted(self._fields)) if self._fields else None,
             "fetch_one": fetch_one,
             "select_related": tuple(sorted(self._select_related_paths)),
+            "prefetch_related": tuple(sorted(self._prefetch_related_paths)),
         }
 
         # Hash the key parts
@@ -1264,6 +1582,7 @@ class QueryBuilder(Generic[T]):
                 single_result = self._convert_joined_row_to_model(
                     single_row, column_names
                 )
+                self._execute_prefetch([single_result])
                 if not self._bypass_cache:
                     cache_key = self._make_cache_key(fetch_one=True)
                     self.db._cache_set(  # noqa: SLF001
@@ -1283,6 +1602,7 @@ class QueryBuilder(Generic[T]):
                 self._convert_joined_row_to_model(row, column_names)
                 for row in row_list
             ]
+            self._execute_prefetch(list_results)
             if not self._bypass_cache:
                 cache_key = self._make_cache_key(fetch_one=False)
                 self.db._cache_set(  # noqa: SLF001
@@ -1299,6 +1619,7 @@ class QueryBuilder(Generic[T]):
                 result if isinstance(result, tuple) else result[0]
             )
             single_result = self._convert_row_to_model(std_single_row)
+            self._execute_prefetch([single_result])
             if not self._bypass_cache:
                 cache_key = self._make_cache_key(fetch_one=True)
                 self.db._cache_set(  # noqa: SLF001
@@ -1313,6 +1634,7 @@ class QueryBuilder(Generic[T]):
             result if isinstance(result, list) else [result]
         )
         list_results = [self._convert_row_to_model(row) for row in std_row_list]
+        self._execute_prefetch(list_results)
         if not self._bypass_cache:
             cache_key = self._make_cache_key(fetch_one=False)
             self.db._cache_set(  # noqa: SLF001

@@ -7,6 +7,7 @@ from typing import (
     Any,
     Optional,
     Protocol,
+    Union,
     overload,
     runtime_checkable,
 )
@@ -22,6 +23,87 @@ class HasPKAndContext(Protocol):
 
     pk: Optional[int]
     db_context: Optional[SqliterDB]
+
+
+class PrefetchedResult:
+    """Wrapper around prefetched reverse FK data.
+
+    Provides the same read interface as ``ReverseQuery`` so that code
+    consuming ``author.books`` works identically whether the data was
+    prefetched or lazily loaded.  Write-like operations such as
+    ``filter()`` fall through to a real database query.
+    """
+
+    def __init__(
+        self,
+        cached_items: list[BaseDBModel],
+        instance: HasPKAndContext,
+        to_model: type[BaseDBModel],
+        fk_field: str,
+        db_context: Optional[SqliterDB],
+    ) -> None:
+        """Initialize a prefetched result wrapper.
+
+        Args:
+            cached_items: The prefetched list of related instances.
+            instance: The parent model instance.
+            to_model: The related model class.
+            fk_field: The FK field name on the related model.
+            db_context: Database connection for fallback queries.
+        """
+        self._items = cached_items
+        self._instance = instance
+        self._to_model = to_model
+        self._fk_field = fk_field
+        self._db = db_context
+
+    def fetch_all(self) -> list[BaseDBModel]:
+        """Return all prefetched related instances.
+
+        Returns:
+            List of related model instances.
+        """
+        return list(self._items)
+
+    def fetch_one(self) -> Optional[BaseDBModel]:
+        """Return the first prefetched instance, or None.
+
+        Returns:
+            A related model instance, or None.
+        """
+        return self._items[0] if self._items else None
+
+    def count(self) -> int:
+        """Return the count of prefetched instances.
+
+        Returns:
+            Number of related objects.
+        """
+        return len(self._items)
+
+    def exists(self) -> bool:
+        """Check whether any prefetched instances exist.
+
+        Returns:
+            True if at least one related object exists.
+        """
+        return len(self._items) > 0
+
+    def filter(self, **kwargs: Any) -> ReverseQuery:  # noqa: ANN401
+        """Fall back to a real database query for filtered results.
+
+        Args:
+            **kwargs: Filter criteria.
+
+        Returns:
+            A ReverseQuery for further chaining.
+        """
+        return ReverseQuery(
+            instance=self._instance,
+            to_model=self._to_model,
+            fk_field=self._fk_field,
+            db_context=self._db,
+        ).filter(**kwargs)
 
 
 class ReverseQuery:
@@ -188,22 +270,37 @@ class ReverseRelationship:
     @overload
     def __get__(
         self, instance: HasPKAndContext, owner: type[object]
-    ) -> ReverseQuery: ...
+    ) -> Union[ReverseQuery, PrefetchedResult]: ...
 
     def __get__(
         self, instance: Optional[HasPKAndContext], owner: type[object]
-    ) -> ReverseRelationship | ReverseQuery:
-        """Return ReverseQuery when accessed on instance.
+    ) -> Union[ReverseRelationship, ReverseQuery, PrefetchedResult]:
+        """Return ReverseQuery or PrefetchedResult when accessed on instance.
+
+        If the instance has a ``_prefetch_cache`` entry for this
+        relationship, returns a ``PrefetchedResult`` wrapping the cached
+        list. Otherwise returns a ``ReverseQuery`` for lazy loading.
 
         Args:
             instance: Model instance (e.g., Author)
             owner: Model class
 
         Returns:
-            ReverseQuery for fetching related objects
+            PrefetchedResult if prefetched, else ReverseQuery
         """
         if instance is None:
             return self
+
+        # Check prefetch cache
+        cache = instance.__dict__.get("_prefetch_cache", {})
+        if self.related_name in cache:
+            return PrefetchedResult(
+                cached_items=cache[self.related_name],
+                instance=instance,
+                to_model=self.from_model,
+                fk_field=self.fk_field,
+                db_context=instance.db_context,
+            )
 
         return ReverseQuery(
             instance=instance,

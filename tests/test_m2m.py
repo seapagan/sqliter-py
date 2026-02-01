@@ -830,6 +830,7 @@ class TestManyToManyEdgeCases:
         # Create article without db_context
         article = Article(pk=1, title="Test")
         manager = article.tags
+        assert isinstance(manager, ManyToManyManager)
         # Should return empty list
         assert manager._fetch_related_pks() == []
 
@@ -839,6 +840,7 @@ class TestManyToManyEdgeCases:
         article = Article(title="Test")
         article.db_context = SqliterDB(memory=True)
         manager = article.tags
+        assert isinstance(manager, ManyToManyManager)
         # Should return empty list
         assert manager._fetch_related_pks() == []
 

@@ -211,6 +211,19 @@ class InvalidRelationshipError(SqliterError):
     )
 
 
+class InvalidPrefetchError(SqliterError):
+    """Raised when an invalid prefetch path is specified.
+
+    This error occurs when using prefetch_related() with a path that is
+    not a reverse foreign key or many-to-many relationship.
+    """
+
+    message_template = (
+        "Invalid prefetch path '{}': '{}' is not a reverse "
+        "foreign key or many-to-many relationship on model {}"
+    )
+
+
 class ManyToManyError(SqliterError):
     """Base exception for many-to-many relationship errors."""
 
