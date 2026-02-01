@@ -434,6 +434,104 @@ class ManyToManyManager(Generic[T]):
         return db.select(model).filter(pk__in=pk_filter, **kwargs)
 
 
+class PrefetchedM2MResult(Generic[T]):
+    """Wrapper around prefetched M2M data.
+
+    Provides the same read interface as ``ManyToManyManager`` so that
+    code consuming ``article.tags`` works identically whether the data
+    was prefetched or lazily loaded.  Write methods (``add``, ``remove``,
+    ``clear``, ``set``) delegate to a real ``ManyToManyManager``.
+    """
+
+    def __init__(
+        self,
+        cached_items: list[T],
+        manager: ManyToManyManager[T],
+    ) -> None:
+        """Initialize a prefetched M2M result wrapper.
+
+        Args:
+            cached_items: The prefetched list of related instances.
+            manager: A real ManyToManyManager for write operations.
+        """
+        self._items = cached_items
+        self._manager = manager
+
+    def fetch_all(self) -> list[T]:
+        """Return all prefetched related instances.
+
+        Returns:
+            List of related model instances.
+        """
+        return list(self._items)
+
+    def fetch_one(self) -> Optional[T]:
+        """Return the first prefetched instance, or None.
+
+        Returns:
+            A related model instance, or None.
+        """
+        return self._items[0] if self._items else None
+
+    def count(self) -> int:
+        """Return the count of prefetched instances.
+
+        Returns:
+            Number of related objects.
+        """
+        return len(self._items)
+
+    def exists(self) -> bool:
+        """Check whether any prefetched instances exist.
+
+        Returns:
+            True if at least one related object exists.
+        """
+        return len(self._items) > 0
+
+    def filter(
+        self,
+        **kwargs: Any,  # noqa: ANN401
+    ) -> QueryBuilder[Any]:
+        """Fall back to a real database query for filtered results.
+
+        Args:
+            **kwargs: Additional filter criteria.
+
+        Returns:
+            A QueryBuilder instance.
+        """
+        return self._manager.filter(**kwargs)
+
+    def add(self, *instances: T) -> None:
+        """Delegate add to the real manager.
+
+        Args:
+            *instances: Model instances to relate.
+        """
+        self._manager.add(*instances)
+
+    def remove(self, *instances: T) -> None:
+        """Delegate remove to the real manager.
+
+        Args:
+            *instances: Model instances to unrelate.
+        """
+        self._manager.remove(*instances)
+
+    def clear(self) -> None:
+        """Delegate clear to the real manager."""
+        self._manager.clear()
+
+    def set(self, *instances: T) -> None:
+        """Delegate set to the real manager.
+
+        Args:
+            *instances: Model instances to set as the new related set.
+        """
+        self._manager.set(*instances)
+
+
 class ManyToMany(Generic[T]):
     """Descriptor for many-to-many relationship fields.
 
@@ -589,19 +687,23 @@ class ManyToMany(Generic[T]):
     @overload
     def __get__(
         self, instance: object, owner: type[object]
-    ) -> ManyToManyManager[T]: ...
+    ) -> Union[ManyToManyManager[T], PrefetchedM2MResult[T]]: ...
 
     def __get__(
         self, instance: Optional[object], owner: type[object]
-    ) -> Union[ManyToMany[T], ManyToManyManager[T]]:
-        """Return ManyToManyManager on instance, descriptor on class.
+    ) -> Union[ManyToMany[T], ManyToManyManager[T], PrefetchedM2MResult[T]]:
+        """Return ManyToManyManager or PrefetchedM2MResult on instance.
+
+        If the instance has a ``_prefetch_cache`` entry for this field,
+        returns a ``PrefetchedM2MResult`` wrapping the cached list.
+        Otherwise returns a ``ManyToManyManager``.
 
         Args:
             instance: Model instance or None.
             owner: Model class.
 
         Returns:
-            ManyToManyManager for instance access, self for class access.
+            PrefetchedM2MResult if prefetched, else ManyToManyManager.
         """
         if instance is None:
             return self
@@ -614,7 +716,7 @@ class ManyToMany(Generic[T]):
             )
             raise TypeError(msg)
 
-        return ManyToManyManager(
+        manager: ManyToManyManager[T] = ManyToManyManager(
             instance=cast("HasPKAndContext", instance),
             to_model=self.to_model,
             from_model=owner,
@@ -622,6 +724,16 @@ class ManyToMany(Generic[T]):
             db_context=getattr(instance, "db_context", None),
             options=ManyToManyOptions(symmetrical=self.m2m_info.symmetrical),
         )
+
+        # Check prefetch cache
+        cache = getattr(instance, "__dict__", {}).get("_prefetch_cache", {})
+        if self.name and self.name in cache:
+            return PrefetchedM2MResult(
+                cached_items=cache[self.name],
+                manager=manager,
+            )
+
+        return manager
 
     def __set__(self, instance: object, value: object) -> None:
         """Prevent direct assignment to M2M fields.
@@ -679,25 +791,33 @@ class ReverseManyToMany:
     @overload
     def __get__(
         self, instance: object, owner: type[object]
-    ) -> ManyToManyManager[Any]: ...
+    ) -> Union[ManyToManyManager[Any], PrefetchedM2MResult[Any]]: ...
 
     def __get__(
         self, instance: Optional[object], owner: type[object]
-    ) -> Union[ReverseManyToMany, ManyToManyManager[Any]]:
-        """Return ManyToManyManager with from/to swapped.
+    ) -> Union[
+        ReverseManyToMany,
+        ManyToManyManager[Any],
+        PrefetchedM2MResult[Any],
+    ]:
+        """Return ManyToManyManager or PrefetchedM2MResult (reversed).
+
+        If the instance has a ``_prefetch_cache`` entry for this
+        relationship, returns a ``PrefetchedM2MResult`` wrapping the
+        cached list. Otherwise returns a ``ManyToManyManager``.
 
         Args:
             instance: Model instance or None.
             owner: Model class.
 
         Returns:
-            ManyToManyManager (reversed) on instance, self on class.
+            PrefetchedM2MResult if prefetched, else ManyToManyManager.
         """
         if instance is None:
             return self
 
         # Swap from/to so queries work from the reverse side
-        return ManyToManyManager(
+        manager: ManyToManyManager[Any] = ManyToManyManager(
             instance=cast("HasPKAndContext", instance),
             to_model=self._from_model,
             from_model=self._to_model,
@@ -709,6 +829,16 @@ class ReverseManyToMany:
                 and not self._symmetrical,
             ),
         )
+
+        # Check prefetch cache
+        cache = getattr(instance, "__dict__", {}).get("_prefetch_cache", {})
+        if self._related_name in cache:
+            return PrefetchedM2MResult(
+                cached_items=cache[self._related_name],
+                manager=manager,
+            )
+
+        return manager
 
     def __set__(self, instance: object, value: object) -> None:
         """Prevent direct assignment to reverse M2M.

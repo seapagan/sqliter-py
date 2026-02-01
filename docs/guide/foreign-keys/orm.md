@@ -164,6 +164,106 @@ book = db.select(Book).select_related("author", "publisher").fetch_one()
 print(f"{book.title} by {book.author.name} from {book.publisher.name}")
 ```
 
+### Eager Loading Reverse Relationships with prefetch_related()
+
+`select_related()` solves the N+1 problem for **forward** FK relationships
+(e.g., `book.author`) using JOINs. For **reverse** relationships (e.g.,
+`author.books`), use `prefetch_related()` instead. It executes a second query
+to fetch all related objects and maps them back to the parent instances:
+
+```python
+# Fetch authors with all their books prefetched (2 queries total)
+authors = db.select(Author).prefetch_related("books").fetch_all()
+
+for author in authors:
+    # No additional query - data is already loaded
+    print(f"{author.name} wrote {author.books.count()} books")
+    for book in author.books.fetch_all():
+        print(f"  - {book.title}")
+```
+
+Without `prefetch_related()`, the loop above would execute 1 + N queries (one
+per author). With it, only 2 queries run regardless of how many authors exist.
+
+#### Multiple Prefetch Paths
+
+You can prefetch several reverse relationships at once:
+
+```python
+authors = (
+    db.select(Author)
+    .prefetch_related("books", "reviews")
+    .fetch_all()
+)
+
+for author in authors:
+    print(f"{author.name}: {author.books.count()} books, "
+          f"{author.reviews.count()} reviews")
+```
+
+#### Combining with select_related()
+
+`prefetch_related()` and `select_related()` can coexist on the same query.
+Use `select_related()` for forward FKs and `prefetch_related()` for reverse
+FKs:
+
+```python
+authors = (
+    db.select(Author)
+    .select_related("publisher")     # forward FK - JOIN
+    .prefetch_related("books")       # reverse FK - 2nd query
+    .fetch_all()
+)
+```
+
+#### Chaining with filter, order, and limit
+
+`prefetch_related()` works with all standard query methods:
+
+```python
+authors = (
+    db.select(Author)
+    .filter(name__startswith="J")
+    .prefetch_related("books")
+    .order("name")
+    .limit(10)
+    .fetch_all()
+)
+```
+
+#### Prefetched Data API
+
+Accessing a prefetched reverse relationship returns a `PrefetchedResult`
+instead of the usual `ReverseQuery`. It provides the same read interface:
+
+```python
+author.books.fetch_all()   # list of Book instances
+author.books.fetch_one()   # first Book or None
+author.books.count()       # number of books
+author.books.exists()      # True if any books exist
+```
+
+If you call `filter()` on a prefetched relationship, it falls back to a real
+database query:
+
+```python
+# Falls back to a DB query with a WHERE clause
+recent = author.books.filter(year__gt=2000).fetch_all()
+```
+
+> [!NOTE]
+>
+> `prefetch_related()` only works with **reverse** FK relationships and M2M
+> relationships. For forward FKs (e.g., `book.author`), use
+> `select_related()` instead. Passing a forward FK path raises
+> `InvalidPrefetchError`.
+
+> [!TIP]
+>
+> `prefetch_related()` also works with many-to-many relationships. See
+> [Many-to-Many](../many-to-many.md#eager-loading-with-prefetch_related) for
+> details.
+
 ### Relationship Filter Traversal
 
 Filter on related object fields using double underscore (`__`) syntax:

@@ -292,6 +292,59 @@ saved = db.insert(user)
 print(saved.pk)  # e.g. 1
 ```
 
+### `bulk_insert()`
+
+Insert multiple records of the same model type in a single transaction.
+More efficient than calling `insert()` in a loop.
+
+```python
+def bulk_insert(
+    self,
+    instances: Sequence[T],
+    *,
+    timestamp_override: bool = False,
+) -> list[T]:
+```
+
+**Parameters:**
+
+| Parameter            | Type          | Default    | Description                                           |
+| -------------------- | ------------- | ---------- | ----------------------------------------------------- |
+| `instances`          | `Sequence[T]` | *required* | The model instances to insert                        |
+| `timestamp_override` | `bool`        | `False`    | If `True`, respect provided non-zero timestamp values |
+
+**Returns:**
+
+`list[T]` -- New model instances with `pk` set for each inserted row.
+Returns `[]` for an empty input sequence.
+
+**Raises:**
+
+- [`RecordInsertionError`](exceptions.md#recordinsertionerror) -- If
+  there is an error during insertion.
+- [`ForeignKeyConstraintError`](exceptions.md#foreignkeyconstrainterror)
+  -- If a FK value does not exist in the referenced table.
+- `ValueError` -- If instances contain mixed model types.
+
+**Behavior:**
+
+- All records are inserted within a single transaction. If any
+  record fails, the entire batch is rolled back.
+- When called inside a `with db:` context manager, the commit is
+  deferred to context exit.
+- Cache is invalidated once after all records are inserted.
+
+**Example:**
+
+```python
+users = [
+    User(name="Alice", email="alice@example.com"),
+    User(name="Bob", email="bob@example.com"),
+]
+saved = db.bulk_insert(users)
+print(saved[0].pk, saved[1].pk)  # e.g. 1, 2
+```
+
 ### `get()`
 
 Retrieve a single record by its primary key.

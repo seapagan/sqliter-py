@@ -111,6 +111,40 @@ def _run_delete() -> str:
     return output.getvalue()
 
 
+def _run_bulk_insert() -> str:
+    """Insert multiple records in a single transaction.
+
+    Use db.bulk_insert() to efficiently insert a batch of records.
+    All records are committed together, and each returned instance
+    has its primary key set.
+    """
+    output = io.StringIO()
+
+    class Product(BaseDBModel):
+        name: str
+        price: float
+
+    db = SqliterDB(memory=True)
+    db.create_table(Product)
+
+    products = [
+        Product(name="Widget", price=9.99),
+        Product(name="Gadget", price=24.99),
+        Product(name="Gizmo", price=14.99),
+    ]
+    results = db.bulk_insert(products)
+
+    output.write(f"Inserted {len(results)} products:\n")
+    for product in results:
+        output.write(f"  pk={product.pk}: {product.name} (${product.price})\n")
+
+    total = db.select(Product).count()
+    output.write(f"\nTotal products in database: {total}\n")
+
+    db.close()
+    return output.getvalue()
+
+
 def get_category() -> DemoCategory:
     """Get the CRUD Operations demo category."""
     return DemoCategory(
@@ -149,6 +183,14 @@ def get_category() -> DemoCategory:
                 category="crud",
                 code=extract_demo_code(_run_delete),
                 execute=_run_delete,
+            ),
+            Demo(
+                id="crud_bulk_insert",
+                title="Bulk Insert",
+                description="Insert multiple records in one transaction",
+                category="crud",
+                code=extract_demo_code(_run_bulk_insert),
+                execute=_run_bulk_insert,
             ),
         ],
     )
