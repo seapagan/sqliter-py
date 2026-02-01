@@ -478,6 +478,54 @@ def _run_prefetch_related_reverse_fk() -> str:
     return output.getvalue()
 
 
+def _run_prefetch_related_nested() -> str:
+    """Eager load nested reverse relationships with prefetch_related()."""
+    output = io.StringIO()
+
+    class Author(BaseDBModel):
+        name: str
+
+    class Book(BaseDBModel):
+        title: str
+        author: ForeignKey[Author] = ForeignKey(Author, related_name="books")
+
+    class Review(BaseDBModel):
+        rating: int
+        book: ForeignKey[Book] = ForeignKey(Book, related_name="reviews")
+
+    db = SqliterDB(memory=True)
+    db.create_table(Author)
+    db.create_table(Book)
+    db.create_table(Review)
+
+    a1 = db.insert(Author(name="Jane Austen"))
+    a2 = db.insert(Author(name="Charles Dickens"))
+
+    b1 = db.insert(Book(title="Pride and Prejudice", author=a1))
+    b2 = db.insert(Book(title="Emma", author=a1))
+    b3 = db.insert(Book(title="Oliver Twist", author=a2))
+
+    db.insert(Review(rating=5, book=b1))
+    db.insert(Review(rating=4, book=b1))
+    db.insert(Review(rating=5, book=b2))
+    db.insert(Review(rating=3, book=b3))
+
+    authors = db.select(Author).prefetch_related("books__reviews").fetch_all()
+
+    for author in authors:
+        output.write(f"{author.name}:\n")
+        books = cast("Any", author).books.fetch_all()
+        for book in books:
+            reviews = cast("Any", book).reviews.fetch_all()
+            scores = ", ".join(str(r.rating) for r in reviews)
+            output.write(f"  {book.title}: {scores}\n")
+
+    output.write("\nNested reverse data loaded in 3 queries total\n")
+
+    db.close()
+    return output.getvalue()
+
+
 def _run_prefetch_related_m2m() -> str:
     """Eager load M2M relationships with prefetch_related().
 
@@ -636,6 +684,14 @@ def get_category() -> DemoCategory:
                 category="orm",
                 code=extract_demo_code(_run_prefetch_related_reverse_fk),
                 execute=_run_prefetch_related_reverse_fk,
+            ),
+            Demo(
+                id="orm_prefetch_related_nested",
+                title="Nested Prefetch Relationships",
+                description="Eager load nested reverse relationships",
+                category="orm",
+                code=extract_demo_code(_run_prefetch_related_nested),
+                execute=_run_prefetch_related_nested,
             ),
             Demo(
                 id="orm_prefetch_related_m2m",

@@ -731,6 +731,70 @@ db.close()
 | `select_related()` | Forward FK (`book.author`) | JOIN | Parent lookups |
 | `prefetch_related()` | Reverse FK (`author.books`) | 2nd query | Child collections |
 
+## Prefetch Nested Relationships
+
+Eager load nested reverse relationships with `prefetch_related()` using
+``"__"`` paths.
+
+```python
+# --8<-- [start:prefetch-related-nested]
+from typing import Any, cast
+
+from sqliter import SqliterDB
+from sqliter.orm import BaseDBModel, ForeignKey
+
+class Author(BaseDBModel):
+    name: str
+
+class Book(BaseDBModel):
+    title: str
+    author: ForeignKey[Author] = ForeignKey(Author, related_name="books")
+
+class Review(BaseDBModel):
+    rating: int
+    book: ForeignKey[Book] = ForeignKey(Book, related_name="reviews")
+
+db = SqliterDB(memory=True)
+db.create_table(Author)
+db.create_table(Book)
+db.create_table(Review)
+
+a1 = db.insert(Author(name="Jane Austen"))
+a2 = db.insert(Author(name="Charles Dickens"))
+
+b1 = db.insert(Book(title="Pride and Prejudice", author=a1))
+b2 = db.insert(Book(title="Emma", author=a1))
+b3 = db.insert(Book(title="Oliver Twist", author=a2))
+
+db.insert(Review(rating=5, book=b1))
+db.insert(Review(rating=4, book=b1))
+db.insert(Review(rating=5, book=b2))
+db.insert(Review(rating=3, book=b3))
+
+authors = db.select(Author).prefetch_related(
+    "books__reviews"
+).fetch_all()
+
+for author in authors:
+    print(f"{author.name}:")
+    books = cast("Any", author).books.fetch_all()
+    for book in books:
+        reviews = cast("Any", book).reviews.fetch_all()
+        scores = ", ".join(str(r.rating) for r in reviews)
+        print(f"  {book.title}: {scores}")
+
+print("\nNested reverse data loaded in 3 queries total")
+
+db.close()
+# --8<-- [end:prefetch-related-nested]
+```
+
+### What Happens
+
+1. `prefetch_related("books__reviews")` loads books and their reviews
+2. SQLiter runs one query per path segment and caches results at each level
+3. Accessing `author.books` or `book.reviews` reuses cached data
+
 ## Prefetch M2M Relationships
 
 Eager load many-to-many relationships with `prefetch_related()`.
