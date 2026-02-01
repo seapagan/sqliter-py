@@ -134,6 +134,7 @@ db.delete(User, 1)
 > [!IMPORTANT]
 >
 > The single record deletion method will raise:
+>
 > - `RecordNotFoundError` if the record with the specified primary key is not found
 > - `RecordDeletionError` if there's an error during the deletion process
 

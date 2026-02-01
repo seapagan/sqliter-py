@@ -233,6 +233,7 @@ You can override TTL for a single `get()` call as well:
 ```python
 user = db.get(User, 1, cache_ttl=300)
 ```
+
 - Different TTL requirements for different query types
 
 ## Empty Result Caching
