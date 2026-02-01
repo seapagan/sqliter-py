@@ -208,10 +208,10 @@ Use `select_related()` for forward FKs and `prefetch_related()` for reverse
 FKs:
 
 ```python
-books = (
-    db.select(Book)
-    .select_related("author")       # forward FK - JOIN
-    .prefetch_related()              # no reverse FKs on Book, but valid
+authors = (
+    db.select(Author)
+    .select_related("publisher")     # forward FK - JOIN
+    .prefetch_related("books")       # reverse FK - 2nd query
     .fetch_all()
 )
 ```

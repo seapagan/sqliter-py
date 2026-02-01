@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import time
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 import pytest
 from pydantic import Field
@@ -268,8 +271,12 @@ class TestBulkInsertErrorHandling:
 class TestBulkInsertTransaction:
     """Transaction context handling."""
 
-    def test_within_transaction_defers_commit(self, db: SqliterDB) -> None:
+    def test_within_transaction_defers_commit(self, tmp_path: Path) -> None:
         """Within `with db:`, commit is deferred to context exit."""
+        db_path = str(tmp_path / "txn_test.db")
+        db = SqliterDB(db_path)
+        db.create_table(SimpleModel)
+
         with db:
             results = db.bulk_insert(
                 [
@@ -279,13 +286,12 @@ class TestBulkInsertTransaction:
             )
             assert len(results) == 2
 
-        # After exiting context, data should be committed.
-        # For in-memory DB, connection closes on exit so data is lost,
-        # but the method should not error during the transaction.
-        db.connect()
-        db.create_table(SimpleModel)
-        count = db.select(SimpleModel).count()
-        assert count >= 0
+        # Reopen and verify data persisted after context exit
+        db2 = SqliterDB(db_path)
+        db2.create_table(SimpleModel)
+        count = db2.select(SimpleModel).count()
+        assert count == 2
+        db2.close()
 
 
 class TestBulkInsertDBContext:
