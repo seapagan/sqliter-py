@@ -830,7 +830,7 @@ class TestNestedPrefetch:
         class LocalHost(BaseDBModel):
             name: str
 
-        LocalHost.ghosts = ReverseManyToMany(  # type: ignore[attr-defined]
+        LocalHost.ghosts = ReverseManyToMany(
             from_model=cast("type[Any]", "GhostModel"),
             to_model=LocalHost,
             junction_table="ghost_host",

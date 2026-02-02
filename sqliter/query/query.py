@@ -524,6 +524,28 @@ class QueryBuilder(Generic[T]):
                 owner_model=current_model,
             )
 
+    @staticmethod
+    def _collect_prefetched_children(
+        parent_instances: list[Any],
+        segment: str,
+    ) -> list[Any]:
+        """Collect unique prefetched children for a path segment.
+
+        Instances without a primary key are skipped to match prefetch
+        semantics where pk=0 indicates an unsaved instance.
+        """
+        children: list[Any] = []
+        seen_child_pks: set[Any] = set()
+        for inst in parent_instances:
+            cache = inst.__dict__.get("_prefetch_cache", {})
+            for child in cache.get(segment, []):
+                pk = getattr(child, "pk", None)
+                if not pk or pk in seen_child_pks:
+                    continue
+                seen_child_pks.add(pk)
+                children.append(child)
+        return children
+
     def _execute_prefetch(self, instances: list[T]) -> None:
         """Run prefetch queries and populate _prefetch_cache on instances.
 
@@ -567,11 +589,9 @@ class QueryBuilder(Generic[T]):
                 full_path = (
                     f"{parent_path}__{segment}" if parent_path else segment
                 )
-                children: list[Any] = []
-                for inst in parent_instances:
-                    cache = inst.__dict__.get("_prefetch_cache", {})
-                    children.extend(cache.get(segment, []))
-                instances_by_path[full_path] = children
+                instances_by_path[full_path] = (
+                    self._collect_prefetched_children(parent_instances, segment)
+                )
 
     def _prefetch_reverse_fk(
         self,
