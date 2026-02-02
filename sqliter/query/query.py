@@ -525,8 +525,7 @@ class QueryBuilder(Generic[T]):
         if not instances or not self._prefetch_related_paths:
             return
 
-        pks = [inst.pk for inst in instances if inst.pk]
-        if not pks:
+        if not any(getattr(inst, "pk", None) for inst in instances):
             return
 
         # ── 1. Build a depth-indexed map of unique segments ──────
