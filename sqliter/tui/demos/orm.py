@@ -478,6 +478,95 @@ def _run_prefetch_related_reverse_fk() -> str:
     return output.getvalue()
 
 
+def _run_prefetch_related_nested() -> str:
+    """Eager load nested reverse relationships with prefetch_related()."""
+    output = io.StringIO()
+
+    class Author(BaseDBModel):
+        name: str
+
+    class Book(BaseDBModel):
+        title: str
+        author: ForeignKey[Author] = ForeignKey(Author, related_name="books")
+
+    class Review(BaseDBModel):
+        rating: int
+        book: ForeignKey[Book] = ForeignKey(Book, related_name="reviews")
+
+    db = SqliterDB(memory=True)
+    db.create_table(Author)
+    db.create_table(Book)
+    db.create_table(Review)
+
+    a1 = db.insert(Author(name="Jane Austen"))
+    a2 = db.insert(Author(name="Charles Dickens"))
+
+    b1 = db.insert(Book(title="Pride and Prejudice", author=a1))
+    b2 = db.insert(Book(title="Emma", author=a1))
+    b3 = db.insert(Book(title="Oliver Twist", author=a2))
+
+    db.insert(Review(rating=5, book=b1))
+    db.insert(Review(rating=4, book=b1))
+    db.insert(Review(rating=5, book=b2))
+    db.insert(Review(rating=3, book=b3))
+
+    authors = db.select(Author).prefetch_related("books__reviews").fetch_all()
+
+    for author in authors:
+        output.write(f"{author.name}:\n")
+        books = cast("Any", author).books.fetch_all()
+        for book in books:
+            reviews = cast("Any", book).reviews.fetch_all()
+            scores = ", ".join(str(r.rating) for r in reviews)
+            output.write(f"  {book.title}: {scores}\n")
+
+    output.write("\nNested reverse data loaded in 3 queries total\n")
+
+    db.close()
+    return output.getvalue()
+
+
+def _run_prefetch_related_nested_m2m() -> str:
+    """Eager load nested M2M relationships with prefetch_related()."""
+    output = io.StringIO()
+
+    class Tag(BaseDBModel):
+        name: str
+
+    class Article(BaseDBModel):
+        title: str
+        tags: ManyToMany[Tag] = ManyToMany(Tag, related_name="articles")
+
+    db = SqliterDB(memory=True)
+    db.create_table(Tag)
+    db.create_table(Article)
+
+    python = db.insert(Tag(name="python"))
+    sqlite = db.insert(Tag(name="sqlite"))
+    orm_tag = db.insert(Tag(name="orm"))
+
+    a1 = db.insert(Article(title="SQLiter Guide"))
+    a2 = db.insert(Article(title="Python Tips"))
+
+    a1.tags.add(python, sqlite, orm_tag)
+    a2.tags.add(python, orm_tag)
+
+    articles = db.select(Article).prefetch_related("tags__articles").fetch_all()
+
+    for article in articles:
+        output.write(f"{article.title}:\n")
+        tags = article.tags.fetch_all()
+        for tag in tags:
+            related = cast("Any", tag).articles.fetch_all()
+            titles = ", ".join(a.title for a in related)
+            output.write(f"  {tag.name}: {titles}\n")
+
+    output.write("\nNested M2M data loaded in 5 queries total\n")
+
+    db.close()
+    return output.getvalue()
+
+
 def _run_prefetch_related_m2m() -> str:
     """Eager load M2M relationships with prefetch_related().
 
@@ -636,6 +725,22 @@ def get_category() -> DemoCategory:
                 category="orm",
                 code=extract_demo_code(_run_prefetch_related_reverse_fk),
                 execute=_run_prefetch_related_reverse_fk,
+            ),
+            Demo(
+                id="orm_prefetch_related_nested",
+                title="Nested Prefetch Relationships",
+                description="Eager load nested reverse relationships",
+                category="orm",
+                code=extract_demo_code(_run_prefetch_related_nested),
+                execute=_run_prefetch_related_nested,
+            ),
+            Demo(
+                id="orm_prefetch_related_nested_m2m",
+                title="Nested Prefetch M2M Relationships",
+                description="Eager load nested M2M relationships",
+                category="orm",
+                code=extract_demo_code(_run_prefetch_related_nested_m2m),
+                execute=_run_prefetch_related_nested_m2m,
             ),
             Demo(
                 id="orm_prefetch_related_m2m",
