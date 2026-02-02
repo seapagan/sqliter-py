@@ -207,14 +207,14 @@ for author in authors:
 Each segment must be a reverse FK or M2M descriptor:
 
 ```python
-# Author -> books (reverse FK) -> reviews (reverse FK)
+# Author -> books (reverse FK) -> comments (reverse FK)
 authors = db.select(Author).prefetch_related(
-    "books__reviews"
+    "books__comments"
 ).fetch_all()
 
 for author in authors:
     for book in author.books.fetch_all():
-        print(book.title, book.reviews.count())
+        print(book.title, book.comments.count())
 ```
 
 Forward FK segments are not allowed inside a prefetch path. If you need

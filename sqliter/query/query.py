@@ -602,15 +602,16 @@ class QueryBuilder(Generic[T]):
         self,
         path: str,
         descriptor: Any,  # noqa: ANN401
-        instances: list[T],
-        pks: list[int],
+        instances: list[Any],
+        pks: list[Any],
     ) -> None:
         """Prefetch reverse FK relationships.
 
         Args:
             path: The relationship name.
             descriptor: The ReverseRelationship descriptor.
-            instances: Parent model instances.
+            instances: Parent model instances (may differ from
+                ``self.model_class`` at nested levels).
             pks: Parent primary keys.
         """
         fk_field = descriptor.fk_field
