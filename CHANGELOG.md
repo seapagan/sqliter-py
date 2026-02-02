@@ -5,6 +5,15 @@ project since the first release, with the latest changes at the top.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0](https://github.com/seapagan/sqliter-py/releases/tag/0.18.0) (February 02, 2026)
+
+**New Features**
+
+- Add nested prefetch_related support ([#120](https://github.com/seapagan/sqliter-py/pull/120)) by [seapagan](https://github.com/seapagan)
+- Add bulk_insert() and prefetch_related() ([#119](https://github.com/seapagan/sqliter-py/pull/119)) by [seapagan](https://github.com/seapagan)
+
+[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.17.0...0.18.0) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.17.0...0.18.0.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.17.0...0.18.0.patch)
+
 ## [0.17.0](https://github.com/seapagan/sqliter-py/releases/tag/0.17.0) (January 31, 2026)
 
 **New Features**
