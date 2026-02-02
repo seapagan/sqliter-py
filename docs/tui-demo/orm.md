@@ -792,7 +792,9 @@ db.close()
 ### What Happens
 
 1. `prefetch_related("books__reviews")` loads books and their reviews
-2. SQLiter runs one query per path segment and caches results at each level
+2. For this reverse-FK-only path, SQLiter runs one query per path segment and
+   caches results at each level (M2M segments add an extra junction-table
+   query)
 3. Accessing `author.books` or `book.reviews` reuses cached data
 
 ## Prefetch M2M Relationships
