@@ -561,7 +561,7 @@ def _run_prefetch_related_nested_m2m() -> str:
             titles = ", ".join(a.title for a in related)
             output.write(f"  {tag.name}: {titles}\n")
 
-    output.write("\nNested M2M data loaded in 3 queries total\n")
+    output.write("\nNested M2M data loaded in 5 queries total\n")
 
     db.close()
     return output.getvalue()

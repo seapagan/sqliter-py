@@ -905,7 +905,7 @@ for article in articles:
         titles = ", ".join(a.title for a in related)
         print(f"  {tag.name}: {titles}")
 
-print("\nNested M2M data loaded in 3 queries total")
+print("\nNested M2M data loaded in 5 queries total")
 
 db.close()
 # --8<-- [end:prefetch-related-nested-m2m]
