@@ -497,15 +497,13 @@ class QueryBuilder(Generic[T]):
         from sqliter.orm.query import ReverseRelationship  # noqa: PLC0415
 
         seen_pks: set[Any] = set()
-        unique_parent_instances: list[Any] = []
+        parent_pks: list[Any] = []
         for inst in parent_instances:
             pk = getattr(inst, "pk", None)
             if not pk or pk in seen_pks:
                 continue
             seen_pks.add(pk)
-            unique_parent_instances.append(inst)
-        parent_instances = unique_parent_instances
-        parent_pks = [inst.pk for inst in parent_instances]
+            parent_pks.append(pk)
         if not parent_pks:
             return
 
