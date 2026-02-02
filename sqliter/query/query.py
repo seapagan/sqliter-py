@@ -63,6 +63,11 @@ def _get_prefetch_target_model(
 ) -> type[BaseDBModel]:
     """Extract the target model from a prefetch descriptor.
 
+    Assumes the descriptor's target is a resolved model class, not a
+    forward-reference string.  This is guaranteed when the caller has
+    already run ``_validate_prefetch_path``, which rejects unresolved
+    refs.
+
     Args:
         descriptor: A ReverseRelationship, ManyToMany, or
             ReverseManyToMany descriptor.
@@ -460,23 +465,6 @@ class QueryBuilder(Generic[T]):
                 )
             current_model = _get_prefetch_target_model(descriptor)
 
-    def _resolve_model_for_path(self, parent_path: str) -> type[BaseDBModel]:
-        """Resolve the model class at a given prefetch path prefix.
-
-        Args:
-            parent_path: A ``"__"``-separated path prefix (``""`` for
-                the root model).
-
-        Returns:
-            The model class that owns the descriptors at this level.
-        """
-        current_model: type[BaseDBModel] = self.model_class
-        if parent_path:
-            for prev_seg in parent_path.split("__"):
-                desc = getattr(current_model, prev_seg)
-                current_model = _get_prefetch_target_model(desc)
-        return current_model
-
     def _prefetch_segment(
         self,
         segment: str,
@@ -576,8 +564,11 @@ class QueryBuilder(Generic[T]):
                 parent_path = "__".join(segments[:depth]) if depth > 0 else ""
                 levels.setdefault(depth, set()).add((parent_path, segment))
 
-        # ── 2. Track instances reachable at each path prefix ─────
+        # ── 2. Track instances and models at each path prefix ───
         instances_by_path: dict[str, list[Any]] = {"": list(instances)}
+        model_at_path: dict[str, type[BaseDBModel]] = {
+            "": self.model_class,
+        }
 
         # ── 3. Process level by level ────────────────────────────
         max_depth = max(levels)
@@ -587,15 +578,19 @@ class QueryBuilder(Generic[T]):
                 if not parent_instances:
                     continue
 
-                current_model = self._resolve_model_for_path(parent_path)
+                current_model = model_at_path[parent_path]
                 self._prefetch_segment(segment, parent_instances, current_model)
 
-                # Collect children for the next level
+                # Collect children and cache model for next level
                 full_path = (
                     f"{parent_path}__{segment}" if parent_path else segment
                 )
                 instances_by_path[full_path] = (
                     self._collect_prefetched_children(parent_instances, segment)
+                )
+                descriptor = getattr(current_model, segment)
+                model_at_path[full_path] = _get_prefetch_target_model(
+                    descriptor
                 )
 
     def _prefetch_reverse_fk(
