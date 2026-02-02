@@ -568,6 +568,15 @@ class Comment(BaseDBModel):
     )
 
 
+class Reply(BaseDBModel):
+    """Reply with FK to Comment."""
+
+    text: str
+    comment: ForeignKey[Comment] = ForeignKey(
+        Comment, on_delete="CASCADE", related_name="replies"
+    )
+
+
 # ── Nested prefetch fixture ────────────────────────────────────────
 
 
@@ -581,6 +590,7 @@ def nested_db() -> SqliterDB:
     database.create_table(Tag)
     database.create_table(Article)
     database.create_table(Comment)
+    database.create_table(Reply)
     database.create_table(Review)
 
     # Authors
@@ -627,15 +637,20 @@ def nested_db() -> SqliterDB:
     art2.tags.add(t1)
 
     # Comments on articles
-    database.insert(Comment(text="Great guide!", article_id=art1.pk))
-    database.insert(Comment(text="Very helpful", article_id=art1.pk))
-    database.insert(Comment(text="Nice tips", article_id=art2.pk))
+    com1 = database.insert(Comment(text="Great guide!", article_id=art1.pk))
+    com2 = database.insert(Comment(text="Very helpful", article_id=art1.pk))
+    com3 = database.insert(Comment(text="Nice tips", article_id=art2.pk))
+
+    # Replies on comments
+    database.insert(Reply(text="Totally agree", comment_id=com1.pk))
+    database.insert(Reply(text="Same here", comment_id=com1.pk))
+    database.insert(Reply(text="Thanks!", comment_id=com3.pk))
 
     # Reviews for Author
     database.insert(Review(text="Love her work", author_id=a1.pk))
 
     # Suppress unused variable warnings
-    _ = (a3, c3, b3, t2)
+    _ = (a3, c3, b3, t2, com2)
 
     return database
 
@@ -791,11 +806,10 @@ class TestNestedPrefetch:
             )
 
     def test_three_levels_deep(self, nested_db: SqliterDB) -> None:
-        """Three-level nesting: Tag -> articles -> comments (+ nested)."""
-        # Only two real levels in this chain, but validate it works
+        """Three-level nesting: Tag -> articles -> comments -> replies."""
         tags = (
             nested_db.select(Tag)
-            .prefetch_related("articles__comments")
+            .prefetch_related("articles__comments__replies")
             .fetch_all()
         )
 
@@ -804,6 +818,10 @@ class TestNestedPrefetch:
         guide = next(a for a in articles if a.title == "SQLiter Guide")
         comments = guide.comments.fetch_all()
         assert len(comments) == 2
+
+        first_comment = next(c for c in comments if c.text == "Great guide!")
+        replies = first_comment.replies.fetch_all()
+        assert len(replies) == 2
 
     def test_cache_key_differs_for_nested(self, nested_db: SqliterDB) -> None:
         """Nested path produces a different cache key than flat path."""
