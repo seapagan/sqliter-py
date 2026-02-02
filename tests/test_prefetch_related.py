@@ -7,12 +7,14 @@ coexistence with select_related, error cases, and cache key differentiation.
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 import pytest
 
 from sqliter import SqliterDB
 from sqliter.exceptions import InvalidPrefetchError
 from sqliter.orm import BaseDBModel, ForeignKey, ManyToMany
-from sqliter.orm.m2m import PrefetchedM2MResult
+from sqliter.orm.m2m import PrefetchedM2MResult, ReverseManyToMany
 from sqliter.orm.query import PrefetchedResult, ReverseQuery
 
 # ── Test models ──────────────────────────────────────────────────────
@@ -804,6 +806,42 @@ class TestNestedPrefetch:
             nested_db.select(Author).prefetch_related(
                 "authored_books__nonexistent"
             )
+
+    def test_unresolved_m2m_forward_ref(self) -> None:
+        """Unresolved ManyToMany forward ref raises InvalidPrefetchError."""
+
+        class LocalTag(BaseDBModel):
+            name: str
+
+        class LocalPost(BaseDBModel):
+            title: str
+            tags: ManyToMany[Any] = ManyToMany("NeverDefinedModel")
+
+        db = SqliterDB(":memory:")
+        db.create_table(LocalTag)
+        db.create_table(LocalPost)
+
+        with pytest.raises(InvalidPrefetchError):
+            db.select(LocalPost).prefetch_related("tags")
+
+    def test_unresolved_reverse_m2m_forward_ref(self) -> None:
+        """Unresolved reverse M2M forward ref raises InvalidPrefetchError."""
+
+        class LocalHost(BaseDBModel):
+            name: str
+
+        LocalHost.ghosts = ReverseManyToMany(  # type: ignore[attr-defined]
+            from_model=cast("type[Any]", "GhostModel"),
+            to_model=LocalHost,
+            junction_table="ghost_host",
+            related_name="ghosts",
+        )
+
+        db = SqliterDB(":memory:")
+        db.create_table(LocalHost)
+
+        with pytest.raises(InvalidPrefetchError):
+            db.select(LocalHost).prefetch_related("ghosts")
 
     def test_three_levels_deep(self, nested_db: SqliterDB) -> None:
         """Three-level nesting: Tag -> articles -> comments -> replies."""
