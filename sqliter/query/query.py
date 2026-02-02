@@ -445,6 +445,19 @@ class QueryBuilder(Generic[T]):
                 raise InvalidPrefetchError(
                     path, segment, current_model.__name__
                 )
+            if isinstance(descriptor, ManyToMany) and isinstance(
+                descriptor.to_model, str
+            ):
+                raise InvalidPrefetchError(
+                    path, segment, current_model.__name__
+                )
+            if isinstance(descriptor, ReverseManyToMany) and isinstance(
+                descriptor._from_model,  # noqa: SLF001
+                str,
+            ):
+                raise InvalidPrefetchError(
+                    path, segment, current_model.__name__
+                )
             current_model = _get_prefetch_target_model(descriptor)
 
     def _resolve_model_for_path(self, parent_path: str) -> type[BaseDBModel]:
