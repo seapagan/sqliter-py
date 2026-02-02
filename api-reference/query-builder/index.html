@@ -79,9 +79,14 @@
     <span class=s2>&quot;books&quot;</span><span class=p>,</span> <span class=s2>&quot;reviews&quot;</span>
 <span class=p>)</span><span class=o>.</span><span class=n>fetch_all</span><span class=p>()</span>
 
+<span class=c1># Nested paths</span>
+<span class=n>authors</span> <span class=o>=</span> <span class=n>db</span><span class=o>.</span><span class=n>select</span><span class=p>(</span><span class=n>Author</span><span class=p>)</span><span class=o>.</span><span class=n>prefetch_related</span><span class=p>(</span>
+    <span class=s2>&quot;books__reviews&quot;</span>
+<span class=p>)</span><span class=o>.</span><span class=n>fetch_all</span><span class=p>()</span>
+
 <span class=c1># Combined with select_related</span>
 <span class=n>books</span> <span class=o>=</span> <span class=n>db</span><span class=o>.</span><span class=n>select</span><span class=p>(</span><span class=n>Book</span><span class=p>)</span><span class=o>.</span><span class=n>select_related</span><span class=p>(</span><span class=s2>&quot;author&quot;</span><span class=p>)</span><span class=o>.</span><span class=n>prefetch_related</span><span class=p>()</span><span class=o>.</span><span class=n>fetch_all</span><span class=p>()</span>
-</code></pre></div><div class="admonition note"><p class=admonition-title>Note</p><p>Use <code>select_related()</code> for <strong>forward</strong> FK relationships (e.g., <code>book.author</code>) and <code>prefetch_related()</code> for <strong>reverse</strong> FK and M2M relationships (e.g., <code>author.books</code>, <code>article.tags</code>).</p></div><hr><h2 id=pagination>Pagination</h2><h3 id=limit><code>limit()</code></h3><p>Limit the number of results returned.</p><div class=highlight><pre><span></span><code><span class=k>def</span><span class=w> </span><span class=nf>limit</span><span class=p>(</span>
+</code></pre></div><div class="admonition note"><p class=admonition-title>Note</p><p>Use <code>select_related()</code> for <strong>forward</strong> FK relationships (e.g., <code>book.author</code>) and <code>prefetch_related()</code> for <strong>reverse</strong> FK and M2M relationships (e.g., <code>author.books</code>, <code>article.tags</code>). Nested paths must only include reverse FK or M2M segments (use <code>select_related()</code> for forward FK data).</p></div><hr><h2 id=pagination>Pagination</h2><h3 id=limit><code>limit()</code></h3><p>Limit the number of results returned.</p><div class=highlight><pre><span></span><code><span class=k>def</span><span class=w> </span><span class=nf>limit</span><span class=p>(</span>
     <span class=bp>self</span><span class=p>,</span>
     <span class=n>limit_value</span><span class=p>:</span> <span class=nb>int</span><span class=p>,</span>
 <span class=p>)</span> <span class=o>-&gt;</span> <span class=n>Self</span><span class=p>:</span>
