@@ -529,6 +529,13 @@ class QueryBuilder(Generic[T]):
     ) -> list[Any]:
         """Collect unique prefetched children for a path segment.
 
+        Deduplicates by PK so the next-level prefetch query issues a
+        single ``IN (...)`` per unique child.  This relies on the fact
+        that ``_prefetch_reverse_fk`` and ``_prefetch_m2m_for_model``
+        each produce exactly one instance per PK; every parent's
+        ``_prefetch_cache`` already holds its own correct list before
+        this method runs.
+
         Instances without a primary key are skipped to match prefetch
         semantics where pk=0 indicates an unsaved instance.
         """

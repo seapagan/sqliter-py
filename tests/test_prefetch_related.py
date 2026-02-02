@@ -16,6 +16,7 @@ from sqliter.exceptions import InvalidPrefetchError
 from sqliter.orm import BaseDBModel, ForeignKey, ManyToMany
 from sqliter.orm.m2m import PrefetchedM2MResult, ReverseManyToMany
 from sqliter.orm.query import PrefetchedResult, ReverseQuery
+from sqliter.orm.registry import ModelRegistry
 
 # ── Test models ──────────────────────────────────────────────────────
 
@@ -809,39 +810,47 @@ class TestNestedPrefetch:
 
     def test_unresolved_m2m_forward_ref(self) -> None:
         """Unresolved ManyToMany forward ref raises InvalidPrefetchError."""
+        state = ModelRegistry.snapshot()
+        try:
 
-        class LocalTag(BaseDBModel):
-            name: str
+            class LocalTag(BaseDBModel):
+                name: str
 
-        class LocalPost(BaseDBModel):
-            title: str
-            tags: ManyToMany[Any] = ManyToMany("NeverDefinedModel")
+            class LocalPost(BaseDBModel):
+                title: str
+                tags: ManyToMany[Any] = ManyToMany("NeverDefinedModel")
 
-        db = SqliterDB(":memory:")
-        db.create_table(LocalTag)
-        db.create_table(LocalPost)
+            db = SqliterDB(":memory:")
+            db.create_table(LocalTag)
+            db.create_table(LocalPost)
 
-        with pytest.raises(InvalidPrefetchError):
-            db.select(LocalPost).prefetch_related("tags")
+            with pytest.raises(InvalidPrefetchError):
+                db.select(LocalPost).prefetch_related("tags")
+        finally:
+            ModelRegistry.restore(state)
 
     def test_unresolved_reverse_m2m_forward_ref(self) -> None:
         """Unresolved reverse M2M forward ref raises InvalidPrefetchError."""
+        state = ModelRegistry.snapshot()
+        try:
 
-        class LocalHost(BaseDBModel):
-            name: str
+            class LocalHost(BaseDBModel):
+                name: str
 
-        LocalHost.ghosts = ReverseManyToMany(
-            from_model=cast("type[Any]", "GhostModel"),
-            to_model=LocalHost,
-            junction_table="ghost_host",
-            related_name="ghosts",
-        )
+            LocalHost.ghosts = ReverseManyToMany(
+                from_model=cast("type[Any]", "GhostModel"),
+                to_model=LocalHost,
+                junction_table="ghost_host",
+                related_name="ghosts",
+            )
 
-        db = SqliterDB(":memory:")
-        db.create_table(LocalHost)
+            db = SqliterDB(":memory:")
+            db.create_table(LocalHost)
 
-        with pytest.raises(InvalidPrefetchError):
-            db.select(LocalHost).prefetch_related("ghosts")
+            with pytest.raises(InvalidPrefetchError):
+                db.select(LocalHost).prefetch_related("ghosts")
+        finally:
+            ModelRegistry.restore(state)
 
     def test_three_levels_deep(self, nested_db: SqliterDB) -> None:
         """Three-level nesting: Tag -> articles -> comments -> replies."""
