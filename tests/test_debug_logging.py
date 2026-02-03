@@ -1,4 +1,4 @@
-"""Testd the debug logging for the SqliterDB class."""
+"""Tests the debug logging for the SqliterDB class."""
 
 import logging
 
