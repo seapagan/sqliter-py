@@ -200,13 +200,13 @@ class ManyToManyManager(Generic[T]):
                 f'FROM "{self._junction_table}" '
                 f'WHERE "{self._from_col}" = ? OR "{self._to_col}" = ?'
             )
-            cursor.execute(sql, (pk, pk, pk))
+            self._db._execute(cursor, sql, (pk, pk, pk))  # noqa: SLF001
         else:
             sql = (
                 f'SELECT "{self._to_col}" FROM "{self._junction_table}" '  # noqa: S608
                 f'WHERE "{self._from_col}" = ?'
             )
-            cursor.execute(sql, (pk,))
+            self._db._execute(cursor, sql, (pk,))  # noqa: SLF001
         return [row[0] for row in cursor.fetchall()]
 
     def add(self, *instances: T) -> None:
@@ -239,9 +239,9 @@ class ManyToManyManager(Generic[T]):
                 to_pk = cast("int", to_pk)
                 if self._symmetrical:
                     left_pk, right_pk = sorted([from_pk, to_pk])
-                    cursor.execute(sql, (left_pk, right_pk))
+                    db._execute(cursor, sql, (left_pk, right_pk))  # noqa: SLF001
                 else:
-                    cursor.execute(sql, (from_pk, to_pk))
+                    db._execute(cursor, sql, (from_pk, to_pk))  # noqa: SLF001
         except Exception:
             self._rollback_if_needed(db)
             raise
@@ -276,9 +276,9 @@ class ManyToManyManager(Generic[T]):
                     to_pk = cast("int", to_pk)
                     if self._symmetrical:
                         left_pk, right_pk = sorted([from_pk, to_pk])
-                        cursor.execute(sql, (left_pk, right_pk))
+                        db._execute(cursor, sql, (left_pk, right_pk))  # noqa: SLF001
                     else:
-                        cursor.execute(sql, (from_pk, to_pk))
+                        db._execute(cursor, sql, (from_pk, to_pk))  # noqa: SLF001
         except Exception:
             self._rollback_if_needed(db)
             raise
@@ -311,7 +311,7 @@ class ManyToManyManager(Generic[T]):
         conn = db.connect()
         cursor = conn.cursor()
         try:
-            cursor.execute(sql, params)
+            db._execute(cursor, sql, params)  # noqa: SLF001
         except Exception:
             self._rollback_if_needed(db)
             raise
@@ -396,7 +396,7 @@ class ManyToManyManager(Generic[T]):
             params = (pk,)
         conn = self._db.connect()
         cursor = conn.cursor()
-        cursor.execute(sql, params)
+        self._db._execute(cursor, sql, params)  # noqa: SLF001
         row = cursor.fetchone()
         return int(row[0]) if row else 0
 
@@ -893,7 +893,7 @@ def create_junction_table(
     try:
         conn = db.connect()
         cursor = conn.cursor()
-        cursor.execute(create_sql)
+        db._execute(cursor, create_sql)  # noqa: SLF001
         conn.commit()
     except sqlite3.Error as exc:
         raise TableCreationError(junction_table) from exc
@@ -908,7 +908,7 @@ def create_junction_table(
         try:
             conn = db.connect()
             cursor = conn.cursor()
-            cursor.execute(index_sql)
+            db._execute(cursor, index_sql)  # noqa: SLF001
             conn.commit()
         except sqlite3.Error:
             pass  # Non-critical: index creation failure
