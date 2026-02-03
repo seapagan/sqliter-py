@@ -188,9 +188,10 @@ class SqliterDB:
             raise DatabaseConnectionError(err_msg)
 
         cursor = self.conn.cursor()
-        cursor.execute(
+        self._execute(
+            cursor,
             "SELECT name FROM sqlite_master WHERE type='table' "
-            "AND name NOT LIKE 'sqlite_%';"
+            "AND name NOT LIKE 'sqlite_%';",
         )
         tables = [row[0] for row in cursor.fetchall()]
 
@@ -206,15 +207,16 @@ class SqliterDB:
             cursor = conn.cursor()
 
             # Get all table names, excluding SQLite system tables
-            cursor.execute(
+            self._execute(
+                cursor,
                 "SELECT name FROM sqlite_master WHERE type='table' "
-                "AND name NOT LIKE 'sqlite_%';"
+                "AND name NOT LIKE 'sqlite_%';",
             )
             tables = cursor.fetchall()
 
             # Drop each user-created table
             for table in tables:
-                cursor.execute(f"DROP TABLE IF EXISTS {table[0]}")
+                self._execute(cursor, f"DROP TABLE IF EXISTS {table[0]}")
 
             conn.commit()
 
@@ -252,7 +254,7 @@ class SqliterDB:
             self.logger.setLevel(logging.DEBUG)
             self.logger.propagate = False
 
-    def _log_sql(self, sql: str, values: list[Any]) -> None:
+    def _log_sql(self, sql: str, values: Sequence[Any] = ()) -> None:
         """Log the SQL query and its values if debug mode is enabled.
 
         The values are inserted into the SQL query string to replace the
@@ -260,7 +262,7 @@ class SqliterDB:
 
         Args:
             sql: The SQL query string.
-            values: The list of values to be inserted into the query.
+            values: The values to be inserted into the query.
         """
         if self.debug and self.logger:
             formatted_sql = sql
@@ -271,6 +273,29 @@ class SqliterDB:
                     formatted_sql = formatted_sql.replace("?", str(value), 1)
 
             self.logger.debug("Executing SQL: %s", formatted_sql)
+
+    def _execute(
+        self,
+        cursor: sqlite3.Cursor,
+        sql: str,
+        values: Sequence[Any] = (),
+    ) -> sqlite3.Cursor:
+        """Execute SQL via *cursor*, automatically logging when debug is on.
+
+        This is the single call-site for ``cursor.execute()`` so that
+        every query is consistently logged in debug mode.
+
+        Args:
+            cursor: An open database cursor.
+            sql: The SQL statement to execute.
+            values: Bind parameters for the statement.
+
+        Returns:
+            The same *cursor*, for convenient chaining.
+        """
+        self._log_sql(sql, values)
+        cursor.execute(sql, values)
+        return cursor
 
     def connect(self) -> sqlite3.Connection:
         """Establish a connection to the SQLite database.
@@ -648,13 +673,10 @@ class SqliterDB:
         )
         """
 
-        if self.debug:
-            self._log_sql(create_table_sql, [])
-
         try:
             with self.connect() as conn:
                 cursor = conn.cursor()
-                cursor.execute(create_table_sql)
+                self._execute(cursor, create_table_sql)
                 conn.commit()
         except sqlite3.Error as exc:
             raise TableCreationError(table_name) from exc
@@ -779,13 +801,10 @@ class SqliterDB:
         Raises:
             SqlExecutionError: If the SQL execution fails.
         """
-        if self.debug:
-            self._log_sql(sql, [])
-
         try:
             with self.connect() as conn:
                 cursor = conn.cursor()
-                cursor.execute(sql)
+                self._execute(cursor, sql)
                 conn.commit()
         except (sqlite3.Error, sqlite3.Warning) as exc:
             raise SqlExecutionError(sql) from exc
@@ -802,13 +821,10 @@ class SqliterDB:
         table_name = model_class.get_table_name()
         drop_table_sql = f"DROP TABLE IF EXISTS {table_name}"
 
-        if self.debug:
-            self._log_sql(drop_table_sql, [])
-
         try:
             with self.connect() as conn:
                 cursor = conn.cursor()
-                cursor.execute(drop_table_sql)
+                self._execute(cursor, drop_table_sql)
                 self.commit()
         except sqlite3.Error as exc:
             raise TableDeletionError(table_name) from exc
@@ -932,7 +948,7 @@ class SqliterDB:
         try:
             conn = self.connect()
             cursor = conn.cursor()
-            cursor.execute(insert_sql, values)
+            self._execute(cursor, insert_sql, values)
             self._maybe_commit()
 
         except sqlite3.IntegrityError as exc:
@@ -1003,7 +1019,7 @@ class SqliterDB:
             f"INSERT INTO {table_name} ({fields}) "  # noqa: S608
             f"VALUES ({placeholders})"
         )
-        cursor.execute(insert_sql, values)
+        self._execute(cursor, insert_sql, values)
 
         data.pop("pk", None)
         return self._create_instance_from_data(
@@ -1127,7 +1143,7 @@ class SqliterDB:
         try:
             conn = self.connect()
             cursor = conn.cursor()
-            cursor.execute(select_sql, (primary_key_value,))
+            self._execute(cursor, select_sql, (primary_key_value,))
             result = cursor.fetchone()
 
             if result:
@@ -1190,7 +1206,7 @@ class SqliterDB:
         try:
             conn = self.connect()
             cursor = conn.cursor()
-            cursor.execute(update_sql, (*values, primary_key_value))
+            self._execute(cursor, update_sql, (*values, primary_key_value))
 
             # Check if any rows were updated
             if cursor.rowcount == 0:
@@ -1234,7 +1250,7 @@ class SqliterDB:
         try:
             conn = self.connect()
             cursor = conn.cursor()
-            cursor.execute(delete_sql, (primary_key_value,))
+            self._execute(cursor, delete_sql, (primary_key_value,))
 
             if cursor.rowcount == 0:
                 raise RecordNotFoundError(primary_key_value)  # noqa: TRY301

@@ -789,14 +789,14 @@ class QueryBuilder(Generic[T]):
                 f'WHERE "{col_a}" IN ({placeholders}) '
                 f'OR "{col_b}" IN ({placeholders})'
             )
-            cursor.execute(sql, [*pks, *pks])
+            self.db._execute(cursor, sql, [*pks, *pks])  # noqa: SLF001
         else:
             sql = (
                 f'SELECT "{from_col}", "{to_col}" '  # noqa: S608
                 f'FROM "{junction_table}" '
                 f'WHERE "{from_col}" IN ({placeholders})'
             )
-            cursor.execute(sql, pks)
+            self.db._execute(cursor, sql, pks)  # noqa: SLF001
 
         return cursor.fetchall()
 
@@ -1370,14 +1370,10 @@ class QueryBuilder(Generic[T]):
                 sql += " OFFSET ?"
                 values.append(self._offset)
 
-            # Log the SQL if debug is enabled
-            if self.db.debug:
-                self.db._log_sql(sql, values)  # noqa: SLF001
-
             try:
                 conn = self.db.connect()
                 cursor = conn.cursor()
-                cursor.execute(sql, values)
+                self.db._execute(cursor, sql, values)  # noqa: SLF001
                 results = (
                     cursor.fetchall() if not fetch_one else cursor.fetchone()
                 )
@@ -1417,14 +1413,10 @@ class QueryBuilder(Generic[T]):
             sql += " OFFSET ?"
             values.append(self._offset)
 
-        # Log the SQL if debug is enabled
-        if self.db.debug:
-            self.db._log_sql(sql, values)  # noqa: SLF001
-
         try:
             conn = self.db.connect()
             cursor = conn.cursor()
-            cursor.execute(sql, values)
+            self.db._execute(cursor, sql, values)  # noqa: SLF001
             results = cursor.fetchall() if not fetch_one else cursor.fetchone()
         except sqlite3.Error as exc:
             raise RecordFetchError(self.table_name) from exc
@@ -1877,14 +1869,10 @@ class QueryBuilder(Generic[T]):
         if self.filters:
             sql += f" WHERE {where_clause}"
 
-        # Print the raw SQL and values if debug is enabled
-        if self.db.debug:
-            self.db._log_sql(sql, values)  # noqa: SLF001
-
         try:
             conn = self.db.connect()
             cursor = conn.cursor()
-            cursor.execute(sql, values)
+            self.db._execute(cursor, sql, values)  # noqa: SLF001
             deleted_count = cursor.rowcount
             self.db._maybe_commit()  # noqa: SLF001
             self.db._cache_invalidate_table(self.table_name)  # noqa: SLF001

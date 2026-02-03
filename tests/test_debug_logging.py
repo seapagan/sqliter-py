@@ -272,6 +272,70 @@ class TestDebugLogging:
 
         assert "Database reset: 0 user-created tables dropped." in caplog.text
 
+    def test_debug_output_insert(
+        self, db_mock_complex_debug: SqliterDB, caplog
+    ) -> None:
+        """Test that insert operations produce debug log output."""
+        with caplog.at_level(logging.DEBUG):
+            db_mock_complex_debug.insert(
+                ComplexModel(
+                    name="DebugTest",
+                    age=25.0,
+                    is_active=True,
+                    score=90.0,
+                    nullable_field=None,
+                )
+            )
+
+        assert "Executing SQL:" in caplog.text
+        assert "INSERT INTO complex_model" in caplog.text
+
+    def test_debug_output_get(
+        self, db_mock_complex_debug: SqliterDB, caplog
+    ) -> None:
+        """Test that get operations produce debug log output."""
+        with caplog.at_level(logging.DEBUG):
+            db_mock_complex_debug.get(ComplexModel, 1)
+
+        assert "Executing SQL:" in caplog.text
+        assert "SELECT" in caplog.text
+        assert "complex_model" in caplog.text
+
+    def test_debug_output_update(
+        self, db_mock_complex_debug: SqliterDB, caplog
+    ) -> None:
+        """Test that update operations produce debug log output."""
+        record = db_mock_complex_debug.get(ComplexModel, 1)
+        assert record is not None
+        record.name = "Updated"
+
+        with caplog.at_level(logging.DEBUG):
+            db_mock_complex_debug.update(record)
+
+        assert "Executing SQL:" in caplog.text
+        assert "UPDATE complex_model" in caplog.text
+
+    def test_debug_output_delete(
+        self, db_mock_complex_debug: SqliterDB, caplog
+    ) -> None:
+        """Test that delete operations produce debug log output."""
+        with caplog.at_level(logging.DEBUG):
+            db_mock_complex_debug.delete(ComplexModel, 1)
+
+        assert "Executing SQL:" in caplog.text
+        assert "DELETE FROM complex_model" in caplog.text
+
+    def test_debug_output_table_names(self, caplog) -> None:
+        """Test that table_names property produces debug log output."""
+        db = SqliterDB(":memory:", debug=True)
+        db.create_table(ComplexModel)
+
+        with caplog.at_level(logging.DEBUG):
+            _ = db.table_names
+
+        assert "Executing SQL:" in caplog.text
+        assert "sqlite_master" in caplog.text
+
     def test_setup_logger_else_clause(self, mocker) -> None:
         """Test the else clause configuration for the logger setup."""
         # Mock the root logger's hasHandlers BEFORE creating the instance
