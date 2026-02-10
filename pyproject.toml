@@ -44,7 +44,7 @@ sqliter-demo = "sqliter.tui:run"
 "Repository" = "https://github.com/seapagan/sqliter-py"
 
 [build-system]
-requires = ["uv_build>=0.9.9,<0.10.0"]
+requires = ["uv_build>=0.10.2,<0.11.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
