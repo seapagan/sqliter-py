@@ -5,6 +5,27 @@ project since the first release, with the latest changes at the top.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.1](https://github.com/seapagan/sqliter-py/releases/tag/0.18.1) (February 13, 2026)
+
+**Closed Issues**
+
+- Ambiguous base-column filters with select_related joins (e.g. pk\_\_in) ([#126](https://github.com/seapagan/sqliter-py/issues/126)) by [seapagan](https://github.com/seapagan)
+
+**Security**
+
+- Update cryptography package to fix security alert ([#128](https://github.com/seapagan/sqliter-py/pull/128)) by [seapagan](https://github.com/seapagan)
+
+**Bug Fixes**
+
+- Fix ambiguous base filters in select_related JOIN queries ([#127](https://github.com/seapagan/sqliter-py/pull/127)) by [seapagan](https://github.com/seapagan)
+- Fix debug logging missing from most SQL operations ([#122](https://github.com/seapagan/sqliter-py/pull/122)) by [seapagan](https://github.com/seapagan)
+
+**Dependency Updates**
+
+- Update dependency uv_build to >=0.10.2,<0.11.0 ([#123](https://github.com/seapagan/sqliter-py/pull/123)) by [renovate[bot]](https://github.com/apps/renovate)
+
+[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.18.0...0.18.1) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.18.0...0.18.1.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.18.0...0.18.1.patch)
+
 ## [0.18.0](https://github.com/seapagan/sqliter-py/releases/tag/0.18.0) (February 02, 2026)
 
 **New Features**
