@@ -671,6 +671,15 @@ class TestQuery:
 
         assert qualified == clause
 
+    def test_qualify_base_filter_clause_already_aliased(self, db_mock) -> None:
+        """Test already-aliased clauses are left unchanged."""
+        query = db_mock.select(ExampleModel)
+        clause = 't1."name" LIKE ?'
+
+        qualified = query._qualify_base_filter_clause(clause)
+
+        assert qualified == clause
+
     def test_fetch_result_with_list_of_tuples(self, mocker) -> None:
         """Test _fetch_result when _execute_query returns list of tuples."""
         # ensure we get a dependable timestamp
