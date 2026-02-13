@@ -755,3 +755,54 @@ class TestSelectRelatedWithMocks:
             mock_connect.return_value = mock_conn
 
             # Mock cursor.execute to raise SQLite error
+            mock_cursor.execute.side_effect = sqlite3.Error("mock error")
+
+            with pytest.raises(RecordFetchError):
+                query.fetch_all()
+
+
+class TestSelectRelatedAmbiguousBaseFilters:
+    """Regression tests for base-field filters with JOIN queries."""
+
+    def test_select_related_filter_pk_in(self, db: SqliterDB) -> None:
+        """Verify pk__in on base model works with select_related JOIN."""
+        target = db.select(Book).filter(title="Pride and Prejudice").fetch_one()
+        assert target is not None
+
+        results = (
+            db.select(Book)
+            .select_related("author")
+            .filter(pk__in=[target.pk])
+            .fetch_all()
+        )
+
+        assert [book.pk for book in results] == [target.pk]
+
+    def test_select_related_filter_pk_eq(self, db: SqliterDB) -> None:
+        """Verify pk equality on base model works with select_related JOIN."""
+        target = db.select(Book).filter(title="Oliver Twist").fetch_one()
+        assert target is not None
+
+        result = (
+            db.select(Book)
+            .select_related("author")
+            .filter(pk=target.pk)
+            .fetch_one()
+        )
+
+        assert result is not None
+        assert result.pk == target.pk
+
+    def test_select_related_filter_created_at_gte(self, db: SqliterDB) -> None:
+        """Verify created_at comparisons work with select_related JOIN."""
+        all_books = db.select(Book).fetch_all()
+        threshold = min(book.created_at for book in all_books)
+
+        results = (
+            db.select(Book)
+            .select_related("author")
+            .filter(created_at__gte=threshold)
+            .fetch_all()
+        )
+
+        assert {book.pk for book in results} == {book.pk for book in all_books}

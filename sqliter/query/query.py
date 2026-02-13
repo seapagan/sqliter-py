@@ -1344,7 +1344,7 @@ class QueryBuilder(Generic[T]):
                 )
 
             # Build WHERE clause with special handling for NULL
-            values, where_clause = self._parse_filter()
+            values, where_clause = self._parse_filter(qualify_base_fields=True)
 
             if self.filters:
                 sql += f" WHERE {where_clause}"
@@ -1423,8 +1423,54 @@ class QueryBuilder(Generic[T]):
         else:
             return (results, [])  # Empty column_names for backward compat
 
-    def _parse_filter(self) -> tuple[list[Any], str]:
+    def _qualify_base_field_name(self, field_name: str) -> str:
+        """Qualify a base-model field name with the main JOIN alias.
+
+        Args:
+            field_name: Raw field expression used in filters.
+
+        Returns:
+            The qualified field expression when it targets the base table.
+        """
+        if (
+            field_name in self.model_class.model_fields
+            and "." not in field_name
+            and '"' not in field_name
+        ):
+            return f't0."{field_name}"'
+        return field_name
+
+    def _qualify_base_filter_clause(self, clause: str) -> str:
+        """Qualify the leading base-model field in a SQL filter clause.
+
+        Args:
+            clause: A single SQL clause fragment from the filter stack.
+
+        Returns:
+            Clause with the base-model field qualified for JOIN queries.
+        """
+        if re.match(r"t\d+\.\"", clause):
+            return clause
+
+        match = re.match(r"([A-Za-z_][A-Za-z0-9_]*)\b", clause)
+        if match is None:
+            return clause
+
+        field_name = match.group(1)
+        if field_name not in self.model_class.model_fields:
+            return clause
+
+        qualified = f't0."{field_name}"'
+        return f"{qualified}{clause[match.end() :]}"
+
+    def _parse_filter(
+        self, *, qualify_base_fields: bool = False
+    ) -> tuple[list[Any], str]:
         """Parse the filter conditions into SQL clauses and values.
+
+        Args:
+            qualify_base_fields: Whether to qualify base-model fields with
+                ``t0`` alias. Used for JOIN queries to avoid ambiguity.
 
         Returns:
             A tuple containing:
@@ -1435,10 +1481,20 @@ class QueryBuilder(Generic[T]):
         values = []
         for field, value, operator in self.filters:
             if operator == "__eq":
-                where_clauses.append(f"{field} = ?")
+                field_expr = (
+                    self._qualify_base_field_name(field)
+                    if qualify_base_fields
+                    else field
+                )
+                where_clauses.append(f"{field_expr} = ?")
                 values.append(value)
             else:
-                where_clauses.append(field)
+                clause = (
+                    self._qualify_base_filter_clause(field)
+                    if qualify_base_fields
+                    else field
+                )
+                where_clauses.append(clause)
                 if operator not in ["__isnull", "__notnull"]:
                     if isinstance(value, list):
                         values.extend(value)
