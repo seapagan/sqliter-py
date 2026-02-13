@@ -57,6 +57,9 @@ FilterValue = Union[
     str, int, float, bool, None, list[Union[str, int, float, bool]]
 ]
 
+_RE_ALIAS_PREFIX = re.compile(r't\d+\."')
+_RE_LEADING_IDENT = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)\b")
+
 
 def _get_prefetch_target_model(
     descriptor: Union[ReverseRelationship, ManyToMany[Any], ReverseManyToMany],
@@ -1449,10 +1452,10 @@ class QueryBuilder(Generic[T]):
         Returns:
             Clause with the base-model field qualified for JOIN queries.
         """
-        if re.match(r"t\d+\.\"", clause):
+        if _RE_ALIAS_PREFIX.match(clause):
             return clause
 
-        match = re.match(r"([A-Za-z_][A-Za-z0-9_]*)\b", clause)
+        match = _RE_LEADING_IDENT.match(clause)
         if match is None:
             return clause
 
