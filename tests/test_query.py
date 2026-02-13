@@ -645,6 +645,32 @@ class TestQuery:
                 name__not_in="Alice"
             ).fetch_all()
 
+    def test_qualify_base_filter_clause_for_model_field(self, db_mock) -> None:
+        """Test base model fields are qualified in JOIN filter clauses."""
+        query = db_mock.select(ExampleModel)
+
+        qualified = query._qualify_base_filter_clause("pk IN (?, ?)")
+
+        assert qualified == 't0."pk" IN (?, ?)'
+
+    def test_qualify_base_filter_clause_no_regex_match(self, db_mock) -> None:
+        """Test clauses without a leading identifier are unchanged."""
+        query = db_mock.select(ExampleModel)
+        clause = '"pk" IN (?, ?)'
+
+        qualified = query._qualify_base_filter_clause(clause)
+
+        assert qualified == clause
+
+    def test_qualify_base_filter_clause_non_model_field(self, db_mock) -> None:
+        """Test unknown fields are not qualified in filter clauses."""
+        query = db_mock.select(ExampleModel)
+        clause = "unknown_field = ?"
+
+        qualified = query._qualify_base_filter_clause(clause)
+
+        assert qualified == clause
+
     def test_fetch_result_with_list_of_tuples(self, mocker) -> None:
         """Test _fetch_result when _execute_query returns list of tuples."""
         # ensure we get a dependable timestamp
