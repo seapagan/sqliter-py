@@ -32,7 +32,7 @@ colorama==0.4.6
     #   pytest
 coverage==7.8.2
     # via pytest-cov
-cryptography==45.0.2
+cryptography==46.0.5
     # via pyjwt
 csscompressor==0.9.5
     # via mkdocs-minify-plugin
@@ -202,6 +202,7 @@ typer==0.12.5
     # via github-changelog-md
 typing-extensions==4.15.0
     # via
+    #   cryptography
     #   exceptiongroup
     #   mypy
     #   pydantic
