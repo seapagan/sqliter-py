@@ -450,6 +450,15 @@ class TestBulkUpdateEdgeCases:
         assert result.value == 99
         assert result.status == "active"
 
+    def test_update_pk_raises_error(self, db: SqliterDB) -> None:
+        """Updating primary key raises InvalidUpdateError."""
+        db.insert(SimpleModel(name="test", value=10))
+
+        with pytest.raises(InvalidUpdateError) as exc_info:
+            db.select(SimpleModel).filter(pk=1).update({"pk": 999})
+
+        assert "pk" in str(exc_info.value)
+
     def test_update_auto_sets_updated_at(self, db: SqliterDB) -> None:
         """Bulk update auto-sets updated_at timestamp."""
         db.insert(TimestampModel(label="test"))
