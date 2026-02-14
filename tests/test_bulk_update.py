@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sqlite3
 from typing import TYPE_CHECKING, ClassVar
 
 if TYPE_CHECKING:
@@ -10,7 +11,7 @@ if TYPE_CHECKING:
 import pytest
 
 from sqliter import SqliterDB
-from sqliter.exceptions import InvalidUpdateError
+from sqliter.exceptions import InvalidUpdateError, RecordUpdateError
 from sqliter.model.model import BaseDBModel
 from sqliter.orm import BaseDBModel as ORMBaseDBModel
 from sqliter.orm import ForeignKey
@@ -243,6 +244,24 @@ class TestQueryBuilderUpdateErrors:
         error_msg = str(exc_info.value)
         assert "foo" in error_msg
         assert "bar" in error_msg
+
+    def test_update_sqlite_error_rolls_back_and_raises(
+        self, db: SqliterDB, mocker
+    ) -> None:
+        """SQLite update errors rollback and raise RecordUpdateError."""
+        db.insert(SimpleModel(name="test", value=10))
+
+        mock_conn = mocker.MagicMock()
+        mock_cursor = mocker.MagicMock()
+        mock_conn.cursor.return_value = mock_cursor
+        mocker.patch.object(db, "connect", return_value=mock_conn)
+        mocker.patch.object(db, "_execute", side_effect=sqlite3.Error("boom"))
+        db.conn = mock_conn
+
+        with pytest.raises(RecordUpdateError):
+            db.select(SimpleModel).filter(pk=1).update({"value": 42})
+
+        mock_conn.rollback.assert_called_once()
 
 
 # ── Tests: SqliterDB.update_where() ───────────────────────────────────
