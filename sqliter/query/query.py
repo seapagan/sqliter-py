@@ -1963,6 +1963,12 @@ class QueryBuilder(Generic[T]):
         if not values:
             return 0
 
+        # Prevent bulk updating the primary key
+        pk_field = self.model_class.get_primary_key()
+        if pk_field in values:
+            msg = f"Cannot update the primary key '{pk_field}' via bulk update"
+            raise InvalidUpdateError(msg)
+
         # Validate fields in values dict
         valid_fields = set(self.model_class.model_fields.keys())
         invalid_fields = set(values.keys()) - valid_fields
