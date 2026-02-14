@@ -276,9 +276,7 @@ class TestUpdateWhereBasic:
             ]
         )
 
-        # Move all ideas from group 1 to group 10
-        # This is the exact use case from the issue:
-        # "UPDATE ideas SET group_id = ? WHERE group_id = ?"
+        # Move all ideas from group 1 to group 10 (issue #125 use case)
         count = db.update_where(
             GroupModel, where={"group_id": 1}, values={"group_id": 10}
         )
@@ -411,7 +409,9 @@ class TestBulkUpdateTransaction:
     def test_update_rollback_on_error(self, db: SqliterDB) -> None:
         """Update rolls back on error when possible."""
         db.insert(SimpleModel(name="test", value=10))
-        original_value = db.get(SimpleModel, 1).value
+        result = db.get(SimpleModel, 1)
+        assert result is not None
+        original_value = result.value
 
         # Note: Since we validate fields before executing,
         # we test that validation errors don't leave partial state

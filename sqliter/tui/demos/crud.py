@@ -175,9 +175,7 @@ def _run_bulk_update() -> str:
 
     # Bulk update: mark all pending tasks as complete
     count = db.update_where(
-        Task,
-        where={"status": "pending"},
-        values={"status": "completed"}
+        Task, where={"status": "pending"}, values={"status": "completed"}
     )
     output.write(f"\nUpdated {count} tasks from 'pending' to 'completed'\n")
 
@@ -216,19 +214,19 @@ def _run_query_update() -> str:
 
     output.write("Initial items:\n")
     for item in db.select(Item).fetch_all():
-        output.write(f"  - {item.name}: {item.category} (qty={item.quantity})\n")
+        output.write(
+            f"  - {item.name}: {item.category} (qty={item.quantity})\n"
+        )
 
     # Use QueryBuilder with filter and update
-    count = (
-        db.select(Item)
-        .filter(category="fruit")
-        .update({"quantity": 20})
-    )
+    count = db.select(Item).filter(category="fruit").update({"quantity": 20})
     output.write(f"\nUpdated {count} fruit items to quantity=20\n")
 
     output.write("\nFinal items:\n")
     for item in db.select(Item).fetch_all():
-        output.write(f"  - {item.name}: {item.category} (qty={item.quantity})\n")
+        output.write(
+            f"  - {item.name}: {item.category} (qty={item.quantity})\n"
+        )
 
     db.close()
     return output.getvalue()
