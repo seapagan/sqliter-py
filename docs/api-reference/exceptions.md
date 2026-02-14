@@ -263,7 +263,7 @@ message_template = (
 Raised when an invalid field name is provided in an update operation.
 
 ```python
-message_template = "Invalid field names: {}"
+message_template = "Invalid update operation: {}"
 ```
 
 **Raised by:**
