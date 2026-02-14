@@ -47,6 +47,8 @@ Full documentation is available on the [Website](https://sqliter.grantramsay.dev
 - User defined indexes on any field
 - Set any field as UNIQUE
 - CRUD operations (Create, Read, Update, Delete)
+- Bulk Create and Update methods to reduce the number of queries required for
+  multiple operations.
 - Chained Query building with filtering, ordering, and pagination
 - Transaction support
 - Optional query result caching with LRU eviction, TTL, and memory limits
