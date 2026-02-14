@@ -180,6 +180,129 @@ db.close()
 - **Use** for seeding data or importing batches
 - **Don't use** for mixed model types (raises `ValueError`)
 
+## Bulk Update
+
+Update multiple records efficiently without writing raw SQL.
+
+```python
+# --8<-- [start:bulk-update]
+from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
+
+class Task(BaseDBModel):
+    title: str
+    status: str = "pending"
+
+db = SqliterDB(memory=True)
+db.create_table(Task)
+
+# Insert tasks with different statuses
+tasks = [
+    Task(title="Write docs", status="pending"),
+    Task(title="Write tests", status="pending"),
+    Task(title="Review PR", status="in_progress"),
+    Task(title="Deploy app", status="pending"),
+]
+db.bulk_insert(tasks)
+
+print("Initial tasks:")
+for task in db.select(Task).fetch_all():
+    print(f"  - {task.title}: {task.status}")
+
+# Bulk update: mark all pending tasks as complete
+count = db.update_where(
+    Task,
+    where={"status": "pending"},
+    values={"status": "completed"}
+)
+print(f"\nUpdated {count} tasks from 'pending' to 'completed'")
+
+print("\nFinal tasks:")
+for task in db.select(Task).fetch_all():
+    print(f"  - {task.title}: {task.status}")
+
+db.close()
+```
+
+### What Happens
+
+- `db.update_where()` updates all records matching the `where` filter
+- Returns the number of records updated (0 if none match)
+- Values are parameterized safely (no SQL injection risk)
+- Cache is automatically invalidated
+
+### Filter Operators
+
+The `where` parameter supports all filter operators:
+
+```python
+# Update orders with high total
+db.update_where(Order, where={"total__gte": 1000}, values={"priority": True})
+
+# Update specific categories
+db.update_where(Product, where={"category__in": ["sale", "clearance"]}, values={"discount": 25})
+```
+
+## Query Update
+
+Use the QueryBuilder for more complex update conditions.
+
+```python
+# --8<-- [start:query-update]
+from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
+
+class Item(BaseDBModel):
+    name: str
+    category: str
+    quantity: int
+
+db = SqliterDB(memory=True)
+db.create_table(Item)
+
+# Insert items
+items = [
+    Item(name="Apple", category="fruit", quantity=10),
+    Item(name="Carrot", category="vegetable", quantity=5),
+    Item(name="Banana", category="fruit", quantity=8),
+    Item(name="Broccoli", category="vegetable", quantity=3),
+]
+db.bulk_insert(items)
+
+print("Initial items:")
+for item in db.select(Item).fetch_all():
+    print(f"  - {item.name}: {item.category} (qty={item.quantity})")
+
+# Use QueryBuilder with filter and update
+count = (
+    db.select(Item)
+    .filter(category="fruit")
+    .update({"quantity": 20})
+)
+print(f"\nUpdated {count} fruit items to quantity=20")
+
+print("\nFinal items:")
+for item in db.select(Item).fetch_all():
+    print(f"  - {item.name}: {item.category} (qty={item.quantity})")
+
+db.close()
+```
+
+### When to Use Query Update
+
+- **Use** when you need complex filter conditions
+- **Use** when chaining multiple query methods before update
+- **Use** `update_where()` for simple bulk updates
+
+### Return Value
+
+Both methods return the number of records affected, so you can verify the update worked:
+
+```python
+count = db.update_where(Task, where={"status": "pending"}, values={"status": "done"})
+print(f"Updated {count} tasks")
+```
+
 ## Operation Summary
 
 | Operation | Method | Returns |
@@ -188,6 +311,8 @@ db.close()
 | **Create (batch)** | `db.bulk_insert([...])` | List of models with `pk` set |
 | **Read** | `db.get(Model, pk)` | The model or `None` |
 | **Update** | `db.update(model)` | Nothing (modifies in-place) |
+| **Update (bulk)** | `db.update_where(...)` | Number of records updated |
+| **Update (query)** | `db.select(...).update(...)` | Number of records updated |
 | **Delete** | `db.delete(Model, pk)` | Nothing |
 
 ## Best Practices
