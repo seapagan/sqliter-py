@@ -34,6 +34,7 @@ Exception
     ├── InvalidOrderError
     ├── InvalidRelationshipError
     ├── InvalidPrefetchError
+    ├── InvalidUpdateError
     ├── InvalidIndexError
     ├── ForeignKeyError
     │   ├── ForeignKeyConstraintError
@@ -256,6 +257,19 @@ message_template = (
 **Raised by:**
 
 - [`QueryBuilder.prefetch_related()`](query-builder.md#prefetch_related)
+
+### `InvalidUpdateError`
+
+Raised when an invalid field name is provided in an update operation.
+
+```python
+message_template = "Invalid update operation: {}"
+```
+
+**Raised by:**
+
+- [`SqliterDB.update_where()`](sqliterdb.md#update_where)
+- [`QueryBuilder.update()`](query-builder.md#update)
 
 ---
 

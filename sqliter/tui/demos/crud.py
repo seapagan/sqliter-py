@@ -145,6 +145,93 @@ def _run_bulk_insert() -> str:
     return output.getvalue()
 
 
+def _run_bulk_update() -> str:
+    """Update multiple records efficiently without raw SQL.
+
+    Use db.update_where() to perform bulk updates based on conditions.
+    This is more efficient than updating rows one by one.
+    """
+    output = io.StringIO()
+
+    class Task(BaseDBModel):
+        title: str
+        status: str = "pending"
+
+    db = SqliterDB(memory=True)
+    db.create_table(Task)
+
+    # Insert tasks with different statuses
+    tasks = [
+        Task(title="Write docs", status="pending"),
+        Task(title="Write tests", status="pending"),
+        Task(title="Review PR", status="in_progress"),
+        Task(title="Deploy app", status="pending"),
+    ]
+    db.bulk_insert(tasks)
+
+    output.write("Initial tasks:\n")
+    for task in db.select(Task).fetch_all():
+        output.write(f"  - {task.title}: {task.status}\n")
+
+    # Bulk update: mark all pending tasks as complete
+    count = db.update_where(
+        Task, where={"status": "pending"}, values={"status": "completed"}
+    )
+    output.write(f"\nUpdated {count} tasks from 'pending' to 'completed'\n")
+
+    output.write("\nFinal tasks:\n")
+    for task in db.select(Task).fetch_all():
+        output.write(f"  - {task.title}: {task.status}\n")
+
+    db.close()
+    return output.getvalue()
+
+
+def _run_query_update() -> str:
+    """Update records using the QueryBuilder fluent interface.
+
+    Use db.select(Model).filter(...).update(...) for a more flexible
+    approach with complex conditions.
+    """
+    output = io.StringIO()
+
+    class Item(BaseDBModel):
+        name: str
+        category: str
+        quantity: int
+
+    db = SqliterDB(memory=True)
+    db.create_table(Item)
+
+    # Insert items
+    items = [
+        Item(name="Apple", category="fruit", quantity=10),
+        Item(name="Carrot", category="vegetable", quantity=5),
+        Item(name="Banana", category="fruit", quantity=8),
+        Item(name="Broccoli", category="vegetable", quantity=3),
+    ]
+    db.bulk_insert(items)
+
+    output.write("Initial items:\n")
+    for item in db.select(Item).fetch_all():
+        output.write(
+            f"  - {item.name}: {item.category} (qty={item.quantity})\n"
+        )
+
+    # Use QueryBuilder with filter and update
+    count = db.select(Item).filter(category="fruit").update({"quantity": 20})
+    output.write(f"\nUpdated {count} fruit items to quantity=20\n")
+
+    output.write("\nFinal items:\n")
+    for item in db.select(Item).fetch_all():
+        output.write(
+            f"  - {item.name}: {item.category} (qty={item.quantity})\n"
+        )
+
+    db.close()
+    return output.getvalue()
+
+
 def get_category() -> DemoCategory:
     """Get the CRUD Operations demo category."""
     return DemoCategory(
@@ -191,6 +278,22 @@ def get_category() -> DemoCategory:
                 category="crud",
                 code=extract_demo_code(_run_bulk_insert),
                 execute=_run_bulk_insert,
+            ),
+            Demo(
+                id="crud_bulk_update",
+                title="Bulk Update",
+                description="Update multiple records efficiently",
+                category="crud",
+                code=extract_demo_code(_run_bulk_update),
+                execute=_run_bulk_update,
+            ),
+            Demo(
+                id="crud_query_update",
+                title="Query Update",
+                description="Update with QueryBuilder filters",
+                category="crud",
+                code=extract_demo_code(_run_query_update),
+                execute=_run_query_update,
             ),
         ],
     )

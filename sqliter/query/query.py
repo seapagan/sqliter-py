@@ -13,6 +13,7 @@ import hashlib
 import json
 import re
 import sqlite3
+import time
 import warnings
 from dataclasses import dataclass
 from typing import (
@@ -37,8 +38,10 @@ from sqliter.exceptions import (
     InvalidOrderError,
     InvalidPrefetchError,
     InvalidRelationshipError,
+    InvalidUpdateError,
     RecordDeletionError,
     RecordFetchError,
+    RecordUpdateError,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -1942,3 +1945,78 @@ class QueryBuilder(Generic[T]):
             raise RecordDeletionError(self.table_name) from exc
         else:
             return deleted_count
+
+    def update(self, values: dict[str, Any]) -> int:
+        """Update records that match the current query conditions.
+
+        Args:
+            values: A dictionary of field names and their new values.
+                Field names should be model field names, not column names.
+
+        Returns:
+            The number of records updated.
+
+        Raises:
+            InvalidUpdateError: If an invalid field name is provided.
+            RecordUpdateError: If there's an error updating the records.
+        """
+        if not values:
+            return 0
+
+        # Prevent bulk updating the primary key
+        pk_field = self.model_class.get_primary_key()
+        if pk_field in values:
+            msg = f"Cannot update the primary key '{pk_field}' via bulk update"
+            raise InvalidUpdateError(msg)
+
+        # Validate fields in values dict
+        valid_fields = set(self.model_class.model_fields.keys())
+        invalid_fields = set(values.keys()) - valid_fields
+        if invalid_fields:
+            invalid_names = ", ".join(sorted(invalid_fields))
+            raise InvalidUpdateError(invalid_names)
+
+        # Build SET clause
+        set_clauses: list[str] = []
+        set_values: list[Any] = []
+
+        # Auto-set updated_at timestamp if the field exists and wasn't
+        # explicitly provided
+        if "updated_at" in valid_fields and "updated_at" not in values:
+            current_timestamp = int(time.time())
+            set_clauses.append('"updated_at" = ?')
+            set_values.append(current_timestamp)
+
+        for field_name, value in values.items():
+            # Serialize the value if needed
+            serialized = self.model_class.serialize_field(value)
+            set_clauses.append(f'"{field_name}" = ?')
+            set_values.append(serialized)
+
+        set_clause = ", ".join(set_clauses)
+
+        # Build the full UPDATE SQL
+        sql = f'UPDATE "{self.table_name}" SET {set_clause}'  # noqa: S608
+
+        # Build the WHERE clause
+        where_values, where_clause = self._parse_filter()
+        if self.filters:
+            sql += f" WHERE {where_clause}"
+
+        # Combine SET values with WHERE values
+        all_values = set_values + where_values
+
+        try:
+            conn = self.db.connect()
+            cursor = conn.cursor()
+            self.db._execute(cursor, sql, all_values)  # noqa: SLF001
+            updated_count = cursor.rowcount
+            self.db._maybe_commit()  # noqa: SLF001
+            self.db._cache_invalidate_table(self.table_name)  # noqa: SLF001
+        except sqlite3.Error as exc:
+            # Rollback implicit transaction if not in user-managed transaction
+            if not self.db._in_transaction and self.db.conn:  # noqa: SLF001
+                self.db.conn.rollback()
+            raise RecordUpdateError(self.table_name) from exc
+        else:
+            return updated_count

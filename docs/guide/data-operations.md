@@ -163,6 +163,75 @@ timestamp in UTC by default.
 > timestamp in UTC. This is to ensure that the `updated_at` field is always
 > accurate.
 
+## Bulk Updating Records
+
+Use `update_where()` to update multiple records that match specific criteria
+without writing raw SQL. This is more efficient than updating records one by one:
+
+```python
+# Update all pending tasks to completed
+count = db.update_where(
+    Task,
+    where={"status": "pending"},
+    values={"status": "completed"}
+)
+print(f"Updated {count} tasks")
+```
+
+The method returns the number of records updated. If no records match the
+filter, it returns `0`.
+
+### Using Filter Operators
+
+The `where` parameter supports all the same filter operators as the query
+builder:
+
+```python
+# Update all high-value orders
+count = db.update_where(
+    Order,
+    where={"total__gte": 1000},
+    values={"status": "priority"}
+)
+
+# Update specific items
+count = db.update_where(
+    Product,
+    where={"category__in": ["electronics", "gadgets"]},
+    values={"discount": 10}
+)
+```
+
+### Using with Transactions
+
+When called inside a `with db:` transaction context, `update_where()` defers
+the commit to the context exit:
+
+```python
+with db:
+    db.update_where(User, where={"status": "inactive"}, values={"status": "archived"})
+    db.update_where(Session, where={"user_id__in": inactive_ids}, values={"active": False})
+    # Both updates committed together on exit
+```
+
+> [!IMPORTANT]
+>
+> Field names in the `values` dictionary must be valid model field names,
+> not raw column names. Invalid field names raise `InvalidUpdateError`.
+
+### QueryBuilder Update
+
+For more complex conditions, you can chain `filter()` and `update()` on the
+query builder:
+
+```python
+count = (
+    db.select(User)
+    .filter(age__gte=18, country="USA")
+    .update({"newsletter": True})
+)
+```
+
 ## Deleting Records
 
 SQLiter provides two ways to delete records:

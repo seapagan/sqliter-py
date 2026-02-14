@@ -581,6 +581,39 @@ if db.select(User).filter(email="alice@example.com").exists():
     print("User exists")
 ```
 
+### `update()`
+
+Update all records matching the current query conditions with new values.
+
+```python
+def update(self, values: dict[str, Any]) -> int:
+```
+
+**Parameters:**
+
+| Parameter | Type               | Default    | Description                     |
+| --------- | ------------------ | ---------- | ------------------------------- |
+| `values`  | `dict[str, Any]`   | *required* | Field names and their new values |
+
+**Returns:** `int` -- The number of records updated.
+
+**Raises:**
+
+- [`InvalidUpdateError`](exceptions.md#invalidupdateerror) -- If an
+  invalid field name is provided in `values`.
+- [`RecordUpdateError`](exceptions.md#recordupdateerror) -- If there
+  is an error executing the update.
+
+**Example:**
+
+```python
+# Update all users over 30 to active
+count = db.select(User).filter(age__gt=30).update({"active": True})
+print(f"Updated {count} users")
+```
+
+---
+
 ### `delete()`
 
 Delete all records matching the current query conditions.

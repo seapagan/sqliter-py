@@ -135,6 +135,17 @@ class InvalidFilterError(SqliterError):
     message_template = "Failed to apply filter: invalid field '{}'"
 
 
+class InvalidUpdateError(SqliterError):
+    """Exception raised when an invalid update operation is attempted.
+
+    This error occurs when:
+    - An invalid field name is provided in the values dictionary
+    - The update operation cannot be performed for other validation reasons
+    """
+
+    message_template = "Invalid update operation: {}"
+
+
 class TableDeletionError(SqliterError):
     """Raised when a table cannot be deleted from the database."""
 
