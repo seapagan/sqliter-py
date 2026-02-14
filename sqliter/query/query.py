@@ -13,6 +13,7 @@ import hashlib
 import json
 import re
 import sqlite3
+import time
 import warnings
 from dataclasses import dataclass
 from typing import (
@@ -1972,6 +1973,14 @@ class QueryBuilder(Generic[T]):
         # Build SET clause
         set_clauses: list[str] = []
         set_values: list[Any] = []
+
+        # Auto-set updated_at timestamp if the field exists and wasn't
+        # explicitly provided
+        if "updated_at" in valid_fields and "updated_at" not in values:
+            current_timestamp = int(time.time())
+            set_clauses.append('"updated_at" = ?')
+            set_values.append(current_timestamp)
+
         for field_name, value in values.items():
             # Serialize the value if needed
             serialized = self.model_class.serialize_field(value)

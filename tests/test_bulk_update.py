@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+import time
 from typing import TYPE_CHECKING, ClassVar
 
 if TYPE_CHECKING:
@@ -16,9 +17,8 @@ from sqliter.model.model import BaseDBModel
 from sqliter.orm import BaseDBModel as ORMBaseDBModel
 from sqliter.orm import ForeignKey
 
+
 # ── Test models ──────────────────────────────────────────────────────
-
-
 class SimpleModel(BaseDBModel):
     """Simple model for basic bulk update tests."""
 
@@ -69,8 +69,6 @@ class UniqueModel(BaseDBModel):
 
 
 # ── Fixtures ─────────────────────────────────────────────────────────
-
-
 @pytest.fixture
 def db() -> SqliterDB:
     """Create an in-memory database with test tables."""
@@ -85,8 +83,6 @@ def db() -> SqliterDB:
 
 
 # ── Tests: QueryBuilder.update() ─────────────────────────────────────
-
-
 class TestQueryBuilderUpdateBasic:
     """Basic QueryBuilder.update() functionality."""
 
@@ -265,8 +261,6 @@ class TestQueryBuilderUpdateErrors:
 
 
 # ── Tests: SqliterDB.update_where() ───────────────────────────────────
-
-
 class TestUpdateWhereBasic:
     """Basic SqliterDB.update_where() functionality."""
 
@@ -376,8 +370,6 @@ class TestUpdateWhereErrors:
 
 
 # ── Tests: Cache Invalidation ───────────────────────────────────────
-
-
 class TestBulkUpdateCache:
     """Test cache invalidation on bulk update."""
 
@@ -400,8 +392,6 @@ class TestBulkUpdateCache:
 
 
 # ── Tests: Transaction Handling ─────────────────────────────────────
-
-
 class TestBulkUpdateTransaction:
     """Test transaction handling in bulk update."""
 
@@ -444,8 +434,6 @@ class TestBulkUpdateTransaction:
 
 
 # ── Tests: Edge Cases ─────────────────────────────────────────────
-
-
 class TestBulkUpdateEdgeCases:
     """Edge case tests."""
 
@@ -468,6 +456,20 @@ class TestBulkUpdateEdgeCases:
         for r in results:
             assert r.status == "all"
 
+    def test_update_with_empty_values_dict(self, db: SqliterDB) -> None:
+        """Update with empty values dict returns 0 without error."""
+        db.insert(SimpleModel(name="test", value=10))
+
+        # Update with empty dict - should return 0
+        count = db.select(SimpleModel).filter(pk=1).update({})
+
+        assert count == 0
+
+        # Verify original unchanged
+        result = db.get(SimpleModel, 1)
+        assert result is not None
+        assert result.value == 10
+
     def test_update_preserves_other_fields(self, db: SqliterDB) -> None:
         """Updating one field preserves others."""
         db.insert(SimpleModel(name="test", value=10, status="active"))
@@ -479,3 +481,83 @@ class TestBulkUpdateEdgeCases:
         assert result.name == "test"
         assert result.value == 99
         assert result.status == "active"
+
+    def test_update_auto_sets_updated_at(self, db: SqliterDB) -> None:
+        """Bulk update auto-sets updated_at timestamp."""
+        db.insert(TimestampModel(label="test"))
+
+        # Get original record
+        result = db.get(TimestampModel, 1)
+        assert result is not None
+        original_updated_at = result.updated_at
+
+        # Wait to ensure timestamp changes (int(time.time()) is in seconds)
+        time.sleep(1.1)
+
+        # Update - should auto-set updated_at
+        db.select(TimestampModel).filter(pk=1).update({"label": "updated"})
+
+        # Verify updated_at was set
+        result = db.get(TimestampModel, 1)
+        assert result is not None
+        assert result.updated_at > original_updated_at
+
+    def test_update_allows_explicit_updated_at(self, db: SqliterDB) -> None:
+        """Bulk update allows explicit updated_at value."""
+        db.insert(TimestampModel(label="test"))
+
+        explicit_timestamp = 9999999999
+
+        # Update with explicit updated_at
+        db.select(TimestampModel).filter(pk=1).update(
+            {"label": "updated", "updated_at": explicit_timestamp}
+        )
+
+        result = db.get(TimestampModel, 1)
+        assert result is not None
+        assert result.updated_at == explicit_timestamp
+
+
+class TestUpdateWhereTimestamps:
+    """Test updated_at behavior in update_where()."""
+
+    def test_update_where_auto_sets_updated_at(self, db: SqliterDB) -> None:
+        """update_where auto-sets updated_at timestamp."""
+        db.insert(TimestampModel(label="test"))
+
+        # Get original record
+        result = db.get(TimestampModel, 1)
+        assert result is not None
+        original_updated_at = result.updated_at
+
+        # Wait to ensure timestamp changes (int(time.time()) is in seconds)
+        time.sleep(1.1)
+
+        # Update via update_where - should auto-set updated_at
+        db.update_where(
+            TimestampModel, where={"pk": 1}, values={"label": "updated"}
+        )
+
+        # Verify updated_at was set
+        result = db.get(TimestampModel, 1)
+        assert result is not None
+        assert result.updated_at > original_updated_at
+
+    def test_update_where_allows_explicit_updated_at(
+        self, db: SqliterDB
+    ) -> None:
+        """update_where allows explicit updated_at value."""
+        db.insert(TimestampModel(label="test"))
+
+        explicit_timestamp = 8888888888
+
+        # Update with explicit updated_at
+        db.update_where(
+            TimestampModel,
+            where={"pk": 1},
+            values={"label": "updated", "updated_at": explicit_timestamp},
+        )
+
+        result = db.get(TimestampModel, 1)
+        assert result is not None
+        assert result.updated_at == explicit_timestamp
