@@ -1279,6 +1279,46 @@ class SqliterDB:
                 self.conn.rollback()
             raise RecordDeletionError(table_name) from exc
 
+    def update_where(
+        self,
+        model_class: type[T],
+        where: dict[str, Any],
+        values: dict[str, Any],
+    ) -> int:
+        """Update records matching the given where conditions.
+
+        This method provides a bulk update capability that updates multiple
+        records in a single query based on filter conditions, without needing
+        to write raw SQL.
+
+        Args:
+            model_class: The Pydantic model class representing the table.
+            where: A dictionary of field names and values to filter by.
+                Uses the same filter semantics as QueryBuilder.filter().
+            values: A dictionary of field names and their new values.
+                Field names should be model field names, not column names.
+
+        Returns:
+            The number of records updated.
+
+        Raises:
+            InvalidUpdateError: If an invalid field name is provided in
+                the values dictionary.
+            RecordUpdateError: If there's an error executing the update.
+
+        Example:
+            >>> # Move all ideas from one group to another
+            >>> db.update_where(
+            ...     Idea,
+            ...     where={"group_id": old_group_id},
+            ...     values={"group_id": new_group_id}
+            ... )
+        """
+        # Use the QueryBuilder's update method for consistency
+        query_builder = self.select(model_class)
+        query_builder.filter(**where)
+        return query_builder.update(values)
+
     def select(
         self,
         model_class: type[T],
