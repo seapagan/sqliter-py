@@ -426,6 +426,68 @@ user.name = "Bob"
 db.update(user)
 ```
 
+### `update_where()`
+
+Update multiple records that match filter conditions. More efficient
+than updating records one by one.
+
+```python
+def update_where(
+    self,
+    model_class: type[T],
+    where: dict[str, Any],
+    values: dict[str, Any],
+) -> int:
+```
+
+**Parameters:**
+
+| Parameter     | Type                | Default    | Description                              |
+| ------------- | ------------------- | ---------- | ---------------------------------------- |
+| `model_class` | `type[T]`           | *required* | The model class to update                |
+| `where`       | `dict[str, Any]`    | *required* | Filter conditions (same as QueryBuilder) |
+| `values`      | `dict[str, Any]`    | *required* | Field names and their new values         |
+
+**Returns:**
+
+`int` -- The number of records updated. Returns `0` if no records
+match the filter.
+
+**Raises:**
+
+- [`InvalidUpdateError`](exceptions.md#invalidupdateerror) -- If an
+  invalid field name is provided in `values`.
+- [`RecordUpdateError`](exceptions.md#recordupdateerror) -- If there
+  is an error executing the update.
+
+**Behavior:**
+
+- Supports all filter operators (`__gt`, `__gte`, `__lt`, `__lte`,
+  `__in`, `__like`, etc.)
+- Field names must be model field names, not raw column names.
+- Values are parameterized safely.
+- Cache is invalidated after the update.
+- When called inside a `with db:` context manager, the commit is
+  deferred to context exit.
+
+**Example:**
+
+```python
+# Update all pending tasks
+count = db.update_where(
+    Task,
+    where={"status": "pending"},
+    values={"status": "completed"}
+)
+
+# With filter operators
+count = db.update_where(
+    Product,
+    where={"price__gte": 100, "category__in": ["sale", "clearance"]},
+    values={"discount": 25}
+)
+```
+
 ### `delete()`
 
 Delete a record by its primary key.
