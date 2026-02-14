@@ -1959,6 +1959,9 @@ class QueryBuilder(Generic[T]):
             InvalidUpdateError: If an invalid field name is provided.
             RecordUpdateError: If there's an error updating the records.
         """
+        if not values:
+            return 0
+
         # Validate fields in values dict
         valid_fields = set(self.model_class.model_fields.keys())
         invalid_fields = set(values.keys()) - valid_fields
