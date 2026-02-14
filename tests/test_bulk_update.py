@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 import time
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -14,8 +14,6 @@ import pytest
 from sqliter import SqliterDB
 from sqliter.exceptions import InvalidUpdateError, RecordUpdateError
 from sqliter.model.model import BaseDBModel
-from sqliter.orm import BaseDBModel as ORMBaseDBModel
-from sqliter.orm import ForeignKey
 
 
 # ── Test models ──────────────────────────────────────────────────────
@@ -41,33 +39,6 @@ class TimestampModel(BaseDBModel):
     label: str
 
 
-class ParentModel(ORMBaseDBModel):
-    """Parent model for FK constraint tests."""
-
-    name: str
-
-
-class ChildModel(ORMBaseDBModel):
-    """Child model with FK for constraint tests."""
-
-    title: str
-    parent: ForeignKey[ParentModel] = ForeignKey(
-        ParentModel, on_delete="CASCADE"
-    )
-
-
-class UniqueModel(BaseDBModel):
-    """Model with a unique constraint for testing constraints."""
-
-    class Meta:
-        """Meta class for unique indexes."""
-
-        unique_indexes: ClassVar[list[str]] = ["code"]
-
-    code: str
-    description: str = ""
-
-
 # ── Fixtures ─────────────────────────────────────────────────────────
 @pytest.fixture
 def db() -> SqliterDB:
@@ -76,9 +47,6 @@ def db() -> SqliterDB:
     database.create_table(SimpleModel)
     database.create_table(GroupModel)
     database.create_table(TimestampModel)
-    database.create_table(ParentModel)
-    database.create_table(ChildModel)
-    database.create_table(UniqueModel)
     return database
 
 
