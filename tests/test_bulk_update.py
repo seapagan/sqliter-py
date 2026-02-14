@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sqlite3
-import time
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -459,8 +458,13 @@ class TestBulkUpdateEdgeCases:
 
         assert "pk" in str(exc_info.value)
 
-    def test_update_auto_sets_updated_at(self, db: SqliterDB) -> None:
+    def test_update_auto_sets_updated_at(
+        self, db: SqliterDB, monkeypatch
+    ) -> None:
         """Bulk update auto-sets updated_at timestamp."""
+        fake_time = 1000000000.0
+        monkeypatch.setattr("time.time", lambda: fake_time)
+
         db.insert(TimestampModel(label="test"))
 
         # Get original record
@@ -468,8 +472,9 @@ class TestBulkUpdateEdgeCases:
         assert result is not None
         original_updated_at = result.updated_at
 
-        # Wait to ensure timestamp changes (int(time.time()) is in seconds)
-        time.sleep(1.1)
+        # Advance time
+        fake_time += 2
+        monkeypatch.setattr("time.time", lambda: fake_time)
 
         # Update - should auto-set updated_at
         db.select(TimestampModel).filter(pk=1).update({"label": "updated"})
@@ -498,8 +503,13 @@ class TestBulkUpdateEdgeCases:
 class TestUpdateWhereTimestamps:
     """Test updated_at behavior in update_where()."""
 
-    def test_update_where_auto_sets_updated_at(self, db: SqliterDB) -> None:
+    def test_update_where_auto_sets_updated_at(
+        self, db: SqliterDB, monkeypatch
+    ) -> None:
         """update_where auto-sets updated_at timestamp."""
+        fake_time = 1000000000.0
+        monkeypatch.setattr("time.time", lambda: fake_time)
+
         db.insert(TimestampModel(label="test"))
 
         # Get original record
@@ -507,8 +517,9 @@ class TestUpdateWhereTimestamps:
         assert result is not None
         original_updated_at = result.updated_at
 
-        # Wait to ensure timestamp changes (int(time.time()) is in seconds)
-        time.sleep(1.1)
+        # Advance time
+        fake_time += 2
+        monkeypatch.setattr("time.time", lambda: fake_time)
 
         # Update via update_where - should auto-set updated_at
         db.update_where(
