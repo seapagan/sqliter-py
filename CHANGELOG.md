@@ -5,6 +5,18 @@ project since the first release, with the latest changes at the top.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0](https://github.com/seapagan/sqliter-py/releases/tag/0.19.0) (February 14, 2026)
+
+**Closed Issues**
+
+- Add bulk update API for set-based updates without raw SQL ([#125](https://github.com/seapagan/sqliter-py/issues/125)) by [seapagan](https://github.com/seapagan)
+
+**New Features**
+
+- Feat: Add bulk update API for set-based updates (Issue #125) ([#130](https://github.com/seapagan/sqliter-py/pull/130)) by [seapagan](https://github.com/seapagan)
+
+[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.18.1...0.19.0) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.18.1...0.19.0.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.18.1...0.19.0.patch)
+
 ## [0.18.1](https://github.com/seapagan/sqliter-py/releases/tag/0.18.1) (February 13, 2026)
 
 **Closed Issues**
