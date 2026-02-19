@@ -400,6 +400,48 @@ db.close()
 # --8<-- [end:m2m-symmetrical]
 ```
 
+## M2M SQL Metadata Introspection
+
+Inspect read-only SQL metadata for many-to-many relationships so raw SQL
+can reuse SQLiter's naming conventions.
+
+```python
+from sqliter import SqliterDB
+from sqliter.orm import BaseDBModel, ManyToMany
+
+class Tag(BaseDBModel):
+    name: str
+
+class Article(BaseDBModel):
+    title: str
+    tags: ManyToMany[Tag] = ManyToMany(Tag, related_name="articles")
+
+db = SqliterDB(memory=True)
+db.create_table(Tag)
+db.create_table(Article)
+
+article = db.insert(Article(title="ORM Guide"))
+python = db.insert(Tag(name="python"))
+article.tags.add(python)
+
+descriptor_meta = Article.tags.sql_metadata
+manager_meta = article.tags.sql_metadata
+
+if descriptor_meta is not None:
+    print(descriptor_meta.junction_table)
+    print(descriptor_meta.from_column, descriptor_meta.to_column)
+
+print(manager_meta.source_table, manager_meta.target_table)
+
+db.close()
+```
+
+### Why It Helps
+
+- Avoid hardcoding junction and foreign-key column names
+- Keep ad-hoc reporting SQL aligned with ORM naming
+- Use the same metadata from descriptor and manager access
+
 ## Relationship Filter Traversal
 
 Filter records by fields on related models using double underscore syntax.
