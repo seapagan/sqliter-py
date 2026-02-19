@@ -283,14 +283,11 @@ def _run_many_to_many_sql_metadata() -> str:
     python = db.insert(Tag(name="python"))
     article.tags.add(python)
 
-    descriptor_meta = Article.tags.sql_metadata
+    descriptor_meta = Article.tags.sql_metadata or article.tags.sql_metadata
     output.write("Descriptor metadata (Article.tags):\n")
-    if descriptor_meta is not None:
-        output.write(f"  junction_table: {descriptor_meta.junction_table}\n")
-        output.write(f"  from_column: {descriptor_meta.from_column}\n")
-        output.write(f"  to_column: {descriptor_meta.to_column}\n")
-    else:
-        output.write("  metadata unavailable\n")
+    output.write(f"  junction_table: {descriptor_meta.junction_table}\n")
+    output.write(f"  from_column: {descriptor_meta.from_column}\n")
+    output.write(f"  to_column: {descriptor_meta.to_column}\n")
 
     manager_meta = article.tags.sql_metadata
     output.write("\nManager metadata (article.tags):\n")
