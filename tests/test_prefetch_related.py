@@ -347,6 +347,18 @@ class TestM2MPrefetch:
         notags = next(a for a in articles if a.title == "No Tags")
         assert notags.tags.fetch_one() is None
 
+    def test_m2m_prefetched_sql_metadata(self, db: SqliterDB) -> None:
+        """Prefetched M2M exposes sql_metadata via manager passthrough."""
+        articles = db.select(Article).prefetch_related("tags").fetch_all()
+        guide = next(a for a in articles if a.title == "SQLiter Guide")
+        metadata = guide.tags.sql_metadata
+        assert metadata.junction_table == "articles_tags"
+        assert metadata.from_column == "articles_pk"
+        assert metadata.to_column == "tags_pk"
+        assert metadata.source_table == "articles"
+        assert metadata.target_table == "tags"
+        assert metadata.symmetrical is False
+
     def test_m2m_prefetched_filter_falls_back(self, db: SqliterDB) -> None:
         """Prefetched M2M .filter() falls back to DB query."""
         articles = db.select(Article).prefetch_related("tags").fetch_all()
