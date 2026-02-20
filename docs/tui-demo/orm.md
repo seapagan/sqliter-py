@@ -402,7 +402,7 @@ db.close()
 
 ## M2M SQL Metadata Introspection
 
-Inspect read-only SQL metadata for many-to-many relationships so raw SQL
+Inspect read-only SQL metadata for many-to-many relationships, so raw SQL
 can reuse SQLiter's naming conventions.
 
 ```python

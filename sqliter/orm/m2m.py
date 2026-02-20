@@ -160,9 +160,6 @@ class ManyToManyManager(Generic[T]):
         to_table = cast("type[BaseDBModel]", to_model).get_table_name()
         self._self_ref = from_table == to_table
         self._symmetrical = bool(manager_options.symmetrical and self._self_ref)
-        self._from_col, self._to_col = _m2m_column_names(from_table, to_table)
-        if manager_options.swap_columns:
-            self._from_col, self._to_col = self._to_col, self._from_col
         self._sql_metadata = _build_m2m_sql_metadata(
             source_table=from_table,
             target_table=to_table,
@@ -170,6 +167,8 @@ class ManyToManyManager(Generic[T]):
             symmetrical=manager_options.symmetrical,
             swap_columns=manager_options.swap_columns,
         )
+        self._from_col = self._sql_metadata.from_column
+        self._to_col = self._sql_metadata.to_column
 
     @property
     def sql_metadata(self) -> M2MSQLMetadata:

@@ -94,8 +94,7 @@ Use `sql_metadata` when you need occasional raw SQL without hardcoding
 junction names or FK column names.
 
 ```python
-desc = Article.__dict__["tags"]
-meta = desc.sql_metadata
+meta = Article.tags.sql_metadata
 assert meta is not None
 
 sql = f"""
