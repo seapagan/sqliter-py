@@ -158,8 +158,6 @@ class ManyToManyManager(Generic[T]):
         # Column names based on alphabetically sorted table names
         from_table = cast("type[BaseDBModel]", from_model).get_table_name()
         to_table = cast("type[BaseDBModel]", to_model).get_table_name()
-        self._self_ref = from_table == to_table
-        self._symmetrical = bool(manager_options.symmetrical and self._self_ref)
         self._sql_metadata = _build_m2m_sql_metadata(
             source_table=from_table,
             target_table=to_table,
@@ -250,7 +248,7 @@ class ManyToManyManager(Generic[T]):
 
         conn = self._db.connect()
         cursor = conn.cursor()
-        if self._symmetrical:
+        if self._sql_metadata.symmetrical:
             sql = (
                 f'SELECT CASE WHEN "{self._from_col}" = ? '  # noqa: S608
                 f'THEN "{self._to_col}" ELSE "{self._from_col}" END '
@@ -294,7 +292,7 @@ class ManyToManyManager(Generic[T]):
                 if not to_pk:
                     self._raise_missing_pk()
                 to_pk = cast("int", to_pk)
-                if self._symmetrical:
+                if self._sql_metadata.symmetrical:
                     left_pk, right_pk = sorted([from_pk, to_pk])
                     db._execute(cursor, sql, (left_pk, right_pk))  # noqa: SLF001
                 else:
@@ -331,7 +329,7 @@ class ManyToManyManager(Generic[T]):
                 to_pk = getattr(inst, "pk", None)
                 if to_pk:
                     to_pk = cast("int", to_pk)
-                    if self._symmetrical:
+                    if self._sql_metadata.symmetrical:
                         left_pk, right_pk = sorted([from_pk, to_pk])
                         db._execute(cursor, sql, (left_pk, right_pk))  # noqa: SLF001
                     else:
@@ -352,7 +350,7 @@ class ManyToManyManager(Generic[T]):
         from_pk = self._get_instance_pk()
 
         params: tuple[int, ...]
-        if self._symmetrical:
+        if self._sql_metadata.symmetrical:
             sql = (
                 f'DELETE FROM "{self._junction_table}" '  # noqa: S608
                 f'WHERE "{self._from_col}" = ? OR "{self._to_col}" = ?'
@@ -439,7 +437,7 @@ class ManyToManyManager(Generic[T]):
             return 0
 
         params: tuple[int, ...]
-        if self._symmetrical:
+        if self._sql_metadata.symmetrical:
             sql = (
                 f'SELECT COUNT(*) FROM "{self._junction_table}" '  # noqa: S608
                 f'WHERE "{self._from_col}" = ? OR "{self._to_col}" = ?'
