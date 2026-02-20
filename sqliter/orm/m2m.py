@@ -630,6 +630,7 @@ class ManyToMany(Generic[T]):
         self.name: Optional[str] = None
         self.owner: Optional[type] = None
         self._junction_table: Optional[str] = None
+        self._sql_metadata: Optional[M2MSQLMetadata] = None
 
     @classmethod
     def __get_pydantic_core_schema__(
@@ -686,15 +687,18 @@ class ManyToMany(Generic[T]):
             return None
         if self._junction_table is None:
             return None
+        if self._sql_metadata is not None:
+            return self._sql_metadata
 
         owner_table = cast("type[BaseDBModel]", self.owner).get_table_name()
         target_table = cast("type[BaseDBModel]", self.to_model).get_table_name()
-        return _build_m2m_sql_metadata(
+        self._sql_metadata = _build_m2m_sql_metadata(
             source_table=owner_table,
             target_table=target_table,
             junction_table=self._junction_table,
             symmetrical=self.m2m_info.symmetrical,
         )
+        return self._sql_metadata
 
     def __set_name__(self, owner: type, name: str) -> None:
         """Called during class creation to register the M2M field.
@@ -863,16 +867,20 @@ class ReverseManyToMany:
         self._junction_table = junction_table
         self._related_name = related_name
         self._symmetrical = symmetrical
+        self._sql_metadata: Optional[M2MSQLMetadata] = None
 
     @property
     def sql_metadata(self) -> M2MSQLMetadata:
         """Return read-only SQL metadata for this reverse descriptor."""
+        if self._sql_metadata is not None:
+            return self._sql_metadata
+
         source_model = cast("type[BaseDBModel]", self._to_model)
         source_table = source_model.get_table_name()
         target_table = cast(
             "type[BaseDBModel]", self._from_model
         ).get_table_name()
-        return _build_m2m_sql_metadata(
+        self._sql_metadata = _build_m2m_sql_metadata(
             source_table=source_table,
             target_table=target_table,
             junction_table=self._junction_table,
@@ -880,6 +888,7 @@ class ReverseManyToMany:
             swap_columns=self._from_model is self._to_model
             and not self._symmetrical,
         )
+        return self._sql_metadata
 
     @overload
     def __get__(

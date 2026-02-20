@@ -322,6 +322,22 @@ class TestManyToManySQLMetadata:
         with pytest.raises(FrozenInstanceError):
             metadata.junction_table = "new_table"
 
+    def test_forward_descriptor_metadata_is_cached(self) -> None:
+        """Forward descriptor metadata should be memoized."""
+        desc = Article.__dict__["tags"]
+        first = desc.sql_metadata
+        second = desc.sql_metadata
+        assert first is not None
+        assert second is not None
+        assert first is second
+
+    def test_reverse_descriptor_metadata_is_cached(self) -> None:
+        """Reverse descriptor metadata should be memoized."""
+        desc = Tag.articles
+        first = desc.sql_metadata
+        second = desc.sql_metadata
+        assert first is second
+
 
 # ── TestJunctionTableCreation ────────────────────────────────────────
 
