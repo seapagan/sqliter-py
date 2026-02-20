@@ -668,6 +668,7 @@ class ManyToMany(Generic[T]):
         """Resolve a string forward ref to a concrete model class."""
         self.to_model = model_class
         self.m2m_info.to_model = model_class
+        self._sql_metadata = None
         if self._junction_table is None and self.owner is not None:
             self._junction_table = self._get_junction_table_name(self.owner)
 
