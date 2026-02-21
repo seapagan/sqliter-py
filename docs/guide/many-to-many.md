@@ -88,6 +88,33 @@ class Post(BaseDBModel):
     )
 ```
 
+## SQL Metadata Introspection
+
+Use `sql_metadata` when you need occasional raw SQL without hardcoding
+junction names or FK column names.
+
+```python
+meta = Article.tags.sql_metadata
+assert meta is not None
+
+sql = f"""
+SELECT t.pk, COUNT(j."{meta.to_column}") AS usage
+FROM "{meta.target_table}" AS t
+LEFT JOIN "{meta.junction_table}" AS j
+  ON j."{meta.to_column}" = t.pk
+GROUP BY t.pk
+"""
+rows = db.connect().execute(sql).fetchall()
+```
+
+For reverse accessors and instance managers, `sql_metadata` is also
+available:
+
+```python
+tag_meta = Tag.articles.sql_metadata
+mgr_meta = article.tags.sql_metadata
+```
+
 ## Self-Referential Symmetry
 
 For self-referential relationships (e.g., friends), use

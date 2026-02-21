@@ -49,6 +49,37 @@ class ManyToMany(Generic[T]):
 - Reverse accessors are created automatically when `related_name` is set
   or auto-generated.
 
+### SQL Metadata
+
+`ManyToMany` descriptors expose read-only SQL metadata:
+
+- `junction_table` (existing property): `str | None`
+- `sql_metadata`: `M2MSQLMetadata | None`
+
+`sql_metadata` is `None` until a string forward reference is resolved.
+
+---
+
+## `M2MSQLMetadata`
+
+Immutable metadata describing SQL naming for one relationship
+orientation.
+
+```python
+from sqliter.orm.m2m import M2MSQLMetadata
+```
+
+**Fields:**
+
+| Field            | Type   | Description                                  |
+| ---------------- | ------ | -------------------------------------------- |
+| `junction_table` | `str`  | Junction table name                          |
+| `from_column`    | `str`  | Junction FK column used from the source side |
+| `to_column`      | `str`  | Junction FK column used for target rows      |
+| `source_table`   | `str`  | Source model table name for this accessor    |
+| `target_table`   | `str`  | Target model table name for this accessor    |
+| `symmetrical`    | `bool` | Effective self-reference symmetry flag        |
+
 ---
 
 ## `ManyToManyManager`
@@ -71,6 +102,10 @@ tags = article.tags
 - `exists() -> bool`
 - `filter(**kwargs) -> QueryBuilder[Any]`
 
+**Properties:**
+
+- `sql_metadata -> M2MSQLMetadata`
+
 All methods require a valid `db_context`, which is set on instances
 returned from `SqliterDB` operations.
 
@@ -84,6 +119,10 @@ unless suppressed (symmetrical self-ref).
 ```python
 articles = tag.articles.fetch_all()
 ```
+
+**Properties:**
+
+- `sql_metadata -> M2MSQLMetadata`
 
 ---
 
@@ -103,6 +142,10 @@ from sqliter.orm.m2m import PrefetchedM2MResult
 - `fetch_one() -> T | None`
 - `count() -> int`
 - `exists() -> bool`
+
+**Properties:**
+
+- `sql_metadata -> M2MSQLMetadata`
 
 **Write methods** (delegated to the real `ManyToManyManager`):
 

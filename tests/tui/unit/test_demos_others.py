@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from sqliter.orm import ManyToMany
 from sqliter.tui.demos import (
     caching,
     errors,
@@ -47,3 +48,15 @@ class TestGetCategories:
             output = demo.execute()
             assert isinstance(output, str)
             assert len(output) > 0
+
+    def test_orm_metadata_demo_errors_when_descriptor_metadata_missing(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """M2M metadata demo raises if descriptor metadata is unavailable."""
+        monkeypatch.setattr(
+            ManyToMany,
+            "sql_metadata",
+            property(lambda self: None),
+        )
+        with pytest.raises(RuntimeError, match="metadata unavailable"):
+            orm._run_many_to_many_sql_metadata()

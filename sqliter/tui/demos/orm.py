@@ -264,6 +264,44 @@ def _run_many_to_many_symmetrical() -> str:
     return output.getvalue()
 
 
+def _run_many_to_many_sql_metadata() -> str:
+    """Inspect read-only SQL metadata for many-to-many relationships."""
+    output = io.StringIO()
+
+    class Tag(BaseDBModel):
+        name: str
+
+    class Article(BaseDBModel):
+        title: str
+        tags: ManyToMany[Tag] = ManyToMany(Tag, related_name="articles")
+
+    db = SqliterDB(memory=True)
+    db.create_table(Tag)
+    db.create_table(Article)
+
+    article = db.insert(Article(title="ORM Guide"))
+    python = db.insert(Tag(name="python"))
+    article.tags.add(python)
+
+    descriptor_meta = Article.tags.sql_metadata
+    if descriptor_meta is None:
+        msg = "Descriptor SQL metadata unavailable for Article.tags"
+        raise RuntimeError(msg)
+    output.write("Descriptor metadata (Article.tags):\n")
+    output.write(f"  junction_table: {descriptor_meta.junction_table}\n")
+    output.write(f"  from_column: {descriptor_meta.from_column}\n")
+    output.write(f"  to_column: {descriptor_meta.to_column}\n")
+
+    manager_meta = article.tags.sql_metadata
+    output.write("\nManager metadata (article.tags):\n")
+    output.write(f"  source_table: {manager_meta.source_table}\n")
+    output.write(f"  target_table: {manager_meta.target_table}\n")
+    output.write(f"  symmetrical: {manager_meta.symmetrical}\n")
+
+    db.close()
+    return output.getvalue()
+
+
 def _run_select_related_basic() -> str:
     """Demonstrate eager loading with select_related().
 
@@ -685,6 +723,14 @@ def get_category() -> DemoCategory:
                 category="orm",
                 code=extract_demo_code(_run_many_to_many_symmetrical),
                 execute=_run_many_to_many_symmetrical,
+            ),
+            Demo(
+                id="orm_m2m_sql_metadata",
+                title="Many-to-Many SQL Metadata",
+                description="Inspect M2M junction and column names",
+                category="orm",
+                code=extract_demo_code(_run_many_to_many_sql_metadata),
+                execute=_run_many_to_many_sql_metadata,
             ),
             Demo(
                 id="orm_select_related",

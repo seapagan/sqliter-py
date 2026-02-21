@@ -65,6 +65,18 @@ class ManyToManyOptions:
     swap_columns: bool = False
 
 
+@dataclass(frozen=True)
+class M2MSQLMetadata:
+    """Read-only SQL metadata for a many-to-many relationship."""
+
+    junction_table: str
+    from_column: str
+    to_column: str
+    source_table: str
+    target_table: str
+    symmetrical: bool
+
+
 def _m2m_column_names(table_a: str, table_b: str) -> tuple[str, str]:
     """Return junction table column names.
 
@@ -74,6 +86,40 @@ def _m2m_column_names(table_a: str, table_b: str) -> tuple[str, str]:
     if table_a == table_b:
         return (f"{table_a}_pk_left", f"{table_b}_pk_right")
     return (f"{table_a}_pk", f"{table_b}_pk")
+
+
+def _build_m2m_sql_metadata(
+    *,
+    source_table: str,
+    target_table: str,
+    junction_table: str,
+    symmetrical: bool,
+    swap_columns: bool = False,
+) -> M2MSQLMetadata:
+    """Build SQL metadata for a relationship orientation.
+
+    Args:
+        source_table: Source model table name for the accessor orientation.
+        target_table: Target model table name for the accessor orientation.
+        junction_table: Junction table name.
+        symmetrical: Relationship symmetry option from descriptor/manager.
+        swap_columns: Whether to invert source/target columns.
+
+    Returns:
+        Immutable SQL metadata describing the relationship.
+    """
+    from_column, to_column = _m2m_column_names(source_table, target_table)
+    if swap_columns:
+        from_column, to_column = to_column, from_column
+    self_ref = source_table == target_table
+    return M2MSQLMetadata(
+        junction_table=junction_table,
+        from_column=from_column,
+        to_column=to_column,
+        source_table=source_table,
+        target_table=target_table,
+        symmetrical=bool(symmetrical and self_ref),
+    )
 
 
 class ManyToManyManager(Generic[T]):
@@ -109,14 +155,24 @@ class ManyToManyManager(Generic[T]):
         self._junction_table = junction_table
         self._db = db_context
 
-        # Column names based on alphabetically sorted table names
+        # Column/metadata names derived from from_model/to_model table names
+        # (with optional column swapping)
         from_table = cast("type[BaseDBModel]", from_model).get_table_name()
         to_table = cast("type[BaseDBModel]", to_model).get_table_name()
-        self._self_ref = from_table == to_table
-        self._symmetrical = bool(manager_options.symmetrical and self._self_ref)
-        self._from_col, self._to_col = _m2m_column_names(from_table, to_table)
-        if manager_options.swap_columns:
-            self._from_col, self._to_col = self._to_col, self._from_col
+        self._sql_metadata = _build_m2m_sql_metadata(
+            source_table=from_table,
+            target_table=to_table,
+            junction_table=junction_table,
+            symmetrical=manager_options.symmetrical,
+            swap_columns=manager_options.swap_columns,
+        )
+        self._from_col = self._sql_metadata.from_column
+        self._to_col = self._sql_metadata.to_column
+
+    @property
+    def sql_metadata(self) -> M2MSQLMetadata:
+        """Return read-only SQL metadata for this relationship manager."""
+        return self._sql_metadata
 
     def _check_context(self) -> SqliterDB:
         """Verify db_context and pk are available.
@@ -193,7 +249,7 @@ class ManyToManyManager(Generic[T]):
 
         conn = self._db.connect()
         cursor = conn.cursor()
-        if self._symmetrical:
+        if self._sql_metadata.symmetrical:
             sql = (
                 f'SELECT CASE WHEN "{self._from_col}" = ? '  # noqa: S608
                 f'THEN "{self._to_col}" ELSE "{self._from_col}" END '
@@ -237,7 +293,7 @@ class ManyToManyManager(Generic[T]):
                 if not to_pk:
                     self._raise_missing_pk()
                 to_pk = cast("int", to_pk)
-                if self._symmetrical:
+                if self._sql_metadata.symmetrical:
                     left_pk, right_pk = sorted([from_pk, to_pk])
                     db._execute(cursor, sql, (left_pk, right_pk))  # noqa: SLF001
                 else:
@@ -274,7 +330,7 @@ class ManyToManyManager(Generic[T]):
                 to_pk = getattr(inst, "pk", None)
                 if to_pk:
                     to_pk = cast("int", to_pk)
-                    if self._symmetrical:
+                    if self._sql_metadata.symmetrical:
                         left_pk, right_pk = sorted([from_pk, to_pk])
                         db._execute(cursor, sql, (left_pk, right_pk))  # noqa: SLF001
                     else:
@@ -295,7 +351,7 @@ class ManyToManyManager(Generic[T]):
         from_pk = self._get_instance_pk()
 
         params: tuple[int, ...]
-        if self._symmetrical:
+        if self._sql_metadata.symmetrical:
             sql = (
                 f'DELETE FROM "{self._junction_table}" '  # noqa: S608
                 f'WHERE "{self._from_col}" = ? OR "{self._to_col}" = ?'
@@ -382,7 +438,7 @@ class ManyToManyManager(Generic[T]):
             return 0
 
         params: tuple[int, ...]
-        if self._symmetrical:
+        if self._sql_metadata.symmetrical:
             sql = (
                 f'SELECT COUNT(*) FROM "{self._junction_table}" '  # noqa: S608
                 f'WHERE "{self._from_col}" = ? OR "{self._to_col}" = ?'
@@ -456,6 +512,11 @@ class PrefetchedM2MResult(Generic[T]):
         """
         self._items = cached_items
         self._manager = manager
+
+    @property
+    def sql_metadata(self) -> M2MSQLMetadata:
+        """Return read-only SQL metadata for this relationship."""
+        return self._manager.sql_metadata
 
     def fetch_all(self) -> list[T]:
         """Return all prefetched related instances.
@@ -570,6 +631,7 @@ class ManyToMany(Generic[T]):
         self.name: Optional[str] = None
         self.owner: Optional[type] = None
         self._junction_table: Optional[str] = None
+        self._sql_metadata: Optional[M2MSQLMetadata] = None
 
     @classmethod
     def __get_pydantic_core_schema__(
@@ -607,6 +669,7 @@ class ManyToMany(Generic[T]):
         """Resolve a string forward ref to a concrete model class."""
         self.to_model = model_class
         self.m2m_info.to_model = model_class
+        self._sql_metadata = None
         if self._junction_table is None and self.owner is not None:
             self._junction_table = self._get_junction_table_name(self.owner)
 
@@ -614,6 +677,30 @@ class ManyToMany(Generic[T]):
     def junction_table(self) -> Optional[str]:
         """Return the resolved junction table name, if available."""
         return self._junction_table
+
+    @property
+    def sql_metadata(self) -> Optional[M2MSQLMetadata]:
+        """Return read-only SQL metadata for this descriptor.
+
+        Returns:
+            Metadata object when both sides are resolved, otherwise None.
+        """
+        if self.owner is None or isinstance(self.to_model, str):
+            return None
+        if self._junction_table is None:
+            return None
+        if self._sql_metadata is not None:
+            return self._sql_metadata
+
+        owner_table = cast("type[BaseDBModel]", self.owner).get_table_name()
+        target_table = cast("type[BaseDBModel]", self.to_model).get_table_name()
+        self._sql_metadata = _build_m2m_sql_metadata(
+            source_table=owner_table,
+            target_table=target_table,
+            junction_table=self._junction_table,
+            symmetrical=self.m2m_info.symmetrical,
+        )
+        return self._sql_metadata
 
     def __set_name__(self, owner: type, name: str) -> None:
         """Called during class creation to register the M2M field.
@@ -782,6 +869,32 @@ class ReverseManyToMany:
         self._junction_table = junction_table
         self._related_name = related_name
         self._symmetrical = symmetrical
+        self._sql_metadata: Optional[M2MSQLMetadata] = None
+
+    @property
+    def _swap_columns(self) -> bool:
+        """Whether reverse orientation requires column swapping."""
+        return self._from_model is self._to_model and not self._symmetrical
+
+    @property
+    def sql_metadata(self) -> M2MSQLMetadata:
+        """Return read-only SQL metadata for this reverse descriptor."""
+        if self._sql_metadata is not None:
+            return self._sql_metadata
+
+        source_model = cast("type[BaseDBModel]", self._to_model)
+        source_table = source_model.get_table_name()
+        target_table = cast(
+            "type[BaseDBModel]", self._from_model
+        ).get_table_name()
+        self._sql_metadata = _build_m2m_sql_metadata(
+            source_table=source_table,
+            target_table=target_table,
+            junction_table=self._junction_table,
+            symmetrical=self._symmetrical,
+            swap_columns=self._swap_columns,
+        )
+        return self._sql_metadata
 
     @overload
     def __get__(
@@ -825,8 +938,7 @@ class ReverseManyToMany:
             db_context=getattr(instance, "db_context", None),
             options=ManyToManyOptions(
                 symmetrical=self._symmetrical,
-                swap_columns=self._from_model is self._to_model
-                and not self._symmetrical,
+                swap_columns=self._swap_columns,
             ),
         )
 

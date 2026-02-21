@@ -5,6 +5,7 @@ from __future__ import annotations
 import builtins
 import sqlite3
 import sys
+from dataclasses import FrozenInstanceError
 from typing import TYPE_CHECKING, Any, cast
 
 import pytest
@@ -12,6 +13,7 @@ import pytest
 from sqliter.exceptions import ManyToManyIntegrityError, TableCreationError
 from sqliter.orm import BaseDBModel, ManyToMany
 from sqliter.orm.m2m import (
+    M2MSQLMetadata,
     ManyToManyManager,
     ReverseManyToMany,
     create_junction_table,
@@ -140,6 +142,201 @@ class TestManyToManyDescriptor:
         assert hasattr(Tag, "articles")
         desc = Tag.articles
         assert isinstance(desc, ReverseManyToMany)
+
+
+class TestManyToManySQLMetadata:
+    """Tests for public M2M SQL metadata."""
+
+    def test_forward_descriptor_metadata(self) -> None:
+        """Forward descriptor exposes SQL metadata."""
+        desc = Article.__dict__["tags"]
+        metadata = desc.sql_metadata
+        assert metadata is not None
+        assert isinstance(metadata, M2MSQLMetadata)
+        assert metadata.junction_table == "articles_tags"
+        assert metadata.from_column == "articles_pk"
+        assert metadata.to_column == "tags_pk"
+        assert metadata.source_table == "articles"
+        assert metadata.target_table == "tags"
+        assert metadata.symmetrical is False
+
+    def test_forward_descriptor_metadata_custom_through(self) -> None:
+        """Metadata preserves source/target orientation for custom through."""
+        desc = Post.__dict__["categories"]
+        metadata = desc.sql_metadata
+        assert metadata is not None
+        assert metadata.junction_table == "post_category_links"
+        assert metadata.from_column == "posts_pk"
+        assert metadata.to_column == "categories_pk"
+        assert metadata.source_table == "posts"
+        assert metadata.target_table == "categories"
+
+    def test_forward_unresolved_forward_ref_metadata_is_none(self) -> None:
+        """Unresolved string forward refs expose no SQL metadata."""
+        state = ModelRegistry.snapshot()
+        ModelRegistry.reset()
+
+        try:
+
+            class SourceUnresolved(BaseDBModel):
+                name: str
+                links: ManyToMany[Any] = ManyToMany("NeverDefinedTarget")
+
+            desc = SourceUnresolved.__dict__["links"]
+            assert desc.sql_metadata is None
+        finally:
+            ModelRegistry.restore(state)
+
+    def test_forward_metadata_none_when_junction_table_unset(self) -> None:
+        """Descriptor metadata is None when junction table is unavailable."""
+        desc = Article.__dict__["tags"]
+        original_junction = desc._junction_table
+        desc._junction_table = None
+        try:
+            assert desc.sql_metadata is None
+        finally:
+            desc._junction_table = original_junction
+
+    def test_forward_metadata_resolves_after_target_definition(self) -> None:
+        """Resolved string forward refs expose metadata."""
+        state = ModelRegistry.snapshot()
+        ModelRegistry.reset()
+
+        try:
+
+            class SourceResolved(BaseDBModel):
+                name: str
+                links: ManyToMany[Any] = ManyToMany("TargetResolved")
+
+            class TargetResolved(BaseDBModel):
+                name: str
+
+            desc = SourceResolved.__dict__["links"]
+            metadata = desc.sql_metadata
+            source_table = SourceResolved.get_table_name()
+            target_table = TargetResolved.get_table_name()
+            sorted_names = sorted([source_table, target_table])
+            assert desc.to_model is TargetResolved
+            assert metadata is not None
+            assert metadata.junction_table == (
+                f"{sorted_names[0]}_{sorted_names[1]}"
+            )
+            assert metadata.from_column == f"{source_table}_pk"
+            assert metadata.to_column == f"{target_table}_pk"
+            assert metadata.source_table == source_table
+            assert metadata.target_table == target_table
+            assert metadata.symmetrical is False
+        finally:
+            ModelRegistry.restore(state)
+
+    def test_reverse_descriptor_metadata(self) -> None:
+        """Reverse descriptor exposes SQL metadata in reverse orientation."""
+        desc = Tag.articles
+        metadata = desc.sql_metadata
+        assert isinstance(metadata, M2MSQLMetadata)
+        assert metadata.junction_table == "articles_tags"
+        assert metadata.from_column == "tags_pk"
+        assert metadata.to_column == "articles_pk"
+        assert metadata.source_table == "tags"
+        assert metadata.target_table == "articles"
+        assert metadata.symmetrical is False
+
+    def test_manager_metadata_forward(self, db: SqliterDB) -> None:
+        """Forward manager metadata matches forward descriptor orientation."""
+        article = db.insert(Article(title="Guide"))
+        metadata = article.tags.sql_metadata
+        assert metadata.junction_table == "articles_tags"
+        assert metadata.from_column == "articles_pk"
+        assert metadata.to_column == "tags_pk"
+        assert metadata.source_table == "articles"
+        assert metadata.target_table == "tags"
+        assert metadata.symmetrical is False
+
+    def test_manager_metadata_reverse(self, db: SqliterDB) -> None:
+        """Reverse manager metadata matches reverse accessor orientation."""
+        tag = db.insert(Tag(name="python"))
+        metadata = tag.articles.sql_metadata
+        assert metadata.junction_table == "articles_tags"
+        assert metadata.from_column == "tags_pk"
+        assert metadata.to_column == "articles_pk"
+        assert metadata.source_table == "tags"
+        assert metadata.target_table == "articles"
+        assert metadata.symmetrical is False
+
+    def test_self_ref_symmetrical_metadata(self) -> None:
+        """Symmetrical self-ref metadata uses left/right columns."""
+        state = ModelRegistry.snapshot()
+        ModelRegistry.reset()
+
+        try:
+
+            class MemberMeta(BaseDBModel):
+                name: str
+                friends: ManyToMany[Any] = ManyToMany(
+                    "MemberMeta",
+                    symmetrical=True,
+                )
+
+            desc = MemberMeta.__dict__["friends"]
+            metadata = desc.sql_metadata
+            member_table = MemberMeta.get_table_name()
+            assert metadata is not None
+            assert metadata.from_column == f"{member_table}_pk_left"
+            assert metadata.to_column == f"{member_table}_pk_right"
+            assert metadata.source_table == member_table
+            assert metadata.target_table == member_table
+            assert metadata.symmetrical is True
+        finally:
+            ModelRegistry.restore(state)
+
+    def test_self_ref_reverse_non_symmetrical_swapped_metadata(self) -> None:
+        """Reverse self-ref metadata swaps columns when not symmetrical."""
+        state = ModelRegistry.snapshot()
+        ModelRegistry.reset()
+
+        try:
+
+            class PersonMeta(BaseDBModel):
+                name: str
+                follows: ManyToMany[Any] = ManyToMany(
+                    "PersonMeta",
+                    related_name="followers",
+                )
+
+            desc = PersonMeta.followers
+            metadata = desc.sql_metadata
+            person_table = PersonMeta.get_table_name()
+            assert metadata.from_column == f"{person_table}_pk_right"
+            assert metadata.to_column == f"{person_table}_pk_left"
+            assert metadata.source_table == person_table
+            assert metadata.target_table == person_table
+            assert metadata.symmetrical is False
+        finally:
+            ModelRegistry.restore(state)
+
+    def test_sql_metadata_is_read_only(self) -> None:
+        """sql_metadata returns an immutable dataclass."""
+        desc = Article.__dict__["tags"]
+        metadata = desc.sql_metadata
+        assert metadata is not None
+        with pytest.raises(FrozenInstanceError):
+            metadata.junction_table = "new_table"
+
+    def test_forward_descriptor_metadata_is_cached(self) -> None:
+        """Forward descriptor metadata should be memoized."""
+        desc = Article.__dict__["tags"]
+        first = desc.sql_metadata
+        second = desc.sql_metadata
+        assert first is not None
+        assert second is not None
+        assert first is second
+
+    def test_reverse_descriptor_metadata_is_cached(self) -> None:
+        """Reverse descriptor metadata should be memoized."""
+        desc = Tag.articles
+        first = desc.sql_metadata
+        second = desc.sql_metadata
+        assert first is second
 
 
 # ── TestJunctionTableCreation ────────────────────────────────────────
