@@ -37,12 +37,14 @@ from sqliter.exceptions import (
     InvalidOffsetError,
     InvalidOrderError,
     InvalidPrefetchError,
+    InvalidProjectionError,
     InvalidRelationshipError,
     InvalidUpdateError,
     RecordDeletionError,
     RecordFetchError,
     RecordUpdateError,
 )
+from sqliter.query.aggregates import AggregateSpec
 
 if TYPE_CHECKING:  # pragma: no cover
     from pydantic.fields import FieldInfo
@@ -164,6 +166,15 @@ class QueryBuilder(Generic[T]):
         self._join_info: list[JoinInfo] = []
         # Prefetch support
         self._prefetch_related_paths: list[str] = []
+        # Aggregate/projection support
+        self._group_by: list[str] = []
+        self._aggregates: dict[str, AggregateSpec] = {}
+        self._having_filters: list[tuple[str, Any, str]] = []
+        self._projection_mode: bool = False
+        self._projection_columns: list[str] = []
+        self._projection_join_clauses: list[str] = []
+        self._aggregate_sql_expressions: dict[str, str] = {}
+        self._projection_alias_counter: int = 1
 
         if self._fields:
             self._validate_fields()
@@ -353,6 +364,195 @@ class QueryBuilder(Generic[T]):
 
         # Set self._fields to just the single field
         self._fields = [field, "pk"]
+        return self
+
+    def _validate_projection_alias(self, alias: str) -> str:
+        """Validate and normalize an aggregate projection alias."""
+        alias_name = alias.strip()
+        if not alias_name:
+            msg = "Aggregate alias cannot be empty."
+            raise InvalidProjectionError(msg)
+        if alias_name in self.model_class.model_fields:
+            msg = (
+                f"Aggregate alias '{alias_name}' conflicts with model field "
+                f"'{alias_name}'."
+            )
+            raise InvalidProjectionError(msg)
+        if alias_name in self._aggregates:
+            msg = f"Aggregate alias '{alias_name}' is already defined."
+            raise InvalidProjectionError(msg)
+        return alias_name
+
+    def group_by(self, *fields: str) -> Self:
+        """Group projection rows by one or more base-model fields."""
+        if not fields:
+            return self
+
+        valid_fields = self.model_class.model_fields
+        for field in fields:
+            if field not in valid_fields:
+                msg = (
+                    f"Cannot group by unknown field '{field}' on model "
+                    f"{self.model_class.__name__}."
+                )
+                raise InvalidProjectionError(msg)
+            if field not in self._group_by:
+                self._group_by.append(field)
+
+        self._projection_mode = True
+        return self
+
+    def annotate(self, **aggregates: AggregateSpec) -> Self:
+        """Add aggregate projections to the query."""
+        if not aggregates:
+            return self
+
+        for raw_alias, aggregate_spec in aggregates.items():
+            alias = self._validate_projection_alias(raw_alias)
+            if not isinstance(aggregate_spec, AggregateSpec):
+                msg = (
+                    "annotate() values must be AggregateSpec instances, "
+                    f"got {type(aggregate_spec).__name__} for alias '{alias}'."
+                )
+                raise TypeError(msg)
+
+            field_name = aggregate_spec.field
+            if field_name not in {None, "*"} and (
+                field_name not in self.model_class.model_fields
+            ):
+                msg = (
+                    f"Aggregate field '{field_name}' is not a field on model "
+                    f"{self.model_class.__name__}."
+                )
+                raise InvalidProjectionError(msg)
+
+            self._aggregates[alias] = aggregate_spec
+
+        self._projection_mode = True
+        return self
+
+    def having(self, **conditions: FilterValue) -> Self:
+        """Apply HAVING filters to grouped/aggregate projection queries."""
+        if not conditions:
+            return self
+        if not self._projection_mode:
+            msg = "having() requires projection mode. Use group_by/annotate."
+            raise InvalidProjectionError(msg)
+
+        allowed_group_fields = set(self._group_by)
+        allowed_aggregate_aliases = set(self._aggregates)
+
+        for field, value in conditions.items():
+            field_name, operator = self._parse_field_operator(field)
+            if field_name in allowed_group_fields:
+                field_sql = f't0."{field_name}"'
+            elif field_name in allowed_aggregate_aliases:
+                field_sql = f'"{field_name}"'
+            else:
+                msg = (
+                    f"HAVING field '{field_name}' must be a grouped field or "
+                    "an aggregate alias."
+                )
+                raise InvalidProjectionError(msg)
+            self._having_filters.append((field_sql, value, operator))
+
+        return self
+
+    def _next_projection_alias(self) -> str:
+        """Return the next SQL alias token for projection joins."""
+        alias = f"p{self._projection_alias_counter}"
+        self._projection_alias_counter += 1
+        return alias
+
+    def _add_projection_join(self, join_clause: str) -> None:
+        """Add a projection join clause if it is not already present."""
+        if join_clause not in self._projection_join_clauses:
+            self._projection_join_clauses.append(join_clause)
+
+    def _build_reverse_fk_count_target(self, descriptor: Any) -> str:  # noqa: ANN401
+        """Build reverse-FK LEFT JOIN and return COUNT target expression."""
+        join_alias = self._next_projection_alias()
+        related_table = descriptor.from_model.get_table_name()
+        fk_column = f"{descriptor.fk_field}_id"
+        join_clause = (
+            f'LEFT JOIN "{related_table}" AS {join_alias} '
+            f'ON {join_alias}."{fk_column}" = t0."pk"'
+        )
+        self._add_projection_join(join_clause)
+        return f'{join_alias}."pk"'
+
+    def _build_m2m_count_target(self, metadata: Any) -> str:  # noqa: ANN401
+        """Build M2M LEFT JOINs and return COUNT target expression."""
+        junction_alias = self._next_projection_alias()
+        target_alias = self._next_projection_alias()
+        join_junction = (
+            f'LEFT JOIN "{metadata.junction_table}" AS {junction_alias} '
+            f'ON {junction_alias}."{metadata.from_column}" = t0."pk"'
+        )
+        join_target = (
+            f'LEFT JOIN "{metadata.target_table}" AS {target_alias} '
+            f'ON {target_alias}."pk" = {junction_alias}."{metadata.to_column}"'
+        )
+        self._add_projection_join(join_junction)
+        self._add_projection_join(join_target)
+        return f'{target_alias}."pk"'
+
+    def with_count(
+        self, path: str, alias: str = "count", *, distinct: bool = False
+    ) -> Self:
+        """Add a relationship count projection using LEFT JOIN semantics."""
+        from sqliter.orm.m2m import (  # noqa: PLC0415
+            ManyToMany,
+            ReverseManyToMany,
+        )
+        from sqliter.orm.query import ReverseRelationship  # noqa: PLC0415
+
+        if "__" in path:
+            msg = (
+                "with_count() currently supports only a single relationship "
+                "segment."
+            )
+            raise InvalidProjectionError(msg)
+
+        clean_alias = self._validate_projection_alias(alias)
+        descriptor = getattr(self.model_class, path, None)
+        if descriptor is None:
+            raise InvalidRelationshipError(
+                path, path, self.model_class.__name__
+            )
+
+        if isinstance(descriptor, ReverseRelationship):
+            count_target_sql = self._build_reverse_fk_count_target(descriptor)
+        elif isinstance(descriptor, (ManyToMany, ReverseManyToMany)):
+            metadata = descriptor.sql_metadata
+            if metadata is None:
+                msg = (
+                    "Cannot resolve SQL metadata for many-to-many "
+                    f"relationship '{path}'."
+                )
+                raise InvalidProjectionError(msg)
+            count_target_sql = self._build_m2m_count_target(metadata)
+        else:
+            raise InvalidRelationshipError(
+                path, path, self.model_class.__name__
+            )
+
+        self._aggregates[clean_alias] = AggregateSpec(
+            func="COUNT",
+            field=None,
+            distinct=distinct,
+        )
+        self._aggregate_sql_expressions[clean_alias] = count_target_sql
+        self._projection_mode = True
+
+        if not self._group_by:
+            default_group_fields = (
+                list(self._fields)
+                if self._fields
+                else list(self.model_class.model_fields.keys())
+            )
+            self.group_by(*default_group_fields)
+
         return self
 
     def select_related(self, *paths: str) -> Self:
@@ -1142,6 +1342,259 @@ class QueryBuilder(Generic[T]):
         # Return the formatted string or the original value if no match
         return format_map.get(operator, value)
 
+    @staticmethod
+    def _build_null_condition(field_sql: str, value: FilterValue) -> str:
+        """Build an IS NULL/IS NOT NULL clause for null operators."""
+        is_null = bool(value)
+        return f"{field_sql} IS {'NOT ' if not is_null else ''}NULL"
+
+    def _build_in_condition(
+        self, field_sql: str, value: FilterValue, operator: str
+    ) -> tuple[str, list[Any]]:
+        """Build an IN/NOT IN clause."""
+        if not isinstance(value, list):
+            err = f"{field_sql} requires a list for '{operator}'"
+            raise TypeError(err)
+        sql_operator = OPERATOR_MAPPING.get(operator, "IN")
+        placeholders = ", ".join("?" for _ in value)
+        return (f"{field_sql} {sql_operator} ({placeholders})", list(value))
+
+    def _build_like_condition(
+        self, field_sql: str, value: FilterValue, operator: str
+    ) -> tuple[str, list[Any]]:
+        """Build a LIKE/GLOB clause."""
+        if not isinstance(value, str):
+            err = f"{field_sql} requires a string value for '{operator}'"
+            raise TypeError(err)
+        if operator == "__like":
+            return (f"{field_sql} LIKE ?", [value])
+        formatted_value = self._format_string_for_operator(operator, value)
+        sql_operator = OPERATOR_MAPPING[operator]
+        field_expr = (
+            f"{field_sql} COLLATE NOCASE"
+            if operator in {"__istartswith", "__iendswith", "__icontains"}
+            else field_sql
+        )
+        return (f"{field_expr} {sql_operator} ?", [formatted_value])
+
+    def _build_sql_condition(
+        self,
+        field_sql: str,
+        value: FilterValue,
+        operator: str,
+    ) -> tuple[str, list[Any]]:
+        """Build a SQL condition fragment and parameter list."""
+        clause = ""
+        params: list[Any] = []
+
+        if operator == "__eq":
+            if isinstance(value, list):
+                msg = f"{field_sql} requires scalar for '{operator}', not list"
+                raise TypeError(msg)
+            if value is None:
+                clause = f"{field_sql} IS NULL"
+            else:
+                clause = f"{field_sql} = ?"
+                params = [value]
+        elif operator in {"__isnull", "__notnull"}:
+            expected_null = operator == "__isnull"
+            null_value = bool(value) if expected_null else not bool(value)
+            clause = self._build_null_condition(field_sql, null_value)
+        elif operator in {"__in", "__not_in"}:
+            clause, params = self._build_in_condition(
+                field_sql, value, operator
+            )
+        elif operator in {
+            "__like",
+            "__startswith",
+            "__endswith",
+            "__contains",
+            "__istartswith",
+            "__iendswith",
+            "__icontains",
+        }:
+            clause, params = self._build_like_condition(
+                field_sql, value, operator
+            )
+        else:
+            if isinstance(value, list):
+                msg = f"{field_sql} requires scalar for '{operator}', not list"
+                raise TypeError(msg)
+            sql_operator = OPERATOR_MAPPING[operator]
+            clause = f"{field_sql} {sql_operator} ?"
+            params = [value]
+
+        return (clause, params)
+
+    def _build_aggregate_expression(
+        self, alias: str, aggregate_spec: AggregateSpec
+    ) -> str:
+        """Build an aggregate SQL expression."""
+        custom_field_sql = self._aggregate_sql_expressions.get(alias)
+
+        if custom_field_sql is not None:
+            field_sql = custom_field_sql
+        elif aggregate_spec.field in {None, "*"}:
+            field_sql = "*"
+        else:
+            field_sql = f't0."{aggregate_spec.field}"'
+
+        if aggregate_spec.distinct and field_sql == "*":
+            msg = (
+                f"Aggregate alias '{alias}' uses DISTINCT with COUNT(*) which "
+                "is not supported."
+            )
+            raise InvalidProjectionError(msg)
+
+        distinct_sql = "DISTINCT " if aggregate_spec.distinct else ""
+        return f"{aggregate_spec.func}({distinct_sql}{field_sql})"
+
+    def _parse_having(self) -> tuple[list[Any], str]:
+        """Parse HAVING filters into SQL and parameter values."""
+        clauses: list[str] = []
+        values: list[Any] = []
+
+        for field_sql, value, operator in self._having_filters:
+            condition, condition_values = self._build_sql_condition(
+                field_sql, cast("FilterValue", value), operator
+            )
+            clauses.append(condition)
+            values.extend(condition_values)
+
+        return values, " AND ".join(clauses)
+
+    def _build_projection_select_parts(self) -> tuple[list[str], list[str]]:
+        """Build SELECT fragments and output column names for projections."""
+        select_parts: list[str] = []
+        projection_columns: list[str] = []
+
+        for field_name in self._group_by:
+            select_parts.append(f't0."{field_name}" AS "{field_name}"')
+            projection_columns.append(field_name)
+
+        for alias, aggregate_spec in self._aggregates.items():
+            aggregate_sql = self._build_aggregate_expression(
+                alias, aggregate_spec
+            )
+            select_parts.append(f'{aggregate_sql} AS "{alias}"')
+            projection_columns.append(alias)
+
+        return (select_parts, projection_columns)
+
+    def _build_projection_order_clause(self) -> str:
+        """Build ORDER BY clause for projection queries."""
+        if not self._order_by:
+            return ""
+
+        match = re.match(r'"([^"]+)"\s+(ASC|DESC)', self._order_by)
+        if match is None:
+            return ""
+
+        field_name = match.group(1)
+        direction = match.group(2)
+        if field_name in self.model_class.model_fields:
+            return f' ORDER BY t0."{field_name}" {direction}'
+        if field_name in self._aggregates:
+            return f' ORDER BY "{field_name}" {direction}'
+
+        msg = f"ORDER BY field '{field_name}' is invalid for projection query."
+        raise InvalidProjectionError(msg)
+
+    def _build_projection_sql(self) -> tuple[str, list[Any], list[str]]:
+        """Build SQL and bound values for projection queries."""
+        select_parts, projection_columns = self._build_projection_select_parts()
+        if not select_parts:
+            msg = "Projection query has no selected columns."
+            raise InvalidProjectionError(msg)
+
+        sql = (
+            f"SELECT {', '.join(select_parts)} FROM "  # noqa: S608
+            f'"{self.table_name}" AS t0'
+        )
+
+        if self._projection_join_clauses:
+            sql = f"{sql} {' '.join(self._projection_join_clauses)}"
+
+        values, where_clause = self._parse_filter(qualify_base_fields=True)
+        if self.filters:
+            sql += f" WHERE {where_clause}"
+
+        if self._group_by:
+            grouped_columns = ", ".join(
+                f't0."{field}"' for field in self._group_by
+            )
+            sql += f" GROUP BY {grouped_columns}"
+
+        if self._having_filters:
+            having_values, having_clause = self._parse_having()
+            sql += f" HAVING {having_clause}"
+            values.extend(having_values)
+
+        sql += self._build_projection_order_clause()
+
+        if self._limit is not None:
+            sql += " LIMIT ?"
+            values.append(self._limit)
+
+        if self._offset is not None:
+            sql += " OFFSET ?"
+            values.append(self._offset)
+
+        return (sql, values, projection_columns)
+
+    def _execute_projection_query(self) -> list[tuple[Any, ...]]:
+        """Execute a projection query and return raw rows."""
+        sql, values, projection_columns = self._build_projection_sql()
+        self._projection_columns = projection_columns
+
+        try:
+            conn = self.db.connect()
+            cursor = conn.cursor()
+            self.db._execute(cursor, sql, values)  # noqa: SLF001
+            rows = cursor.fetchall()
+        except sqlite3.Error as exc:
+            raise RecordFetchError(self.table_name) from exc
+        else:
+            return rows
+
+    def _convert_projection_row_to_dict(
+        self, row: tuple[Any, ...]
+    ) -> dict[str, Any]:
+        """Convert a projection row tuple to a dictionary."""
+        converted: dict[str, Any] = {}
+        for idx, column_name in enumerate(self._projection_columns):
+            value = row[idx]
+            if column_name in self.model_class.model_fields:
+                value = self._deserialize(column_name, value)
+            converted[column_name] = value
+        return converted
+
+    def _fetch_projection_result(self) -> list[dict[str, Any]]:
+        """Fetch projection rows as dictionaries with query caching."""
+        if not self._projection_mode:
+            msg = "fetch_dicts() requires projection mode."
+            raise InvalidProjectionError(msg)
+
+        if not self._bypass_cache:
+            cache_key = self._make_cache_key(fetch_one=False)
+            hit, cached = self.db._cache_get(self.table_name, cache_key)  # noqa: SLF001
+            if hit:
+                return cast("list[dict[str, Any]]", cached)
+
+        rows = self._execute_projection_query()
+        results = [self._convert_projection_row_to_dict(row) for row in rows]
+
+        if not self._bypass_cache:
+            cache_key = self._make_cache_key(fetch_one=False)
+            self.db._cache_set(  # noqa: SLF001
+                self.table_name,
+                cache_key,
+                results,
+                ttl=self._query_cache_ttl,
+            )
+
+        return results
+
     def _build_join_sql(
         self,
     ) -> tuple[
@@ -1257,8 +1710,15 @@ class QueryBuilder(Generic[T]):
         if order_by_field is None:
             order_by_field = self.model_class.get_primary_key()
 
-        if order_by_field not in self.model_class.model_fields:
-            err = f"'{order_by_field}' does not exist in the model fields."
+        is_model_field = order_by_field in self.model_class.model_fields
+        is_projection_alias = (
+            self._projection_mode and order_by_field in self._aggregates
+        )
+        if not (is_model_field or is_projection_alias):
+            err = (
+                f"'{order_by_field}' does not exist in model fields"
+                " or aggregate aliases."
+            )
             raise InvalidOrderError(err)
         # Raise an exception if both 'direction' and 'reverse' are specified
         if direction and reverse:
@@ -1732,6 +2192,25 @@ class QueryBuilder(Generic[T]):
             "fetch_one": fetch_one,
             "select_related": tuple(sorted(self._select_related_paths)),
             "prefetch_related": tuple(sorted(self._prefetch_related_paths)),
+            "projection_mode": self._projection_mode,
+            "group_by": tuple(self._group_by),
+            "aggregates": tuple(
+                sorted(
+                    (
+                        alias,
+                        spec.func,
+                        spec.field,
+                        spec.distinct,
+                    )
+                    for alias, spec in self._aggregates.items()
+                )
+            ),
+            "having_filters": tuple(self._having_filters),
+            "projection_columns": tuple(self._projection_columns),
+            "projection_joins": tuple(self._projection_join_clauses),
+            "aggregate_sql": tuple(
+                sorted(self._aggregate_sql_expressions.items())
+            ),
         }
 
         # Hash the key parts
@@ -1867,6 +2346,12 @@ class QueryBuilder(Generic[T]):
         Returns:
             A list of model instances representing all query results.
         """
+        if self._projection_mode:
+            msg = (
+                "fetch_all() is unavailable for projection queries. "
+                "Use fetch_dicts() instead."
+            )
+            raise InvalidProjectionError(msg)
         return self._fetch_result(fetch_one=False)
 
     def fetch_one(self) -> Optional[T]:
@@ -1875,6 +2360,12 @@ class QueryBuilder(Generic[T]):
         Returns:
             A single model instance or None if no result is found.
         """
+        if self._projection_mode:
+            msg = (
+                "fetch_one() is unavailable for projection queries. "
+                "Use fetch_dicts() instead."
+            )
+            raise InvalidProjectionError(msg)
         return self._fetch_result(fetch_one=True)
 
     def fetch_first(self) -> Optional[T]:
@@ -1883,6 +2374,12 @@ class QueryBuilder(Generic[T]):
         Returns:
             The first model instance or None if no result is found.
         """
+        if self._projection_mode:
+            msg = (
+                "fetch_first() is unavailable for projection queries. "
+                "Use fetch_dicts() instead."
+            )
+            raise InvalidProjectionError(msg)
         self._limit = 1
         return self._fetch_result(fetch_one=True)
 
@@ -1892,9 +2389,19 @@ class QueryBuilder(Generic[T]):
         Returns:
             The last model instance or None if no result is found.
         """
+        if self._projection_mode:
+            msg = (
+                "fetch_last() is unavailable for projection queries. "
+                "Use fetch_dicts() instead."
+            )
+            raise InvalidProjectionError(msg)
         self._limit = 1
         self._order_by = "rowid DESC"
         return self._fetch_result(fetch_one=True)
+
+    def fetch_dicts(self) -> list[dict[str, Any]]:
+        """Fetch projection query results as dictionaries."""
+        return self._fetch_projection_result()
 
     def count(self) -> int:
         """Count the number of results for the current query.
@@ -1902,6 +2409,12 @@ class QueryBuilder(Generic[T]):
         Returns:
             The number of results that match the current query conditions.
         """
+        if self._projection_mode:
+            msg = (
+                "count() is unavailable for projection queries. "
+                "Use len(fetch_dicts()) instead."
+            )
+            raise InvalidProjectionError(msg)
         result, _column_names = self._execute_query(count_only=True)
 
         return int(result[0][0]) if result else 0
