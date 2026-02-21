@@ -872,6 +872,11 @@ class ReverseManyToMany:
         self._sql_metadata: Optional[M2MSQLMetadata] = None
 
     @property
+    def _swap_columns(self) -> bool:
+        """Whether reverse orientation requires column swapping."""
+        return self._from_model is self._to_model and not self._symmetrical
+
+    @property
     def sql_metadata(self) -> M2MSQLMetadata:
         """Return read-only SQL metadata for this reverse descriptor."""
         if self._sql_metadata is not None:
@@ -887,8 +892,7 @@ class ReverseManyToMany:
             target_table=target_table,
             junction_table=self._junction_table,
             symmetrical=self._symmetrical,
-            swap_columns=self._from_model is self._to_model
-            and not self._symmetrical,
+            swap_columns=self._swap_columns,
         )
         return self._sql_metadata
 
@@ -934,8 +938,7 @@ class ReverseManyToMany:
             db_context=getattr(instance, "db_context", None),
             options=ManyToManyOptions(
                 symmetrical=self._symmetrical,
-                swap_columns=self._from_model is self._to_model
-                and not self._symmetrical,
+                swap_columns=self._swap_columns,
             ),
         )
 
