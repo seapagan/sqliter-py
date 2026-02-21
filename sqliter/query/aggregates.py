@@ -23,28 +23,31 @@ class AggregateSpec:
             raise ValueError(msg)
 
 
-def count(
-    field: Optional[str] = None, *, distinct: bool = False
-) -> AggregateSpec:
-    """Build a COUNT aggregate specification."""
-    return AggregateSpec(func="COUNT", field=field, distinct=distinct)
+@dataclass(frozen=True)
+class _FunctionNamespace:
+    """Namespace for SQL aggregate helper functions."""
+
+    def count(
+        self, field: Optional[str] = None, *, distinct: bool = False
+    ) -> AggregateSpec:
+        """Build a COUNT aggregate specification."""
+        return AggregateSpec(func="COUNT", field=field, distinct=distinct)
+
+    def sum(self, field: str, *, distinct: bool = False) -> AggregateSpec:
+        """Build a SUM aggregate specification."""
+        return AggregateSpec(func="SUM", field=field, distinct=distinct)
+
+    def avg(self, field: str, *, distinct: bool = False) -> AggregateSpec:
+        """Build an AVG aggregate specification."""
+        return AggregateSpec(func="AVG", field=field, distinct=distinct)
+
+    def min(self, field: str, *, distinct: bool = False) -> AggregateSpec:
+        """Build a MIN aggregate specification."""
+        return AggregateSpec(func="MIN", field=field, distinct=distinct)
+
+    def max(self, field: str, *, distinct: bool = False) -> AggregateSpec:
+        """Build a MAX aggregate specification."""
+        return AggregateSpec(func="MAX", field=field, distinct=distinct)
 
 
-def sum_(field: str, *, distinct: bool = False) -> AggregateSpec:
-    """Build a SUM aggregate specification."""
-    return AggregateSpec(func="SUM", field=field, distinct=distinct)
-
-
-def avg(field: str, *, distinct: bool = False) -> AggregateSpec:
-    """Build an AVG aggregate specification."""
-    return AggregateSpec(func="AVG", field=field, distinct=distinct)
-
-
-def min_(field: str, *, distinct: bool = False) -> AggregateSpec:
-    """Build a MIN aggregate specification."""
-    return AggregateSpec(func="MIN", field=field, distinct=distinct)
-
-
-def max_(field: str, *, distinct: bool = False) -> AggregateSpec:
-    """Build a MAX aggregate specification."""
-    return AggregateSpec(func="MAX", field=field, distinct=distinct)
+func = _FunctionNamespace()
