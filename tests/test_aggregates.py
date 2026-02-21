@@ -272,6 +272,9 @@ def test_annotate_rejects_empty_conflicting_and_duplicate_aliases(
     with pytest.raises(InvalidProjectionError, match="already defined"):
         query.annotate(total=func.avg("amount"))
 
+    with pytest.raises(InvalidProjectionError, match="cannot contain"):
+        sales_db.select(Sale).annotate(**{'bad"alias': func.count()})
+
 
 def test_group_by_and_annotate_validate_input(sales_db: SqliterDB) -> None:
     """group_by()/annotate() should validate fields and value types."""

@@ -769,7 +769,10 @@ def count(self) -> int:
 **Raises:**
 
 - [`InvalidProjectionError`](exceptions.md#invalidprojectionerror) --
-  If projection mode is active (use `len(fetch_dicts())` instead).
+  If projection mode is active. In non-projection mode, `count()`
+  executes a database-side `COUNT(*)`. In projection mode, use
+  `len(fetch_dicts())` instead (note this loads matching projection
+  rows into memory).
 
 **Example:**
 
@@ -790,7 +793,9 @@ def exists(self) -> bool:
 **Raises:**
 
 - [`InvalidProjectionError`](exceptions.md#invalidprojectionerror) --
-  If projection mode is active.
+  If projection mode is active. For projection queries, use
+  `len(fetch_dicts()) > 0` for an existence check (this loads matching
+  projection rows into memory).
 
 **Example:**
 

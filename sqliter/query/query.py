@@ -372,6 +372,12 @@ class QueryBuilder(Generic[T]):
         if not alias_name:
             msg = "Aggregate alias cannot be empty."
             raise InvalidProjectionError(msg)
+        if '"' in alias_name:
+            msg = (
+                f'Aggregate alias "{alias_name}" cannot contain '
+                'the " character.'
+            )
+            raise InvalidProjectionError(msg)
         if alias_name in self.model_class.model_fields:
             msg = (
                 f"Aggregate alias '{alias_name}' conflicts with model field "
