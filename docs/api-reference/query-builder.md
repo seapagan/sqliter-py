@@ -12,6 +12,7 @@ results = db.select(User).filter(age__gt=18).order("name").fetch_all()
 
 See also: [Guide -- Filtering](../guide/filtering.md),
 [Guide -- Ordering](../guide/ordering.md),
+[Guide -- Aggregates](../guide/aggregates.md),
 [Guide -- Field Control](../guide/fields.md),
 [Guide -- Caching](../guide/caching.md)
 
@@ -43,6 +44,39 @@ FilterValue = Union[
     list[Union[str, int, float, bool]],
 ]
 ```
+
+---
+
+## Projection Types
+
+Projection queries use the following exported helpers from
+`sqliter.query`:
+
+### `AggregateSpec`
+
+Represents one aggregate expression used by `annotate()`.
+
+```python
+@dataclass(frozen=True)
+class AggregateSpec:
+    func: Literal["COUNT", "SUM", "AVG", "MIN", "MAX"]
+    field: str | None = None
+    distinct: bool = False
+```
+
+> [!NOTE]
+> `COUNT` allows `field=None` (equivalent to `COUNT(*)`), but
+> `SUM`/`AVG`/`MIN`/`MAX` require a concrete field name.
+
+### `func`
+
+Namespace of aggregate helper constructors:
+
+- `func.count(field=None, distinct=False)`
+- `func.sum(field, distinct=False)`
+- `func.avg(field, distinct=False)`
+- `func.min(field, distinct=False)`
+- `func.max(field, distinct=False)`
 
 ---
 
@@ -338,6 +372,160 @@ books = db.select(Book).select_related("author").prefetch_related().fetch_all()
 
 ---
 
+## Projection and Aggregates
+
+Projection mode is enabled by `group_by()`, `annotate()`, or
+`with_count()`. In this mode, query results are dictionaries returned
+by `fetch_dicts()`.
+
+### `group_by()`
+
+Group projection rows by one or more base-model fields.
+
+```python
+def group_by(
+    self,
+    *fields: str,
+) -> Self:
+```
+
+**Parameters:**
+
+| Parameter | Type  | Description              |
+| --------- | ----- | ------------------------ |
+| `*fields` | `str` | Fields to group results  |
+
+**Returns:** `Self` for method chaining.
+
+**Raises:**
+
+- [`InvalidProjectionError`](exceptions.md#invalidprojectionerror) --
+  If any field does not exist on the model.
+
+### `annotate()`
+
+Add aggregate projections keyed by alias.
+
+```python
+def annotate(
+    self,
+    **aggregates: AggregateSpec,
+) -> Self:
+```
+
+**Parameters:**
+
+| Parameter      | Type            | Description                         |
+| -------------- | --------------- | ----------------------------------- |
+| `**aggregates` | `AggregateSpec` | Mapping of output alias to aggregate |
+
+**Returns:** `Self` for method chaining.
+
+**Raises:**
+
+- [`InvalidProjectionError`](exceptions.md#invalidprojectionerror) --
+  For empty/conflicting/duplicate aliases, unknown aggregate fields, or
+  unsupported aggregate combinations.
+- `TypeError` -- If any value is not an `AggregateSpec`.
+
+### `having()`
+
+Add SQL `HAVING` filters for grouped/aggregate queries.
+
+```python
+def having(
+    self,
+    **conditions: FilterValue,
+) -> Self:
+```
+
+**Parameters:**
+
+| Parameter      | Type          | Description                       |
+| -------------- | ------------- | --------------------------------- |
+| `**conditions` | `FilterValue` | HAVING conditions with operators  |
+
+**Returns:** `Self` for method chaining.
+
+**Raises:**
+
+- [`InvalidProjectionError`](exceptions.md#invalidprojectionerror) --
+  If projection mode is not active, or conditions reference fields that
+  are neither grouped fields nor aggregate aliases.
+- `TypeError` -- If operator value types are invalid (same rules as
+  `filter()`).
+
+### `with_count()`
+
+Add a relationship count aggregate using `LEFT JOIN` semantics.
+
+```python
+def with_count(
+    self,
+    path: str,
+    alias: str = "count",
+    *,
+    distinct: bool = False,
+) -> Self:
+```
+
+**Parameters:**
+
+| Parameter  | Type   | Default   | Description                         |
+| ---------- | ------ | --------- | ----------------------------------- |
+| `path`     | `str`  | *required*| Relationship name to count          |
+| `alias`    | `str`  | `"count"` | Output alias for the count column   |
+| `distinct` | `bool` | `False`   | Use `COUNT(DISTINCT ...)`           |
+
+**Returns:** `Self` for method chaining.
+
+**Raises:**
+
+- [`InvalidProjectionError`](exceptions.md#invalidprojectionerror) --
+  For invalid aliases, nested paths, or unresolved M2M SQL metadata.
+- [`InvalidRelationshipError`](exceptions.md#invalidrelationshiperror)
+  -- If `path` is not a valid relationship on the model.
+
+> [!NOTE]
+> `with_count()` currently supports a single relationship segment
+> (for example `"books"`) and not nested paths like `"books__reviews"`.
+> If no `group_by()` exists, SQLiter automatically groups by current
+> selected model fields.
+
+### `fetch_dicts()`
+
+Execute a projection query and return dictionaries.
+
+```python
+def fetch_dicts(self) -> list[dict[str, Any]]:
+```
+
+**Returns:** `list[dict[str, Any]]` -- Projection rows as dictionaries.
+
+**Raises:**
+
+- [`InvalidProjectionError`](exceptions.md#invalidprojectionerror) --
+  If called before projection mode is enabled.
+- [`RecordFetchError`](exceptions.md#recordfetcherror) -- If SQL
+  execution fails.
+
+**Example:**
+
+```python
+from sqliter.query import func
+
+rows = (
+    db.select(Sale)
+    .group_by("category")
+    .annotate(total=func.sum("amount"), entries=func.count())
+    .having(total__gt=10)
+    .order("total", reverse=True)
+    .fetch_dicts()
+)
+```
+
+---
+
 ## Pagination
 
 ### `limit()`
@@ -512,6 +700,11 @@ def fetch_all(self) -> list[T]:
 
 **Returns:** `list[T]` -- List of model instances.
 
+**Raises:**
+
+- [`InvalidProjectionError`](exceptions.md#invalidprojectionerror) --
+  If projection mode is active (use `fetch_dicts()` instead).
+
 **Example:**
 
 ```python
@@ -528,6 +721,11 @@ def fetch_one(self) -> T | None:
 
 **Returns:** `T | None` -- A model instance, or `None` if no match.
 
+**Raises:**
+
+- [`InvalidProjectionError`](exceptions.md#invalidprojectionerror) --
+  If projection mode is active (use `fetch_dicts()` instead).
+
 ### `fetch_first()`
 
 Fetch the first record (sets `LIMIT 1`).
@@ -537,6 +735,11 @@ def fetch_first(self) -> T | None:
 ```
 
 **Returns:** `T | None` -- The first model instance, or `None`.
+
+**Raises:**
+
+- [`InvalidProjectionError`](exceptions.md#invalidprojectionerror) --
+  If projection mode is active (use `fetch_dicts()` instead).
 
 ### `fetch_last()`
 
@@ -548,6 +751,11 @@ def fetch_last(self) -> T | None:
 
 **Returns:** `T | None` -- The last model instance, or `None`.
 
+**Raises:**
+
+- [`InvalidProjectionError`](exceptions.md#invalidprojectionerror) --
+  If projection mode is active (use `fetch_dicts()` instead).
+
 ### `count()`
 
 Count the number of matching records.
@@ -557,6 +765,11 @@ def count(self) -> int:
 ```
 
 **Returns:** `int` -- The count of matching records.
+
+**Raises:**
+
+- [`InvalidProjectionError`](exceptions.md#invalidprojectionerror) --
+  If projection mode is active (use `len(fetch_dicts())` instead).
 
 **Example:**
 
@@ -573,6 +786,11 @@ def exists(self) -> bool:
 ```
 
 **Returns:** `bool` -- `True` if at least one record matches.
+
+**Raises:**
+
+- [`InvalidProjectionError`](exceptions.md#invalidprojectionerror) --
+  If projection mode is active.
 
 **Example:**
 

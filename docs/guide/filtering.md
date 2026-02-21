@@ -190,3 +190,12 @@ for book in results:
 > Relationship filter traversal only works with ORM foreign keys from
 > `sqliter.orm.ForeignKey`. For explicit foreign keys, filter using the
 > `_id` field directly (e.g., `author_id=42`).
+
+## Reusing Operators in `having()`
+
+Projection queries use `having()` for grouped/aggregate filtering. It
+supports the same operator suffixes described above (`__gt`, `__in`,
+`__contains`, and so on), but only for grouped fields and aggregate
+aliases.
+
+See [Aggregates and Grouping](aggregates.md) for examples.

@@ -30,6 +30,7 @@ Exception
     ├── RecordFetchError
     ├── RecordDeletionError
     ├── InvalidFilterError
+    ├── InvalidProjectionError
     ├── InvalidOffsetError
     ├── InvalidOrderError
     ├── InvalidRelationshipError
@@ -195,6 +196,31 @@ message_template = "Failed to apply filter: invalid field '{}'"
 **Raised by:**
 
 - [`QueryBuilder.filter()`](query-builder.md#filter)
+
+### `InvalidProjectionError`
+
+Raised when projection/aggregate query usage is invalid.
+
+```python
+message_template = "Invalid projection query operation: {}"
+```
+
+**Raised by:**
+
+- [`QueryBuilder.group_by()`](query-builder.md#group_by)
+- [`QueryBuilder.annotate()`](query-builder.md#annotate)
+- [`QueryBuilder.having()`](query-builder.md#having)
+- [`QueryBuilder.with_count()`](query-builder.md#with_count)
+- [`QueryBuilder.fetch_dicts()`](query-builder.md#fetch_dicts)
+- [`QueryBuilder.fetch_all()`](query-builder.md#fetch_all) in projection
+  mode
+- [`QueryBuilder.fetch_one()`](query-builder.md#fetch_one) in projection
+  mode
+- [`QueryBuilder.fetch_first()`](query-builder.md#fetch_first) in
+  projection mode
+- [`QueryBuilder.fetch_last()`](query-builder.md#fetch_last) in
+  projection mode
+- [`QueryBuilder.count()`](query-builder.md#count) in projection mode
 
 ### `InvalidOffsetError`
 
