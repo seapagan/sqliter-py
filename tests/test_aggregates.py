@@ -62,10 +62,9 @@ class UnresolvedOwnerAgg(BaseDBModel):
     pending: ManyToMany[Any] = ManyToMany("MissingAgg")
 
 
-@pytest.fixture
-def sales_db() -> SqliterDB:
-    """Create aggregate test data for grouped reports."""
-    db = SqliterDB(":memory:")
+def _build_sales_db(*, cache_enabled: bool = False) -> SqliterDB:
+    """Create the shared sales fixture data set."""
+    db = SqliterDB(":memory:", cache_enabled=cache_enabled)
     db.create_table(Sale)
     db.insert(Sale(category="books", amount=10.0))
     db.insert(Sale(category="books", amount=15.0))
@@ -73,19 +72,18 @@ def sales_db() -> SqliterDB:
     db.insert(Sale(category="games", amount=40.0))
     db.insert(Sale(category="music", amount=5.0))
     return db
+
+
+@pytest.fixture
+def sales_db() -> SqliterDB:
+    """Create aggregate test data for grouped reports."""
+    return _build_sales_db()
 
 
 @pytest.fixture
 def sales_db_cached() -> SqliterDB:
     """Create aggregate test data with query cache enabled."""
-    db = SqliterDB(":memory:", cache_enabled=True)
-    db.create_table(Sale)
-    db.insert(Sale(category="books", amount=10.0))
-    db.insert(Sale(category="books", amount=15.0))
-    db.insert(Sale(category="books", amount=20.0))
-    db.insert(Sale(category="games", amount=40.0))
-    db.insert(Sale(category="music", amount=5.0))
-    return db
+    return _build_sales_db(cache_enabled=True)
 
 
 @pytest.fixture
