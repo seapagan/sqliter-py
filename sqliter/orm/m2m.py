@@ -155,7 +155,8 @@ class ManyToManyManager(Generic[T]):
         self._junction_table = junction_table
         self._db = db_context
 
-        # Column/metadata names derived from from_model/to_model table names (with optional column swapping)
+        # Column/metadata names derived from from_model/to_model table names
+        # (with optional column swapping)
         from_table = cast("type[BaseDBModel]", from_model).get_table_name()
         to_table = cast("type[BaseDBModel]", to_model).get_table_name()
         self._sql_metadata = _build_m2m_sql_metadata(
