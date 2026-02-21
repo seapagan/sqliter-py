@@ -535,3 +535,49 @@ def test_projection_query_reuses_cached_results(
     second = query.fetch_dicts()
 
     assert second == first
+
+
+def test_projection_cache_key_is_stable_pre_and_post_execution(
+    sales_db_cached: SqliterDB,
+) -> None:
+    """Projection cache key should not change as a side effect of execution."""
+    query = (
+        sales_db_cached.select(Sale)
+        .group_by("category")
+        .annotate(total=func.sum("amount"))
+    )
+    key_before = query._make_cache_key(fetch_one=False)
+
+    _ = query.fetch_dicts()
+
+    key_after = query._make_cache_key(fetch_one=False)
+    assert key_after == key_before
+
+
+def test_projection_cache_hits_across_equivalent_query_builders(
+    sales_db_cached: SqliterDB, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Equivalent projection queries should share cached results."""
+    first_query = (
+        sales_db_cached.select(Sale)
+        .group_by("category")
+        .annotate(total=func.sum("amount"))
+    )
+    expected = first_query.fetch_dicts()
+
+    second_query = (
+        sales_db_cached.select(Sale)
+        .group_by("category")
+        .annotate(total=func.sum("amount"))
+    )
+
+    def fail_execute_projection() -> list[tuple[object, ...]]:
+        err = "Projection query should hit cache across query builders."
+        raise AssertionError(err)
+
+    monkeypatch.setattr(
+        second_query, "_execute_projection_query", fail_execute_projection
+    )
+    cached = second_query.fetch_dicts()
+
+    assert cached == expected

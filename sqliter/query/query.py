@@ -2206,7 +2206,8 @@ class QueryBuilder(Generic[T]):
                 )
             ),
             "having_filters": tuple(self._having_filters),
-            "projection_columns": tuple(self._projection_columns),
+            # Keep joins in key material because different relationship paths
+            # can otherwise resolve to the same aggregate alias/expression set.
             "projection_joins": tuple(self._projection_join_clauses),
             "aggregate_sql": tuple(
                 sorted(self._aggregate_sql_expressions.items())
