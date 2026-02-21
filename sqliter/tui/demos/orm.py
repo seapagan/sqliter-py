@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import io
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import Any, Optional, cast
 
 from sqliter import SqliterDB
 from sqliter.orm import BaseDBModel, ForeignKey, ManyToMany
 from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
-
-if TYPE_CHECKING:
-    from sqliter.orm.m2m import M2MSQLMetadata
 
 
 def _run_lazy_loading() -> str:
@@ -286,7 +283,10 @@ def _run_many_to_many_sql_metadata() -> str:
     python = db.insert(Tag(name="python"))
     article.tags.add(python)
 
-    descriptor_meta = cast("M2MSQLMetadata", Article.tags.sql_metadata)
+    descriptor_meta = Article.tags.sql_metadata
+    if descriptor_meta is None:
+        msg = "Descriptor SQL metadata unavailable for Article.tags"
+        raise RuntimeError(msg)
     output.write("Descriptor metadata (Article.tags):\n")
     output.write(f"  junction_table: {descriptor_meta.junction_table}\n")
     output.write(f"  from_column: {descriptor_meta.from_column}\n")

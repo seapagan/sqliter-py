@@ -425,12 +425,13 @@ python = db.insert(Tag(name="python"))
 article.tags.add(python)
 
 descriptor_meta = Article.tags.sql_metadata
+if descriptor_meta is None:
+    msg = "Descriptor SQL metadata unavailable for Article.tags"
+    raise RuntimeError(msg)
+
 manager_meta = article.tags.sql_metadata
-
-if descriptor_meta is not None:
-    print(descriptor_meta.junction_table)
-    print(descriptor_meta.from_column, descriptor_meta.to_column)
-
+print(descriptor_meta.junction_table)
+print(descriptor_meta.from_column, descriptor_meta.to_column)
 print(manager_meta.source_table, manager_meta.target_table)
 
 db.close()
