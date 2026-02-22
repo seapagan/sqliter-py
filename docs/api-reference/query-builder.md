@@ -488,7 +488,7 @@ def with_count(
 
 > [!NOTE]
 > `with_count()` currently supports a single relationship segment
-> (for example `"books"`) and not nested paths like `"books__reviews"`.
+> (for example, `"books"`) and not nested paths like `"books__reviews"`.
 > If no `group_by()` exists, SQLiter automatically groups by current
 > selected model fields.
 

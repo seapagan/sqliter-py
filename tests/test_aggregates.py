@@ -239,6 +239,28 @@ def test_with_count_supports_having_filter(relation_db: SqliterDB) -> None:
     assert rows[0]["usage"] == 2
 
 
+def test_with_count_reuses_join_for_same_path_with_multiple_aliases(
+    relation_db: SqliterDB,
+) -> None:
+    """Counting the same relationship twice should not duplicate joins."""
+    rows = (
+        relation_db.select(AuthorAgg)
+        .with_count("books", alias="first")
+        .with_count("books", alias="second")
+        .order("name")
+        .fetch_dicts()
+    )
+
+    counts_by_name = {
+        row["name"]: (row["first"], row["second"]) for row in rows
+    }
+    assert counts_by_name == {
+        "Alice": (2, 2),
+        "Bob": (1, 1),
+        "No Books": (0, 0),
+    }
+
+
 def test_aggregate_spec_requires_field_for_non_count() -> None:
     """SUM/MIN/MAX/AVG must specify a concrete source field."""
     with pytest.raises(ValueError, match="requires a concrete field"):
@@ -498,7 +520,7 @@ def test_fetch_dicts_requires_projection_mode(sales_db: SqliterDB) -> None:
 
 @pytest.mark.parametrize(
     "method_name",
-    ["fetch_one", "fetch_first", "fetch_last", "count"],
+    ["fetch_one", "fetch_first", "fetch_last", "count", "exists"],
 )
 def test_projection_mode_rejects_other_model_fetch_methods(
     sales_db: SqliterDB, method_name: str

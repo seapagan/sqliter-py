@@ -174,6 +174,7 @@ class QueryBuilder(Generic[T]):
         self._projection_columns: list[str] = []
         self._projection_join_clauses: list[str] = []
         self._aggregate_sql_expressions: dict[str, str] = {}
+        self._with_count_targets: dict[str, str] = {}
         self._projection_alias_counter: int = 1
 
         if self._fields:
@@ -521,27 +522,32 @@ class QueryBuilder(Generic[T]):
             raise InvalidProjectionError(msg)
 
         clean_alias = self._validate_projection_alias(alias)
-        descriptor = getattr(self.model_class, path, None)
-        if descriptor is None:
-            raise InvalidRelationshipError(
-                path, path, self.model_class.__name__
-            )
-
-        if isinstance(descriptor, ReverseRelationship):
-            count_target_sql = self._build_reverse_fk_count_target(descriptor)
-        elif isinstance(descriptor, (ManyToMany, ReverseManyToMany)):
-            metadata = descriptor.sql_metadata
-            if metadata is None:
-                msg = (
-                    "Cannot resolve SQL metadata for many-to-many "
-                    f"relationship '{path}'."
+        count_target_sql = self._with_count_targets.get(path)
+        if count_target_sql is None:
+            descriptor = getattr(self.model_class, path, None)
+            if descriptor is None:
+                raise InvalidRelationshipError(
+                    path, path, self.model_class.__name__
                 )
-                raise InvalidProjectionError(msg)
-            count_target_sql = self._build_m2m_count_target(metadata)
-        else:
-            raise InvalidRelationshipError(
-                path, path, self.model_class.__name__
-            )
+
+            if isinstance(descriptor, ReverseRelationship):
+                count_target_sql = self._build_reverse_fk_count_target(
+                    descriptor
+                )
+            elif isinstance(descriptor, (ManyToMany, ReverseManyToMany)):
+                metadata = descriptor.sql_metadata
+                if metadata is None:
+                    msg = (
+                        "Cannot resolve SQL metadata for many-to-many "
+                        f"relationship '{path}'."
+                    )
+                    raise InvalidProjectionError(msg)
+                count_target_sql = self._build_m2m_count_target(metadata)
+            else:
+                raise InvalidRelationshipError(
+                    path, path, self.model_class.__name__
+                )
+            self._with_count_targets[path] = count_target_sql
 
         self._aggregates[clean_alias] = AggregateSpec(
             func="COUNT",
