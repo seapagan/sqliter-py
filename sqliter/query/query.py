@@ -2364,12 +2364,10 @@ class QueryBuilder(Generic[T]):
         Returns:
             A list of model instances representing all query results.
         """
-        if self._projection_mode:
-            msg = (
-                "fetch_all() is unavailable for projection queries. "
-                "Use fetch_dicts() instead."
-            )
-            raise InvalidProjectionError(msg)
+        self._ensure_projection_method_allowed(
+            "fetch_all",
+            hint="Use fetch_dicts() instead.",
+        )
         return self._fetch_result(fetch_one=False)
 
     def fetch_one(self) -> Optional[T]:
@@ -2378,12 +2376,10 @@ class QueryBuilder(Generic[T]):
         Returns:
             A single model instance or None if no result is found.
         """
-        if self._projection_mode:
-            msg = (
-                "fetch_one() is unavailable for projection queries. "
-                "Use fetch_dicts() instead."
-            )
-            raise InvalidProjectionError(msg)
+        self._ensure_projection_method_allowed(
+            "fetch_one",
+            hint="Use fetch_dicts() instead.",
+        )
         return self._fetch_result(fetch_one=True)
 
     def fetch_first(self) -> Optional[T]:
@@ -2392,12 +2388,10 @@ class QueryBuilder(Generic[T]):
         Returns:
             The first model instance or None if no result is found.
         """
-        if self._projection_mode:
-            msg = (
-                "fetch_first() is unavailable for projection queries. "
-                "Use fetch_dicts() instead."
-            )
-            raise InvalidProjectionError(msg)
+        self._ensure_projection_method_allowed(
+            "fetch_first",
+            hint="Use fetch_dicts() instead.",
+        )
         self._limit = 1
         return self._fetch_result(fetch_one=True)
 
@@ -2407,12 +2401,10 @@ class QueryBuilder(Generic[T]):
         Returns:
             The last model instance or None if no result is found.
         """
-        if self._projection_mode:
-            msg = (
-                "fetch_last() is unavailable for projection queries. "
-                "Use fetch_dicts() instead."
-            )
-            raise InvalidProjectionError(msg)
+        self._ensure_projection_method_allowed(
+            "fetch_last",
+            hint="Use fetch_dicts() instead.",
+        )
         self._limit = 1
         self._order_by = "rowid DESC"
         return self._fetch_result(fetch_one=True)
@@ -2427,12 +2419,10 @@ class QueryBuilder(Generic[T]):
         Returns:
             The number of results that match the current query conditions.
         """
-        if self._projection_mode:
-            msg = (
-                "count() is unavailable for projection queries. "
-                "Use len(fetch_dicts()) instead."
-            )
-            raise InvalidProjectionError(msg)
+        self._ensure_projection_method_allowed(
+            "count",
+            hint="Use len(fetch_dicts()) instead.",
+        )
         result, _column_names = self._execute_query(count_only=True)
 
         return int(result[0][0]) if result else 0
@@ -2443,13 +2433,21 @@ class QueryBuilder(Generic[T]):
         Returns:
             True if at least one result exists, False otherwise.
         """
-        if self._projection_mode:
-            msg = (
-                "exists() is unavailable for projection queries. "
-                "Use len(fetch_dicts()) > 0 instead."
-            )
-            raise InvalidProjectionError(msg)
+        self._ensure_projection_method_allowed(
+            "exists",
+            hint="Use len(fetch_dicts()) > 0 instead.",
+        )
         return self.count() > 0
+
+    def _ensure_projection_method_allowed(
+        self, method_name: str, *, hint: Optional[str] = None
+    ) -> None:
+        """Raise if a method is called while projection mode is active."""
+        if self._projection_mode:
+            msg = f"{method_name}() is unavailable for projection queries."
+            if hint is not None:
+                msg = f"{msg} {hint}"
+            raise InvalidProjectionError(msg)
 
     def delete(self) -> int:
         """Delete records that match the current query conditions.
@@ -2460,6 +2458,7 @@ class QueryBuilder(Generic[T]):
         Raises:
             RecordDeletionError: If there's an error deleting the records.
         """
+        self._ensure_projection_method_allowed("delete")
         sql = f'DELETE FROM "{self.table_name}"'  # nosec  # noqa: S608
 
         # Build the WHERE clause with special handling for None (NULL in SQL)
@@ -2497,6 +2496,7 @@ class QueryBuilder(Generic[T]):
             InvalidUpdateError: If an invalid field name is provided.
             RecordUpdateError: If there's an error updating the records.
         """
+        self._ensure_projection_method_allowed("update")
         if not values:
             return 0
 

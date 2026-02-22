@@ -551,6 +551,30 @@ def test_projection_mode_rejects_other_model_fetch_methods(
         getattr(query, method_name)()
 
 
+def test_projection_mode_rejects_delete(sales_db: SqliterDB) -> None:
+    """Projection mode should reject delete()."""
+    query = (
+        sales_db.select(Sale)
+        .group_by("category")
+        .annotate(total=func.sum("amount"))
+    )
+
+    with pytest.raises(InvalidProjectionError, match="delete\\(\\)"):
+        query.delete()
+
+
+def test_projection_mode_rejects_update(sales_db: SqliterDB) -> None:
+    """Projection mode should reject update()."""
+    query = (
+        sales_db.select(Sale)
+        .group_by("category")
+        .annotate(total=func.sum("amount"))
+    )
+
+    with pytest.raises(InvalidProjectionError, match="update\\(\\)"):
+        query.update({"amount": 99})
+
+
 def test_projection_query_reuses_cached_results(
     sales_db_cached: SqliterDB, monkeypatch: pytest.MonkeyPatch
 ) -> None:
