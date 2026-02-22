@@ -48,6 +48,9 @@ Items marked with :fire: are high priority.
   database to check the current values and so in large batch updates this could
   have a considerable performance impact. Probably best to gate this behind a
   flag.
+- Refactor filter condition handling to use one centralized builder path and
+  keep validation/SQL assembly behavior in sync across code paths
+  (issue #136).
 
 ## Housekeeping
 
