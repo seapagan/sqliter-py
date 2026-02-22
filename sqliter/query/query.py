@@ -1610,6 +1610,7 @@ class QueryBuilder(Generic[T]):
             msg = "fetch_dicts() requires projection mode."
             raise InvalidProjectionError(msg)
 
+        cache_key: Optional[str] = None
         if not self._bypass_cache:
             cache_key = self._make_cache_key(fetch_one=False)
             hit, cached = self.db._cache_get(self.table_name, cache_key)  # noqa: SLF001
@@ -1619,8 +1620,7 @@ class QueryBuilder(Generic[T]):
         rows = self._execute_projection_query()
         results = [self._convert_projection_row_to_dict(row) for row in rows]
 
-        if not self._bypass_cache:
-            cache_key = self._make_cache_key(fetch_one=False)
+        if not self._bypass_cache and cache_key is not None:
             self.db._cache_set(  # noqa: SLF001
                 self.table_name,
                 cache_key,
