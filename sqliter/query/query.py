@@ -1368,7 +1368,7 @@ class QueryBuilder(Generic[T]):
         return format_map.get(operator, value)
 
     @staticmethod
-    def _build_null_condition(field_sql: str, value: FilterValue) -> str:
+    def _build_null_condition(field_sql: str, *, value: bool) -> str:
         """Build an IS NULL/IS NOT NULL clause for null operators."""
         is_null = bool(value)
         return f"{field_sql} IS {'NOT ' if not is_null else ''}NULL"
@@ -1424,7 +1424,10 @@ class QueryBuilder(Generic[T]):
         elif operator in {"__isnull", "__notnull"}:
             expected_null = operator == "__isnull"
             null_value = bool(value) if expected_null else not bool(value)
-            clause = self._build_null_condition(field_sql, null_value)
+            clause = self._build_null_condition(
+                field_sql,
+                value=null_value,
+            )
         elif operator in {"__in", "__not_in"}:
             clause, params = self._build_in_condition(
                 field_sql, value, operator
@@ -1747,9 +1750,11 @@ class QueryBuilder(Generic[T]):
             self._projection_mode and order_by_field in self._aggregates
         )
         if not (is_model_field or is_projection_alias):
+            err_suffix = (
+                " or aggregate aliases." if self._projection_mode else "."
+            )
             err = (
-                f"'{order_by_field}' does not exist in model fields"
-                " or aggregate aliases."
+                f"'{order_by_field}' does not exist in model fields{err_suffix}"
             )
             raise InvalidOrderError(err)
         # Raise an exception if both 'direction' and 'reverse' are specified
