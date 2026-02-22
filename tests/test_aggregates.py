@@ -631,21 +631,22 @@ def test_with_count_rejects_unresolved_reverse_m2m_target(
         relation_db.select(TagAgg).with_count("broken_reverse")
 
 
-def test_build_m2m_with_count_join_rejects_missing_metadata(
-    relation_db: SqliterDB,
+def test_with_count_rejects_m2m_descriptor_missing_sql_metadata(
+    relation_db: SqliterDB, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Internal M2M join builder should fail when metadata is unavailable."""
+    """with_count() should reject M2M descriptors without SQL metadata."""
     descriptor = ManyToMany(TagAgg)
-    query = relation_db.select(AuthorAgg)
+    monkeypatch.setattr(
+        AuthorAgg,
+        "broken_tags",
+        descriptor,
+        raising=False,
+    )
 
     with pytest.raises(
         InvalidProjectionError, match="Cannot resolve SQL metadata"
     ):
-        query._build_m2m_with_count_join(
-            "tags",
-            "t0",
-            descriptor,
-        )
+        relation_db.select(AuthorAgg).with_count("broken_tags")
 
 
 def test_count_distinct_star_is_rejected(sales_db: SqliterDB) -> None:
