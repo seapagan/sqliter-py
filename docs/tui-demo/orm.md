@@ -443,6 +443,119 @@ db.close()
 - Keep ad-hoc reporting SQL aligned with ORM naming
 - Use the same metadata from descriptor and manager access
 
+## with_count() Basics
+
+Use `with_count()` to return relationship counts in projection mode.
+
+```python
+# --8<-- [start:with-count-basic]
+from sqliter import SqliterDB
+from sqliter.orm import BaseDBModel, ForeignKey
+
+class AuthorCountDemo(BaseDBModel):
+    name: str
+
+class BookCountDemo(BaseDBModel):
+    title: str
+    author: ForeignKey[AuthorCountDemo] = ForeignKey(
+        AuthorCountDemo, related_name="books"
+    )
+
+db = SqliterDB(memory=True)
+db.create_table(AuthorCountDemo)
+db.create_table(BookCountDemo)
+
+alice = db.insert(AuthorCountDemo(name="Alice"))
+bob = db.insert(AuthorCountDemo(name="Bob"))
+db.insert(AuthorCountDemo(name="No Books"))
+
+db.insert(BookCountDemo(title="A1", author=alice))
+db.insert(BookCountDemo(title="A2", author=alice))
+db.insert(BookCountDemo(title="B1", author=bob))
+
+rows = (
+    db.select(AuthorCountDemo)
+    .with_count("books", alias="book_count")
+    .order("name")
+    .fetch_dicts()
+)
+
+print("Authors with book counts:")
+for row in rows:
+    print(f'  {row["name"]}: {row["book_count"]}')
+
+print("\nRows with zero related records are included.")
+
+db.close()
+# --8<-- [end:with-count-basic]
+```
+
+### What Happens
+
+- `with_count("books")` adds a count aggregate over the reverse FK relation
+- Query runs in projection mode and returns dictionaries via `fetch_dicts()`
+- `LEFT JOIN` semantics keep rows that have no related records
+
+## with_count() Multi-Segment Paths
+
+`with_count()` also supports nested relationship paths and distinct counts.
+
+```python
+# --8<-- [start:with-count-multi-segment]
+from sqliter import SqliterDB
+from sqliter.orm import BaseDBModel, ManyToMany
+
+class TagCountDemo(BaseDBModel):
+    name: str
+
+class ArticleCountDemo(BaseDBModel):
+    title: str
+    tags: ManyToMany[TagCountDemo] = ManyToMany(
+        TagCountDemo, related_name="articles"
+    )
+
+db = SqliterDB(memory=True)
+db.create_table(TagCountDemo)
+db.create_table(ArticleCountDemo)
+
+python = db.insert(TagCountDemo(name="python"))
+sqlite = db.insert(TagCountDemo(name="sqlite"))
+db.insert(TagCountDemo(name="unused"))
+
+guide = db.insert(ArticleCountDemo(title="Guide"))
+tips = db.insert(ArticleCountDemo(title="Tips"))
+db.insert(ArticleCountDemo(title="No Tags"))
+
+guide.tags.add(python, sqlite)
+tips.tags.add(python)
+
+rows = (
+    db.select(TagCountDemo)
+    .with_count("articles__tags", alias="tag_links")
+    .with_count("articles__tags", alias="unique_tags", distinct=True)
+    .order("name")
+    .fetch_dicts()
+)
+
+print("Tags counted across articles__tags:")
+for row in rows:
+    print(
+        f'  {row["name"]}: raw={row["tag_links"]}, '
+        f'distinct={row["unique_tags"]}'
+    )
+
+print("\nMulti-segment paths support nested relationship counts.")
+
+db.close()
+# --8<-- [end:with-count-multi-segment]
+```
+
+### What Happens
+
+- Path `articles__tags` traverses two relationship segments before counting
+- Raw count (`distinct=False`) reflects joined row multiplicity
+- Distinct count (`distinct=True`) deduplicates terminal related rows
+
 ## Relationship Filter Traversal
 
 Filter records by fields on related models using double underscore syntax.

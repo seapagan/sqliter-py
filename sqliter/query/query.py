@@ -120,6 +120,14 @@ class JoinInfo:
     is_nullable: bool
 
 
+@dataclass(frozen=True)
+class WithCountJoinNode:
+    """Cached projection-join metadata for a with_count() path prefix."""
+
+    alias: str
+    model_class: type[BaseDBModel]
+
+
 class QueryBuilder(Generic[T]):
     """Builds and executes database queries for a specific model.
 
@@ -175,6 +183,7 @@ class QueryBuilder(Generic[T]):
         self._projection_join_clauses: list[str] = []
         self._aggregate_sql_expressions: dict[str, str] = {}
         self._with_count_targets: dict[str, str] = {}
+        self._with_count_join_nodes: dict[str, WithCountJoinNode] = {}
         self._projection_alias_counter: int = 1
 
         if self._fields:
@@ -490,25 +499,169 @@ class QueryBuilder(Generic[T]):
         if join_clause not in self._projection_join_clauses:
             self._projection_join_clauses.append(join_clause)
 
-    def _build_reverse_fk_count_target(self, descriptor: Any) -> str:  # noqa: ANN401
-        """Build reverse-FK LEFT JOIN and return COUNT target expression."""
+    def _resolve_with_count_segment(
+        self,
+        current_model: type[BaseDBModel],
+        segment: str,
+        path: str,
+    ) -> tuple[Literal["forward_fk", "reverse_fk", "m2m"], Any]:
+        """Resolve one with_count() segment to a relationship descriptor."""
+        from sqliter.orm.fields import ForeignKey  # noqa: PLC0415
+        from sqliter.orm.m2m import (  # noqa: PLC0415
+            ManyToMany,
+            ReverseManyToMany,
+        )
+        from sqliter.orm.query import ReverseRelationship  # noqa: PLC0415
+
+        fk_descriptors = getattr(current_model, "fk_descriptors", {})
+        fk_descriptor = fk_descriptors.get(segment)
+        if isinstance(fk_descriptor, ForeignKey):
+            return ("forward_fk", fk_descriptor)
+
+        descriptor = getattr(current_model, segment, None)
+        if isinstance(descriptor, ReverseRelationship):
+            return ("reverse_fk", descriptor)
+        if isinstance(descriptor, (ManyToMany, ReverseManyToMany)):
+            return ("m2m", descriptor)
+
+        raise InvalidRelationshipError(path, segment, current_model.__name__)
+
+    def _resolve_with_count_path(
+        self, path: str
+    ) -> list[tuple[str, Literal["forward_fk", "reverse_fk", "m2m"], Any]]:
+        """Resolve all with_count() path segments without mutating state."""
+        from sqliter.orm.m2m import (  # noqa: PLC0415
+            ManyToMany,
+            ReverseManyToMany,
+        )
+
+        segments = path.split("__")
+        if not segments or any(not segment for segment in segments):
+            raise InvalidRelationshipError(
+                path, path, self.model_class.__name__
+            )
+
+        current_model: type[BaseDBModel] = self.model_class
+        progressive_path: list[str] = []
+        resolved: list[
+            tuple[str, Literal["forward_fk", "reverse_fk", "m2m"], Any]
+        ] = []
+
+        for segment in segments:
+            progressive_path.append(segment)
+            current_path = "__".join(progressive_path)
+            kind, descriptor = self._resolve_with_count_segment(
+                current_model, segment, path
+            )
+            if kind == "forward_fk":
+                if isinstance(descriptor.to_model, str):
+                    msg = (
+                        "Cannot resolve SQL metadata for relationship "
+                        f"'{path}'."
+                    )
+                    raise InvalidProjectionError(msg)
+                current_model = cast("type[BaseDBModel]", descriptor.to_model)
+            elif kind == "reverse_fk":
+                current_model = descriptor.from_model
+            else:
+                if isinstance(descriptor, ManyToMany) and isinstance(
+                    descriptor.to_model, str
+                ):
+                    msg = (
+                        "Cannot resolve SQL metadata for many-to-many "
+                        f"relationship '{path}'."
+                    )
+                    raise InvalidProjectionError(msg)
+                if isinstance(descriptor, ReverseManyToMany) and isinstance(
+                    descriptor._from_model,  # noqa: SLF001
+                    str,
+                ):
+                    msg = (
+                        "Cannot resolve SQL metadata for many-to-many "
+                        f"relationship '{path}'."
+                    )
+                    raise InvalidProjectionError(msg)
+                current_model = _get_prefetch_target_model(descriptor)
+            resolved.append((current_path, kind, descriptor))
+
+        _, terminal_kind, _ = resolved[-1]
+        if terminal_kind == "forward_fk":
+            msg = (
+                "with_count() terminal relationship must be to-many "
+                "(reverse FK or many-to-many)."
+            )
+            raise InvalidProjectionError(msg)
+        return resolved
+
+    def _build_forward_fk_with_count_join(
+        self,
+        parent_alias: str,
+        segment: str,
+        descriptor: Any,  # noqa: ANN401
+    ) -> WithCountJoinNode:
+        """Build a forward-FK JOIN for with_count() path traversal."""
         join_alias = self._next_projection_alias()
-        related_table = descriptor.from_model.get_table_name()
-        fk_column = f"{descriptor.fk_field}_id"
+        target_model = cast("type[BaseDBModel]", descriptor.to_model)
+        target_table = target_model.get_table_name()
+        fk_column = descriptor.fk_info.db_column or f"{segment}_id"
+        join_type = "LEFT" if descriptor.fk_info.null else "INNER"
         join_clause = (
-            f'LEFT JOIN "{related_table}" AS {join_alias} '
-            f'ON {join_alias}."{fk_column}" = t0."pk"'
+            f'{join_type} JOIN "{target_table}" AS {join_alias} '
+            f'ON {parent_alias}."{fk_column}" = {join_alias}."pk"'
         )
         self._add_projection_join(join_clause)
-        return f'{join_alias}."pk"'
+        return WithCountJoinNode(
+            alias=join_alias,
+            model_class=target_model,
+        )
 
-    def _build_m2m_count_target(self, metadata: Any) -> str:  # noqa: ANN401
-        """Build M2M LEFT JOINs and return COUNT target expression."""
+    def _build_reverse_fk_with_count_join(
+        self,
+        parent_alias: str,
+        descriptor: Any,  # noqa: ANN401
+    ) -> WithCountJoinNode:
+        """Build a reverse-FK LEFT JOIN for with_count() path traversal."""
+        join_alias = self._next_projection_alias()
+        related_table = descriptor.from_model.get_table_name()
+        fk_descriptor = getattr(
+            descriptor.from_model, "fk_descriptors", {}
+        ).get(descriptor.fk_field)
+        fk_column = f"{descriptor.fk_field}_id"
+        if fk_descriptor is not None:
+            db_column = fk_descriptor.fk_info.db_column
+            if db_column:
+                fk_column = db_column
+        join_clause = (
+            f'LEFT JOIN "{related_table}" AS {join_alias} '
+            f'ON {join_alias}."{fk_column}" = {parent_alias}."pk"'
+        )
+        self._add_projection_join(join_clause)
+        return WithCountJoinNode(
+            alias=join_alias,
+            model_class=descriptor.from_model,
+        )
+
+    def _build_m2m_with_count_join(
+        self,
+        path: str,
+        parent_alias: str,
+        descriptor: Any,  # noqa: ANN401
+    ) -> WithCountJoinNode:
+        """Build M2M LEFT JOINs for with_count() path traversal."""
+        metadata = descriptor.sql_metadata
+        if metadata is None:
+            msg = (
+                "Cannot resolve SQL metadata for many-to-many relationship "
+                f"'{path}'."
+            )
+            raise InvalidProjectionError(msg)
+
         junction_alias = self._next_projection_alias()
         target_alias = self._next_projection_alias()
         join_junction = (
             f'LEFT JOIN "{metadata.junction_table}" AS {junction_alias} '
-            f'ON {junction_alias}."{metadata.from_column}" = t0."pk"'
+            f'ON {junction_alias}."{metadata.from_column}" = '
+            f'{parent_alias}."pk"'
         )
         join_target = (
             f'LEFT JOIN "{metadata.target_table}" AS {target_alias} '
@@ -516,51 +669,45 @@ class QueryBuilder(Generic[T]):
         )
         self._add_projection_join(join_junction)
         self._add_projection_join(join_target)
-        return f'{target_alias}."pk"'
+        return WithCountJoinNode(
+            alias=target_alias,
+            model_class=_get_prefetch_target_model(descriptor),
+        )
+
+    def _build_with_count_target_sql(self, path: str) -> str:
+        """Build/reuse joins for a with_count() path and return COUNT target."""
+        resolved_path = self._resolve_with_count_path(path)
+
+        parent_alias = "t0"
+        for current_path, kind, descriptor in resolved_path:
+            join_node = self._with_count_join_nodes.get(current_path)
+            if join_node is None:
+                segment = current_path.rsplit("__", maxsplit=1)[-1]
+                if kind == "forward_fk":
+                    join_node = self._build_forward_fk_with_count_join(
+                        parent_alias, segment, descriptor
+                    )
+                elif kind == "reverse_fk":
+                    join_node = self._build_reverse_fk_with_count_join(
+                        parent_alias, descriptor
+                    )
+                else:
+                    join_node = self._build_m2m_with_count_join(
+                        path, parent_alias, descriptor
+                    )
+                self._with_count_join_nodes[current_path] = join_node
+            parent_alias = join_node.alias
+
+        return f'{parent_alias}."pk"'
 
     def with_count(
         self, path: str, alias: str = "count", *, distinct: bool = False
     ) -> Self:
         """Add a relationship count projection using LEFT JOIN semantics."""
-        from sqliter.orm.m2m import (  # noqa: PLC0415
-            ManyToMany,
-            ReverseManyToMany,
-        )
-        from sqliter.orm.query import ReverseRelationship  # noqa: PLC0415
-
-        if "__" in path:
-            msg = (
-                "with_count() currently supports only a single relationship "
-                "segment."
-            )
-            raise InvalidProjectionError(msg)
-
         clean_alias = self._validate_projection_alias(alias)
         count_target_sql = self._with_count_targets.get(path)
         if count_target_sql is None:
-            descriptor = getattr(self.model_class, path, None)
-            if descriptor is None:
-                raise InvalidRelationshipError(
-                    path, path, self.model_class.__name__
-                )
-
-            if isinstance(descriptor, ReverseRelationship):
-                count_target_sql = self._build_reverse_fk_count_target(
-                    descriptor
-                )
-            elif isinstance(descriptor, (ManyToMany, ReverseManyToMany)):
-                metadata = descriptor.sql_metadata
-                if metadata is None:
-                    msg = (
-                        "Cannot resolve SQL metadata for many-to-many "
-                        f"relationship '{path}'."
-                    )
-                    raise InvalidProjectionError(msg)
-                count_target_sql = self._build_m2m_count_target(metadata)
-            else:
-                raise InvalidRelationshipError(
-                    path, path, self.model_class.__name__
-                )
+            count_target_sql = self._build_with_count_target_sql(path)
             self._with_count_targets[path] = count_target_sql
 
         self._aggregates[clean_alias] = AggregateSpec(

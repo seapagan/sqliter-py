@@ -302,6 +302,97 @@ def _run_many_to_many_sql_metadata() -> str:
     return output.getvalue()
 
 
+def _run_with_count_basic() -> str:
+    """Demonstrate single-segment with_count() in projection mode."""
+    output = io.StringIO()
+
+    class AuthorCountDemo(BaseDBModel):
+        name: str
+
+    class BookCountDemo(BaseDBModel):
+        title: str
+        author: ForeignKey[AuthorCountDemo] = ForeignKey(
+            AuthorCountDemo, related_name="books"
+        )
+
+    db = SqliterDB(memory=True)
+    db.create_table(AuthorCountDemo)
+    db.create_table(BookCountDemo)
+
+    alice = db.insert(AuthorCountDemo(name="Alice"))
+    bob = db.insert(AuthorCountDemo(name="Bob"))
+    db.insert(AuthorCountDemo(name="No Books"))
+
+    db.insert(BookCountDemo(title="A1", author=alice))
+    db.insert(BookCountDemo(title="A2", author=alice))
+    db.insert(BookCountDemo(title="B1", author=bob))
+
+    rows = (
+        db.select(AuthorCountDemo)
+        .with_count("books", alias="book_count")
+        .order("name")
+        .fetch_dicts()
+    )
+
+    output.write("Authors with book counts:\n")
+    for row in rows:
+        output.write(f"  {row['name']}: {row['book_count']}\n")
+
+    output.write("\nRows with zero related records are included.\n")
+
+    db.close()
+    return output.getvalue()
+
+
+def _run_with_count_multi_segment() -> str:
+    """Demonstrate multi-segment with_count() and distinct semantics."""
+    output = io.StringIO()
+
+    class TagCountDemo(BaseDBModel):
+        name: str
+
+    class ArticleCountDemo(BaseDBModel):
+        title: str
+        tags: ManyToMany[TagCountDemo] = ManyToMany(
+            TagCountDemo, related_name="articles"
+        )
+
+    db = SqliterDB(memory=True)
+    db.create_table(TagCountDemo)
+    db.create_table(ArticleCountDemo)
+
+    python = db.insert(TagCountDemo(name="python"))
+    sqlite = db.insert(TagCountDemo(name="sqlite"))
+    db.insert(TagCountDemo(name="unused"))
+
+    guide = db.insert(ArticleCountDemo(title="Guide"))
+    tips = db.insert(ArticleCountDemo(title="Tips"))
+    db.insert(ArticleCountDemo(title="No Tags"))
+
+    guide.tags.add(python, sqlite)
+    tips.tags.add(python)
+
+    rows = (
+        db.select(TagCountDemo)
+        .with_count("articles__tags", alias="tag_links")
+        .with_count("articles__tags", alias="unique_tags", distinct=True)
+        .order("name")
+        .fetch_dicts()
+    )
+
+    output.write("Tags counted across articles__tags:\n")
+    for row in rows:
+        output.write(
+            f"  {row['name']}: raw={row['tag_links']}, "
+            f"distinct={row['unique_tags']}\n"
+        )
+
+    output.write("\nMulti-segment paths support nested relationship counts.\n")
+
+    db.close()
+    return output.getvalue()
+
+
 def _run_select_related_basic() -> str:
     """Demonstrate eager loading with select_related().
 
@@ -731,6 +822,22 @@ def get_category() -> DemoCategory:
                 category="orm",
                 code=extract_demo_code(_run_many_to_many_sql_metadata),
                 execute=_run_many_to_many_sql_metadata,
+            ),
+            Demo(
+                id="orm_with_count_basic",
+                title="with_count() Basics",
+                description="Count related rows with projection results",
+                category="orm",
+                code=extract_demo_code(_run_with_count_basic),
+                execute=_run_with_count_basic,
+            ),
+            Demo(
+                id="orm_with_count_multi_segment",
+                title="with_count() Multi-Segment Paths",
+                description="Count nested relationships with distinct support",
+                category="orm",
+                code=extract_demo_code(_run_with_count_multi_segment),
+                execute=_run_with_count_multi_segment,
             ),
             Demo(
                 id="orm_select_related",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+import time
 from re import escape
 from typing import Any
 
@@ -39,6 +40,18 @@ class BookAgg(BaseDBModel):
         AuthorAgg,
         on_delete="CASCADE",
         related_name="books",
+    )
+
+
+class BookCustomColAgg(BaseDBModel):
+    """Book model with custom FK db_column for reverse-count regression."""
+
+    title: str
+    author: ForeignKey[AuthorAgg] = ForeignKey(
+        AuthorAgg,
+        on_delete="CASCADE",
+        related_name="custom_books",
+        db_column="author_ref",
     )
 
 
@@ -191,6 +204,47 @@ def test_with_count_reverse_fk_includes_zero_rows(
     assert usage_by_name == {"Alice": 2, "Bob": 1, "No Books": 0}
 
 
+def test_with_count_reverse_fk_respects_custom_db_column() -> None:
+    """with_count reverse-FK joins should use custom FK db_column names."""
+    db = SqliterDB(":memory:")
+    db.create_table(AuthorAgg)
+    db.create_table(BookCustomColAgg)
+
+    alice = db.insert(AuthorAgg(name="Alice"))
+    bob = db.insert(AuthorAgg(name="Bob"))
+    db.insert(AuthorAgg(name="No Books"))
+
+    now = int(time.time())
+    table = BookCustomColAgg.get_table_name()
+    insert_sql = (
+        f'INSERT INTO "{table}" '  # noqa: S608
+        '("created_at", "updated_at", "title", "author_ref") '
+        "VALUES (?, ?, ?, ?)"
+    )
+    conn = db.connect()
+    cursor = conn.cursor()
+    # Insert via raw SQL instead of db.insert() so data is written directly
+    # to "author_ref". This keeps the test focused on with_count read/join
+    # behavior, independent from ORM write-path db_column mapping.
+    try:
+        cursor.execute(insert_sql, (now, now, "CA1", alice.pk))
+        cursor.execute(insert_sql, (now, now, "CA2", alice.pk))
+        cursor.execute(insert_sql, (now, now, "CB1", bob.pk))
+        conn.commit()
+
+        rows = (
+            db.select(AuthorAgg)
+            .with_count("custom_books", alias="usage")
+            .order("name")
+            .fetch_dicts()
+        )
+
+        usage_by_name = {row["name"]: row["usage"] for row in rows}
+        assert usage_by_name == {"Alice": 2, "Bob": 1, "No Books": 0}
+    finally:
+        db.close()
+
+
 def test_with_count_reverse_m2m_includes_zero_rows(
     relation_db: SqliterDB,
 ) -> None:
@@ -219,6 +273,66 @@ def test_with_count_forward_m2m_includes_zero_rows(
 
     usage_by_article = {row["title"]: row["usage"] for row in rows}
     assert usage_by_article == {"Guide": 2, "No Tags": 0, "Tips": 1}
+
+
+def test_with_count_multi_segment_forward_fk_to_reverse_fk(
+    relation_db: SqliterDB,
+) -> None:
+    """with_count supports forward-FK intermediate hops."""
+    rows = (
+        relation_db.select(BookAgg)
+        .with_count("author__books", alias="author_book_count")
+        .order("title")
+        .fetch_dicts()
+    )
+
+    counts_by_title = {row["title"]: row["author_book_count"] for row in rows}
+    assert counts_by_title == {"A1": 2, "A2": 2, "B1": 1}
+
+
+def test_with_count_multi_segment_m2m_distinct_semantics(
+    relation_db: SqliterDB,
+) -> None:
+    """Multi-segment M2M counts should support raw and distinct semantics."""
+    raw_rows = (
+        relation_db.select(TagAgg)
+        .with_count("articles__tags", alias="usage")
+        .order("name")
+        .fetch_dicts()
+    )
+    raw_usage = {row["name"]: row["usage"] for row in raw_rows}
+    assert raw_usage == {"python": 3, "sqlite": 2, "unused": 0}
+
+    distinct_rows = (
+        relation_db.select(TagAgg)
+        .with_count("articles__tags", alias="usage", distinct=True)
+        .order("name")
+        .fetch_dicts()
+    )
+    distinct_usage = {row["name"]: row["usage"] for row in distinct_rows}
+    assert distinct_usage == {"python": 2, "sqlite": 2, "unused": 0}
+
+
+def test_with_count_multi_segment_reuses_shared_prefix_joins(
+    relation_db: SqliterDB,
+) -> None:
+    """with_count should reuse shared path-prefix joins across calls."""
+    rows = (
+        relation_db.select(TagAgg)
+        .with_count("articles", alias="article_count", distinct=True)
+        .with_count("articles__tags", alias="tag_links")
+        .order("name")
+        .fetch_dicts()
+    )
+
+    usage_by_tag = {
+        row["name"]: (row["article_count"], row["tag_links"]) for row in rows
+    }
+    assert usage_by_tag == {
+        "python": (2, 3),
+        "sqlite": (1, 2),
+        "unused": (0, 0),
+    }
 
 
 def test_with_count_supports_having_filter(relation_db: SqliterDB) -> None:
@@ -454,11 +568,17 @@ def test_having_operator_variants_and_type_validation(
 
 def test_with_count_validation_errors(relation_db: SqliterDB) -> None:
     """with_count() should validate path shape and relationship type."""
-    with pytest.raises(InvalidProjectionError, match="single relationship"):
+    with pytest.raises(InvalidRelationshipError):
+        relation_db.select(AuthorAgg).with_count("")
+
+    with pytest.raises(InvalidProjectionError, match="terminal relationship"):
         relation_db.select(AuthorAgg).with_count("books__author")
 
     with pytest.raises(InvalidRelationshipError):
         relation_db.select(AuthorAgg).with_count("unknown")
+
+    with pytest.raises(InvalidRelationshipError):
+        relation_db.select(AuthorAgg).with_count("books__missing")
 
     with pytest.raises(InvalidRelationshipError):
         relation_db.select(AuthorAgg).with_count("name")
@@ -470,6 +590,63 @@ def test_with_count_validation_errors(relation_db: SqliterDB) -> None:
         InvalidProjectionError, match="Cannot resolve SQL metadata"
     ):
         relation_db.select(UnresolvedOwnerAgg).with_count("pending")
+
+
+def test_with_count_rejects_unresolved_forward_fk_target(
+    relation_db: SqliterDB,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """with_count() should reject unresolved forward FK traversal."""
+    monkeypatch.setattr(BookAgg.author, "to_model", "MissingAgg")
+
+    with pytest.raises(
+        InvalidProjectionError, match="Cannot resolve SQL metadata"
+    ):
+        relation_db.select(BookAgg).with_count("author__books")
+
+
+def test_with_count_rejects_unresolved_reverse_m2m_target(
+    relation_db: SqliterDB, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """with_count() should reject unresolved reverse M2M traversal."""
+    from sqliter.orm.m2m import ReverseManyToMany  # noqa: PLC0415
+
+    descriptor = ReverseManyToMany(
+        from_model=ArticleAgg,
+        to_model=TagAgg,
+        junction_table="tagagg_missingagg",
+        related_name="broken_reverse",
+    )
+    monkeypatch.setattr(descriptor, "_from_model", "MissingAgg")
+    monkeypatch.setattr(
+        TagAgg,
+        "broken_reverse",
+        descriptor,
+        raising=False,
+    )
+
+    with pytest.raises(
+        InvalidProjectionError, match="Cannot resolve SQL metadata"
+    ):
+        relation_db.select(TagAgg).with_count("broken_reverse")
+
+
+def test_with_count_rejects_m2m_descriptor_missing_sql_metadata(
+    relation_db: SqliterDB, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """with_count() should reject M2M descriptors without SQL metadata."""
+    descriptor = ManyToMany(TagAgg)
+    monkeypatch.setattr(
+        AuthorAgg,
+        "broken_tags",
+        descriptor,
+        raising=False,
+    )
+
+    with pytest.raises(
+        InvalidProjectionError, match="Cannot resolve SQL metadata"
+    ):
+        relation_db.select(AuthorAgg).with_count("broken_tags")
 
 
 def test_count_distinct_star_is_rejected(sales_db: SqliterDB) -> None:

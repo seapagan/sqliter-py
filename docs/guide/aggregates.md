@@ -115,6 +115,15 @@ rows = (
 )
 ```
 
+```python
+# Multi-segment path: forward FK + reverse FK terminal
+rows = (
+    db.select(Book)
+    .with_count("author__books", alias="author_book_count")
+    .fetch_dicts()
+)
+```
+
 ## Important Notes
 
 - Projection queries must use `fetch_dicts()`.
@@ -122,5 +131,8 @@ rows = (
   `count()` are not available in projection mode.
 - Aggregate aliases must be non-empty, unique, and must not conflict
   with model field names.
-- `with_count()` currently supports a single relationship segment
-  (for example `"books"`), not nested paths like `"books__reviews"`.
+- `with_count()` supports nested relationship paths (for example,
+  `"author__books"` or `"articles__tags"`), but the terminal segment
+  must be a to-many relationship (reverse FK or many-to-many).
+- Use `distinct=True` when you need unique terminal-row counts across
+  fan-out joins.
