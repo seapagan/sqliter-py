@@ -28,10 +28,6 @@ Items marked with :fire: are high priority.
   data.
 - add more tests where 'auto_commit' is set to False to ensure that commit is
   not called automatically.
-- :fire: Extend `with_count()` to support full multi-segment relationship
-  paths (mixed reverse FK + forward/reverse M2M) with correct distinct
-  semantics, zero-row preservation via LEFT JOINs, and reusable join planning
-  across multiple count annotations.
 - :fire: perhaps add a `JSON` field type to allow storing JSON data in a field,
   and an `Object` field type to allow storing arbitrary Python objects? Perhaps
   a `Binary` field type to allow storing arbitrary binary data? (just uses the
