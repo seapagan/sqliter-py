@@ -126,7 +126,6 @@ class WithCountJoinNode:
 
     alias: str
     model_class: type[BaseDBModel]
-    is_to_many: bool
 
 
 class QueryBuilder(Generic[T]):
@@ -608,7 +607,6 @@ class QueryBuilder(Generic[T]):
         return WithCountJoinNode(
             alias=join_alias,
             model_class=target_model,
-            is_to_many=False,
         )
 
     def _build_reverse_fk_with_count_join(
@@ -635,7 +633,6 @@ class QueryBuilder(Generic[T]):
         return WithCountJoinNode(
             alias=join_alias,
             model_class=descriptor.from_model,
-            is_to_many=True,
         )
 
     def _build_m2m_with_count_join(
@@ -669,7 +666,6 @@ class QueryBuilder(Generic[T]):
         return WithCountJoinNode(
             alias=target_alias,
             model_class=_get_prefetch_target_model(descriptor),
-            is_to_many=True,
         )
 
     def _build_with_count_target_sql(self, path: str) -> str:
@@ -696,9 +692,7 @@ class QueryBuilder(Generic[T]):
                 self._with_count_join_nodes[current_path] = join_node
             parent_alias = join_node.alias
 
-        terminal_path = resolved_path[-1][0]
-        terminal_alias = self._with_count_join_nodes[terminal_path].alias
-        return f'{terminal_alias}."pk"'
+        return f'{parent_alias}."pk"'
 
     def with_count(
         self, path: str, alias: str = "count", *, distinct: bool = False
