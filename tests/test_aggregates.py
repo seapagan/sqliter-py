@@ -42,6 +42,13 @@ class BookAgg(BaseDBModel):
     )
 
 
+class BookFilterAgg(BaseDBModel):
+    """Book model with forward-FK for projection relationship-filter tests."""
+
+    title: str
+    author: ForeignKey[AuthorAgg] = ForeignKey(AuthorAgg, on_delete="CASCADE")
+
+
 class TagAgg(BaseDBModel):
     """Tag model for M2M with_count tests."""
 
@@ -92,6 +99,7 @@ def relation_db() -> SqliterDB:
     db = SqliterDB(":memory:")
     db.create_table(AuthorAgg)
     db.create_table(BookAgg)
+    db.create_table(BookFilterAgg)
     db.create_table(TagAgg)
     db.create_table(ArticleAgg)
 
@@ -102,6 +110,8 @@ def relation_db() -> SqliterDB:
     db.insert(BookAgg(title="A1", author=alice))
     db.insert(BookAgg(title="A2", author=alice))
     db.insert(BookAgg(title="B1", author=bob))
+    db.insert(BookFilterAgg(title="F-A1", author=alice))
+    db.insert(BookFilterAgg(title="F-B1", author=bob))
 
     python = db.insert(TagAgg(name="python"))
     sqlite = db.insert(TagAgg(name="sqlite"))
@@ -573,6 +583,30 @@ def test_projection_mode_rejects_update(sales_db: SqliterDB) -> None:
 
     with pytest.raises(InvalidProjectionError, match="update\\(\\)"):
         query.update({"amount": 99})
+
+
+def test_projection_mode_rejects_relationship_filter_traversal(
+    relation_db: SqliterDB,
+) -> None:
+    """Projection mode should reject relationship traversal filters."""
+    query = relation_db.select(BookFilterAgg).annotate(total=func.count())
+
+    with pytest.raises(InvalidProjectionError, match="Relationship filter"):
+        query.filter(author__name="Alice")
+
+
+def test_projection_sql_rejects_preexisting_relationship_joins(
+    relation_db: SqliterDB,
+) -> None:
+    """Projection SQL should reject joins built before projection mode."""
+    query = (
+        relation_db.select(BookFilterAgg)
+        .filter(author__name="Alice")
+        .annotate(total=func.count())
+    )
+
+    with pytest.raises(InvalidProjectionError, match="select_related joins"):
+        query.fetch_dicts()
 
 
 def test_projection_query_reuses_cached_results(

@@ -254,6 +254,14 @@ class QueryBuilder(Generic[T]):
         Raises:
             InvalidRelationshipError: If the relationship path is invalid.
         """
+        if self._projection_mode:
+            msg = (
+                "Relationship filter traversal is not supported in projection "
+                "mode. Remove projection or use simple base-model field "
+                "filters."
+            )
+            raise InvalidProjectionError(msg)
+
         # Split into relationship path and target field
         parts = field_name.split("__")
         relationship_path = "__".join(parts[:-1])
@@ -1519,6 +1527,13 @@ class QueryBuilder(Generic[T]):
 
     def _build_projection_sql(self) -> tuple[str, list[Any], list[str]]:
         """Build SQL and bound values for projection queries."""
+        if self._join_info:
+            msg = (
+                "Projection queries do not support relationship traversal "
+                "filters or select_related joins."
+            )
+            raise InvalidProjectionError(msg)
+
         select_parts, projection_columns = self._build_projection_select_parts()
         if not select_parts:
             msg = "Projection query has no selected columns."
