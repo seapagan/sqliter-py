@@ -223,21 +223,26 @@ def test_with_count_reverse_fk_respects_custom_db_column() -> None:
     )
     conn = db.connect()
     cursor = conn.cursor()
-    cursor.execute(insert_sql, (now, now, "CA1", alice.pk))
-    cursor.execute(insert_sql, (now, now, "CA2", alice.pk))
-    cursor.execute(insert_sql, (now, now, "CB1", bob.pk))
-    conn.commit()
+    # Insert via raw SQL instead of db.insert() so data is written directly
+    # to "author_ref". This keeps the test focused on with_count read/join
+    # behavior, independent from ORM write-path db_column mapping.
+    try:
+        cursor.execute(insert_sql, (now, now, "CA1", alice.pk))
+        cursor.execute(insert_sql, (now, now, "CA2", alice.pk))
+        cursor.execute(insert_sql, (now, now, "CB1", bob.pk))
+        conn.commit()
 
-    rows = (
-        db.select(AuthorAgg)
-        .with_count("custom_books", alias="usage")
-        .order("name")
-        .fetch_dicts()
-    )
+        rows = (
+            db.select(AuthorAgg)
+            .with_count("custom_books", alias="usage")
+            .order("name")
+            .fetch_dicts()
+        )
 
-    usage_by_name = {row["name"]: row["usage"] for row in rows}
-    assert usage_by_name == {"Alice": 2, "Bob": 1, "No Books": 0}
-    db.close()
+        usage_by_name = {row["name"]: row["usage"] for row in rows}
+        assert usage_by_name == {"Alice": 2, "Bob": 1, "No Books": 0}
+    finally:
+        db.close()
 
 
 def test_with_count_reverse_m2m_includes_zero_rows(
