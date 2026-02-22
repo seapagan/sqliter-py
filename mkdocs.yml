@@ -78,6 +78,7 @@ nav:
       - Transactions: guide/transactions.md
       - Filtering Results: guide/filtering.md
       - Ordering: guide/ordering.md
+      - Aggregates and Grouping: guide/aggregates.md
       - Field Control: guide/fields.md
       - Foreign Keys:
           - Overview: guide/foreign-keys.md

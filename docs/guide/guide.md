@@ -188,6 +188,25 @@ Pagination is supported through `limit()` and `offset()`:
 paginated_users = db.select(User).limit(10).offset(20).fetch_all()
 ```
 
+### Aggregates and Grouping
+
+SQLiter also supports grouped and aggregate projection queries with
+`group_by()`, `annotate()`, and `having()`, plus relationship counts via
+`with_count()`. Projection queries return dictionaries via `fetch_dicts()`.
+
+```python
+from sqliter.query import func
+
+report = (
+    db.select(User)
+    .group_by("status")
+    .annotate(total=func.count())
+    .fetch_dicts()
+)
+```
+
+See [Aggregates and Grouping](aggregates.md) for full details.
+
 ## Transactions
 
 SQLiter supports transactions using Python's context manager. This ensures that

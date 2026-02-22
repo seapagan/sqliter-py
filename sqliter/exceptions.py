@@ -135,6 +135,12 @@ class InvalidFilterError(SqliterError):
     message_template = "Failed to apply filter: invalid field '{}'"
 
 
+class InvalidProjectionError(SqliterError):
+    """Exception raised when projection/aggregate query usage is invalid."""
+
+    message_template = "Invalid projection query operation: {}"
+
+
 class InvalidUpdateError(SqliterError):
     """Exception raised when an invalid update operation is attempted.
 

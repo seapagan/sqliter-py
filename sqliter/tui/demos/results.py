@@ -5,7 +5,9 @@ from __future__ import annotations
 import io
 
 from sqliter import SqliterDB
+from sqliter.exceptions import InvalidProjectionError
 from sqliter.model import BaseDBModel
+from sqliter.query import func
 from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 
 
@@ -152,31 +154,92 @@ def _run_exists() -> str:
 
 
 def _run_aggregates() -> str:
-    """Calculate aggregates using Python after fetching data.
-
-    SQLiter doesn't support SQL-level aggregates (GROUP BY, HAVING).
-    Use Python's sum(), len(), etc. after fetching results.
-    """
+    """Calculate grouped aggregates using SQL projection queries."""
     output = io.StringIO()
 
     class Sale(BaseDBModel):
+        category: str
         amount: float
 
     db = SqliterDB(memory=True)
     db.create_table(Sale)
 
-    for amount in [10.0, 20.0, 30.0, 40.0, 50.0]:
-        db.insert(Sale(amount=amount))
+    db.insert(Sale(category="books", amount=10.0))
+    db.insert(Sale(category="books", amount=15.0))
+    db.insert(Sale(category="games", amount=40.0))
+    db.insert(Sale(category="games", amount=5.0))
 
-    # Note: SQLiter doesn't support SQL-level aggregates (GROUP BY, HAVING)
-    # Use Python for calculations after fetching data
-    results = db.select(Sale).fetch_all()
-    total = sum(s.amount for s in results)
-    average = total / len(results)
-    output.write(f"Total sales: ${total:.2f}\n")
-    output.write(f"Average sale: ${average:.2f}\n")
-    output.write(f"Count: {len(results)}\n")
-    output.write("\n(Aggregates calculated in Python, not SQL)\n")
+    grouped = (
+        db.select(Sale)
+        .group_by("category")
+        .annotate(
+            total=func.sum("amount"),
+            average=func.avg("amount"),
+            entries=func.count(),
+        )
+        .order("category")
+        .fetch_dicts()
+    )
+
+    for row in grouped:
+        output.write(
+            f"{row['category']}: total=${row['total']:.2f}, "
+            f"avg=${row['average']:.2f}, count={row['entries']}\n"
+        )
+
+    db.close()
+    return output.getvalue()
+
+
+def _run_group_by_only() -> str:
+    """Group rows without aggregates using projection results."""
+    output = io.StringIO()
+
+    class Sale(BaseDBModel):
+        category: str
+        amount: float
+
+    db = SqliterDB(memory=True)
+    db.create_table(Sale)
+
+    db.insert(Sale(category="books", amount=10.0))
+    db.insert(Sale(category="books", amount=15.0))
+    db.insert(Sale(category="games", amount=40.0))
+
+    grouped = (
+        db.select(Sale).group_by("category").order("category").fetch_dicts()
+    )
+    output.write("Unique categories:\n")
+    for row in grouped:
+        output.write(f"  - {row['category']}\n")
+
+    db.close()
+    return output.getvalue()
+
+
+def _run_projection_mode_guard() -> str:
+    """Show projection-mode fetch guard and correct fetch_dicts usage."""
+    output = io.StringIO()
+
+    class Sale(BaseDBModel):
+        category: str
+        amount: float
+
+    db = SqliterDB(memory=True)
+    db.create_table(Sale)
+
+    db.insert(Sale(category="books", amount=10.0))
+    db.insert(Sale(category="games", amount=40.0))
+
+    query = db.select(Sale).group_by("category").order("category")
+
+    try:
+        query.fetch_all()
+    except InvalidProjectionError as exc:
+        output.write(f"fetch_all() blocked: {exc}\n")
+
+    grouped = query.fetch_dicts()
+    output.write(f"fetch_dicts() returned {len(grouped)} rows\n")
 
     db.close()
     return output.getvalue()
@@ -236,6 +299,22 @@ def get_category() -> DemoCategory:
                 category="results",
                 code=extract_demo_code(_run_aggregates),
                 execute=_run_aggregates,
+            ),
+            Demo(
+                id="result_group_by_only",
+                title="Group By Only",
+                description="Group rows and return distinct keys",
+                category="results",
+                code=extract_demo_code(_run_group_by_only),
+                execute=_run_group_by_only,
+            ),
+            Demo(
+                id="result_projection_guard",
+                title="Projection Guard",
+                description="Show why projection queries use fetch_dicts()",
+                category="results",
+                code=extract_demo_code(_run_projection_mode_guard),
+                execute=_run_projection_mode_guard,
             ),
         ],
     )

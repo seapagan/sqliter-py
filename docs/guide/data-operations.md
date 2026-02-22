@@ -131,6 +131,8 @@ paginated_users = db.select(User).limit(10).offset(20).fetch_all()
 > etc. This is the starting point for building your query.
 
 See [Filtering Results](filtering.md) for more advanced filtering options.
+See [Aggregates and Grouping](aggregates.md) for grouped/aggregate
+projection queries via `fetch_dicts()`.
 
 ## Updating Records
 

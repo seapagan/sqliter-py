@@ -12,20 +12,21 @@ types, and usage examples.
 
 ## Module Overview
 
-| Module               | Import                                  | Description                              |
-| -------------------- | --------------------------------------- | ---------------------------------------- |
-| `sqliter`            | `from sqliter import SqliterDB`         | Main database class                      |
-| `sqliter.model`      | `from sqliter.model import BaseDBModel` | Base model (legacy mode)                 |
-| `sqliter.model`      | `from sqliter.model import unique`      | Unique constraint helper                 |
-| `sqliter.model`      | `from sqliter.model import ForeignKey`  | Foreign key factory (legacy mode)        |
-| `sqliter.orm`        | `from sqliter.orm import BaseDBModel`   | Base model (ORM mode)                    |
-| `sqliter.orm`        | `from sqliter.orm import ForeignKey`    | Foreign key descriptor (ORM mode)        |
-| `sqliter.orm`        | `from sqliter.orm import ManyToMany`    | Many-to-many descriptor (ORM mode)       |
-| `sqliter.orm`        | `from sqliter.orm import ModelRegistry` | Model registry                           |
-| `sqliter.query`      | *(internal)*                            | QueryBuilder (returned by `db.select()`) |
-| `sqliter.exceptions` | `from sqliter.exceptions import ...`    | Exception hierarchy                      |
-| `sqliter.helpers`    | *(internal)*                            | Utility functions                        |
-| `sqliter.constants`  | *(internal)*                            | Constant mappings                        |
+| Module               | Import                                    | Description                        |
+| -------------------- | ----------------------------------------- | ---------------------------------- |
+| `sqliter`            | `from sqliter import SqliterDB`           | Main database class                |
+| `sqliter.model`      | `from sqliter.model import BaseDBModel`   | Base model (legacy mode)           |
+| `sqliter.model`      | `from sqliter.model import unique`        | Unique constraint helper           |
+| `sqliter.model`      | `from sqliter.model import ForeignKey`    | Foreign key factory (legacy mode)  |
+| `sqliter.orm`        | `from sqliter.orm import BaseDBModel`     | Base model (ORM mode)              |
+| `sqliter.orm`        | `from sqliter.orm import ForeignKey`      | Foreign key descriptor (ORM mode)  |
+| `sqliter.orm`        | `from sqliter.orm import ManyToMany`      | Many-to-many descriptor (ORM mode) |
+| `sqliter.orm`        | `from sqliter.orm import ModelRegistry`   | Model registry                     |
+| `sqliter.query`      | `from sqliter.query import func`          | QueryBuilder aggregate helpers     |
+| `sqliter.query`      | `from sqliter.query import AggregateSpec` | Aggregate specification type       |
+| `sqliter.exceptions` | `from sqliter.exceptions import ...`      | Exception hierarchy                |
+| `sqliter.helpers`    | *(internal)*                              | Utility functions                  |
+| `sqliter.constants`  | *(internal)*                              | Constant mappings                  |
 
 > [!NOTE]
 > The **ORM module** (`sqliter.orm`) is an alternative import mode that
@@ -41,7 +42,8 @@ types, and usage examples.
   defining database models, plus the `unique()` constraint helper.
 
 - **[QueryBuilder](query-builder.md)** -- Fluent API for filtering,
-  ordering, paginating, and executing queries.
+  grouping, aggregate projections, ordering, paginating, and query
+  execution.
 
 - **[Foreign Keys](foreign-keys.md)** -- `ForeignKey()` factory
   function, `ForeignKeyInfo` dataclass, and `FKAction` type alias

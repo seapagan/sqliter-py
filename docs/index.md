@@ -31,27 +31,30 @@ database-like format without needing to learn SQL or use a full ORM.
 ## Features
 
 - Table creation based on Pydantic models
-- Supports `date` and `datetime` fields.
+- Supports `date` and `datetime` fields
 - Support for complex data types (`list`, `dict`, `set`, `tuple`) stored as
   BLOBs
-- Foreign key relationships with referential integrity and CASCADE actions
 - Automatic primary key generation
 - User defined indexes on any field
 - Set any field as UNIQUE
 - CRUD operations (Create, Read, Update, Delete)
 - Bulk Create and Update methods to reduce the number of queries required for
   multiple operations.
+- Foreign key relationships with referential integrity and CASCADE actions
+- ORM mode with lazy loading, reverse relationships, many-to-many support, and
+  eager loading
 - Chained Query building with filtering, ordering, and pagination
+- Projection and aggregation queries with grouping, aggregate helpers, and
+  dictionary-based results
 - Transaction support
 - Optional query result caching with LRU eviction, TTL, and memory limits
+- Optional raw SQL debug logging
 - Custom exceptions for better error handling
 - Full type hinting and type checking
 - Detailed documentation and examples
 - Interactive TUI demo for exploring features
 - No external dependencies other than Pydantic
 - Full test coverage
-- Can optionally output the raw SQL queries being executed for debugging
-  purposes.
 
 ## API Reference
 

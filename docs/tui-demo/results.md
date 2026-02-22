@@ -1,6 +1,7 @@
 # Query Results Demos
 
-These demos show different ways to fetch query results.
+These demos show different ways to fetch query results, including grouped
+projection queries.
 
 ## Fetch One
 
@@ -81,9 +82,9 @@ Returns a list of model instances. Empty list if no results.
 
 Be careful with large result sets - all records are loaded into memory.
 
-## Fetch First / Limit Results
+## Fetch First / Last
 
-Get only the first N records (pagination).
+Get the first or last matching record.
 
 ```python
 # --8<-- [start:fetch-first]
@@ -187,15 +188,187 @@ db.close()
 - **Conditional logic**: Branch based on existence
 - **Fast checks**: Quicker than fetching the actual record
 
+## Aggregates
+
+Calculate grouped aggregates using projection mode.
+
+```python
+from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
+from sqliter.query import func
+
+class Sale(BaseDBModel):
+    category: str
+    amount: float
+
+db = SqliterDB(memory=True)
+db.create_table(Sale)
+
+db.insert(Sale(category="books", amount=10.0))
+db.insert(Sale(category="books", amount=15.0))
+db.insert(Sale(category="games", amount=40.0))
+db.insert(Sale(category="games", amount=5.0))
+
+grouped = (
+    db.select(Sale)
+    .group_by("category")
+    .annotate(
+        total=func.sum("amount"),
+        average=func.avg("amount"),
+        entries=func.count(),
+    )
+    .order("category")
+    .fetch_dicts()
+)
+
+for row in grouped:
+    print(
+        f"{row['category']}: total=${row['total']:.2f}, "
+        f"avg=${row['average']:.2f}, count={row['entries']}"
+    )
+
+db.close()
+```
+
+### Important
+
+Projection queries return dictionaries via `fetch_dicts()`, not model
+instances.
+
+### Aggregate-Only Projection
+
+You can also use `annotate()` without `group_by()` to get summary values:
+
+```python
+from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
+from sqliter.query import func
+
+class Sale(BaseDBModel):
+    category: str
+    amount: float
+
+db = SqliterDB(memory=True)
+db.create_table(Sale)
+
+db.insert(Sale(category="books", amount=10.0))
+db.insert(Sale(category="books", amount=15.0))
+db.insert(Sale(category="games", amount=40.0))
+
+summary = (
+    db.select(Sale)
+    .annotate(total_rows=func.count(), total_amount=func.sum("amount"))
+    .fetch_dicts()
+)
+print(summary)
+
+db.close()
+```
+
+### HAVING on Aggregate Alias
+
+Use `having()` with aggregate aliases to filter grouped output:
+
+```python
+from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
+from sqliter.query import func
+
+class Sale(BaseDBModel):
+    category: str
+    amount: float
+
+db = SqliterDB(memory=True)
+db.create_table(Sale)
+
+db.insert(Sale(category="books", amount=10.0))
+db.insert(Sale(category="books", amount=15.0))
+db.insert(Sale(category="games", amount=40.0))
+db.insert(Sale(category="games", amount=5.0))
+
+rows = (
+    db.select(Sale)
+    .group_by("category")
+    .annotate(total=func.sum("amount"))
+    .having(total__gt=20)
+    .order("category")
+    .fetch_dicts()
+)
+for row in rows:
+    print(row)
+
+db.close()
+```
+
+## Group By Only
+
+Use `group_by()` without `annotate()` to fetch unique grouped keys.
+
+```python
+from sqliter import SqliterDB
+from sqliter.model import BaseDBModel
+
+class Sale(BaseDBModel):
+    category: str
+    amount: float
+
+db = SqliterDB(memory=True)
+db.create_table(Sale)
+
+db.insert(Sale(category="books", amount=10.0))
+db.insert(Sale(category="books", amount=15.0))
+db.insert(Sale(category="games", amount=40.0))
+
+grouped = db.select(Sale).group_by("category").order("category").fetch_dicts()
+print("Unique categories:")
+for row in grouped:
+    print(f"  - {row['category']}")
+
+db.close()
+```
+
+## Projection Guard
+
+Projection mode blocks model-fetch methods and requires `fetch_dicts()`.
+
+```python
+from sqliter import SqliterDB
+from sqliter.exceptions import InvalidProjectionError
+from sqliter.model import BaseDBModel
+
+class Sale(BaseDBModel):
+    category: str
+    amount: float
+
+db = SqliterDB(memory=True)
+db.create_table(Sale)
+
+db.insert(Sale(category="books", amount=10.0))
+db.insert(Sale(category="games", amount=40.0))
+
+query = db.select(Sale).group_by("category").order("category")
+
+try:
+    query.fetch_all()
+except InvalidProjectionError as exc:
+    print(f"fetch_all() blocked: {exc}")
+
+grouped = query.fetch_dicts()
+print(f"fetch_dicts() returned {len(grouped)} rows")
+
+db.close()
+```
+
 ## Comparison Table
 
 | Method | Returns | Use When |
 |--------|---------|----------|
 | `fetch_one()` | Single record or `None` | You need exactly one record |
 | `fetch_all()` | List of records (all) | You need all matching records |
-| `limit(n).fetch_all()` | List of records (max n) | Pagination, limiting results |
+| `fetch_first()` / `fetch_last()` | Single record or `None` | You need boundary records |
 | `count()` | Integer count | Statistics, validation |
 | `exists()` | Boolean | Quick existence check |
+| `fetch_dicts()` | List of dictionaries | Grouped/aggregate projection results |
 
 ## Performance Considerations
 
@@ -247,3 +420,4 @@ count = db.select(User).count()
 - [Filtering](filters.md) - Filter which records are returned
 - [Ordering](ordering.md) - Sort results before fetching
 - [Field Selection](field-selection.md) - Control which fields are returned
+- [Guide: Aggregates and Grouping](../guide/aggregates.md)
