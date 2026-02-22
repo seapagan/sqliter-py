@@ -587,6 +587,22 @@ def test_with_count_validation_errors(relation_db: SqliterDB) -> None:
         relation_db.select(UnresolvedOwnerAgg).with_count("pending")
 
 
+def test_with_count_rejects_unresolved_forward_fk_target(
+    relation_db: SqliterDB,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """with_count() should reject unresolved forward FK traversal."""
+    original_to_model = BookAgg.author.to_model
+    monkeypatch.setattr(BookAgg.author, "to_model", "MissingAgg")
+
+    with pytest.raises(
+        InvalidProjectionError, match="Cannot resolve SQL metadata"
+    ):
+        relation_db.select(BookAgg).with_count("author__books")
+
+    monkeypatch.setattr(BookAgg.author, "to_model", original_to_model)
+
+
 def test_with_count_rejects_unresolved_reverse_m2m_target(
     relation_db: SqliterDB, monkeypatch: pytest.MonkeyPatch
 ) -> None:

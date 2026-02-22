@@ -554,6 +554,12 @@ class QueryBuilder(Generic[T]):
                 current_model, segment, path
             )
             if kind == "forward_fk":
+                if isinstance(descriptor.to_model, str):
+                    msg = (
+                        "Cannot resolve SQL metadata for relationship "
+                        f"'{path}'."
+                    )
+                    raise InvalidProjectionError(msg)
                 current_model = cast("type[BaseDBModel]", descriptor.to_model)
             elif kind == "reverse_fk":
                 current_model = descriptor.from_model
