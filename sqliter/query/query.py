@@ -2432,6 +2432,12 @@ class QueryBuilder(Generic[T]):
         Returns:
             True if at least one result exists, False otherwise.
         """
+        if self._projection_mode:
+            msg = (
+                "exists() is unavailable for projection queries. "
+                "Use len(fetch_dicts()) > 0 instead."
+            )
+            raise InvalidProjectionError(msg)
         return self.count() > 0
 
     def delete(self) -> int:
