@@ -107,7 +107,8 @@ Define database constraints like unique fields and foreign key relationships.
 
 ### [ORM Features](orm.md)
 
-Advanced ORM features including foreign keys, lazy loading, and reverse relationships.
+Advanced ORM features including foreign keys, relationship loading, and
+`with_count()` projection reporting.
 
 ### [Caching](caching.md)
 
