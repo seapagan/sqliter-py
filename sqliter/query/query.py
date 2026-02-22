@@ -471,7 +471,8 @@ class QueryBuilder(Generic[T]):
             else:
                 msg = (
                     f"HAVING field '{field_name}' must be a grouped field or "
-                    "an aggregate alias."
+                    "an aggregate alias. Aggregate aliases must be defined via "
+                    "annotate()/with_count() before calling having()."
                 )
                 raise InvalidProjectionError(msg)
             self._having_filters.append((field_sql, value, operator))

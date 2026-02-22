@@ -385,6 +385,19 @@ def test_having_rejects_fields_outside_group_or_aggregate(
         )
 
 
+def test_having_rejects_aggregate_alias_defined_after_having_call(
+    sales_db: SqliterDB,
+) -> None:
+    """having() should reject aggregate aliases defined only later."""
+    with pytest.raises(InvalidProjectionError, match="grouped field"):
+        (
+            sales_db.select(Sale)
+            .group_by("category")
+            .having(total__gt=10)
+            .annotate(total=func.sum("amount"))
+        )
+
+
 def test_having_operator_variants_and_type_validation(
     sales_db: SqliterDB,
 ) -> None:
