@@ -6,20 +6,19 @@ Items marked with :fire: are high priority.
 
 - add ability to inspect existing SQLite databases and generate Pydantic models
   dynamically, including CLI tool for schema dumping.
-- add an 'execute' method to the main class to allow executing arbitrary SQL
-  queries which can be chained to the 'find_first' etc methods or just used
-  directly.
+- add an `execute` method to the main class to allow executing arbitrary SQL
+  queries, with clear behavior for direct use and for integration with query
+  fetch methods such as `fetch_first()`.
 - add a `rollback` method to the main class to allow manual rollbacks.
-- :fire: allow adding foreign keys and relationships to each table (partially
-  done).
 - Investigate a mypy plugin to type reverse relationship accessors (avoid
   casts for dynamically injected attributes).
 - Medium-term typing direction: replace runtime-injected reverse accessors
   with explicit reverse relationship declarations in model classes so
   reverse-side usage is mypy-friendly without casts or TYPE_CHECKING hacks.
 - Registry lifetime: global registry can cause cross-talk when models are
-  defined repeatedly in one process (e.g., tests). Short-term fix: add a clear
-  or reset helper for tests. Longer-term option: make registry per-DB instance.
+  defined repeatedly in one process (e.g., tests). Current mitigation exists
+  via `ModelRegistry.reset()` and snapshot/restore helpers; longer-term option:
+  make registry per-DB instance.
 - Consider renaming to `ForeignKeyField` / `ManyToManyField` and keeping
   `ForeignKey` / `ManyToMany` as backwards-compatible aliases.
 - Consider adding full atomicity for M2M add/remove within existing
