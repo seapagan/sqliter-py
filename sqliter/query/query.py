@@ -414,8 +414,12 @@ class QueryBuilder(Generic[T]):
         if not aggregates:
             return self
 
+        pending_aggregates: dict[str, AggregateSpec] = {}
         for raw_alias, aggregate_spec in aggregates.items():
             alias = self._validate_projection_alias(raw_alias)
+            if alias in pending_aggregates:
+                msg = f"Aggregate alias '{alias}' is already defined."
+                raise InvalidProjectionError(msg)
             if not isinstance(aggregate_spec, AggregateSpec):
                 msg = (
                     "annotate() values must be AggregateSpec instances, "
@@ -433,8 +437,9 @@ class QueryBuilder(Generic[T]):
                 )
                 raise InvalidProjectionError(msg)
 
-            self._aggregates[alias] = aggregate_spec
+            pending_aggregates[alias] = aggregate_spec
 
+        self._aggregates.update(pending_aggregates)
         self._projection_mode = True
         return self
 

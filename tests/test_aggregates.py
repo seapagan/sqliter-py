@@ -278,8 +278,36 @@ def test_annotate_rejects_empty_conflicting_and_duplicate_aliases(
     with pytest.raises(InvalidProjectionError, match="already defined"):
         query.annotate(total=func.avg("amount"))
 
+    with pytest.raises(InvalidProjectionError, match="already defined"):
+        sales_db.select(Sale).annotate(
+            **{
+                "total": func.sum("amount"),
+                " total ": func.avg("amount"),
+            }
+        )
+
     with pytest.raises(InvalidProjectionError, match="cannot contain"):
         sales_db.select(Sale).annotate(**{'bad"alias': func.count()})
+
+
+def test_annotate_is_atomic_on_mid_validation_error(
+    sales_db: SqliterDB,
+) -> None:
+    """Failed annotate() calls should not leave partial projection state."""
+    query = sales_db.select(Sale)
+
+    with pytest.raises(TypeError, match="AggregateSpec instances"):
+        query.annotate(
+            good=func.sum("amount"),
+            bad="not-an-aggregate",  # type: ignore[arg-type]
+        )
+
+    assert query._aggregates == {}
+    assert query._projection_mode is False
+
+    query.annotate(good=func.sum("amount"))
+    assert set(query._aggregates) == {"good"}
+    assert query._projection_mode is True
 
 
 def test_group_by_and_annotate_validate_input(sales_db: SqliterDB) -> None:
