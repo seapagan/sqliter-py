@@ -619,7 +619,14 @@ class QueryBuilder(Generic[T]):
         """Build a reverse-FK LEFT JOIN for with_count() path traversal."""
         join_alias = self._next_projection_alias()
         related_table = descriptor.from_model.get_table_name()
+        fk_descriptor = getattr(
+            descriptor.from_model, "fk_descriptors", {}
+        ).get(descriptor.fk_field)
         fk_column = f"{descriptor.fk_field}_id"
+        if fk_descriptor is not None:
+            db_column = fk_descriptor.fk_info.db_column
+            if db_column:
+                fk_column = db_column
         join_clause = (
             f'LEFT JOIN "{related_table}" AS {join_alias} '
             f'ON {join_alias}."{fk_column}" = {parent_alias}."pk"'

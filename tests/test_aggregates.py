@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+import time
 from re import escape
 from typing import Any
 
@@ -39,6 +40,18 @@ class BookAgg(BaseDBModel):
         AuthorAgg,
         on_delete="CASCADE",
         related_name="books",
+    )
+
+
+class BookCustomColAgg(BaseDBModel):
+    """Book model with custom FK db_column for reverse-count regression."""
+
+    title: str
+    author: ForeignKey[AuthorAgg] = ForeignKey(
+        AuthorAgg,
+        on_delete="CASCADE",
+        related_name="custom_books",
+        db_column="author_ref",
     )
 
 
@@ -189,6 +202,42 @@ def test_with_count_reverse_fk_includes_zero_rows(
 
     usage_by_name = {row["name"]: row["usage"] for row in rows}
     assert usage_by_name == {"Alice": 2, "Bob": 1, "No Books": 0}
+
+
+def test_with_count_reverse_fk_respects_custom_db_column() -> None:
+    """with_count reverse-FK joins should use custom FK db_column names."""
+    db = SqliterDB(":memory:")
+    db.create_table(AuthorAgg)
+    db.create_table(BookCustomColAgg)
+
+    alice = db.insert(AuthorAgg(name="Alice"))
+    bob = db.insert(AuthorAgg(name="Bob"))
+    db.insert(AuthorAgg(name="No Books"))
+
+    now = int(time.time())
+    table = BookCustomColAgg.get_table_name()
+    insert_sql = (
+        f'INSERT INTO "{table}" '  # noqa: S608
+        '("created_at", "updated_at", "title", "author_ref") '
+        "VALUES (?, ?, ?, ?)"
+    )
+    conn = db.connect()
+    cursor = conn.cursor()
+    cursor.execute(insert_sql, (now, now, "CA1", alice.pk))
+    cursor.execute(insert_sql, (now, now, "CA2", alice.pk))
+    cursor.execute(insert_sql, (now, now, "CB1", bob.pk))
+    conn.commit()
+
+    rows = (
+        db.select(AuthorAgg)
+        .with_count("custom_books", alias="usage")
+        .order("name")
+        .fetch_dicts()
+    )
+
+    usage_by_name = {row["name"]: row["usage"] for row in rows}
+    assert usage_by_name == {"Alice": 2, "Bob": 1, "No Books": 0}
+    db.close()
 
 
 def test_with_count_reverse_m2m_includes_zero_rows(

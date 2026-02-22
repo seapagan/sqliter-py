@@ -51,6 +51,10 @@ Items marked with :fire: are high priority.
 - Refactor filter condition handling to use one centralized builder path and
   keep validation/SQL assembly behavior in sync across code paths
   (issue #136).
+- Support `ForeignKey(..., db_column=...)` consistently across ORM runtime
+  CRUD/query paths (issue #138). Once closed, rewrite temporary custom-column
+  regression tests (currently using setup workarounds) to use normal ORM
+  insert/query flows end-to-end.
 
 ## Housekeeping
 
