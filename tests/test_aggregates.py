@@ -166,20 +166,6 @@ def test_aggregate_only_projection_returns_dict_rows(
     assert rows == [{"total_rows": 5, "total_amount": 90.0}]
 
 
-def test_projection_mode_rejects_model_fetch_methods(
-    sales_db: SqliterDB,
-) -> None:
-    """Projection queries should require fetch_dicts()."""
-    query = (
-        sales_db.select(Sale)
-        .group_by("category")
-        .annotate(total=func.sum("amount"))
-    )
-
-    with pytest.raises(InvalidProjectionError, match="fetch_dicts"):
-        query.fetch_all()
-
-
 def test_with_count_reverse_fk_includes_zero_rows(
     relation_db: SqliterDB,
 ) -> None:
@@ -520,7 +506,7 @@ def test_fetch_dicts_requires_projection_mode(sales_db: SqliterDB) -> None:
 
 @pytest.mark.parametrize(
     "method_name",
-    ["fetch_one", "fetch_first", "fetch_last", "count", "exists"],
+    ["fetch_one", "fetch_first", "fetch_last", "fetch_all", "count", "exists"],
 )
 def test_projection_mode_rejects_other_model_fetch_methods(
     sales_db: SqliterDB, method_name: str
