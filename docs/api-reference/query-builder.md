@@ -324,9 +324,9 @@ def prefetch_related(
 
 **Parameters:**
 
-| Parameter | Type  | Description                                         |
-| --------- | ----- | --------------------------------------------------- |
-| `*paths`  | `str` | One or more reverse FK or M2M relationship names    |
+| Parameter | Type  | Description                                      |
+| --------- | ----- | ------------------------------------------------ |
+| `*paths`  | `str` | One or more reverse FK or M2M relationship names |
 
 **Returns:** `Self` for method chaining.
 
@@ -391,9 +391,9 @@ def group_by(
 
 **Parameters:**
 
-| Parameter | Type  | Description              |
-| --------- | ----- | ------------------------ |
-| `*fields` | `str` | Fields to group results  |
+| Parameter | Type  | Description             |
+| --------- | ----- | ----------------------- |
+| `*fields` | `str` | Fields to group results |
 
 **Returns:** `Self` for method chaining.
 
@@ -415,8 +415,8 @@ def annotate(
 
 **Parameters:**
 
-| Parameter      | Type            | Description                         |
-| -------------- | --------------- | ----------------------------------- |
+| Parameter      | Type            | Description                          |
+| -------------- | --------------- | ------------------------------------ |
 | `**aggregates` | `AggregateSpec` | Mapping of output alias to aggregate |
 
 **Returns:** `Self` for method chaining.
@@ -441,9 +441,9 @@ def having(
 
 **Parameters:**
 
-| Parameter      | Type          | Description                       |
-| -------------- | ------------- | --------------------------------- |
-| `**conditions` | `FilterValue` | HAVING conditions with operators  |
+| Parameter      | Type          | Description                      |
+| -------------- | ------------- | -------------------------------- |
+| `**conditions` | `FilterValue` | HAVING conditions with operators |
 
 **Returns:** `Self` for method chaining.
 
@@ -471,24 +471,26 @@ def with_count(
 
 **Parameters:**
 
-| Parameter  | Type   | Default   | Description                         |
-| ---------- | ------ | --------- | ----------------------------------- |
-| `path`     | `str`  | *required*| Relationship name to count          |
-| `alias`    | `str`  | `"count"` | Output alias for the count column   |
-| `distinct` | `bool` | `False`   | Use `COUNT(DISTINCT ...)`           |
+| Parameter  | Type   | Default    | Description                       |
+| ---------- | ------ | ---------- | --------------------------------- |
+| `path`     | `str`  | *required* | Relationship path to count        |
+| `alias`    | `str`  | `"count"`  | Output alias for the count column |
+| `distinct` | `bool` | `False`    | Use `COUNT(DISTINCT ...)`         |
 
 **Returns:** `Self` for method chaining.
 
 **Raises:**
 
 - [`InvalidProjectionError`](exceptions.md#invalidprojectionerror) --
-  For invalid aliases, nested paths, or unresolved M2M SQL metadata.
+  For invalid aliases, invalid terminal relationship types, or
+  unresolved M2M SQL metadata.
 - [`InvalidRelationshipError`](exceptions.md#invalidrelationshiperror)
   -- If `path` is not a valid relationship on the model.
 
 > [!NOTE]
-> `with_count()` currently supports a single relationship segment
-> (for example, `"books"`) and not nested paths like `"books__reviews"`.
+> `with_count()` supports nested paths (for example,
+> `"author__books"` or `"articles__tags"`), but the terminal segment
+> must be to-many (reverse FK or many-to-many).
 > If no `group_by()` exists, SQLiter automatically groups by current
 > selected model fields.
 
@@ -814,9 +816,9 @@ def update(self, values: dict[str, Any]) -> int:
 
 **Parameters:**
 
-| Parameter | Type               | Default    | Description                     |
-| --------- | ------------------ | ---------- | ------------------------------- |
-| `values`  | `dict[str, Any]`   | *required* | Field names and their new values |
+| Parameter | Type             | Default    | Description                      |
+| --------- | ---------------- | ---------- | -------------------------------- |
+| `values`  | `dict[str, Any]` | *required* | Field names and their new values |
 
 **Returns:** `int` -- The number of records updated.
 
