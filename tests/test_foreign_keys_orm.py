@@ -40,6 +40,24 @@ class Book(BaseDBModel):
     author: ForeignKey[Author] = ForeignKey(Author, on_delete="CASCADE")
 
 
+class CustomColAuthor(BaseDBModel):
+    """Author model for custom db_column FK runtime tests."""
+
+    name: str
+
+
+class CustomColBook(BaseDBModel):
+    """Book model whose FK uses a custom database column name."""
+
+    title: str
+    author: ForeignKey[CustomColAuthor] = ForeignKey(
+        CustomColAuthor,
+        on_delete="CASCADE",
+        related_name="custom_books",
+        db_column="author_ref",
+    )
+
+
 class Publisher(BaseDBModel):
     """Test model for a publisher."""
 
@@ -252,6 +270,134 @@ class TestReverseRelationships:
         # Use custom related name
         books = author.publications.fetch_all()
         assert len(books) == 2
+
+
+class TestCustomDbColumnRuntime:
+    """End-to-end runtime tests for ORM FK db_column mappings."""
+
+    def test_insert_and_get_use_custom_fk_db_column(
+        self, db: SqliterDB
+    ) -> None:
+        """insert()/get() should persist and hydrate custom FK db columns."""
+        db.create_table(CustomColAuthor)
+        db.create_table(CustomColBook)
+
+        alice = db.insert(CustomColAuthor(name="Alice"))
+        book = db.insert(CustomColBook(title="A1", author=alice))
+
+        fetched = db.get(CustomColBook, book.pk)
+        assert fetched is not None
+        assert fetched.author_id == alice.pk
+        assert fetched.author.name == "Alice"
+
+    def test_select_filter_and_order_use_model_fk_field_names(
+        self, db: SqliterDB
+    ) -> None:
+        """Query API should accept model FK field names with custom columns."""
+        db.create_table(CustomColAuthor)
+        db.create_table(CustomColBook)
+
+        alice = db.insert(CustomColAuthor(name="Alice"))
+        bob = db.insert(CustomColAuthor(name="Bob"))
+        db.insert(CustomColBook(title="A1", author=alice))
+        db.insert(CustomColBook(title="A2", author=alice))
+        db.insert(CustomColBook(title="B1", author=bob))
+
+        rows = (
+            db.select(CustomColBook)
+            .filter(author_id=alice.pk)
+            .order("author_id")
+            .fetch_all()
+        )
+        assert [row.title for row in rows] == ["A1", "A2"]
+
+    def test_select_related_and_relationship_filter_with_custom_fk_column(
+        self, db: SqliterDB
+    ) -> None:
+        """Relationship traversal should join on custom FK db columns."""
+        db.create_table(CustomColAuthor)
+        db.create_table(CustomColBook)
+
+        alice = db.insert(CustomColAuthor(name="Alice"))
+        bob = db.insert(CustomColAuthor(name="Bob"))
+        db.insert(CustomColBook(title="A1", author=alice))
+        db.insert(CustomColBook(title="B1", author=bob))
+
+        rows = (
+            db.select(CustomColBook)
+            .select_related("author")
+            .filter(author__name="Alice")
+            .fetch_all()
+        )
+
+        assert len(rows) == 1
+        assert rows[0].title == "A1"
+        assert rows[0].author.name == "Alice"
+
+    def test_prefetch_reverse_fk_with_custom_fk_column(
+        self, db: SqliterDB
+    ) -> None:
+        """prefetch_related should resolve reverse FK via custom db columns."""
+        db.create_table(CustomColAuthor)
+        db.create_table(CustomColBook)
+
+        alice = db.insert(CustomColAuthor(name="Alice"))
+        bob = db.insert(CustomColAuthor(name="Bob"))
+        db.insert(CustomColBook(title="A1", author=alice))
+        db.insert(CustomColBook(title="A2", author=alice))
+        db.insert(CustomColBook(title="B1", author=bob))
+
+        authors = (
+            db.select(CustomColAuthor)
+            .prefetch_related("custom_books")
+            .order("name")
+            .fetch_all()
+        )
+        counts = {
+            author.name: len(author.custom_books.fetch_all())
+            for author in authors
+        }
+        assert counts == {"Alice": 2, "Bob": 1}
+
+    def test_model_update_uses_custom_fk_db_column(self, db: SqliterDB) -> None:
+        """db.update(model_instance) should update the mapped FK db column."""
+        db.create_table(CustomColAuthor)
+        db.create_table(CustomColBook)
+
+        alice = db.insert(CustomColAuthor(name="Alice"))
+        bob = db.insert(CustomColAuthor(name="Bob"))
+        book = db.insert(CustomColBook(title="A1", author=alice))
+
+        book.author = bob
+        db.update(book)
+
+        refreshed = db.get(CustomColBook, book.pk)
+        assert refreshed is not None
+        assert refreshed.author_id == bob.pk
+        assert refreshed.author.name == "Bob"
+
+    def test_querybuilder_update_uses_custom_fk_db_column(
+        self, db: SqliterDB
+    ) -> None:
+        """QueryBuilder.update() should map FK fields to custom db columns."""
+        db.create_table(CustomColAuthor)
+        db.create_table(CustomColBook)
+
+        alice = db.insert(CustomColAuthor(name="Alice"))
+        bob = db.insert(CustomColAuthor(name="Bob"))
+        db.insert(CustomColBook(title="A1", author=alice))
+
+        updated = (
+            db.select(CustomColBook)
+            .filter(title="A1")
+            .update({"author_id": bob.pk})
+        )
+
+        assert updated == 1
+        book = db.select(CustomColBook).filter(title="A1").fetch_one()
+        assert book is not None
+        assert book.author_id == bob.pk
+        assert book.author.name == "Bob"
 
 
 class TestModelRegistry:
