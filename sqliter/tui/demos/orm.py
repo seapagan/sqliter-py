@@ -82,6 +82,57 @@ def _run_orm_style_access() -> str:
     return output.getvalue()
 
 
+def _run_custom_fk_db_column() -> str:
+    """Use a custom FK db_column while keeping model-level _id access."""
+    output = io.StringIO()
+
+    class Author(BaseDBModel):
+        name: str
+
+    class Book(BaseDBModel):
+        title: str
+        author: ForeignKey[Author] = ForeignKey(
+            Author,
+            db_column="author_ref",
+            related_name="books",
+        )
+
+    db = SqliterDB(memory=True)
+    db.create_table(Author)
+    db.create_table(Book)
+
+    alice = db.insert(Author(name="Alice"))
+    bob = db.insert(Author(name="Bob"))
+    db.insert(Book(title="A1", author=alice))
+    db.insert(Book(title="A2", author=alice))
+
+    rows = (
+        db.select(Book)
+        .filter(author_id=alice.pk)
+        .order("author_id")
+        .select_related("author")
+        .fetch_all()
+    )
+
+    output.write("Books filtered by model field author_id:\n")
+    for row in rows:
+        output.write(f"  {row.title} -> {row.author.name}\n")
+
+    db.select(Book).filter(title="A1").update({"author_id": bob.pk})
+    updated = db.select(Book).filter(title="A1").fetch_one()
+
+    if updated is not None:
+        output.write("\nAfter update(author_id=...):\n")
+        output.write(f"  {updated.title} -> {updated.author.name}\n")
+
+    output.write(
+        "\nModel API uses author_id while SQL stores it in author_ref.\n"
+    )
+
+    db.close()
+    return output.getvalue()
+
+
 def _run_nullable_foreign_key() -> str:
     """Declare nullable FKs using Optional[T] in the type annotation.
 
@@ -774,6 +825,14 @@ def get_category() -> DemoCategory:
                 category="orm",
                 code=extract_demo_code(_run_orm_style_access),
                 execute=_run_orm_style_access,
+            ),
+            Demo(
+                id="orm_custom_fk_db_column",
+                title="Custom FK db_column",
+                description="Use author_id API with a custom DB column",
+                category="orm",
+                code=extract_demo_code(_run_custom_fk_db_column),
+                execute=_run_custom_fk_db_column,
             ),
             Demo(
                 id="orm_nullable_fk",

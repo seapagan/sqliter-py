@@ -120,7 +120,7 @@ class ForeignKey(Generic[T]):
 | `null`         | `bool`              | `False`      | Whether FK can be null                                   |
 | `unique`       | `bool`              | `False`      | Whether FK must be unique (one-to-one)                   |
 | `related_name` | `str` &#124; `None` | `None`       | Name for reverse relationship (auto-generated if `None`) |
-| `db_column`    | `str` &#124; `None` | `None`       | Custom column name for `_id` field                       |
+| `db_column`    | `str` &#124; `None` | `None`       | Custom database column for the generated `_id` field     |
 
 **Example:**
 
@@ -137,6 +137,21 @@ class Book(BaseDBModel):
     author: ForeignKey[Author] = ForeignKey(
         Author, on_delete="CASCADE"
     )
+```
+
+When `db_column` is set, runtime operations still use model field names while
+SQL is generated against the mapped database column:
+
+```python
+class Book(BaseDBModel):
+    title: str
+    author: ForeignKey[Author] = ForeignKey(
+        Author,
+        db_column="author_ref",
+    )
+
+# Still uses model field names:
+db.select(Book).filter(author_id=1).order("author_id").fetch_all()
 ```
 
 ### `ForeignKeyDescriptor`

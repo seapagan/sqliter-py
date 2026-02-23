@@ -31,8 +31,8 @@ db.create_table(Book)
 > [!NOTE]
 >
 > When using ORM foreign keys, SQLiter automatically creates an `author_id`
-> field in the database. You define `author` (without `_id`) in your model and
-> access it for lazy loading.
+> model field. By default the database column is also `author_id`, but you can
+> override the physical column name with `db_column=...`.
 
 ## Database Context
 
@@ -50,6 +50,30 @@ book = Book(title="My Book", author_id=1)
 book.db_context = db  # Set manually for lazy loading to work
 print(book.author.name)
 ```
+
+## Custom DB Column Names
+
+You can keep ORM-style access (`book.author` / `author_id`) while storing the
+FK value in a different database column:
+
+```python
+class Author(BaseDBModel):
+    name: str
+
+class Book(BaseDBModel):
+    title: str
+    author: ForeignKey[Author] = ForeignKey(
+        Author,
+        db_column="author_ref",
+    )
+```
+
+With this configuration:
+
+- Model-level access still uses `author_id` and `author`
+- SQLiter maps runtime CRUD/query operations to `author_ref` in SQL
+- Filtering and ordering keep using model field names (for example,
+  `.filter(author_id=1).order("author_id")`)
 
 ## Lazy Loading
 
