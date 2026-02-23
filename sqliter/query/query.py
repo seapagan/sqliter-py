@@ -44,6 +44,7 @@ from sqliter.exceptions import (
     RecordFetchError,
     RecordUpdateError,
 )
+from sqliter.model.foreign_key import get_model_field_db_column
 from sqliter.query.aggregates import AggregateSpec
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -205,6 +206,27 @@ class QueryBuilder(Generic[T]):
             )
             raise ValueError(err_message)
 
+    @staticmethod
+    def _model_field_to_db_column(
+        model_class: type[BaseDBModel], field_name: str
+    ) -> str:
+        """Resolve a model field name to its database column name."""
+        return get_model_field_db_column(model_class, field_name)
+
+    def _column_sql(
+        self,
+        field_name: str,
+        *,
+        model_class: Optional[type[BaseDBModel]] = None,
+        table_alias: Optional[str] = None,
+    ) -> str:
+        """Build a quoted SQL column reference for a model field."""
+        resolved_model = model_class or self.model_class
+        db_column = self._model_field_to_db_column(resolved_model, field_name)
+        if table_alias is None:
+            return f'"{db_column}"'
+        return f'{table_alias}."{db_column}"'
+
     def filter(self, **conditions: FilterValue) -> Self:
         """Apply filter conditions to the query.
 
@@ -294,7 +316,11 @@ class QueryBuilder(Generic[T]):
             raise InvalidFilterError(error_msg)
 
         # Apply filter with table alias
-        qualified_field = f'{join_info.alias}."{target_field}"'
+        qualified_field = self._column_sql(
+            target_field,
+            model_class=join_info.model_class,
+            table_alias=join_info.alias,
+        )
 
         # Use the appropriate handler
         # Note: __isnull/__notnull operators don't reach here due to
@@ -474,7 +500,7 @@ class QueryBuilder(Generic[T]):
         for field, value in conditions.items():
             field_name, operator = self._parse_field_operator(field)
             if field_name in allowed_group_fields:
-                field_sql = f't0."{field_name}"'
+                field_sql = self._column_sql(field_name, table_alias="t0")
             elif field_name in allowed_aggregate_aliases:
                 field_sql = f'"{field_name}"'
             else:
@@ -1248,7 +1274,7 @@ class QueryBuilder(Generic[T]):
             # ORM FK descriptor
             fk_descriptor = fk_descriptors[segment]
             to_model = fk_descriptor.to_model
-            fk_column = f"{segment}_id"
+            fk_column = fk_descriptor.fk_info.db_column or f"{segment}_id"
             is_nullable = fk_descriptor.fk_info.null
 
             # Create alias for this join using global counter
@@ -1613,7 +1639,11 @@ class QueryBuilder(Generic[T]):
         elif aggregate_spec.field in {None, "*"}:
             field_sql = "*"
         else:
-            field_sql = f't0."{aggregate_spec.field}"'
+            field_name = cast("str", aggregate_spec.field)
+            field_sql = self._column_sql(
+                field_name,
+                table_alias="t0",
+            )
 
         if aggregate_spec.distinct and field_sql == "*":
             msg = (
@@ -1645,7 +1675,8 @@ class QueryBuilder(Generic[T]):
         projection_columns: list[str] = []
 
         for field_name in self._group_by:
-            select_parts.append(f't0."{field_name}" AS "{field_name}"')
+            column_sql = self._column_sql(field_name, table_alias="t0")
+            select_parts.append(f'{column_sql} AS "{field_name}"')
             projection_columns.append(field_name)
 
         for alias, aggregate_spec in self._aggregates.items():
@@ -1669,7 +1700,8 @@ class QueryBuilder(Generic[T]):
         field_name = match.group(1)
         direction = match.group(2)
         if field_name in self.model_class.model_fields:
-            return f' ORDER BY t0."{field_name}" {direction}'
+            field_sql = self._column_sql(field_name, table_alias="t0")
+            return f" ORDER BY {field_sql} {direction}"
         if field_name in self._aggregates:
             return f' ORDER BY "{field_name}" {direction}'
 
@@ -1704,7 +1736,8 @@ class QueryBuilder(Generic[T]):
 
         if self._group_by:
             grouped_columns = ", ".join(
-                f't0."{field}"' for field in self._group_by
+                self._column_sql(field, table_alias="t0")
+                for field in self._group_by
             )
             sql += f" GROUP BY {grouped_columns}"
 
@@ -1802,7 +1835,8 @@ class QueryBuilder(Generic[T]):
         # Main table columns (t0)
         for field in self.model_class.model_fields:
             alias = f"t0__{field}"
-            select_parts.append(f't0."{field}" AS "{alias}"')
+            column_sql = self._column_sql(field, table_alias="t0")
+            select_parts.append(f'{column_sql} AS "{alias}"')
             column_names.append(("t0", field, self.model_class))
 
         # Add JOINed table columns
@@ -1818,7 +1852,12 @@ class QueryBuilder(Generic[T]):
             # Add columns from joined table
             for field in join.model_class.model_fields:
                 alias = f"{join.alias}__{field}"
-                select_parts.append(f'{join.alias}."{field}" AS "{alias}"')
+                column_sql = self._column_sql(
+                    field,
+                    model_class=join.model_class,
+                    table_alias=join.alias,
+                )
+                select_parts.append(f'{column_sql} AS "{alias}"')
                 column_names.append((join.alias, field, join.model_class))
 
         select_clause = ", ".join(select_parts)
@@ -1977,7 +2016,10 @@ class QueryBuilder(Generic[T]):
                 )
             elif self._fields:
                 # Build custom field selection with JOINs
-                field_list = ", ".join(f't0."{f}"' for f in self._fields)
+                field_list = ", ".join(
+                    self._column_sql(field, table_alias="t0")
+                    for field in self._fields
+                )
                 # table_name and fields validated - safe from SQL injection
                 sql = (
                     f"SELECT {field_list} FROM "  # noqa: S608
@@ -2008,7 +2050,8 @@ class QueryBuilder(Generic[T]):
                 if match:
                     field_name = match.group(1)
                     direction = match.group(2)
-                    sql += f' ORDER BY t0."{field_name}" {direction}'
+                    field_sql = self._column_sql(field_name, table_alias="t0")
+                    sql += f" ORDER BY {field_sql} {direction}"
                 elif self._order_by.lower().startswith("rowid"):
                     # Fallback for non-quoted patterns such as "rowid DESC"
                     sql += f" ORDER BY t0.{self._order_by}"
@@ -2039,10 +2082,13 @@ class QueryBuilder(Generic[T]):
         elif self._fields:
             if "pk" not in self._fields:
                 self._fields.append("pk")
-            fields = ", ".join(f'"{field}"' for field in self._fields)
+            fields = ", ".join(
+                self._column_sql(field) for field in self._fields
+            )
         else:
             fields = ", ".join(
-                f'"{field}"' for field in self.model_class.model_fields
+                self._column_sql(field)
+                for field in self.model_class.model_fields
             )
 
         sql = f'SELECT {fields} FROM "{self.table_name}"'  # noqa: S608
@@ -2054,7 +2100,14 @@ class QueryBuilder(Generic[T]):
             sql += f" WHERE {where_clause}"
 
         if self._order_by:
-            sql += f" ORDER BY {self._order_by}"
+            match = re.match(r'"([^"]+)"\s+(ASC|DESC)', self._order_by)
+            if match:
+                field_name = match.group(1)
+                direction = match.group(2)
+                field_sql = self._column_sql(field_name)
+                sql += f" ORDER BY {field_sql} {direction}"
+            else:
+                sql += f" ORDER BY {self._order_by}"
 
         if self._limit is not None:
             sql += " LIMIT ?"
@@ -2074,31 +2127,51 @@ class QueryBuilder(Generic[T]):
         else:
             return (results, [])  # Empty column_names for backward compat
 
-    def _qualify_base_field_name(self, field_name: str) -> str:
-        """Qualify a base-model field name with the main JOIN alias.
+    def _render_base_field_name(
+        self, field_name: str, *, qualify_base_fields: bool
+    ) -> str:
+        """Render a base-model field name as SQL for WHERE/HAVING clauses.
 
         Args:
             field_name: Raw field expression used in filters.
+            qualify_base_fields: Whether to qualify base-model fields with
+                ``t0`` alias.
 
         Returns:
-            The qualified field expression when it targets the base table.
+            SQL field expression for the base table when ``field_name``
+            targets a model field.
         """
         if (
             field_name in self.model_class.model_fields
             and "." not in field_name
             and '"' not in field_name
         ):
-            return f't0."{field_name}"'
+            return self._column_sql(
+                field_name,
+                table_alias="t0" if qualify_base_fields else None,
+            )
         return field_name
 
-    def _qualify_base_filter_clause(self, clause: str) -> str:
-        """Qualify the leading base-model field in a SQL filter clause.
+    def _qualify_base_field_name(self, field_name: str) -> str:
+        """Backwards-compatible wrapper for qualified base field rendering."""
+        return self._render_base_field_name(
+            field_name,
+            qualify_base_fields=True,
+        )
+
+    def _render_base_filter_clause(
+        self, clause: str, *, qualify_base_fields: bool
+    ) -> str:
+        """Render the leading base-model field in a SQL filter clause.
 
         Args:
             clause: A single SQL clause fragment from the filter stack.
+            qualify_base_fields: Whether to qualify base-model fields with
+                ``t0`` alias.
 
         Returns:
-            Clause with the base-model field qualified for JOIN queries.
+            Clause with the base-model field rendered using mapped DB column
+            names, optionally qualified for JOIN queries.
         """
         if _RE_ALIAS_PREFIX.match(clause):
             return clause
@@ -2111,8 +2184,18 @@ class QueryBuilder(Generic[T]):
         if field_name not in self.model_class.model_fields:
             return clause
 
-        qualified = f't0."{field_name}"'
-        return f"{qualified}{clause[match.end() :]}"
+        rendered = self._column_sql(
+            field_name,
+            table_alias="t0" if qualify_base_fields else None,
+        )
+        return f"{rendered}{clause[match.end() :]}"
+
+    def _qualify_base_filter_clause(self, clause: str) -> str:
+        """Backwards-compatible wrapper for qualifying base filter clauses."""
+        return self._render_base_filter_clause(
+            clause,
+            qualify_base_fields=True,
+        )
 
     def _parse_filter(
         self, *, qualify_base_fields: bool = False
@@ -2132,18 +2215,16 @@ class QueryBuilder(Generic[T]):
         values = []
         for field, value, operator in self.filters:
             if operator == "__eq":
-                field_expr = (
-                    self._qualify_base_field_name(field)
-                    if qualify_base_fields
-                    else field
+                field_expr = self._render_base_field_name(
+                    field,
+                    qualify_base_fields=qualify_base_fields,
                 )
                 where_clauses.append(f"{field_expr} = ?")
                 values.append(value)
             else:
-                clause = (
-                    self._qualify_base_filter_clause(field)
-                    if qualify_base_fields
-                    else field
+                clause = self._render_base_filter_clause(
+                    field,
+                    qualify_base_fields=qualify_base_fields,
                 )
                 where_clauses.append(clause)
                 if operator not in ["__isnull", "__notnull"]:
@@ -2695,7 +2776,10 @@ class QueryBuilder(Generic[T]):
         for field_name, value in values.items():
             # Serialize the value if needed
             serialized = self.model_class.serialize_field(value)
-            set_clauses.append(f'"{field_name}" = ?')
+            db_column = self._model_field_to_db_column(
+                self.model_class, field_name
+            )
+            set_clauses.append(f'"{db_column}" = ?')
             set_values.append(serialized)
 
         set_clause = ", ".join(set_clauses)

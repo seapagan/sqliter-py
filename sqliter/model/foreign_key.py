@@ -151,3 +151,27 @@ def get_foreign_key_info(field_info: FieldInfo) -> Optional[ForeignKeyInfo]:
     if isinstance(fk_info, ForeignKeyInfo):
         return fk_info
     return None
+
+
+def get_model_field_db_column(
+    model_class: type[BaseDBModel], field_name: str
+) -> str:
+    """Resolve a model field name to its actual database column name.
+
+    Args:
+        model_class: The model class owning the field.
+        field_name: The model field name (for example ``author_id``).
+
+    Returns:
+        The database column name. For non-FK fields this is the same as
+        ``field_name``; for FK fields with ``db_column`` metadata this returns
+        the configured column name.
+    """
+    field_info = model_class.model_fields.get(field_name)
+    if field_info is None:
+        return field_name
+
+    fk_info = get_foreign_key_info(field_info)
+    if fk_info is None or fk_info.db_column is None:
+        return field_name
+    return fk_info.db_column
