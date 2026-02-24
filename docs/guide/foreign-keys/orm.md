@@ -31,7 +31,7 @@ db.create_table(Book)
 > [!NOTE]
 >
 > When using ORM foreign keys, SQLiter automatically creates an `author_id`
-> model field. By default the database column is also `author_id`, but you can
+> model field. By default, the database column is also `author_id`, but you can
 > override the physical column name with `db_column=...`.
 
 ## Database Context
