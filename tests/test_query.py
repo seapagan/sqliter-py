@@ -188,7 +188,7 @@ class TestQuery:
         # Assert that fetch_last returns None when no results are found
         assert result is None
 
-    def fetch_last_multiple_results(self, db_mock: SqliterDB) -> None:
+    def test_fetch_last_multiple_results(self, db_mock: SqliterDB) -> None:
         """Test that fetch_last returns the last result as a model instance."""
 
         # Define a simple model for the test
