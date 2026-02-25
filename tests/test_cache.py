@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import patch
 
 import pytest
 
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class User(BaseDBModel):
@@ -22,9 +25,9 @@ class User(BaseDBModel):
 class TestCacheDisabledByDefault:
     """Test that caching is disabled by default."""
 
-    def test_cache_disabled_by_default(self, tmp_path) -> None:
+    def test_cache_disabled_by_default(self, tmp_path: Path) -> None:
         """Verify caching is off unless explicitly enabled."""
-        db = SqliterDB(tmp_path / "test.db")
+        db = SqliterDB(str(tmp_path / "test.db"))
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
@@ -40,50 +43,56 @@ class TestCacheDisabledByDefault:
 class TestCacheParameterValidation:
     """Test validation of cache configuration parameters."""
 
-    def test_cache_max_size_must_be_positive(self, tmp_path) -> None:
+    def test_cache_max_size_must_be_positive(self, tmp_path: Path) -> None:
         """cache_max_size must be greater than 0."""
         with pytest.raises(
             ValueError, match="cache_max_size must be greater than 0"
         ):
             SqliterDB(
-                tmp_path / "test.db", cache_enabled=True, cache_max_size=0
+                str(tmp_path / "test.db"), cache_enabled=True, cache_max_size=0
             )
 
         with pytest.raises(
             ValueError, match="cache_max_size must be greater than 0"
         ):
             SqliterDB(
-                tmp_path / "test.db", cache_enabled=True, cache_max_size=-1
+                str(tmp_path / "test.db"), cache_enabled=True, cache_max_size=-1
             )
 
-    def test_cache_ttl_must_be_non_negative(self, tmp_path) -> None:
+    def test_cache_ttl_must_be_non_negative(self, tmp_path: Path) -> None:
         """cache_ttl must be non-negative."""
         with pytest.raises(ValueError, match="cache_ttl must be non-negative"):
-            SqliterDB(tmp_path / "test.db", cache_enabled=True, cache_ttl=-1)
+            SqliterDB(
+                str(tmp_path / "test.db"), cache_enabled=True, cache_ttl=-1
+            )
 
-    def test_cache_max_memory_mb_must_be_positive(self, tmp_path) -> None:
+    def test_cache_max_memory_mb_must_be_positive(self, tmp_path: Path) -> None:
         """cache_max_memory_mb must be greater than 0."""
         with pytest.raises(
             ValueError, match="cache_max_memory_mb must be greater than 0"
         ):
             SqliterDB(
-                tmp_path / "test.db", cache_enabled=True, cache_max_memory_mb=0
+                str(tmp_path / "test.db"),
+                cache_enabled=True,
+                cache_max_memory_mb=0,
             )
 
         with pytest.raises(
             ValueError, match="cache_max_memory_mb must be greater than 0"
         ):
             SqliterDB(
-                tmp_path / "test.db", cache_enabled=True, cache_max_memory_mb=-1
+                str(tmp_path / "test.db"),
+                cache_enabled=True,
+                cache_max_memory_mb=-1,
             )
 
 
 class TestCacheHitOnRepeatedQuery:
     """Test cache hits on repeated queries."""
 
-    def test_cache_hit_on_repeated_query(self, tmp_path) -> None:
+    def test_cache_hit_on_repeated_query(self, tmp_path: Path) -> None:
         """Repeated queries return cached result and increment hit counter."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
@@ -111,9 +120,9 @@ class TestCacheHitOnRepeatedQuery:
 class TestGetCacheControls:
     """Test caching behavior for get() calls."""
 
-    def test_get_cache_hits(self, tmp_path) -> None:
+    def test_get_cache_hits(self, tmp_path: Path) -> None:
         """get() uses cache on repeated lookups."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         user = db.insert(User(name="Alice", age=30))
 
@@ -131,9 +140,9 @@ class TestGetCacheControls:
 
         db.close()
 
-    def test_get_bypass_cache(self, tmp_path) -> None:
+    def test_get_bypass_cache(self, tmp_path: Path) -> None:
         """get(bypass_cache=True) skips cache read/write."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         user = db.insert(User(name="Alice", age=30))
 
@@ -144,9 +153,11 @@ class TestGetCacheControls:
 
         db.close()
 
-    def test_get_cache_ttl_override(self, tmp_path) -> None:
+    def test_get_cache_ttl_override(self, tmp_path: Path) -> None:
         """get(cache_ttl=...) overrides global TTL."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True, cache_ttl=100)
+        db = SqliterDB(
+            str(tmp_path / "test.db"), cache_enabled=True, cache_ttl=100
+        )
         db.create_table(User)
         user = db.insert(User(name="Alice", age=30))
 
@@ -162,9 +173,9 @@ class TestGetCacheControls:
 
         db.close()
 
-    def test_get_cache_ttl_negative(self, tmp_path) -> None:
+    def test_get_cache_ttl_negative(self, tmp_path: Path) -> None:
         """get(cache_ttl=...) rejects negative values."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
 
         with pytest.raises(ValueError, match="cache_ttl must be non-negative"):
@@ -176,9 +187,9 @@ class TestGetCacheControls:
 class TestCacheInvalidation:
     """Test cache invalidation on write operations."""
 
-    def test_cache_invalidation_on_insert(self, tmp_path) -> None:
+    def test_cache_invalidation_on_insert(self, tmp_path: Path) -> None:
         """Insert clears table cache."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
@@ -195,9 +206,9 @@ class TestCacheInvalidation:
 
         db.close()
 
-    def test_cache_invalidation_on_update(self, tmp_path) -> None:
+    def test_cache_invalidation_on_update(self, tmp_path: Path) -> None:
         """Update clears table cache."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         user = db.insert(User(name="Alice", age=30))
 
@@ -215,9 +226,9 @@ class TestCacheInvalidation:
 
         db.close()
 
-    def test_cache_invalidation_on_delete_by_pk(self, tmp_path) -> None:
+    def test_cache_invalidation_on_delete_by_pk(self, tmp_path: Path) -> None:
         """Delete by primary key clears table cache."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         user = db.insert(User(name="Alice", age=30))
 
@@ -234,9 +245,11 @@ class TestCacheInvalidation:
 
         db.close()
 
-    def test_cache_invalidation_on_delete_by_query(self, tmp_path) -> None:
+    def test_cache_invalidation_on_delete_by_query(
+        self, tmp_path: Path
+    ) -> None:
         """Delete by query clears table cache."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
         db.insert(User(name="Bob", age=25))
@@ -259,9 +272,9 @@ class TestCacheInvalidation:
 class TestCacheClearedOnClose:
     """Test that cache is cleared when connection is closed."""
 
-    def test_cache_cleared_on_close(self, tmp_path) -> None:
+    def test_cache_cleared_on_close(self, tmp_path: Path) -> None:
         """Cache cleared when connection closed."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
@@ -275,9 +288,9 @@ class TestCacheClearedOnClose:
         # Cache should be cleared
         assert len(db._cache) == 0
 
-    def test_cache_context_manager(self, tmp_path) -> None:
+    def test_cache_context_manager(self, tmp_path: Path) -> None:
         """Cache cleared when using context manager."""
-        with SqliterDB(tmp_path / "test.db", cache_enabled=True) as db:
+        with SqliterDB(str(tmp_path / "test.db"), cache_enabled=True) as db:
             db.create_table(User)
             db.insert(User(name="Alice", age=30))
 
@@ -292,9 +305,11 @@ class TestCacheClearedOnClose:
 class TestCacheTtlExpiration:
     """Test TTL-based cache expiration."""
 
-    def test_cache_ttl_expiration(self, tmp_path) -> None:
+    def test_cache_ttl_expiration(self, tmp_path: Path) -> None:
         """Entries expire after TTL."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True, cache_ttl=1)
+        db = SqliterDB(
+            str(tmp_path / "test.db"), cache_enabled=True, cache_ttl=1
+        )
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
@@ -315,10 +330,10 @@ class TestCacheTtlExpiration:
 class TestCacheMaxSizeLru:
     """Test LRU eviction when cache is full."""
 
-    def test_cache_max_size_lru(self, tmp_path) -> None:
+    def test_cache_max_size_lru(self, tmp_path: Path) -> None:
         """Oldest entries evicted when max size reached."""
         db = SqliterDB(
-            tmp_path / "test.db", cache_enabled=True, cache_max_size=2
+            str(tmp_path / "test.db"), cache_enabled=True, cache_max_size=2
         )
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
@@ -476,9 +491,9 @@ class TestCacheClear:
 class TestCacheKeyVariations:
     """Test that different query parameters create different cache keys."""
 
-    def test_cache_key_includes_filters(self, tmp_path) -> None:
+    def test_cache_key_includes_filters(self, tmp_path: Path) -> None:
         """Different filters create different cache entries."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
         db.insert(User(name="Bob", age=25))
@@ -497,9 +512,9 @@ class TestCacheKeyVariations:
 
         db.close()
 
-    def test_cache_key_includes_limit_offset(self, tmp_path) -> None:
+    def test_cache_key_includes_limit_offset(self, tmp_path: Path) -> None:
         """Different pagination creates different cache entries."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
         db.insert(User(name="Bob", age=25))
@@ -517,9 +532,9 @@ class TestCacheKeyVariations:
 
         db.close()
 
-    def test_cache_key_includes_order_by(self, tmp_path) -> None:
+    def test_cache_key_includes_order_by(self, tmp_path: Path) -> None:
         """Different order by creates different cache entries."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
         db.insert(User(name="Bob", age=25))
@@ -543,9 +558,9 @@ class TestCacheKeyVariations:
 class TestCacheEmptyResults:
     """Test caching of empty results."""
 
-    def test_cache_empty_single_result(self, tmp_path) -> None:
+    def test_cache_empty_single_result(self, tmp_path: Path) -> None:
         """Empty single results are cached and retrieved from cache."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
@@ -572,9 +587,9 @@ class TestCacheEmptyResults:
 
         db.close()
 
-    def test_cache_empty_list_result(self, tmp_path) -> None:
+    def test_cache_empty_list_result(self, tmp_path: Path) -> None:
         """Empty list results are cached and retrieved from cache."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
@@ -605,9 +620,9 @@ class TestCacheEmptyResults:
 class TestCacheWithFields:
     """Test caching with field selection."""
 
-    def test_cache_with_field_selection(self, tmp_path) -> None:
+    def test_cache_with_field_selection(self, tmp_path: Path) -> None:
         """Different field selections create different cache entries."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
@@ -630,9 +645,9 @@ class TestCacheWithFields:
 class TestCacheStatistics:
     """Test cache statistics tracking."""
 
-    def test_cache_stats_initial_state(self, tmp_path) -> None:
+    def test_cache_stats_initial_state(self, tmp_path: Path) -> None:
         """Cache stats start at zero."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
 
         stats = db.get_cache_stats()
@@ -643,9 +658,9 @@ class TestCacheStatistics:
 
         db.close()
 
-    def test_cache_stats_track_hits(self, tmp_path) -> None:
+    def test_cache_stats_track_hits(self, tmp_path: Path) -> None:
         """Cache stats track hits correctly."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
@@ -664,9 +679,9 @@ class TestCacheStatistics:
 
         db.close()
 
-    def test_cache_stats_track_misses(self, tmp_path) -> None:
+    def test_cache_stats_track_misses(self, tmp_path: Path) -> None:
         """Cache stats track misses correctly."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
@@ -682,9 +697,9 @@ class TestCacheStatistics:
 
         db.close()
 
-    def test_cache_stats_with_invalidation(self, tmp_path) -> None:
+    def test_cache_stats_with_invalidation(self, tmp_path: Path) -> None:
         """Cache stats continue after invalidation."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
@@ -708,9 +723,9 @@ class TestCacheStatistics:
 
         db.close()
 
-    def test_cache_stats_disabled_cache(self, tmp_path) -> None:
+    def test_cache_stats_disabled_cache(self, tmp_path: Path) -> None:
         """Cache stats don't increment when cache is disabled."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=False)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=False)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
@@ -725,9 +740,11 @@ class TestCacheStatistics:
 
         db.close()
 
-    def test_cache_stats_with_ttl_expiration(self, tmp_path) -> None:
+    def test_cache_stats_with_ttl_expiration(self, tmp_path: Path) -> None:
         """Expired cache entries count as misses."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True, cache_ttl=1)
+        db = SqliterDB(
+            str(tmp_path / "test.db"), cache_enabled=True, cache_ttl=1
+        )
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
@@ -753,9 +770,9 @@ class TestCacheStatistics:
 
         db.close()
 
-    def test_cache_stats_hit_rate_calculation(self, tmp_path) -> None:
+    def test_cache_stats_hit_rate_calculation(self, tmp_path: Path) -> None:
         """Hit rate is calculated correctly."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
@@ -775,14 +792,14 @@ class TestCacheStatistics:
 class TestCacheMemoryLimit:
     """Test memory-based cache limiting."""
 
-    def test_memory_usage_with_set_fields(self, tmp_path) -> None:
+    def test_memory_usage_with_set_fields(self, tmp_path: Path) -> None:
         """Memory usage calculation works with set fields."""
 
         class ModelWithSet(BaseDBModel):
             name: str
             tags: set[str]
 
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(ModelWithSet)
         db.insert(
             ModelWithSet(name="test", tags={"python", "database", "caching"})
@@ -797,7 +814,7 @@ class TestCacheMemoryLimit:
 
         db.close()
 
-    def test_memory_limit_enforcement(self, tmp_path) -> None:
+    def test_memory_limit_enforcement(self, tmp_path: Path) -> None:
         """Cache enforces memory limit by evicting entries."""
 
         # Create a model with large fields to consume memory quickly
@@ -807,7 +824,7 @@ class TestCacheMemoryLimit:
 
         # Set a very low memory limit (1MB)
         db = SqliterDB(
-            tmp_path / "test.db",
+            str(tmp_path / "test.db"),
             cache_enabled=True,
             cache_max_memory_mb=1,
         )
@@ -836,10 +853,10 @@ class TestCacheMemoryLimit:
 
         db.close()
 
-    def test_memory_usage_tracking(self, tmp_path) -> None:
+    def test_memory_usage_tracking(self, tmp_path: Path) -> None:
         """Memory usage is calculated on-demand per table."""
         db = SqliterDB(
-            tmp_path / "test.db", cache_enabled=True, cache_max_memory_mb=1
+            str(tmp_path / "test.db"), cache_enabled=True, cache_max_memory_mb=1
         )
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
@@ -855,11 +872,11 @@ class TestCacheMemoryLimit:
 
     def test_memory_tracking_cleared_on_invalidation(
         self,
-        tmp_path,
+        tmp_path: Path,
     ) -> None:
         """Memory usage is 0 when cache is invalidated."""
         db = SqliterDB(
-            tmp_path / "test.db", cache_enabled=True, cache_max_memory_mb=1
+            str(tmp_path / "test.db"), cache_enabled=True, cache_max_memory_mb=1
         )
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
@@ -877,10 +894,10 @@ class TestCacheMemoryLimit:
 
         db.close()
 
-    def test_memory_tracking_cleared_on_close(self, tmp_path) -> None:
+    def test_memory_tracking_cleared_on_close(self, tmp_path: Path) -> None:
         """Memory usage is 0 when connection is closed."""
         db = SqliterDB(
-            tmp_path / "test.db", cache_enabled=True, cache_max_memory_mb=1
+            str(tmp_path / "test.db"), cache_enabled=True, cache_max_memory_mb=1
         )
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
@@ -895,10 +912,12 @@ class TestCacheMemoryLimit:
         # Memory usage should be 0 (cache was cleared)
         assert db._get_table_memory_usage(User.get_table_name()) == 0
 
-    def test_memory_tracking_cleared_on_context_exit(self, tmp_path) -> None:
+    def test_memory_tracking_cleared_on_context_exit(
+        self, tmp_path: Path
+    ) -> None:
         """Memory usage is 0 when exiting context manager."""
         with SqliterDB(
-            tmp_path / "test.db", cache_enabled=True, cache_max_memory_mb=1
+            str(tmp_path / "test.db"), cache_enabled=True, cache_max_memory_mb=1
         ) as db:
             db.create_table(User)
             db.insert(User(name="Alice", age=30))
@@ -910,11 +929,11 @@ class TestCacheMemoryLimit:
         # After exiting context, memory usage should be 0
         assert db._get_table_memory_usage(User.get_table_name()) == 0
 
-    def test_memory_limit_with_both_limits(self, tmp_path) -> None:
+    def test_memory_limit_with_both_limits(self, tmp_path: Path) -> None:
         """Both cache_max_size and cache_max_memory_mb are respected."""
         # Set both limits: 10 entries OR 1MB (whichever hit first)
         db = SqliterDB(
-            tmp_path / "test.db",
+            str(tmp_path / "test.db"),
             cache_enabled=True,
             cache_max_size=10,
             cache_max_memory_mb=1,
@@ -935,10 +954,10 @@ class TestCacheMemoryLimit:
 
         db.close()
 
-    def test_no_memory_limit_when_none(self, tmp_path) -> None:
+    def test_no_memory_limit_when_none(self, tmp_path: Path) -> None:
         """When cache_max_memory_mb is None, only size limit applies."""
         db = SqliterDB(
-            tmp_path / "test.db",
+            str(tmp_path / "test.db"),
             cache_enabled=True,
             cache_max_size=5,
             cache_max_memory_mb=None,
@@ -964,9 +983,9 @@ class TestCacheMemoryLimit:
 class TestQueryLevelBypass:
     """Test query-level cache bypass controls."""
 
-    def test_bypass_cache_skips_cache_read(self, tmp_path) -> None:
+    def test_bypass_cache_skips_cache_read(self, tmp_path: Path) -> None:
         """bypass_cache() skips reading from cache."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
@@ -1002,9 +1021,9 @@ class TestQueryLevelBypass:
 
         db.close()
 
-    def test_bypass_cache_skips_cache_write(self, tmp_path) -> None:
+    def test_bypass_cache_skips_cache_write(self, tmp_path: Path) -> None:
         """bypass_cache() doesn't write to cache."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
@@ -1021,9 +1040,9 @@ class TestQueryLevelBypass:
 
         db.close()
 
-    def test_bypass_cache_with_filter_chain(self, tmp_path) -> None:
+    def test_bypass_cache_with_filter_chain(self, tmp_path: Path) -> None:
         """bypass_cache() works with method chaining."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
@@ -1043,9 +1062,9 @@ class TestQueryLevelBypass:
 
         db.close()
 
-    def test_bypass_cache_with_empty_result(self, tmp_path) -> None:
+    def test_bypass_cache_with_empty_result(self, tmp_path: Path) -> None:
         """bypass_cache() works with empty results."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
@@ -1062,10 +1081,12 @@ class TestQueryLevelBypass:
 class TestQueryLevelTtl:
     """Test query-level TTL controls."""
 
-    def test_query_ttl_overrides_global_ttl(self, tmp_path) -> None:
+    def test_query_ttl_overrides_global_ttl(self, tmp_path: Path) -> None:
         """Query-level TTL overrides global cache_ttl."""
         # Global TTL of 10 seconds
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True, cache_ttl=10)
+        db = SqliterDB(
+            str(tmp_path / "test.db"), cache_enabled=True, cache_ttl=10
+        )
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
@@ -1082,10 +1103,12 @@ class TestQueryLevelTtl:
 
         db.close()
 
-    def test_query_ttl_longer_than_global(self, tmp_path) -> None:
+    def test_query_ttl_longer_than_global(self, tmp_path: Path) -> None:
         """Query-level TTL can be longer than global TTL."""
         # Global TTL of 1 second
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True, cache_ttl=1)
+        db = SqliterDB(
+            str(tmp_path / "test.db"), cache_enabled=True, cache_ttl=1
+        )
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
@@ -1102,10 +1125,10 @@ class TestQueryLevelTtl:
 
         db.close()
 
-    def test_query_ttl_without_global_ttl(self, tmp_path) -> None:
+    def test_query_ttl_without_global_ttl(self, tmp_path: Path) -> None:
         """Query-level TTL works without global TTL."""
         # No global TTL
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
@@ -1122,9 +1145,9 @@ class TestQueryLevelTtl:
 
         db.close()
 
-    def test_query_ttl_with_method_chaining(self, tmp_path) -> None:
+    def test_query_ttl_with_method_chaining(self, tmp_path: Path) -> None:
         """cache_ttl() works with method chaining."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
@@ -1142,9 +1165,9 @@ class TestQueryLevelTtl:
 
         db.close()
 
-    def test_query_ttl_validates_non_negative(self, tmp_path) -> None:
+    def test_query_ttl_validates_non_negative(self, tmp_path: Path) -> None:
         """cache_ttl() raises ValueError for negative values."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
 
         # Negative TTL should raise ValueError
@@ -1155,10 +1178,12 @@ class TestQueryLevelTtl:
 
     def test_query_ttl_different_for_different_queries(
         self,
-        tmp_path,
+        tmp_path: Path,
     ) -> None:
         """Different queries can have different TTLs."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True, cache_ttl=100)
+        db = SqliterDB(
+            str(tmp_path / "test.db"), cache_enabled=True, cache_ttl=100
+        )
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
         db.insert(User(name="Bob", age=25))
@@ -1191,10 +1216,10 @@ class TestFetchModeCacheKey:
 
     def test_fetch_one_and_fetch_all_use_different_cache_keys(
         self,
-        tmp_path,
+        tmp_path: Path,
     ) -> None:
         """fetch_one() and fetch_all() should generate different cache keys."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
         db.insert(User(name="Bob", age=25))
@@ -1237,9 +1262,11 @@ class TestEmptyResultCaching:
     being returned from cache due to truthiness-based cache hit detection.
     """
 
-    def test_empty_result_from_fetch_one_is_cached(self, tmp_path) -> None:
+    def test_empty_result_from_fetch_one_is_cached(
+        self, tmp_path: Path
+    ) -> None:
         """None result from fetch_one() should be cached and retrieved."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
@@ -1261,9 +1288,11 @@ class TestEmptyResultCaching:
 
         db.close()
 
-    def test_empty_result_from_fetch_all_is_cached(self, tmp_path) -> None:
+    def test_empty_result_from_fetch_all_is_cached(
+        self, tmp_path: Path
+    ) -> None:
         """Empty list [] from fetch_all() should be cached and retrieved."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 
@@ -1287,11 +1316,11 @@ class TestEmptyResultCaching:
 
     def test_overwriting_cache_key_updates_memory_and_lru(
         self,
-        tmp_path,
+        tmp_path: Path,
     ) -> None:
         """Overwriting an existing cache key updates LRU position."""
         db = SqliterDB(
-            tmp_path / "test.db", cache_enabled=True, cache_max_size=3
+            str(tmp_path / "test.db"), cache_enabled=True, cache_max_size=3
         )
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
@@ -1337,10 +1366,10 @@ class TestCacheKeyErrors:
 
     def test_incomparable_filter_types_raises_error(
         self,
-        tmp_path,
+        tmp_path: Path,
     ) -> None:
         """Filters with incomparable types raise ValueError."""
-        db = SqliterDB(tmp_path / "test.db", cache_enabled=True)
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
         db.create_table(User)
         db.insert(User(name="Alice", age=30))
 

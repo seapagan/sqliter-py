@@ -5,7 +5,7 @@ Tests lazy loading, reverse relationships, and automatic setup.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -152,7 +152,7 @@ class TestLazyLoading:
 
         # Clear any cached loader
         if hasattr(book, "_fk_cache"):
-            book._fk_cache.clear()
+            cast("dict[str, Any]", book._fk_cache).clear()
 
         # Accessing the author should raise AttributeError because
         # the LazyLoader returns None for the loaded object
@@ -174,7 +174,7 @@ class TestReverseRelationships:
         db.insert(Book(title="Book 2", author=author))
 
         # Fetch books via reverse relationship
-        books = author.books.fetch_all()
+        books = cast("list[Book]", cast("Any", author.books).fetch_all())
         assert len(books) == 2
         assert {b.title for b in books} == {"Book 1", "Book 2"}
 
@@ -189,7 +189,10 @@ class TestReverseRelationships:
         db.insert(Book(title="Book C", author=author))
 
         # Filter books by title
-        books = author.books.filter(title__like="Book A%").fetch_all()
+        books = cast(
+            "list[Book]",
+            cast("Any", author.books).filter(title__like="Book A%").fetch_all(),
+        )
         assert len(books) == 1
         assert books[0].title == "Book A"
 
@@ -204,7 +207,7 @@ class TestReverseRelationships:
         db.insert(Book(title="Book 3", author=author))
 
         # Count books
-        count = author.books.count()
+        count = cast("Any", author.books).count()
         assert count == 3
 
     def test_reverse_relationship_exists(self, db: SqliterDB) -> None:
@@ -213,10 +216,10 @@ class TestReverseRelationships:
         db.create_table(Book)
 
         author = db.insert(Author(name="Eve", email="eve@example.com"))
-        assert not author.books.exists()
+        assert not cast("Any", author.books).exists()
 
         db.insert(Book(title="Book 1", author=author))
-        assert author.books.exists()
+        assert cast("Any", author.books).exists()
 
     def test_reverse_relationship_empty(self, db: SqliterDB) -> None:
         """Test reverse relationship with no related objects."""
@@ -224,7 +227,7 @@ class TestReverseRelationships:
         db.create_table(Book)
 
         author = db.insert(Author(name="Frank", email="frank@example.com"))
-        books = author.books.fetch_all()
+        books = cast("list[Book]", cast("Any", author.books).fetch_all())
         assert books == []
 
     def test_reverse_relationship_limit_offset(self, db: SqliterDB) -> None:
@@ -239,11 +242,16 @@ class TestReverseRelationships:
         db.insert(Book(title="Book 4", author=author))
 
         # Limit
-        books = author.books.limit(2).fetch_all()
+        books = cast(
+            "list[Book]", cast("Any", author.books).limit(2).fetch_all()
+        )
         assert len(books) == 2
 
         # Offset
-        books = author.books.limit(2).offset(1).fetch_all()
+        books = cast(
+            "list[Book]",
+            cast("Any", author.books).limit(2).offset(1).fetch_all(),
+        )
         assert len(books) == 2
 
     def test_reverse_relationship_with_custom_related_name(
@@ -268,7 +276,9 @@ class TestReverseRelationships:
         db.insert(CustomBook(title="Book 2", author=author))
 
         # Use custom related name
-        books = author.publications.fetch_all()
+        books = cast(
+            "list[CustomBook]", cast("Any", author.publications).fetch_all()
+        )
         assert len(books) == 2
 
 
@@ -354,7 +364,7 @@ class TestCustomDbColumnRuntime:
             .fetch_all()
         )
         counts = {
-            author.name: len(author.custom_books.fetch_all())
+            author.name: len(cast("Any", author.custom_books).fetch_all())
             for author in authors
         }
         assert counts == {"Alice": 2, "Bob": 1}
@@ -498,7 +508,7 @@ class TestCascadeDelete:
         db.insert(Book(title="Book 2", author=author))
 
         # Get books via reverse relationship
-        books = author.books.fetch_all()
+        books = cast("list[Book]", cast("Any", author.books).fetch_all())
         assert len(books) == 2
 
         # Delete author - should cascade delete books
@@ -552,7 +562,7 @@ class TestLazyLoaderMethods:
 
         # Clear cache to get fresh LazyLoader
         if hasattr(book, "_fk_cache"):
-            book._fk_cache.clear()
+            cast("dict[str, Any]", book._fk_cache).clear()
 
         # Get the LazyLoader without triggering load
         lazy = book.__dict__.get("_fk_cache", {}).get("author")
@@ -586,7 +596,7 @@ class TestLazyLoaderMethods:
         _ = book.author.name
 
         # Get the cached LazyLoader
-        lazy = book._fk_cache.get("author")
+        lazy = cast("dict[str, Any]", book._fk_cache).get("author")
         assert lazy is not None  # LazyLoader exists in cache
 
         repr_str = repr(lazy)
@@ -797,7 +807,7 @@ class TestReverseQueryMethods:
         db.insert(Book(title="Book 2", author=author))
 
         # fetch_one should return a single book
-        book = author.books.fetch_one()
+        book = cast("Any", author.books).fetch_one()
         assert book is not None
         assert book.title in {"Book 1", "Book 2"}
 
@@ -809,7 +819,7 @@ class TestReverseQueryMethods:
         author = db.insert(Author(name="NoBooks", email="nb@example.com"))
 
         # fetch_one should return None
-        book = author.books.fetch_one()
+        book = cast("Any", author.books).fetch_one()
         assert book is None
 
     def test_fetch_all_no_db_context(self) -> None:
@@ -818,7 +828,7 @@ class TestReverseQueryMethods:
         author = Author(name="NoContext", email="nc@example.com")
 
         # Should return empty list
-        books = author.books.fetch_all()
+        books = cast("list[Book]", cast("Any", author.books).fetch_all())
         assert books == []
 
     def test_count_no_db_context(self) -> None:
@@ -827,7 +837,7 @@ class TestReverseQueryMethods:
         author = Author(name="NoContext", email="nc@example.com")
 
         # Should return 0
-        count = author.books.count()
+        count = cast("Any", author.books).count()
         assert count == 0
 
     def test_count_with_filters(self, db: SqliterDB) -> None:
@@ -841,7 +851,7 @@ class TestReverseQueryMethods:
         db.insert(Book(title="Python Guide", author=author))
 
         # Count with filter
-        count = author.books.filter(title__like="Python%").count()
+        count = cast("Any", author.books).filter(title__like="Python%").count()
         assert count == 2
 
 
@@ -851,7 +861,8 @@ class TestReverseRelationshipDescriptor:
     def test_class_level_access(self) -> None:
         """Test accessing reverse relationship on class returns descriptor."""
         # Access on class, not instance
-        descriptor = Author.books
+        reverse_attr = "books"
+        descriptor = cast("Any", getattr(Author, reverse_attr))
         assert isinstance(descriptor, ReverseRelationship)
 
     def test_cannot_set_reverse_relationship(self, db: SqliterDB) -> None:
@@ -865,10 +876,11 @@ class TestReverseRelationshipDescriptor:
         author = db.insert(Author(name="NoSet", email="ns@example.com"))
 
         # Call descriptor directly to bypass Pydantic's __setattr__
+        reverse_attr = "books"
         with pytest.raises(
             AttributeError, match="Cannot set reverse relationship"
         ):
-            Author.books.__set__(author, [])
+            cast("Any", getattr(Author, reverse_attr)).__set__(author, [])
 
 
 class TestRegistryPendingRelationships:

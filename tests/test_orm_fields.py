@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import sys
-import types
-from typing import Optional
+from typing import Any, Optional, cast
 
 import pytest
 from pydantic.fields import FieldInfo
@@ -199,7 +198,7 @@ def test_fk_pep604_nullable_annotation_sets_nullable() -> None:
         "PEP604Related | None",
         {"PEP604Related": PEP604Related},
     )
-    assert isinstance(pep604_union, types.UnionType)
+    assert type(pep604_union).__name__ in {"UnionType", "Union"}
 
     # Build an owner class and inject the PEP 604 annotation
     # Use __class_getitem__ to avoid mypy treating the variable as
@@ -209,9 +208,9 @@ def test_fk_pep604_nullable_annotation_sets_nullable() -> None:
 
         name: str
 
-    OwnerPEP604.__annotations__["rel"] = ForeignKey.__class_getitem__(
-        pep604_union
-    )
+    OwnerPEP604.__annotations__["rel"] = cast(
+        "Any", ForeignKey
+    ).__class_getitem__(pep604_union)
 
     fk = ForeignKey(PEP604Related)
     fk._detect_nullable_from_annotation(OwnerPEP604, "rel")

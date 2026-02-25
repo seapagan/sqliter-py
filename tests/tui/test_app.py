@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, cast
+
 import pytest
 from textual.css.query import NoMatches
 from textual.widgets import Button, Footer, Header, Tree
@@ -16,9 +18,12 @@ from sqliter.tui.widgets import (
     OutputDisplay,
 )
 
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
+
 
 @pytest.fixture
-def registered_demo(reset_demo_registry) -> Demo:
+def registered_demo(reset_demo_registry: None) -> Demo:
     """Register a minimal demo and category for testing.
 
     Returns:
@@ -42,7 +47,7 @@ class TestSQLiterDemoAppComposition:
     """Test app composition and layout."""
 
     @pytest.mark.asyncio
-    async def test_app_composition(self, reset_demo_registry) -> None:
+    async def test_app_composition(self, reset_demo_registry: None) -> None:
         """Test that all main widgets are rendered."""
         demo = Demo(
             id="test",
@@ -75,7 +80,7 @@ class TestSQLiterDemoAppComposition:
             assert output_display is not None
 
     @pytest.mark.asyncio
-    async def test_header_exists(self, registered_demo) -> None:
+    async def test_header_exists(self, registered_demo: Demo) -> None:
         """Test that Header widget exists."""
         app = SQLiterDemoApp()
         async with app.run_test() as _:
@@ -83,7 +88,7 @@ class TestSQLiterDemoAppComposition:
             assert header is not None
 
     @pytest.mark.asyncio
-    async def test_footer_exists(self, registered_demo) -> None:
+    async def test_footer_exists(self, registered_demo: Demo) -> None:
         """Test that Footer widget exists."""
         app = SQLiterDemoApp()
         async with app.run_test() as _:
@@ -91,7 +96,7 @@ class TestSQLiterDemoAppComposition:
             assert footer is not None
 
     @pytest.mark.asyncio
-    async def test_demo_list_exists(self, registered_demo) -> None:
+    async def test_demo_list_exists(self, registered_demo: Demo) -> None:
         """Test that DemoList widget exists."""
         app = SQLiterDemoApp()
         async with app.run_test() as _:
@@ -99,7 +104,7 @@ class TestSQLiterDemoAppComposition:
             assert demo_list is not None
 
     @pytest.mark.asyncio
-    async def test_code_display_exists(self, registered_demo) -> None:
+    async def test_code_display_exists(self, registered_demo: Demo) -> None:
         """Test that CodeDisplay widget exists."""
         app = SQLiterDemoApp()
         async with app.run_test() as _:
@@ -107,7 +112,7 @@ class TestSQLiterDemoAppComposition:
             assert code_display is not None
 
     @pytest.mark.asyncio
-    async def test_output_display_exists(self, registered_demo) -> None:
+    async def test_output_display_exists(self, registered_demo: Demo) -> None:
         """Test that OutputDisplay widget exists."""
         app = SQLiterDemoApp()
         async with app.run_test() as _:
@@ -115,7 +120,7 @@ class TestSQLiterDemoAppComposition:
             assert output_display is not None
 
     @pytest.mark.asyncio
-    async def test_buttons_exist(self, registered_demo) -> None:
+    async def test_buttons_exist(self, registered_demo: Demo) -> None:
         """Test that Run and Clear buttons exist."""
         app = SQLiterDemoApp()
         async with app.run_test() as _:
@@ -132,7 +137,7 @@ class TestSQLiterDemoAppFocus:
     """Test focus and navigation."""
 
     @pytest.mark.asyncio
-    async def test_initial_focus_on_tree(self, registered_demo) -> None:
+    async def test_initial_focus_on_tree(self, registered_demo: Demo) -> None:
         """Test that the tree is focused on app mount."""
         app = SQLiterDemoApp()
         async with app.run_test() as _:
@@ -146,7 +151,7 @@ class TestSQLiterDemoAppDemoSelection:
 
     @pytest.mark.asyncio
     async def test_demo_selection_updates_code(
-        self, reset_demo_registry
+        self, reset_demo_registry: None
     ) -> None:
         """Test that selecting a demo updates the code display."""
         demo = Demo(
@@ -172,7 +177,9 @@ class TestSQLiterDemoAppDemoSelection:
             assert "print('hello')" in code_display.code
 
     @pytest.mark.asyncio
-    async def test_demo_selection_stores_current(self, registered_demo) -> None:
+    async def test_demo_selection_stores_current(
+        self, registered_demo: Demo
+    ) -> None:
         """Test that selecting a demo stores it as current."""
         app = SQLiterDemoApp()
         async with app.run_test() as pilot:
@@ -187,7 +194,9 @@ class TestSQLiterDemoAppExecution:
     """Test demo execution functionality."""
 
     @pytest.mark.asyncio
-    async def test_run_demo_with_selection(self, reset_demo_registry) -> None:
+    async def test_run_demo_with_selection(
+        self, reset_demo_registry: None
+    ) -> None:
         """Test running a demo when one is selected."""
         demo = Demo(
             id="test",
@@ -219,7 +228,7 @@ class TestSQLiterDemoAppExecution:
     @pytest.mark.asyncio
     async def test_run_demo_without_selection(
         self,
-        registered_demo,
+        registered_demo: Demo,
     ) -> None:
         """Test running a demo without selecting one first."""
         app = SQLiterDemoApp()
@@ -231,13 +240,14 @@ class TestSQLiterDemoAppExecution:
 
             output_display = app.query_one("#output-display", OutputDisplay)
             # Should show error message
-            content = str(
-                output_display.query_one("#output-content").content
-            ).lower()
+            output_widget = cast(
+                "Any", output_display.query_one("#output-content")
+            )
+            content = str(output_widget.content).lower()
             assert "select a demo" in content
 
     @pytest.mark.asyncio
-    async def test_clear_output(self, registered_demo) -> None:
+    async def test_clear_output(self, registered_demo: Demo) -> None:
         """Test clearing the output display."""
         app = SQLiterDemoApp()
         async with app.run_test() as pilot:
@@ -252,7 +262,7 @@ class TestSQLiterDemoAppExecution:
             await pilot.pause()
 
             # Should be back to placeholder
-            content = output_display.query_one("#output-content")
+            content = cast("Any", output_display.query_one("#output-content"))
             assert "Run a demo" in str(content.content)
 
 
@@ -260,7 +270,7 @@ class TestSQLiterDemoAppHelpScreen:
     """Test help screen functionality."""
 
     @pytest.mark.asyncio
-    async def test_help_screen_composition(self, registered_demo) -> None:
+    async def test_help_screen_composition(self, registered_demo: Demo) -> None:
         """Test that help screen can be shown."""
         app = SQLiterDemoApp()
         async with app.run_test() as pilot:
@@ -273,7 +283,7 @@ class TestSQLiterDemoAppHelpScreen:
             assert len(app.screen_stack) > 1
 
     @pytest.mark.asyncio
-    async def test_help_key_opens_help(self, registered_demo) -> None:
+    async def test_help_key_opens_help(self, registered_demo: Demo) -> None:
         """Test that '?' key opens help."""
         app = SQLiterDemoApp()
         async with app.run_test() as pilot:
@@ -284,7 +294,7 @@ class TestSQLiterDemoAppHelpScreen:
             assert len(app.screen_stack) > 1
 
     @pytest.mark.asyncio
-    async def test_f1_opens_help(self, registered_demo) -> None:
+    async def test_f1_opens_help(self, registered_demo: Demo) -> None:
         """Test that F1 key opens help."""
         app = SQLiterDemoApp()
         async with app.run_test() as pilot:
@@ -296,7 +306,7 @@ class TestSQLiterDemoAppHelpScreen:
             assert len(app.screen_stack) > 1
 
     @pytest.mark.asyncio
-    async def test_escape_closes_help(self, registered_demo) -> None:
+    async def test_escape_closes_help(self, registered_demo: Demo) -> None:
         """Test that Escape closes help screen."""
         app = SQLiterDemoApp()
         async with app.run_test() as pilot:
@@ -312,7 +322,7 @@ class TestSQLiterDemoAppHelpScreen:
             assert len(app.screen_stack) == 1
 
     @pytest.mark.asyncio
-    async def test_q_closes_help(self, registered_demo) -> None:
+    async def test_q_closes_help(self, registered_demo: Demo) -> None:
         """Test that help screen can be dismissed programmatically."""
         app = SQLiterDemoApp()
         async with app.run_test() as pilot:
@@ -333,7 +343,7 @@ class TestSQLiterDemoAppKeyboardBindings:
     """Test keyboard bindings."""
 
     @pytest.mark.asyncio
-    async def test_f5_runs_demo(self, registered_demo) -> None:
+    async def test_f5_runs_demo(self, registered_demo: Demo) -> None:
         """Test that F5 runs the demo."""
         app = SQLiterDemoApp()
         async with app.run_test() as pilot:
@@ -349,7 +359,7 @@ class TestSQLiterDemoAppKeyboardBindings:
             assert output_display is not None
 
     @pytest.mark.asyncio
-    async def test_f8_clears_output(self, registered_demo) -> None:
+    async def test_f8_clears_output(self, registered_demo: Demo) -> None:
         """Test that F8 clears output."""
         app = SQLiterDemoApp()
         async with app.run_test() as pilot:
@@ -366,11 +376,11 @@ class TestSQLiterDemoAppKeyboardBindings:
             await pilot.pause()
 
             # Should be cleared
-            content = output_display.query_one("#output-content")
+            content = cast("Any", output_display.query_one("#output-content"))
             assert "Run a demo" in str(content.content)
 
     @pytest.mark.asyncio
-    async def test_vim_keys_work(self, registered_demo) -> None:
+    async def test_vim_keys_work(self, registered_demo: Demo) -> None:
         """Test that vim-style j/k keys work."""
         app = SQLiterDemoApp()
         async with app.run_test() as pilot:
@@ -394,7 +404,7 @@ class TestSQLiterDemoAppErrorHandling:
 
     @pytest.mark.asyncio
     async def test_run_demo_failure_shows_error(
-        self, reset_demo_registry
+        self, reset_demo_registry: None
     ) -> None:
         """Test that failed demo execution shows error message."""
 
@@ -426,7 +436,7 @@ class TestSQLiterDemoAppErrorHandling:
 
             # Should show error output
             output_display = app.query_one("#output-display", OutputDisplay)
-            content = output_display.query_one("#output-content")
+            content = cast("Any", output_display.query_one("#output-content"))
             output_str = str(content.content).lower()
             # Error output should contain error information
             assert "exception" in output_str or "error" in output_str
@@ -436,7 +446,7 @@ class TestSQLiterDemoAppEdgeCases:
     """Test edge cases and error handling."""
 
     @pytest.mark.asyncio
-    async def test_empty_registry(self, reset_demo_registry) -> None:
+    async def test_empty_registry(self, reset_demo_registry: None) -> None:
         """Test app with empty demo registry."""
         # Don't register any demos
         app = SQLiterDemoApp()
@@ -446,7 +456,9 @@ class TestSQLiterDemoAppEdgeCases:
             assert demo_list is not None
 
     @pytest.mark.asyncio
-    async def test_no_matches_exception_handling(self, registered_demo) -> None:
+    async def test_no_matches_exception_handling(
+        self, registered_demo: Demo
+    ) -> None:
         """Test graceful handling of NoMatches exception."""
         app = SQLiterDemoApp()
         async with app.run_test() as _:
@@ -456,7 +468,7 @@ class TestSQLiterDemoAppEdgeCases:
 
     @pytest.mark.asyncio
     async def test_cursor_down_handles_missing_tree(
-        self, registered_demo, mocker
+        self, registered_demo: Demo, mocker: MockerFixture
     ) -> None:
         """Test cursor down handles missing tree gracefully."""
         app = SQLiterDemoApp()
@@ -468,7 +480,7 @@ class TestSQLiterDemoAppEdgeCases:
 
     @pytest.mark.asyncio
     async def test_cursor_up_handles_missing_tree(
-        self, registered_demo, mocker
+        self, registered_demo: Demo, mocker: MockerFixture
     ) -> None:
         """Test cursor up handles missing tree gracefully."""
         app = SQLiterDemoApp()
@@ -479,14 +491,16 @@ class TestSQLiterDemoAppEdgeCases:
             app.action_tree_cursor_up()
 
     @pytest.mark.asyncio
-    async def test_app_properties(self, registered_demo) -> None:
+    async def test_app_properties(self, registered_demo: Demo) -> None:
         """Test app properties."""
         app = SQLiterDemoApp()
         assert app.TITLE == "SQLiter Interactive Demo"
         assert app.CSS_PATH == "styles/app.tcss"
 
     @pytest.mark.asyncio
-    async def test_multiple_demo_selections(self, reset_demo_registry) -> None:
+    async def test_multiple_demo_selections(
+        self, reset_demo_registry: None
+    ) -> None:
         """Test selecting multiple demos in sequence."""
         demo1 = Demo(
             id="demo1",

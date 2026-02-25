@@ -3,6 +3,7 @@
 import tempfile
 
 import pytest
+from pytest_mock import MockerFixture
 
 from sqliter.exceptions import DatabaseConnectionError
 from sqliter.model.model import BaseDBModel
@@ -131,7 +132,9 @@ class TestSqliterDBProperties:
                 f"Expected 'test_table', got {table_names}"
             )
 
-    def test_table_names_connection_failure(self, mocker) -> None:
+    def test_table_names_connection_failure(
+        self, mocker: MockerFixture
+    ) -> None:
         """Test 'table_names' raises exception if the connection fails."""
         # Create an instance of the database
         db = SqliterDB(memory=True)

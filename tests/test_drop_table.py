@@ -3,6 +3,7 @@
 import sqlite3
 
 import pytest
+from pytest_mock import MockerFixture
 
 from sqliter import SqliterDB
 from sqliter.exceptions import TableDeletionError
@@ -12,7 +13,7 @@ from sqliter.model import BaseDBModel
 class TestDropTable:
     """Test class for the 'drop_table' method."""
 
-    def test_drop_existing_table(self, db_mock) -> None:
+    def test_drop_existing_table(self, db_mock: SqliterDB) -> None:
         """Test dropping an existing table."""
 
         class TestModel(BaseDBModel):
@@ -34,7 +35,7 @@ class TestDropTable:
             result = cursor.fetchone()
         assert result is None
 
-    def test_drop_non_existent_table(self, db_mock) -> None:
+    def test_drop_non_existent_table(self, db_mock: SqliterDB) -> None:
         """Test dropping a table that doesn't exist."""
 
         class NonExistentModel(BaseDBModel):
@@ -46,7 +47,7 @@ class TestDropTable:
         # This should not raise an exception due to 'IF EXISTS' in the SQL
         db_mock.drop_table(NonExistentModel)
 
-    def test_drop_table_with_data(self, db_mock) -> None:
+    def test_drop_table_with_data(self, db_mock: SqliterDB) -> None:
         """Test dropping a table that contains data."""
 
         class DataModel(BaseDBModel):
@@ -70,7 +71,9 @@ class TestDropTable:
             result = cursor.fetchone()
         assert result is None
 
-    def test_drop_table_error(self, db_mock: SqliterDB, mocker) -> None:
+    def test_drop_table_error(
+        self, db_mock: SqliterDB, mocker: MockerFixture
+    ) -> None:
         """Test error handling when dropping a table fails."""
 
         class ErrorModel(BaseDBModel):
@@ -88,7 +91,9 @@ class TestDropTable:
             exc_info.value
         )
 
-    def test_drop_table_auto_commit(self, db_mock, mocker) -> None:
+    def test_drop_table_auto_commit(
+        self, db_mock: SqliterDB, mocker: MockerFixture
+    ) -> None:
         """Test auto-commit behavior when dropping a table."""
 
         class CommitModel(BaseDBModel):

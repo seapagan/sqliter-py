@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
 from sqliter.orm import ManyToMany
@@ -13,6 +15,9 @@ from sqliter.tui.demos import (
     timestamps,
     transactions,
 )
+
+if TYPE_CHECKING:
+    from types import ModuleType
 
 CATEGORY_MODULES = (
     (caching, "caching"),
@@ -31,7 +36,7 @@ class TestGetCategories:
         ("module", "expected_id"),
         CATEGORY_MODULES,
     )
-    def test_category_valid(self, module, expected_id) -> None:
+    def test_category_valid(self, module: ModuleType, expected_id: str) -> None:
         """Test that category is valid."""
         category = module.get_category()
         assert category.id == expected_id
@@ -41,7 +46,9 @@ class TestGetCategories:
         ("module", "expected_id"),
         CATEGORY_MODULES,
     )
-    def test_all_demos_execute(self, module, expected_id) -> None:
+    def test_all_demos_execute(
+        self, module: ModuleType, expected_id: str
+    ) -> None:
         """Test that all demos execute."""
         category = module.get_category()
         for demo in category.demos:

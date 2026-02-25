@@ -231,7 +231,8 @@ class TestManyToManySQLMetadata:
 
     def test_reverse_descriptor_metadata(self) -> None:
         """Reverse descriptor exposes SQL metadata in reverse orientation."""
-        desc = Tag.articles
+        reverse_attr = "articles"
+        desc = cast("Any", getattr(Tag, reverse_attr))
         metadata = desc.sql_metadata
         assert isinstance(metadata, M2MSQLMetadata)
         assert metadata.junction_table == "articles_tags"
@@ -255,7 +256,7 @@ class TestManyToManySQLMetadata:
     def test_manager_metadata_reverse(self, db: SqliterDB) -> None:
         """Reverse manager metadata matches reverse accessor orientation."""
         tag = db.insert(Tag(name="python"))
-        metadata = tag.articles.sql_metadata
+        metadata = cast("Any", tag.articles).sql_metadata
         assert metadata.junction_table == "articles_tags"
         assert metadata.from_column == "tags_pk"
         assert metadata.to_column == "articles_pk"
@@ -303,7 +304,8 @@ class TestManyToManySQLMetadata:
                     related_name="followers",
                 )
 
-            desc = PersonMeta.followers
+            reverse_attr = "followers"
+            desc = cast("Any", getattr(PersonMeta, reverse_attr))
             metadata = desc.sql_metadata
             person_table = PersonMeta.get_table_name()
             assert metadata.from_column == f"{person_table}_pk_right"
@@ -333,7 +335,8 @@ class TestManyToManySQLMetadata:
 
     def test_reverse_descriptor_metadata_is_cached(self) -> None:
         """Reverse descriptor metadata should be memoized."""
-        desc = Tag.articles
+        reverse_attr = "articles"
+        desc = cast("Any", getattr(Tag, reverse_attr))
         first = desc.sql_metadata
         second = desc.sql_metadata
         assert first is second
@@ -761,7 +764,7 @@ class TestReverseManyToMany:
         article1.tags.add(tag)
         article2.tags.add(tag)
 
-        articles = tag.articles.fetch_all()
+        articles = cast("Any", tag.articles).fetch_all()
         assert len(articles) == 2
         titles = {a.title for a in articles}
         assert titles == {"Guide 1", "Guide 2"}
@@ -771,8 +774,8 @@ class TestReverseManyToMany:
         article = db.insert(Article(title="Guide"))
         tag = db.insert(Tag(name="python"))
 
-        tag.articles.add(article)
-        assert tag.articles.count() == 1
+        cast("Any", tag.articles).add(article)
+        assert cast("Any", tag.articles).count() == 1
         # Also visible from the forward side
         assert article.tags.count() == 1
 
@@ -782,9 +785,9 @@ class TestReverseManyToMany:
         tag = db.insert(Tag(name="python"))
 
         article.tags.add(tag)
-        tag.articles.remove(article)
+        cast("Any", tag.articles).remove(article)
 
-        assert tag.articles.count() == 0
+        assert cast("Any", tag.articles).count() == 0
         assert article.tags.count() == 0
 
     def test_reverse_clear(self, db: SqliterDB) -> None:
@@ -795,9 +798,9 @@ class TestReverseManyToMany:
 
         article1.tags.add(tag)
         article2.tags.add(tag)
-        tag.articles.clear()
+        cast("Any", tag.articles).clear()
 
-        assert tag.articles.count() == 0
+        assert cast("Any", tag.articles).count() == 0
 
     def test_reverse_count(self, db: SqliterDB) -> None:
         """Reverse count() works correctly."""
@@ -805,7 +808,7 @@ class TestReverseManyToMany:
         tag = db.insert(Tag(name="python"))
         article.tags.add(tag)
 
-        assert tag.articles.count() == 1
+        assert cast("Any", tag.articles).count() == 1
 
     def test_reverse_cannot_set(self, db: SqliterDB) -> None:
         """Direct assignment to reverse M2M raises AttributeError."""
@@ -814,12 +817,12 @@ class TestReverseManyToMany:
             tag.articles = []
 
     def test_reverse_set_handler_allows_noop(
-        self, db: SqliterDB, monkeypatch
+        self, db: SqliterDB, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Reverse M2M handler returns True when __set__ does not raise."""
         tag = db.insert(Tag(name="python"))
 
-        def noop_set(self, instance: object, value: object) -> None:
+        def noop_set(self: object, instance: object, value: object) -> None:
             return None
 
         monkeypatch.setattr(ReverseManyToMany, "__set__", noop_set)
@@ -908,7 +911,8 @@ class TestManyToManyRegistry:
 
     def test_reverse_accessor_on_target(self) -> None:
         """Reverse accessor descriptor is on target model."""
-        desc = Tag.articles
+        reverse_attr = "articles"
+        desc = cast("Any", getattr(Tag, reverse_attr))
         assert isinstance(desc, ReverseManyToMany)
 
     def test_m2m_descriptors_classvar(self) -> None:
@@ -1000,7 +1004,7 @@ class TestManyToManyCustomThrough:
         assert cats[0].label == "Tech"
 
         # Reverse
-        assert cat.posts.count() == 1
+        assert cast("Any", cat.posts).count() == 1
 
 
 # ── TestManyToManyEdgeCases ──────────────────────────────────────────
@@ -1120,7 +1124,9 @@ class TestManyToManyEdgeCases:
         finally:
             ModelRegistry.restore(state)
 
-    def test_inflect_import_error_fallback(self, monkeypatch) -> None:
+    def test_inflect_import_error_fallback(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Fallback related_name used when inflect import fails."""
         original_import = builtins.__import__
 
@@ -1193,7 +1199,9 @@ class TestManyToManyEdgeCases:
         finally:
             ModelRegistry.restore(state)
 
-    def test_create_m2m_junction_tables_import_error(self, monkeypatch) -> None:
+    def test_create_m2m_junction_tables_import_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """ImportError in M2M setup is ignored."""
         original_import = builtins.__import__
 
@@ -1298,7 +1306,9 @@ class TestManyToManyEdgeCases:
             u2 = db.insert(User(name="U2"))
 
             u1.follows.add(u2)
-            assert {u.name for u in u2.followed_by.fetch_all()} == {"U1"}
+            assert {
+                u.name for u in cast("Any", u2.followed_by).fetch_all()
+            } == {"U1"}
             assert u2.follows.count() == 0
         finally:
             ModelRegistry.restore(state)
@@ -1413,7 +1423,8 @@ class TestManyToManyRegistryEdgeCases:
             class TargetConflict(BaseDBModel):
                 name: str
 
-            TargetConflict.conflict_attr = object()
+            conflict_attr = "conflict_attr"
+            setattr(TargetConflict, conflict_attr, object())
 
             # Python 3.10 wraps __set_name__ errors in RuntimeError.
             with pytest.raises(
@@ -1460,7 +1471,7 @@ class TestManyToManyRegistryEdgeCases:
             ModelRegistry.restore(state)
 
     def test_junction_table_resolution_failure_raises(
-        self, monkeypatch
+        self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """If junction table can't be resolved, registration fails."""
         state = ModelRegistry.snapshot()
@@ -1471,7 +1482,7 @@ class TestManyToManyRegistryEdgeCases:
             class TargetBad(BaseDBModel):
                 name: str
 
-            def bad_junction(self, owner: type[BaseDBModel]) -> None:
+            def bad_junction(self: object, owner: type[BaseDBModel]) -> None:
                 _ = self
                 _ = owner
 
@@ -1564,7 +1575,8 @@ class TestModelRegistry:
             class BookConflict(BaseDBModel):
                 title: str
 
-            AuthorConflict.conflict = object()
+            conflict_attr = "conflict"
+            setattr(AuthorConflict, conflict_attr, object())
             ModelRegistry.register_model(AuthorConflict)
 
             with pytest.raises(AttributeError, match="Reverse relationship"):

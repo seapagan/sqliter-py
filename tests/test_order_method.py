@@ -4,12 +4,13 @@ import pytest
 
 from sqliter.exceptions import InvalidOrderError
 from sqliter.model import BaseDBModel
+from sqliter.sqliter import SqliterDB
 
 
 class TestOrderMethod:
     """Test class for the 'order' method in the QueryBuilder class."""
 
-    def test_order_by_primary_key_default(self, db_mock) -> None:
+    def test_order_by_primary_key_default(self, db_mock: SqliterDB) -> None:
         """Test ordering by primary key when no field is specified."""
 
         class OrderTestModel(BaseDBModel):
@@ -31,7 +32,7 @@ class TestOrderMethod:
         assert results[1].id == 2
         assert results[2].id == 3
 
-    def test_order_by_primary_key_reverse(self, db_mock) -> None:
+    def test_order_by_primary_key_reverse(self, db_mock: SqliterDB) -> None:
         """Test ordering by primary key in descending order."""
 
         class OrderTestModel(BaseDBModel):
@@ -53,7 +54,7 @@ class TestOrderMethod:
         assert results[1].id == 2
         assert results[2].id == 1
 
-    def test_order_by_specified_field(self, db_mock) -> None:
+    def test_order_by_specified_field(self, db_mock: SqliterDB) -> None:
         """Test ordering by a specified field."""
 
         class OrderTestModel(BaseDBModel):
@@ -75,7 +76,7 @@ class TestOrderMethod:
         assert results[1].name == "Bob"
         assert results[2].name == "Charlie"
 
-    def test_order_by_specified_field_reverse(self, db_mock) -> None:
+    def test_order_by_specified_field_reverse(self, db_mock: SqliterDB) -> None:
         """Test ordering by a specified field in descending order."""
 
         class OrderTestModel(BaseDBModel):
@@ -101,7 +102,7 @@ class TestOrderMethod:
         assert results[1].name == "Bob"
         assert results[2].name == "Alice"
 
-    def test_order_with_reverse_false(self, db_mock) -> None:
+    def test_order_with_reverse_false(self, db_mock: SqliterDB) -> None:
         """Test the order method works with reverse=False (ascending order)."""
 
         class TestModel(BaseDBModel):
@@ -124,7 +125,7 @@ class TestOrderMethod:
         assert results[1].name == "Bob"
         assert results[2].name == "Charlie"
 
-    def test_order_invalid_field(self, db_mock) -> None:
+    def test_order_invalid_field(self, db_mock: SqliterDB) -> None:
         """Test ordering by an invalid field."""
 
         class OrderTestModel(BaseDBModel):
@@ -143,7 +144,7 @@ class TestOrderMethod:
             exc.value
         )
 
-    def test_order_both_direction_and_reverse(self, db_mock) -> None:
+    def test_order_both_direction_and_reverse(self, db_mock: SqliterDB) -> None:
         """Test ordering with both direction and reverse specified."""
 
         class OrderTestModel(BaseDBModel):
@@ -163,7 +164,7 @@ class TestOrderMethod:
                 "name", direction="ASC", reverse=True
             ).fetch_all()
 
-    def test_order_deprecation_warning(self, db_mock) -> None:
+    def test_order_deprecation_warning(self, db_mock: SqliterDB) -> None:
         """Test that using 'direction' raises a DeprecationWarning."""
 
         class TestModel(BaseDBModel):
@@ -174,7 +175,7 @@ class TestOrderMethod:
         ):
             db_mock.select(TestModel).order("name", direction="ASC")
 
-    def test_order_invalid_direction(self, db_mock) -> None:
+    def test_order_invalid_direction(self, db_mock: SqliterDB) -> None:
         """Test that an invalid order direction raises an exception."""
 
         # Define a simple model for the test
@@ -193,7 +194,7 @@ class TestOrderMethod:
             in str(exc.value)
         )
 
-    def test_order_direction_ascending(self, db_mock) -> None:
+    def test_order_direction_ascending(self, db_mock: SqliterDB) -> None:
         """Test that the order method works as expected when ASC specified."""
 
         # Define a simple model for the test
@@ -222,7 +223,7 @@ class TestOrderMethod:
         assert results[1].name == "Jim Doe"
         assert results[2].name == "John Doe"
 
-    def test_order_direction_desc(self, db_mock) -> None:
+    def test_order_direction_desc(self, db_mock: SqliterDB) -> None:
         """Test that the order method works as expected descending."""
 
         # Define a simple model for the test

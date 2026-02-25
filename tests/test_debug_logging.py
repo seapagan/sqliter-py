@@ -2,6 +2,9 @@
 
 import logging
 
+import pytest
+from pytest_mock import MockerFixture
+
 from sqliter.sqliter import SqliterDB
 from tests.conftest import ComplexModel
 
@@ -29,7 +32,7 @@ class TestDebugLogging:
         )
 
     def test_debug_sql_output_basic_query(
-        self, db_mock_complex_debug: SqliterDB, caplog
+        self, db_mock_complex_debug: SqliterDB, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test the debug output correctly prints the SQL query and values."""
         with caplog.at_level(logging.DEBUG):
@@ -46,7 +49,7 @@ class TestDebugLogging:
         )
 
     def test_debug_sql_output_string_values(
-        self, db_mock_complex_debug: SqliterDB, caplog
+        self, db_mock_complex_debug: SqliterDB, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test that the debug output correctly handles string values."""
         with caplog.at_level(logging.DEBUG):
@@ -63,7 +66,7 @@ class TestDebugLogging:
         )
 
     def test_debug_sql_output_multiple_conditions(
-        self, db_mock_complex_debug: SqliterDB, caplog
+        self, db_mock_complex_debug: SqliterDB, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test that the debug output works with multiple conditions."""
         with caplog.at_level(logging.DEBUG):
@@ -80,7 +83,7 @@ class TestDebugLogging:
         )
 
     def test_debug_sql_output_order_and_limit(
-        self, db_mock_complex_debug: SqliterDB, caplog
+        self, db_mock_complex_debug: SqliterDB, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test that the debug output works with order and limit."""
         with caplog.at_level(logging.DEBUG):
@@ -97,7 +100,7 @@ class TestDebugLogging:
         )
 
     def test_debug_sql_output_with_null_value(
-        self, db_mock_complex_debug: SqliterDB, caplog
+        self, db_mock_complex_debug: SqliterDB, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test that the debug output works when filtering on a NULL value."""
         with caplog.at_level(logging.DEBUG):
@@ -125,7 +128,7 @@ class TestDebugLogging:
         )
 
     def test_debug_sql_output_with_fields_single(
-        self, db_mock_complex_debug: SqliterDB, caplog
+        self, db_mock_complex_debug: SqliterDB, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test debug output correct when selecting a single field."""
         with caplog.at_level(logging.DEBUG):
@@ -140,7 +143,7 @@ class TestDebugLogging:
         )
 
     def test_debug_sql_output_with_fields_multiple(
-        self, db_mock_complex_debug: SqliterDB, caplog
+        self, db_mock_complex_debug: SqliterDB, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test that the debug output correct when selecting multiple fields."""
         with caplog.at_level(logging.DEBUG):
@@ -155,7 +158,7 @@ class TestDebugLogging:
         )
 
     def test_debug_sql_output_with_fields_and_filter(
-        self, db_mock_complex_debug: SqliterDB, caplog
+        self, db_mock_complex_debug: SqliterDB, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test the debug output correct with selected fields and a filter."""
         with caplog.at_level(logging.DEBUG):
@@ -169,7 +172,9 @@ class TestDebugLogging:
             'WHERE "score" > 85' in caplog.text
         )
 
-    def test_no_log_output_when_debug_false(self, caplog) -> None:
+    def test_no_log_output_when_debug_false(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
         """Test that no log output occurs when debug=False."""
         db = SqliterDB(":memory:", debug=False)
         db.create_table(ComplexModel)
@@ -181,7 +186,7 @@ class TestDebugLogging:
         assert caplog.text == ""
 
     def test_no_log_output_above_debug_level(
-        self, db_mock_complex_debug: SqliterDB, caplog
+        self, db_mock_complex_debug: SqliterDB, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test no DEBUG log output occurs when log level is above DEBUG."""
         with caplog.at_level(logging.INFO):  # Set log level higher than DEBUG
@@ -192,7 +197,9 @@ class TestDebugLogging:
         # Assert that no DEBUG messages are present in the logs
         assert caplog.text == ""
 
-    def test_manual_logger_respects_debug_flag(self, caplog) -> None:
+    def test_manual_logger_respects_debug_flag(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
         """Test that a manually passed logger respects the debug flag."""
         custom_logger = logging.getLogger("CustomLogger")
         custom_logger.setLevel(logging.DEBUG)
@@ -208,7 +215,9 @@ class TestDebugLogging:
             '"age", "is_active", "score", ' in caplog.text
         )
 
-    def test_manual_logger_above_debug_level(self, caplog) -> None:
+    def test_manual_logger_above_debug_level(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
         """Ensure no log output when manually passed logger is above DEBUG."""
         custom_logger = logging.getLogger("CustomLogger")
         custom_logger.setLevel(logging.INFO)  # Set log level higher than DEBUG
@@ -223,7 +232,7 @@ class TestDebugLogging:
         assert caplog.text == ""
 
     def test_debug_sql_output_no_matching_records(
-        self, db_mock_complex_debug: SqliterDB, caplog
+        self, db_mock_complex_debug: SqliterDB, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test the debug output occurs even when no records match the query."""
         with caplog.at_level(logging.DEBUG):
@@ -240,7 +249,7 @@ class TestDebugLogging:
         )
 
     def test_debug_sql_output_empty_query(
-        self, db_mock_complex_debug: SqliterDB, caplog
+        self, db_mock_complex_debug: SqliterDB, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test debug output occurs for empty query (no filters, etc)."""
         with caplog.at_level(logging.DEBUG):
@@ -254,7 +263,7 @@ class TestDebugLogging:
         )
 
     def test_debug_output_drop_table(
-        self, db_mock_complex_debug: SqliterDB, caplog
+        self, db_mock_complex_debug: SqliterDB, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test debug output when dropping a table."""
         with caplog.at_level(logging.DEBUG):
@@ -265,7 +274,9 @@ class TestDebugLogging:
             "Executing SQL: DROP TABLE IF EXISTS complex_model" in caplog.text
         )
 
-    def test_reset_database_debug_logging(self, temp_db_path, caplog) -> None:
+    def test_reset_database_debug_logging(
+        self, temp_db_path: str, caplog: pytest.LogCaptureFixture
+    ) -> None:
         """Test that resetting the database logs debug information."""
         with caplog.at_level(logging.DEBUG):
             SqliterDB(temp_db_path, reset=True, debug=True)
@@ -273,7 +284,7 @@ class TestDebugLogging:
         assert "Database reset: 0 user-created tables dropped." in caplog.text
 
     def test_debug_output_insert(
-        self, db_mock_complex_debug: SqliterDB, caplog
+        self, db_mock_complex_debug: SqliterDB, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test that insert operations produce debug log output."""
         with caplog.at_level(logging.DEBUG):
@@ -291,7 +302,7 @@ class TestDebugLogging:
         assert "INSERT INTO complex_model" in caplog.text
 
     def test_debug_output_get(
-        self, db_mock_complex_debug: SqliterDB, caplog
+        self, db_mock_complex_debug: SqliterDB, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test that get operations produce debug log output."""
         with caplog.at_level(logging.DEBUG):
@@ -302,7 +313,7 @@ class TestDebugLogging:
         assert "complex_model" in caplog.text
 
     def test_debug_output_update(
-        self, db_mock_complex_debug: SqliterDB, caplog
+        self, db_mock_complex_debug: SqliterDB, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test that update operations produce debug log output."""
         record = db_mock_complex_debug.get(ComplexModel, 1)
@@ -316,7 +327,7 @@ class TestDebugLogging:
         assert "UPDATE complex_model" in caplog.text
 
     def test_debug_output_delete(
-        self, db_mock_complex_debug: SqliterDB, caplog
+        self, db_mock_complex_debug: SqliterDB, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test that delete operations produce debug log output."""
         with caplog.at_level(logging.DEBUG):
@@ -325,7 +336,9 @@ class TestDebugLogging:
         assert "Executing SQL:" in caplog.text
         assert "DELETE FROM complex_model" in caplog.text
 
-    def test_debug_output_table_names(self, caplog) -> None:
+    def test_debug_output_table_names(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
         """Test that table_names property produces debug log output."""
         db = SqliterDB(":memory:", debug=True)
         db.create_table(ComplexModel)
@@ -336,10 +349,10 @@ class TestDebugLogging:
         assert "Executing SQL:" in caplog.text
         assert "sqlite_master" in caplog.text
 
-    def test_setup_logger_else_clause(self, mocker) -> None:
+    def test_setup_logger_else_clause(self, mocker: MockerFixture) -> None:
         """Test the else clause configuration for the logger setup."""
         # Mock the root logger's hasHandlers BEFORE creating the instance
-        mocker.patch.object(
+        has_handlers_mock = mocker.patch.object(
             logging.getLogger(), "hasHandlers", return_value=False
         )
 
@@ -360,7 +373,7 @@ class TestDebugLogging:
         assert logger.level == logging.DEBUG
         assert logger.propagate is False
 
-        logging.getLogger().hasHandlers.assert_called_once()
+        has_handlers_mock.assert_called_once()
 
         # Cleanup - crucial to prevent test pollution
         for hdlr in logger.handlers[:]:

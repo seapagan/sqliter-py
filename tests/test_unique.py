@@ -4,6 +4,7 @@ import warnings
 from typing import Annotated, Union
 
 import pytest
+from pytest_mock import MockerFixture
 
 from sqliter import SqliterDB
 from sqliter.exceptions import RecordInsertionError, RecordUpdateError
@@ -68,7 +69,9 @@ class TestUnique:
 
         assert "UNIQUE constraint failed: users.name" in str(excinfo.value)
 
-    def test_unique_constraint_sql_generation(self, mocker) -> None:
+    def test_unique_constraint_sql_generation(
+        self, mocker: MockerFixture
+    ) -> None:
         """Test that the correct SQL for the Unique constraint is generated."""
 
         class User(BaseDBModel):
