@@ -680,6 +680,12 @@ class TestQuery:
 
         assert qualified == clause
 
+    def test_qualify_base_field_name_wrapper(self, db_mock) -> None:
+        """Test wrapper method forwards to qualified base-field rendering."""
+        query = db_mock.select(ExampleModel)
+        assert query._qualify_base_field_name("pk") == 't0."pk"'
+        assert query._qualify_base_field_name("unknown") == "unknown"
+
     def test_fetch_result_with_list_of_tuples(self, mocker) -> None:
         """Test _fetch_result when _execute_query returns list of tuples."""
         # ensure we get a dependable timestamp

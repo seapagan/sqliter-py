@@ -31,7 +31,11 @@ from sqliter.exceptions import (
     TableDeletionError,
 )
 from sqliter.helpers import infer_sqlite_type
-from sqliter.model.foreign_key import ForeignKeyInfo, get_foreign_key_info
+from sqliter.model.foreign_key import (
+    ForeignKeyInfo,
+    get_foreign_key_info,
+    get_model_field_db_column,
+)
 from sqliter.model.model import BaseDBModel
 from sqliter.query.query import QueryBuilder
 
@@ -896,6 +900,33 @@ class SqliterDB:
             instance.db_context = self
         return instance
 
+    @staticmethod
+    def _model_field_to_db_column(
+        model_class: type[BaseDBModel], field_name: str
+    ) -> str:
+        """Resolve a model field name to its database column name."""
+        return get_model_field_db_column(model_class, field_name)
+
+    def _map_data_to_db_columns(
+        self, model_class: type[BaseDBModel], data: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Map model-field keyed data to database-column keyed data."""
+        return {
+            self._model_field_to_db_column(model_class, field_name): value
+            for field_name, value in data.items()
+        }
+
+    def _build_model_select_list(self, model_class: type[BaseDBModel]) -> str:
+        """Build a SELECT column list that maps DB columns to model fields."""
+        select_parts: list[str] = []
+        for field_name in model_class.model_fields:
+            db_column = self._model_field_to_db_column(model_class, field_name)
+            if db_column == field_name:
+                select_parts.append(f'"{db_column}"')
+            else:
+                select_parts.append(f'"{db_column}" AS "{field_name}"')
+        return ", ".join(select_parts)
+
     def insert(
         self, model_instance: T, *, timestamp_override: bool = False
     ) -> T:
@@ -934,11 +965,17 @@ class SqliterDB:
         if data.get("pk", None) == 0:
             data.pop("pk")
 
-        fields = ", ".join(data.keys())
+        sql_data = self._map_data_to_db_columns(model_class, data)
+        fields = ", ".join(f'"{field}"' for field in sql_data)
         placeholders = ", ".join(
-            ["?" if value is not None else "NULL" for value in data.values()]
+            [
+                "?" if value is not None else "NULL"
+                for value in sql_data.values()
+            ]
         )
-        values = tuple(value for value in data.values() if value is not None)
+        values = tuple(
+            value for value in sql_data.values() if value is not None
+        )
 
         insert_sql = f"""
         INSERT INTO {table_name} ({fields})
@@ -1009,11 +1046,12 @@ class SqliterDB:
         if data.get("pk") == 0:
             data.pop("pk")
 
-        fields = ", ".join(data.keys())
+        sql_data = self._map_data_to_db_columns(model_class, data)
+        fields = ", ".join(f'"{field}"' for field in sql_data)
         placeholders = ", ".join(
-            "?" if v is not None else "NULL" for v in data.values()
+            "?" if v is not None else "NULL" for v in sql_data.values()
         )
-        values = tuple(v for v in data.values() if v is not None)
+        values = tuple(v for v in sql_data.values() if v is not None)
 
         insert_sql = (
             f"INSERT INTO {table_name} ({fields}) "  # noqa: S608
@@ -1134,7 +1172,7 @@ class SqliterDB:
             if hit:
                 return cast("Optional[T]", cached)
 
-        fields = ", ".join(model_class.model_fields)
+        fields = self._build_model_select_list(model_class)
 
         select_sql = f"""
             SELECT {fields} FROM {table_name} WHERE {primary_key} = ?
@@ -1194,8 +1232,9 @@ class SqliterDB:
         primary_key_value = data.pop(primary_key)
 
         # Create the SQL using the processed data
-        fields = ", ".join(f"{field} = ?" for field in data)
-        values = tuple(data.values())
+        sql_data = self._map_data_to_db_columns(model_class, data)
+        fields = ", ".join(f'"{field}" = ?' for field in sql_data)
+        values = tuple(sql_data.values())
 
         update_sql = f"""
             UPDATE {table_name}

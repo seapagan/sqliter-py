@@ -127,6 +127,68 @@ db.close()
 # --8<-- [end:insert-foreign-key]
 ```
 
+## Custom FK `db_column`
+
+Use a custom DB column name for an ORM FK while keeping the model API on
+`author_id`.
+
+```python
+# --8<-- [start:custom-fk-db-column]
+from sqliter import SqliterDB
+from sqliter.orm import BaseDBModel, ForeignKey
+
+class Author(BaseDBModel):
+    name: str
+
+class Book(BaseDBModel):
+    title: str
+    author: ForeignKey[Author] = ForeignKey(
+        Author,
+        db_column="author_ref",
+        related_name="books",
+    )
+
+db = SqliterDB(memory=True)
+db.create_table(Author)
+db.create_table(Book)
+
+alice = db.insert(Author(name="Alice"))
+bob = db.insert(Author(name="Bob"))
+db.insert(Book(title="A1", author=alice))
+db.insert(Book(title="A2", author=alice))
+
+rows = (
+    db.select(Book)
+    .filter(author_id=alice.pk)
+    .order("author_id")
+    .select_related("author")
+    .fetch_all()
+)
+
+print("Books filtered by model field author_id:")
+for row in rows:
+    print(f"  {row.title} -> {row.author.name}")
+
+db.select(Book).filter(title="A1").update({"author_id": bob.pk})
+updated = db.select(Book).filter(title="A1").fetch_one()
+
+if updated is not None:
+    print("\nAfter update(author_id=...):")
+    print(f"  {updated.title} -> {updated.author.name}")
+
+print("\nModel API uses author_id while SQL stores it in author_ref.")
+
+db.close()
+# --8<-- [end:custom-fk-db-column]
+```
+
+### What Happens
+
+- `db_column="author_ref"` customizes only the physical column name
+- ORM and QueryBuilder calls still use model field names like `author_id`
+- `insert`, `get`, `filter`, `order`, `select_related`, and `update` all map
+  through to the custom DB column
+
 ### Storage vs Access
 
 - **Storage**: The `author` field stores only the primary key (integer)

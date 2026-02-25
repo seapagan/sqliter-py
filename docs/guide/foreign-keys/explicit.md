@@ -67,6 +67,19 @@ class Book(BaseDBModel):
     )
 ```
 
+When `db_column` is set, your Python API still uses the model field name
+(`author_id`). SQLiter maps runtime SQL generation to the configured database
+column (`writer_id`) for insert/get/filter/order/update operations.
+
+```python
+author = db.insert(Author(name="Jane Austen", email="jane@example.com"))
+book = db.insert(Book(title="Emma", author_id=author.pk))
+
+# Uses model field names in Python:
+rows = db.select(Book).filter(author_id=author.pk).order("author_id").fetch_all()
+db.select(Book).filter(pk=book.pk).update({"author_id": author.pk})
+```
+
 ## Type Checking
 
 The examples in this documentation show the simplest syntax that works at

@@ -4,6 +4,7 @@ import sqlite3
 from typing import Optional
 
 import pytest
+from pydantic import Field
 
 from sqliter import SqliterDB
 from sqliter.exceptions import (
@@ -14,6 +15,7 @@ from sqliter.exceptions import (
     RecordInsertionError,
 )
 from sqliter.model import BaseDBModel, ForeignKey, get_foreign_key_info
+from sqliter.model.foreign_key import get_model_field_db_column
 
 
 class Author(BaseDBModel):
@@ -627,6 +629,21 @@ class TestGetForeignKeyInfoEdgeCases:
 
         assert fk_info is None
 
+    def test_get_model_field_db_column_unknown_field(self) -> None:
+        """Unknown model fields should map to themselves."""
+        assert get_model_field_db_column(Author, "unknown_field") == (
+            "unknown_field"
+        )
+
+    def test_get_foreign_key_info_dict_without_fk_entry(self) -> None:
+        """Dict json_schema_extra without FK metadata should return None."""
+
+        class TestBook(BaseDBModel):
+            title: str = Field(..., json_schema_extra={"note": "plain"})
+
+        field_info = TestBook.model_fields["title"]
+        assert get_foreign_key_info(field_info) is None
+
 
 class TestForeignKeyDatabaseErrors:
     """Test database error handling for FK operations."""
@@ -714,3 +731,151 @@ class TestForeignKeyWithDefaultFactory:
 
         assert fk_info is not None
         assert fk_info.null is False
+
+
+class TestForeignKeyDbColumnRuntime:
+    """Runtime behavior tests for explicit FK fields with db_column."""
+
+    def test_insert_get_filter_order_with_custom_db_column(self) -> None:
+        """CRUD/query paths should accept model field names with db_column."""
+
+        class CustomBook(BaseDBModel):
+            title: str
+            writer_id: int = ForeignKey(
+                Author, on_delete="CASCADE", db_column="auth_id"
+            )
+
+        db = SqliterDB(":memory:")
+        db.create_table(Author)
+        db.create_table(CustomBook)
+
+        author = db.insert(Author(name="Alice", email="alice@example.com"))
+        book = db.insert(CustomBook(title="A1", writer_id=author.pk))
+
+        fetched = db.get(CustomBook, book.pk)
+        assert fetched is not None
+        assert fetched.writer_id == author.pk
+
+        rows = (
+            db.select(CustomBook)
+            .filter(writer_id=author.pk)
+            .order("writer_id")
+            .fetch_all()
+        )
+        assert len(rows) == 1
+        assert rows[0].title == "A1"
+
+    def test_update_and_bulk_update_with_custom_db_column(self) -> None:
+        """db.update and QueryBuilder.update should honor db_column mapping."""
+
+        class CustomBook(BaseDBModel):
+            title: str
+            writer_id: int = ForeignKey(
+                Author, on_delete="CASCADE", db_column="auth_id"
+            )
+
+        db = SqliterDB(":memory:")
+        db.create_table(Author)
+        db.create_table(CustomBook)
+
+        alice = db.insert(Author(name="Alice", email="alice@example.com"))
+        bob = db.insert(Author(name="Bob", email="bob@example.com"))
+        book = db.insert(CustomBook(title="A1", writer_id=alice.pk))
+
+        book.writer_id = bob.pk
+        db.update(book)
+        refreshed = db.get(CustomBook, book.pk)
+        assert refreshed is not None
+        assert refreshed.writer_id == bob.pk
+
+        updated = (
+            db.select(CustomBook)
+            .filter(title="A1")
+            .update({"writer_id": alice.pk})
+        )
+        assert updated == 1
+        final = db.get(CustomBook, book.pk)
+        assert final is not None
+        assert final.writer_id == alice.pk
+
+    def test_field_selection_and_boundary_fetch_with_custom_db_column(
+        self,
+    ) -> None:
+        """Field selection APIs should map custom FK db columns correctly."""
+
+        class CustomBook(BaseDBModel):
+            title: str
+            writer_id: int = ForeignKey(
+                Author, on_delete="CASCADE", db_column="auth_id"
+            )
+
+        db = SqliterDB(":memory:")
+        db.create_table(Author)
+        db.create_table(CustomBook)
+
+        alice = db.insert(Author(name="Alice", email="alice@example.com"))
+        bob = db.insert(Author(name="Bob", email="bob@example.com"))
+        db.insert(CustomBook(title="A1", writer_id=alice.pk))
+        db.insert(CustomBook(title="A2", writer_id=alice.pk))
+        db.insert(CustomBook(title="B1", writer_id=bob.pk))
+
+        selected = (
+            db.select(CustomBook).fields(["title", "writer_id"]).fetch_all()
+        )
+        assert len(selected) == 3
+        assert {row.writer_id for row in selected} == {alice.pk, bob.pk}
+
+        only_rows = (
+            db.select(CustomBook)
+            .only("writer_id")
+            .filter(writer_id=alice.pk)
+            .fetch_all()
+        )
+        assert len(only_rows) == 2
+        assert all(row.writer_id == alice.pk for row in only_rows)
+
+        excluded = db.select(CustomBook).exclude(["title"]).fetch_all()
+        assert len(excluded) == 3
+        assert {row.writer_id for row in excluded} == {alice.pk, bob.pk}
+
+        first = db.select(CustomBook).order("pk").fetch_first()
+        last = db.select(CustomBook).fetch_last()
+        assert first is not None
+        assert last is not None
+        assert first.title == "A1"
+        assert last.title == "B1"
+
+    def test_in_and_not_in_filters_with_custom_db_column(self) -> None:
+        """__in and __not_in should use custom FK db columns correctly."""
+
+        class CustomBook(BaseDBModel):
+            title: str
+            writer_id: int = ForeignKey(
+                Author, on_delete="CASCADE", db_column="auth_id"
+            )
+
+        db = SqliterDB(":memory:")
+        db.create_table(Author)
+        db.create_table(CustomBook)
+
+        alice = db.insert(Author(name="Alice", email="alice@example.com"))
+        bob = db.insert(Author(name="Bob", email="bob@example.com"))
+        db.insert(CustomBook(title="A1", writer_id=alice.pk))
+        db.insert(CustomBook(title="A2", writer_id=alice.pk))
+        db.insert(CustomBook(title="B1", writer_id=bob.pk))
+
+        in_rows = (
+            db.select(CustomBook)
+            .filter(writer_id__in=[alice.pk])
+            .order("title")
+            .fetch_all()
+        )
+        assert [row.title for row in in_rows] == ["A1", "A2"]
+
+        not_in_rows = (
+            db.select(CustomBook)
+            .filter(writer_id__not_in=[alice.pk])
+            .fetch_all()
+        )
+        assert len(not_in_rows) == 1
+        assert not_in_rows[0].title == "B1"

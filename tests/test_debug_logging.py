@@ -41,7 +41,7 @@ class TestDebugLogging:
         assert (
             'Executing SQL: SELECT "pk", "created_at", "updated_at", "name", '
             '"age", "is_active", "score", '
-            '"nullable_field" FROM "complex_model" WHERE age = 30.5'
+            '"nullable_field" FROM "complex_model" WHERE "age" = 30.5'
             in caplog.text
         )
 
@@ -58,7 +58,7 @@ class TestDebugLogging:
         assert (
             'Executing SQL: SELECT "pk", "created_at", "updated_at", "name", '
             '"age", "is_active", "score", '
-            '"nullable_field" FROM "complex_model" WHERE name = \'Alice\''
+            '"nullable_field" FROM "complex_model" WHERE "name" = \'Alice\''
             in caplog.text
         )
 
@@ -75,8 +75,8 @@ class TestDebugLogging:
         assert (
             'Executing SQL: SELECT "pk", "created_at", "updated_at", "name", '
             '"age", "is_active", "score", '
-            '"nullable_field" FROM "complex_model" WHERE name = \'Alice\' AND '
-            "age = 30.5" in caplog.text
+            '"nullable_field" FROM "complex_model" WHERE "name" = \'Alice\' '
+            'AND "age" = 30.5' in caplog.text
         )
 
     def test_debug_sql_output_order_and_limit(
@@ -120,7 +120,7 @@ class TestDebugLogging:
         assert (
             'Executing SQL: SELECT "pk", "created_at", "updated_at", "name", '
             '"age", "is_active", "score", '
-            '"nullable_field" FROM "complex_model" WHERE age IS NULL'
+            '"nullable_field" FROM "complex_model" WHERE "age" IS NULL'
             in caplog.text
         )
 
@@ -166,7 +166,7 @@ class TestDebugLogging:
         # Assert the SQL query selects 'name' and 'score' and applies the filter
         assert (
             'Executing SQL: SELECT "name", "score", "pk" FROM "complex_model" '
-            "WHERE score > 85" in caplog.text
+            'WHERE "score" > 85' in caplog.text
         )
 
     def test_no_log_output_when_debug_false(self, caplog) -> None:
@@ -235,7 +235,7 @@ class TestDebugLogging:
         assert (
             'Executing SQL: SELECT "pk", "created_at", "updated_at", "name", '
             '"age", "is_active", "score", '
-            '"nullable_field" FROM "complex_model" WHERE age = 100'
+            '"nullable_field" FROM "complex_model" WHERE "age" = 100'
             in caplog.text
         )
 
