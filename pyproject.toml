@@ -155,9 +155,9 @@ plugins = ["pydantic.mypy"]
 python_version = "3.9"
 exclude = ["docs"]
 
-[[tool.mypy.overrides]]
-disable_error_code = ["method-assign", "no-untyped-def", "attr-defined"]
-module = "tests.*"
+#[[tool.mypy.overrides]]
+#disable_error_code = ["method-assign", "no-untyped-def", "attr-defined"]
+#module = "tests.*"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
