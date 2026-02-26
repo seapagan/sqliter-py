@@ -9,6 +9,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 **Closed Issues**
 
+- Support db_column across ORM runtime CRUD and query paths ([#138](https://github.com/seapagan/sqliter-py/issues/138)) by [seapagan](https://github.com/seapagan)
 - Expose read-only ManyToMany SQL metadata (junction/column names) ([#133](https://github.com/seapagan/sqliter-py/issues/133)) by [seapagan](https://github.com/seapagan)
 - Add aggregate/group-by query support to avoid raw SQL for common reporting ([#132](https://github.com/seapagan/sqliter-py/issues/132)) by [seapagan](https://github.com/seapagan)
 
@@ -17,6 +18,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Add multi-segment with_count support and ORM demos ([#137](https://github.com/seapagan/sqliter-py/pull/137)) by [seapagan](https://github.com/seapagan)
 - Add aggregate/group-by projection queries and with_count helper ([#135](https://github.com/seapagan/sqliter-py/pull/135)) by [seapagan](https://github.com/seapagan)
 - Expose read-only ManyToMany SQL metadata ([#134](https://github.com/seapagan/sqliter-py/pull/134)) by [seapagan](https://github.com/seapagan)
+
+**Testing**
+
+- Strengthen test typing - remove all test-related mypy overrides and ruff ANN001 ignore ([#140](https://github.com/seapagan/sqliter-py/pull/140)) by [seapagan](https://github.com/seapagan)
+
+**Bug Fixes**
+
+- Fix runtime db_column mapping for foreign keys ([#139](https://github.com/seapagan/sqliter-py/pull/139)) by [seapagan](https://github.com/seapagan)
 
 [`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.19.0...HEAD) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.19.0...HEAD.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.19.0...HEAD.patch)
 
