@@ -2,13 +2,18 @@
 
 from datetime import datetime, timezone
 
+from pytest_mock import MockerFixture
+
+from sqliter.sqliter import SqliterDB
 from tests.conftest import ExampleModel
 
 
 class TestTimestamps:
     """Test the `created_at` and `updated_at` timestamps."""
 
-    def test_insert_timestamps(self, db_mock, mocker) -> None:
+    def test_insert_timestamps(
+        self, db_mock: SqliterDB, mocker: MockerFixture
+    ) -> None:
         """Test both timestamps are set on record insert."""
         # Mock time.time() to return a fixed timestamp
         mocker.patch("time.time", return_value=1234567890)
@@ -25,7 +30,9 @@ class TestTimestamps:
         assert returned_instance.created_at == 1234567890
         assert returned_instance.updated_at == 1234567890
 
-    def test_update_timestamps(self, db_mock, mocker) -> None:
+    def test_update_timestamps(
+        self, db_mock: SqliterDB, mocker: MockerFixture
+    ) -> None:
         """Test that the `updated_at` timestamp is updated on record update."""
         # Mock time.time() to return a fixed timestamp for the update
         mocker.patch("time.time", return_value=1234567890)
@@ -51,7 +58,9 @@ class TestTimestamps:
             returned_instance.updated_at == 1234567891
         )  # Should be updated to the new timestamp
 
-    def test_insert_with_provided_timestamps(self, db_mock, mocker) -> None:
+    def test_insert_with_provided_timestamps(
+        self, db_mock: SqliterDB, mocker: MockerFixture
+    ) -> None:
         """Test that user-provided timestamps are respected on insert."""
         # Mock time.time() to return a fixed timestamp
         mocker.patch("time.time", return_value=1234567890)
@@ -74,7 +83,9 @@ class TestTimestamps:
         assert returned_instance.created_at == 1111111111
         assert returned_instance.updated_at == 1111111111
 
-    def test_insert_with_default_timestamps(self, db_mock, mocker) -> None:
+    def test_insert_with_default_timestamps(
+        self, db_mock: SqliterDB, mocker: MockerFixture
+    ) -> None:
         """Test that timestamps are set when created_at and updated_at are 0."""
         # Mock time.time() to return a fixed timestamp
         mocker.patch("time.time", return_value=1234567890)
@@ -95,7 +106,9 @@ class TestTimestamps:
         assert returned_instance.created_at == 1234567890
         assert returned_instance.updated_at == 1234567890
 
-    def test_insert_with_mixed_timestamps(self, db_mock, mocker) -> None:
+    def test_insert_with_mixed_timestamps(
+        self, db_mock: SqliterDB, mocker: MockerFixture
+    ) -> None:
         """Test a mix of user-provided and default timestamps work on insert."""
         # Mock time.time() to return a fixed timestamp
         mocker.patch("time.time", return_value=1234567890)
@@ -119,7 +132,9 @@ class TestTimestamps:
         assert returned_instance.created_at == 1111111111
         assert returned_instance.updated_at == 1234567890
 
-    def test_update_timestamps_on_change(self, db_mock, mocker) -> None:
+    def test_update_timestamps_on_change(
+        self, db_mock: SqliterDB, mocker: MockerFixture
+    ) -> None:
         """Test that only `updated_at` changes on update."""
         # Mock time.time() to return a fixed timestamp for the insert
         mocker.patch("time.time", return_value=1234567890)
@@ -141,7 +156,9 @@ class TestTimestamps:
         assert returned_instance.created_at == 1234567890
         assert returned_instance.updated_at == 1234567891
 
-    def test_no_change_if_timestamps_already_set(self, db_mock, mocker) -> None:
+    def test_no_change_if_timestamps_already_set(
+        self, db_mock: SqliterDB, mocker: MockerFixture
+    ) -> None:
         """Test timestamps are not modified if already set during insert."""
         # Mock time.time() to return a fixed timestamp
         mocker.patch("time.time", return_value=1234567890)
@@ -164,7 +181,9 @@ class TestTimestamps:
         assert returned_instance.created_at == 1111111111
         assert returned_instance.updated_at == 1111111111
 
-    def test_override_but_no_timestamps_provided(self, db_mock, mocker) -> None:
+    def test_override_but_no_timestamps_provided(
+        self, db_mock: SqliterDB, mocker: MockerFixture
+    ) -> None:
         """Test missing timestamps always set to current time.
 
         Even with `timestamp_override=True`.
@@ -191,7 +210,9 @@ class TestTimestamps:
         assert returned_instance.created_at == 1234567890
         assert returned_instance.updated_at == 1234567890
 
-    def test_partial_override_with_zero(self, db_mock, mocker) -> None:
+    def test_partial_override_with_zero(
+        self, db_mock: SqliterDB, mocker: MockerFixture
+    ) -> None:
         """Test changing `updated_at` only on create.
 
         When `timestamp_override=True
@@ -218,7 +239,9 @@ class TestTimestamps:
         assert returned_instance.created_at == 1111111111
         assert returned_instance.updated_at == 1234567890
 
-    def test_insert_with_override_disabled(self, db_mock, mocker) -> None:
+    def test_insert_with_override_disabled(
+        self, db_mock: SqliterDB, mocker: MockerFixture
+    ) -> None:
         """Test that timestamp_override=False ignores provided timestamps."""
         # Mock time.time() to return a fixed timestamp
         mocker.patch("time.time", return_value=1234567890)
@@ -241,7 +264,9 @@ class TestTimestamps:
         assert returned_instance.created_at == 1234567890
         assert returned_instance.updated_at == 1234567890
 
-    def test_time_is_in_utc(self, db_mock, mocker) -> None:
+    def test_time_is_in_utc(
+        self, db_mock: SqliterDB, mocker: MockerFixture
+    ) -> None:
         """Test that timestamps generated with time.time() are in UTC."""
         # Mock time.time() to return a fixed timestamp
         mocker.patch("time.time", return_value=1234567890)

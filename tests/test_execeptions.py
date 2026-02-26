@@ -3,6 +3,7 @@
 import sqlite3
 
 import pytest
+from pytest_mock import MockerFixture
 
 from sqliter.exceptions import (
     DatabaseConnectionError,
@@ -38,7 +39,7 @@ class TestExceptions:
 
         assert str(exc) == "An error occurred in the SQLiter package."
 
-    def test_database_connection_error(self, mocker) -> None:
+    def test_database_connection_error(self, mocker: MockerFixture) -> None:
         """Test that DatabaseConnectionError is raised when connection fails."""
         # Mock sqlite3.connect to raise an error
         mocker.patch("sqlite3.connect", side_effect=sqlite3.Error)
@@ -56,7 +57,7 @@ class TestExceptions:
         )
 
     # @pytest.mark.skip(reason="This is no longer a valid test case.")
-    def test_insert_duplicate_primary_key(self, db_mock) -> None:
+    def test_insert_duplicate_primary_key(self, db_mock: SqliterDB) -> None:
         """Test that exception raised when inserting duplicate primary key."""
         # Create a model instance with a unique primary key
         example_model = ExampleModel(
@@ -75,7 +76,9 @@ class TestExceptions:
             exc_info.value
         )
 
-    def test_create_table_error(self, db_mock, mocker) -> None:
+    def test_create_table_error(
+        self, db_mock: SqliterDB, mocker: MockerFixture
+    ) -> None:
         """Test exception is raised when creating table with invalid model."""
         # Mock sqlite3.connect to raise an error
         mocker.patch("sqliter.SqliterDB.connect", side_effect=sqlite3.Error)
@@ -87,7 +90,7 @@ class TestExceptions:
         # Verify that the exception message contains the table name
         assert "Failed to create the table: 'test_table'" in str(exc_info.value)
 
-    def test_update_not_found_error(self, db_mock) -> None:
+    def test_update_not_found_error(self, db_mock: SqliterDB) -> None:
         """Test exception raised when updating a record that does not exist."""
         # Create a model instance with a unique primary key
         example_model = ExampleModel(
@@ -103,7 +106,9 @@ class TestExceptions:
             exc_info.value
         )
 
-    def test_update_exception_error(self, db_mock, mocker) -> None:
+    def test_update_exception_error(
+        self, db_mock: SqliterDB, mocker: MockerFixture
+    ) -> None:
         """Test an exception is raised when updating a record with an error."""
         # Create a model instance with a unique primary key
         example_model = ExampleModel(
@@ -125,7 +130,9 @@ class TestExceptions:
             exc_info.value
         )
 
-    def test_delete_exception_error(self, db_mock, mocker) -> None:
+    def test_delete_exception_error(
+        self, db_mock: SqliterDB, mocker: MockerFixture
+    ) -> None:
         """Test that exception raised when deleting a record with an error."""
         # Create a model instance with a unique primary key
         example_model = ExampleModel(

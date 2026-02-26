@@ -6,6 +6,7 @@ changes when an exception occurs inside the transaction block.
 
 import sqlite3
 from contextlib import suppress
+from pathlib import Path
 
 import pytest
 
@@ -34,7 +35,7 @@ def _raise_error() -> None:
 class TestTransactionRollback:
     """Test transaction rollback behavior."""
 
-    def test_insert_rollback_on_exception(self, tmp_path) -> None:
+    def test_insert_rollback_on_exception(self, tmp_path: Path) -> None:
         """Verify that insert is rolled back when an exception occurs."""
         db_file = tmp_path / "test_rollback.db"
         db = SqliterDB(db_filename=str(db_file))
@@ -54,7 +55,7 @@ class TestTransactionRollback:
 
         assert len(result) == 0, "Insert should have been rolled back"
 
-    def test_update_rollback_on_exception(self, tmp_path) -> None:
+    def test_update_rollback_on_exception(self, tmp_path: Path) -> None:
         """Verify that update is rolled back when an exception occurs."""
         db_file = tmp_path / "test_rollback.db"
         db = SqliterDB(db_filename=str(db_file))
@@ -82,7 +83,7 @@ class TestTransactionRollback:
             f"Update should have been rolled back, got {result.quantity}"
         )
 
-    def test_delete_rollback_on_exception(self, tmp_path) -> None:
+    def test_delete_rollback_on_exception(self, tmp_path: Path) -> None:
         """Verify that delete is rolled back when an exception occurs."""
         db_file = tmp_path / "test_rollback.db"
         db = SqliterDB(db_filename=str(db_file))
@@ -104,7 +105,9 @@ class TestTransactionRollback:
 
         assert result is not None, "Delete should have been rolled back"
 
-    def test_query_builder_delete_rollback_on_exception(self, tmp_path) -> None:
+    def test_query_builder_delete_rollback_on_exception(
+        self, tmp_path: Path
+    ) -> None:
         """Verify that QueryBuilder.delete is rolled back on exception."""
         db_file = tmp_path / "test_rollback.db"
         db = SqliterDB(db_filename=str(db_file))
@@ -128,7 +131,7 @@ class TestTransactionRollback:
             "QueryBuilder delete should have been rolled back"
         )
 
-    def test_multiple_operations_rollback(self, tmp_path) -> None:
+    def test_multiple_operations_rollback(self, tmp_path: Path) -> None:
         """Verify that multiple operations all rollback together."""
         db_file = tmp_path / "test_rollback.db"
         db = SqliterDB(db_filename=str(db_file))
@@ -168,7 +171,7 @@ class TestTransactionRollback:
         assert all_items[1].name == "Gadget"
         assert all_items[1].quantity == 20, "Gadget should not be deleted"
 
-    def test_transaction_commit_success(self, tmp_path) -> None:
+    def test_transaction_commit_success(self, tmp_path: Path) -> None:
         """Verify that successful transaction commits all changes."""
         db_file = tmp_path / "test_rollback.db"
         db = SqliterDB(db_filename=str(db_file))
@@ -188,7 +191,9 @@ class TestTransactionRollback:
 
         assert len(result) == 2, "Both inserts should have been committed"
 
-    def test_no_intermediate_commits_in_transaction(self, tmp_path) -> None:
+    def test_no_intermediate_commits_in_transaction(
+        self, tmp_path: Path
+    ) -> None:
         """Verify that data isn't committed before transaction ends."""
         db_file = tmp_path / "test_rollback.db"
         db = SqliterDB(db_filename=str(db_file))
@@ -219,7 +224,9 @@ class TestTransactionRollback:
 
         assert count == 1, "Data should be visible after transaction commits"
 
-    def test_context_manager_sets_transaction_flag(self, tmp_path) -> None:
+    def test_context_manager_sets_transaction_flag(
+        self, tmp_path: Path
+    ) -> None:
         """Verify that context manager correctly sets _in_transaction flag."""
         db_file = tmp_path / "test_rollback.db"
         db = SqliterDB(db_filename=str(db_file))
@@ -238,7 +245,7 @@ class TestTransactionRollback:
         db.close()
         assert len(result) == 1
 
-    def test_autocommit_false_still_rolls_back(self, tmp_path) -> None:
+    def test_autocommit_false_still_rolls_back(self, tmp_path: Path) -> None:
         """Verify rollback works even with auto_commit=False."""
         db_file = tmp_path / "test_rollback.db"
         db = SqliterDB(db_filename=str(db_file), auto_commit=False)
@@ -259,7 +266,7 @@ class TestTransactionRollback:
 
         assert len(result) == 0, "Insert should have been rolled back"
 
-    def test_read_operation_in_transaction(self, tmp_path) -> None:
+    def test_read_operation_in_transaction(self, tmp_path: Path) -> None:
         """Verify read operations work inside a transaction."""
         db_file = tmp_path / "test_rollback.db"
         db = SqliterDB(db_filename=str(db_file))
@@ -274,7 +281,7 @@ class TestTransactionRollback:
             assert len(result) == 1
             assert result[0].name == "Widget"
 
-    def test_exception_type_preserved(self, tmp_path) -> None:
+    def test_exception_type_preserved(self, tmp_path: Path) -> None:
         """Verify that the original exception is re-raised after rollback."""
         db_file = tmp_path / "test_rollback.db"
         db = SqliterDB(db_filename=str(db_file))

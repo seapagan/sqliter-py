@@ -15,6 +15,10 @@ Items marked with :fire: are high priority.
 - Medium-term typing direction: replace runtime-injected reverse accessors
   with explicit reverse relationship declarations in model classes so
   reverse-side usage is mypy-friendly without casts or TYPE_CHECKING hacks.
+- Short-term typing upgrade for user code: improve library type hints for
+  dynamic ORM relationship APIs (reverse FK descriptors, M2M managers, and
+  prefetched relation result types) to reduce required casts in normal
+  application code and tests.
 - Registry lifetime: global registry can cause cross-talk when models are
   defined repeatedly in one process (e.g., tests). Current mitigation exists
   via `ModelRegistry.reset()` and snapshot/restore helpers; longer-term option:

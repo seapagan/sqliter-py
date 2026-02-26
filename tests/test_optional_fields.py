@@ -265,7 +265,7 @@ class TestOptionalFields:
             for field in all_fields:
                 assert hasattr(result, field)
 
-    def test_validate_fields_with_none(self, db_mock_adv) -> None:
+    def test_validate_fields_with_none(self, db_mock_adv: SqliterDB) -> None:
         """Test _validate_fields with self._fields set to None."""
         # This test will indirectly invoke _validate_fields by creating a
         # QueryBuilder without specifying fields (i.e., self._fields will be
@@ -276,7 +276,9 @@ class TestOptionalFields:
         # since self._fields is None.
         assert query._fields is None
 
-    def test_direct_validate_fields_with_none(self, db_mock_adv) -> None:
+    def test_direct_validate_fields_with_none(
+        self, db_mock_adv: SqliterDB
+    ) -> None:
         """Test _validate_fields directly with self._fields set to None."""
         # Create the query builder instance
         query = db_mock_adv.select(PersonModel, fields=None)

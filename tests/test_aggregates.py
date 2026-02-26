@@ -714,7 +714,7 @@ def test_projection_query_sqlite_error_raises_record_fetch_error(
         .annotate(total=func.sum("amount"))
     )
 
-    def raise_sqlite_error(*_args, **_kwargs) -> None:  # noqa: ANN002, ANN003
+    def raise_sqlite_error(*_args: object, **_kwargs: object) -> None:
         err = "broken"
         raise sqlite3.Error(err)
 

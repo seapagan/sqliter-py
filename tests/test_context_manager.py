@@ -1,8 +1,10 @@
 """Test the context-manager functionality."""
 
 import sqlite3
+from pathlib import Path
 
 import pytest
+from pytest_mock import MockerFixture
 
 from sqliter.sqliter import SqliterDB
 from tests.conftest import ExampleModel
@@ -11,7 +13,9 @@ from tests.conftest import ExampleModel
 class TestContextManager:
     """Test the context-manager functionality."""
 
-    def test_transaction_commit_success(self, db_mock, mocker) -> None:
+    def test_transaction_commit_success(
+        self, db_mock: SqliterDB, mocker: MockerFixture
+    ) -> None:
         """Test that the transaction commits successfully with no exceptions."""
         # Mock the connection's commit method to track the commit
         mock_commit = mocker.patch.object(db_mock, "conn", create=True)
@@ -24,7 +28,9 @@ class TestContextManager:
         # Ensure commit was called
         mock_commit.commit.assert_called_once()
 
-    def test_transaction_closes_connection(self, db_mock, mocker) -> None:
+    def test_transaction_closes_connection(
+        self, db_mock: SqliterDB, mocker: MockerFixture
+    ) -> None:
         """Test the connection is closed after the transaction completes."""
         # Mock the connection object itself
         mock_conn = mocker.patch.object(db_mock, "conn", autospec=True)
@@ -36,7 +42,9 @@ class TestContextManager:
         # Ensure the connection is closed
         mock_conn.close.assert_called_once()
 
-    def test_transaction_rollback_on_exception(self, db_mock, mocker) -> None:
+    def test_transaction_rollback_on_exception(
+        self, db_mock: SqliterDB, mocker: MockerFixture
+    ) -> None:
         """Test that the transaction rolls back when an exception occurs."""
         # Mock the connection object and ensure it's set as db_mock.conn
         mock_conn = mocker.Mock()
@@ -51,7 +59,7 @@ class TestContextManager:
         mock_conn.rollback.assert_called_once()
         mock_conn.commit.assert_not_called()
 
-    def test_in_transaction_flag(self, db_mock) -> None:
+    def test_in_transaction_flag(self, db_mock: SqliterDB) -> None:
         """Test that _in_transaction is set/unset inside a transaction."""
         assert not db_mock._in_transaction  # Initially, it should be False
 
@@ -62,7 +70,9 @@ class TestContextManager:
             not db_mock._in_transaction
         )  # Should be False again after exiting the context
 
-    def test_rollback_resets_in_transaction_flag(self, db_mock, mocker) -> None:
+    def test_rollback_resets_in_transaction_flag(
+        self, db_mock: SqliterDB, mocker: MockerFixture
+    ) -> None:
         """Test that _in_transaction is reset after a rollback on exception."""
 
         def test_transaction() -> None:
@@ -80,7 +90,9 @@ class TestContextManager:
             not db_mock._in_transaction
         )  # Should be reset to False after exception
 
-    def test_maybe_commit_skips_in_transaction(self, db_mock, mocker) -> None:
+    def test_maybe_commit_skips_in_transaction(
+        self, db_mock: SqliterDB, mocker: MockerFixture
+    ) -> None:
         """Test that maybe_commit does not commit when inside a transaction."""
         mock_conn = mocker.Mock()
         mocker.patch.object(db_mock, "conn", mock_conn)
@@ -92,7 +104,9 @@ class TestContextManager:
         db_mock._maybe_commit()
         mock_conn.commit.assert_called_once()
 
-    def test_commit_called_once_in_transaction(self, mocker, tmp_path) -> None:
+    def test_commit_called_once_in_transaction(
+        self, mocker: MockerFixture, tmp_path: Path
+    ) -> None:
         """Ensure data is committed at the end of a transaction."""
         # Create a temporary database file
         db_file = tmp_path / "test.db"

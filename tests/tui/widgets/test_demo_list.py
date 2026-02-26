@@ -21,7 +21,7 @@ class TestDemoList:
 
     @pytest.mark.asyncio
     async def test_demo_selection_posts_message(
-        self, reset_demo_registry
+        self, reset_demo_registry: None
     ) -> None:
         """Test that selecting a demo posts DemoSelected message."""
         demo = Demo(
@@ -76,7 +76,7 @@ class TestDemoList:
             assert messages_received[0].id == "demo1"
 
     @pytest.mark.asyncio
-    async def test_tree_composition(self, reset_demo_registry) -> None:
+    async def test_tree_composition(self, reset_demo_registry: None) -> None:
         """Test that the widget composes a Tree."""
         category = DemoCategory(id="test", title="Test Category", icon="🧪")
         DemoRegistry.register_category(category)
@@ -91,7 +91,7 @@ class TestDemoList:
             assert tree.id == "demo-tree"
 
     @pytest.mark.asyncio
-    async def test_category_nodes(self, reset_demo_registry) -> None:
+    async def test_category_nodes(self, reset_demo_registry: None) -> None:
         """Test that categories are rendered as nodes."""
         cat1 = DemoCategory(id="cat1", title="Category 1", icon="📦")
         cat2 = DemoCategory(id="cat2", title="Category 2", icon="📁")
@@ -108,7 +108,7 @@ class TestDemoList:
             assert len(tree.root.children) == 2
 
     @pytest.mark.asyncio
-    async def test_demo_leaves(self, reset_demo_registry) -> None:
+    async def test_demo_leaves(self, reset_demo_registry: None) -> None:
         """Test that demos are rendered as leaf nodes."""
         demo1 = Demo(
             id="demo1",
@@ -143,7 +143,7 @@ class TestDemoList:
             assert len(cat_node.children) == 2
 
     @pytest.mark.asyncio
-    async def test_node_expansion(self, reset_demo_registry) -> None:
+    async def test_node_expansion(self, reset_demo_registry: None) -> None:
         """Test that categories can be expanded/collapsed."""
         category = DemoCategory(id="cat1", title="Category", expanded=False)
         demo = Demo(
@@ -174,7 +174,9 @@ class TestDemoList:
             assert cat_node.is_expanded
 
     @pytest.mark.asyncio
-    async def test_demo_selection_event(self, reset_demo_registry) -> None:
+    async def test_demo_selection_event(
+        self, reset_demo_registry: None
+    ) -> None:
         """Test that selecting a demo posts DemoSelected message."""
         demo = Demo(
             id="demo1",
@@ -204,7 +206,7 @@ class TestDemoList:
             assert demo_node.data.id == "demo1"
 
     @pytest.mark.asyncio
-    async def test_empty_registry(self, reset_demo_registry) -> None:
+    async def test_empty_registry(self, reset_demo_registry: None) -> None:
         """Test that empty registry works."""
         # Don't register any categories
         app: App[Any] = App()
@@ -217,7 +219,9 @@ class TestDemoList:
             assert len(tree.root.children) == 0
 
     @pytest.mark.asyncio
-    async def test_integration_with_registry(self, reset_demo_registry) -> None:
+    async def test_integration_with_registry(
+        self, reset_demo_registry: None
+    ) -> None:
         """Test integration with DemoRegistry."""
         # Register multiple categories with demos
         demos = [
@@ -254,7 +258,7 @@ class TestDemoList:
             assert len(cat_node.children) == 3
 
     @pytest.mark.asyncio
-    async def test_tree_root_hidden(self, reset_demo_registry) -> None:
+    async def test_tree_root_hidden(self, reset_demo_registry: None) -> None:
         """Test that the tree root is hidden."""
         category = DemoCategory(id="test", title="Test")
         DemoRegistry.register_category(category)
@@ -268,7 +272,9 @@ class TestDemoList:
             assert tree.show_root is False
 
     @pytest.mark.asyncio
-    async def test_demo_label_formatting(self, reset_demo_registry) -> None:
+    async def test_demo_label_formatting(
+        self, reset_demo_registry: None
+    ) -> None:
         """Test that demo labels are formatted correctly."""
         demo = Demo(
             id="demo1",

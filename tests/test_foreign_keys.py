@@ -5,6 +5,7 @@ from typing import Optional
 
 import pytest
 from pydantic import Field
+from pytest_mock import MockerFixture
 
 from sqliter import SqliterDB
 from sqliter.exceptions import (
@@ -179,7 +180,7 @@ class TestForeignKeyTableCreation:
         assert "authors" in db.table_names
         assert "books" in db.table_names
 
-    def test_fk_constraint_sql_generation(self, mocker) -> None:
+    def test_fk_constraint_sql_generation(self, mocker: MockerFixture) -> None:
         """Test that FK constraint SQL is generated correctly."""
         mock_cursor = mocker.MagicMock()
         mocker.patch.object(
@@ -618,7 +619,9 @@ class TestForeignKeyWithNonDictJsonSchemaExtra:
 class TestGetForeignKeyInfoEdgeCases:
     """Test edge cases for get_foreign_key_info function."""
 
-    def test_field_without_json_schema_extra_attribute(self, mocker) -> None:
+    def test_field_without_json_schema_extra_attribute(
+        self, mocker: MockerFixture
+    ) -> None:
         """Test get_foreign_key_info with field lacking json_schema_extra."""
         # Create a mock FieldInfo without json_schema_extra attribute
         mock_field_info = mocker.MagicMock(
@@ -648,7 +651,7 @@ class TestGetForeignKeyInfoEdgeCases:
 class TestForeignKeyDatabaseErrors:
     """Test database error handling for FK operations."""
 
-    def test_insert_general_database_error(self, mocker) -> None:
+    def test_insert_general_database_error(self, mocker: MockerFixture) -> None:
         """Test that general sqlite3.Error during insert raises properly."""
         db = SqliterDB(":memory:")
         db.create_table(Author)
@@ -669,7 +672,7 @@ class TestForeignKeyDatabaseErrors:
         with pytest.raises(RecordInsertionError):
             db.insert(Author(name="Test", email="test@example.com"))
 
-    def test_delete_non_fk_integrity_error(self, mocker) -> None:
+    def test_delete_non_fk_integrity_error(self, mocker: MockerFixture) -> None:
         """Test delete with IntegrityError that is not FK-related."""
         db = SqliterDB(":memory:")
         db.create_table(Author)

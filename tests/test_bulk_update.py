@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from pytest_mock import MockerFixture
+
 import pytest
 
 from sqliter import SqliterDB
@@ -209,7 +211,7 @@ class TestQueryBuilderUpdateErrors:
         assert "bar" in error_msg
 
     def test_update_sqlite_error_rolls_back_and_raises(
-        self, db: SqliterDB, mocker
+        self, db: SqliterDB, mocker: MockerFixture
     ) -> None:
         """SQLite update errors rollback and raise RecordUpdateError."""
         db.insert(SimpleModel(name="test", value=10))
@@ -459,7 +461,7 @@ class TestBulkUpdateEdgeCases:
         assert "pk" in str(exc_info.value)
 
     def test_update_auto_sets_updated_at(
-        self, db: SqliterDB, monkeypatch
+        self, db: SqliterDB, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Bulk update auto-sets updated_at timestamp."""
         fake_time = 1000000000.0
@@ -504,7 +506,7 @@ class TestUpdateWhereTimestamps:
     """Test updated_at behavior in update_where()."""
 
     def test_update_where_auto_sets_updated_at(
-        self, db: SqliterDB, monkeypatch
+        self, db: SqliterDB, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """update_where auto-sets updated_at timestamp."""
         fake_time = 1000000000.0

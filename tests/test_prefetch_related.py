@@ -180,7 +180,7 @@ class TestReverseFKPrefetch:
         jane = next(a for a in authors if a.name == "Jane Austen")
         result = jane.books
         assert isinstance(result, PrefetchedResult)
-        books = result.fetch_all()
+        books = cast("list[Book]", result.fetch_all())
         assert len(books) == 2
         titles = {b.title for b in books}
         assert "Pride and Prejudice" in titles
@@ -190,33 +190,35 @@ class TestReverseFKPrefetch:
         authors = db.select(Author).prefetch_related("books").fetch_all()
 
         jane = next(a for a in authors if a.name == "Jane Austen")
-        assert jane.books.count() == 2
-        assert jane.books.exists() is True
+        prefetched_books = cast("Any", jane.books)
+        assert prefetched_books.count() == 2
+        assert prefetched_books.exists() is True
 
         nobooks = next(a for a in authors if a.name == "No Books Author")
-        assert nobooks.books.count() == 0
-        assert nobooks.books.exists() is False
+        nobooks_books = cast("Any", nobooks.books)
+        assert nobooks_books.count() == 0
+        assert nobooks_books.exists() is False
 
     def test_prefetched_fetch_one(self, db: SqliterDB) -> None:
         """Prefetched .fetch_one() returns first or None."""
         authors = db.select(Author).prefetch_related("books").fetch_all()
 
         jane = next(a for a in authors if a.name == "Jane Austen")
-        book = jane.books.fetch_one()
+        book = cast("Any", jane.books).fetch_one()
         assert book is not None
 
         nobooks = next(a for a in authors if a.name == "No Books Author")
-        assert nobooks.books.fetch_one() is None
+        assert cast("Any", nobooks.books).fetch_one() is None
 
     def test_prefetched_filter_falls_back_to_db(self, db: SqliterDB) -> None:
         """Prefetched .filter() falls back to a DB query."""
         authors = db.select(Author).prefetch_related("books").fetch_all()
 
         jane = next(a for a in authors if a.name == "Jane Austen")
-        result = jane.books.filter(year__gt=1812)
+        result = cast("Any", jane.books).filter(year__gt=1812)
         # filter() returns a ReverseQuery (falls back to DB)
         assert isinstance(result, ReverseQuery)
-        filtered = result.fetch_all()
+        filtered = cast("list[Book]", result.fetch_all())
         assert len(filtered) == 1
         assert filtered[0].title == "Pride and Prejudice"
 
@@ -227,8 +229,8 @@ class TestReverseFKPrefetch:
         )
 
         jane = next(a for a in authors if a.name == "Jane Austen")
-        assert jane.books.count() == 2
-        assert jane.reviews.count() == 2
+        assert cast("Any", jane.books).count() == 2
+        assert cast("Any", jane.reviews).count() == 2
 
     def test_no_related_objects_get_empty_list(self, db: SqliterDB) -> None:
         """Instances with no related objects get [] in cache."""
@@ -248,7 +250,7 @@ class TestReverseFKPrefetch:
         )
 
         assert len(authors) == 1
-        assert authors[0].books.count() == 2
+        assert cast("Any", authors[0].books).count() == 2
 
     def test_combined_with_order_and_limit(self, db: SqliterDB) -> None:
         """Chaining with order and limit works."""
@@ -322,7 +324,7 @@ class TestM2MPrefetch:
         assert len(articles) == 2
 
         unused_tag = next(t for t in tags if t.name == "unused")
-        assert unused_tag.articles.count() == 0
+        assert cast("Any", unused_tag.articles).count() == 0
 
     def test_m2m_prefetched_count_exists(self, db: SqliterDB) -> None:
         """Prefetched M2M .count() and .exists() work."""
@@ -685,7 +687,7 @@ class TestNestedPrefetch:
         )
 
         jane = next(a for a in authors if a.name == "Jane Austen")
-        books = jane.authored_books.fetch_all()
+        books = cast("Any", jane.authored_books).fetch_all()
         assert len(books) == 2
 
         pride = next(b for b in books if b.title == "Pride and Prejudice")
@@ -705,7 +707,7 @@ class TestNestedPrefetch:
         )
 
         python_tag = next(t for t in tags if t.name == "python")
-        articles = python_tag.articles.fetch_all()
+        articles = cast("Any", python_tag.articles).fetch_all()
         assert len(articles) == 2
 
         guide = next(a for a in articles if a.title == "SQLiter Guide")
@@ -725,11 +727,11 @@ class TestNestedPrefetch:
         jane = next(a for a in authors if a.name == "Jane Austen")
 
         # Flat path
-        reviews = jane.reviews.fetch_all()
+        reviews = cast("Any", jane.reviews).fetch_all()
         assert len(reviews) == 1
 
         # Nested path
-        books = jane.authored_books.fetch_all()
+        books = cast("Any", jane.authored_books).fetch_all()
         pride = next(b for b in books if b.title == "Pride and Prejudice")
         cats = pride.categories.fetch_all()
         assert len(cats) == 2
@@ -743,7 +745,7 @@ class TestNestedPrefetch:
         )
 
         jane = next(a for a in authors if a.name == "Jane Austen")
-        books = jane.authored_books.fetch_all()
+        books = cast("Any", jane.authored_books).fetch_all()
         assert len(books) == 2
 
         pride = next(b for b in books if b.title == "Pride and Prejudice")
@@ -760,7 +762,7 @@ class TestNestedPrefetch:
         )
 
         assert len(authors) == 1
-        books = authors[0].authored_books.fetch_all()
+        books = cast("Any", authors[0].authored_books).fetch_all()
         assert len(books) == 2
 
     def test_nested_prefetch_with_fetch_one(self, nested_db: SqliterDB) -> None:
@@ -773,7 +775,7 @@ class TestNestedPrefetch:
         )
 
         assert author is not None
-        books = author.authored_books.fetch_all()
+        books = cast("Any", author.authored_books).fetch_all()
         assert len(books) == 2
 
         pride = next(b for b in books if b.title == "Pride and Prejudice")
@@ -789,7 +791,7 @@ class TestNestedPrefetch:
         )
 
         nobooks = next(a for a in authors if a.name == "No Books Author")
-        books = nobooks.authored_books.fetch_all()
+        books = cast("Any", nobooks.authored_books).fetch_all()
         assert books == []
 
     def test_cache_populated_at_each_level(self, nested_db: SqliterDB) -> None:
@@ -849,11 +851,16 @@ class TestNestedPrefetch:
             class LocalHost(BaseDBModel):
                 name: str
 
-            LocalHost.ghosts = ReverseManyToMany(
-                from_model=cast("type[Any]", "GhostModel"),
-                to_model=LocalHost,
-                junction_table="ghost_host",
-                related_name="ghosts",
+            ghosts_attr = "ghosts"
+            setattr(
+                LocalHost,
+                ghosts_attr,
+                ReverseManyToMany(
+                    from_model=cast("type[Any]", "GhostModel"),
+                    to_model=LocalHost,
+                    junction_table="ghost_host",
+                    related_name="ghosts",
+                ),
             )
 
             db = SqliterDB(":memory:")
@@ -873,7 +880,7 @@ class TestNestedPrefetch:
         )
 
         python_tag = next(t for t in tags if t.name == "python")
-        articles = python_tag.articles.fetch_all()
+        articles = cast("Any", python_tag.articles).fetch_all()
         guide = next(a for a in articles if a.title == "SQLiter Guide")
         comments = guide.comments.fetch_all()
         assert len(comments) == 2
@@ -921,7 +928,7 @@ class TestNestedPrefetch:
 
         assert len(authors) == 1
         nobooks = authors[0]
-        assert nobooks.authored_books.fetch_all() == []
+        assert cast("Any", nobooks.authored_books).fetch_all() == []
 
     def test_prefetch_segment_skips_pkless_instances(
         self, nested_db: SqliterDB

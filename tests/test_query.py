@@ -3,6 +3,7 @@
 from typing import Optional
 
 import pytest
+from pytest_mock import MockerFixture
 
 from sqliter.exceptions import (
     InvalidFilterError,
@@ -18,7 +19,7 @@ from tests.conftest import ExampleModel, not_raises
 class TestQuery:
     """Test cases for the QueryBuilder class."""
 
-    def test_fetch_all_no_results(self, db_mock) -> None:
+    def test_fetch_all_no_results(self, db_mock: SqliterDB) -> None:
         """Test that fetch_all returns None when no results are found."""
 
         # Define a simple model for the test
@@ -37,7 +38,7 @@ class TestQuery:
         # Assert that fetch_all returns None when no results are found
         assert result == []
 
-    def test_fetch_one_single_result(self, db_mock) -> None:
+    def test_fetch_one_single_result(self, db_mock: SqliterDB) -> None:
         """Test that fetch_one returns a single result as a model instance."""
 
         # Define a simple model for the test
@@ -60,7 +61,7 @@ class TestQuery:
         assert result is not None
         assert result.name == "John Doe"
 
-    def test_fetch_one_no_results(self, db_mock) -> None:
+    def test_fetch_one_no_results(self, db_mock: SqliterDB) -> None:
         """Test that fetch_one returns None when no results are found."""
 
         # Define a simple model for the test
@@ -79,7 +80,7 @@ class TestQuery:
         # Assert that fetch_one returns None when no results are found
         assert result is None
 
-    def test_fetch_first_single_result(self, db_mock) -> None:
+    def test_fetch_first_single_result(self, db_mock: SqliterDB) -> None:
         """Test that fetch_first returns a single result as a model instance."""
 
         # Define a simple model for the test
@@ -102,7 +103,7 @@ class TestQuery:
         assert result is not None
         assert result.name == "John Doe"
 
-    def test_fetch_first_no_results(self, db_mock) -> None:
+    def test_fetch_first_no_results(self, db_mock: SqliterDB) -> None:
         """Test that fetch_first returns None when no results are found."""
 
         # Define a simple model for the test
@@ -121,7 +122,7 @@ class TestQuery:
         # Assert that fetch_first returns None when no results are found
         assert result is None
 
-    def test_fetch_first_multiple_results(self, db_mock) -> None:
+    def test_fetch_first_multiple_results(self, db_mock: SqliterDB) -> None:
         """Test fetch_first returns the first result as a model instance."""
 
         # Define a simple model for the test
@@ -145,7 +146,7 @@ class TestQuery:
         assert result is not None
         assert result.name == "John Doe"
 
-    def test_fetch_last_single_result(self, db_mock) -> None:
+    def test_fetch_last_single_result(self, db_mock: SqliterDB) -> None:
         """Test that fetch_last returns a single result as a model instance."""
 
         # Define a simple model for the test
@@ -168,7 +169,7 @@ class TestQuery:
         assert result is not None
         assert result.name == "John Doe"
 
-    def test_fetch_last_no_results(self, db_mock) -> None:
+    def test_fetch_last_no_results(self, db_mock: SqliterDB) -> None:
         """Test that fetch_last returns None when no results are found."""
 
         # Define a simple model for the test
@@ -187,7 +188,7 @@ class TestQuery:
         # Assert that fetch_last returns None when no results are found
         assert result is None
 
-    def fetch_last_multiple_results(self, db_mock) -> None:
+    def test_fetch_last_multiple_results(self, db_mock: SqliterDB) -> None:
         """Test that fetch_last returns the last result as a model instance."""
 
         # Define a simple model for the test
@@ -211,7 +212,7 @@ class TestQuery:
         assert result is not None
         assert result.name == "Jane Doe"
 
-    def test_filter_single_condition(self, db_mock) -> None:
+    def test_filter_single_condition(self, db_mock: SqliterDB) -> None:
         """Test filtering with a single condition."""
 
         # Define a model for the test
@@ -238,7 +239,7 @@ class TestQuery:
         assert results[0].name == "John Doe"
         assert results[0].age == 30
 
-    def test_filter_multiple_conditions(self, db_mock) -> None:
+    def test_filter_multiple_conditions(self, db_mock: SqliterDB) -> None:
         """Test filtering with multiple conditions."""
 
         # Define a model for the test
@@ -267,7 +268,7 @@ class TestQuery:
         assert results[0].name == "John Doe"
         assert results[0].age == 30
 
-    def test_filter_no_matching_results(self, db_mock) -> None:
+    def test_filter_no_matching_results(self, db_mock: SqliterDB) -> None:
         """Test filtering that returns no matching results."""
 
         # Define a model for the test
@@ -293,7 +294,7 @@ class TestQuery:
         # Assert that no results are returned
         assert len(results) == 0
 
-    def test_filter_numeric_condition(self, db_mock) -> None:
+    def test_filter_numeric_condition(self, db_mock: SqliterDB) -> None:
         """Test filtering using a numeric condition."""
 
         # Define a model for the test
@@ -318,7 +319,7 @@ class TestQuery:
         assert results[0].name == "John Smith"
         assert results[0].age == 40
 
-    def test_filter_multiple_results(self, db_mock) -> None:
+    def test_filter_multiple_results(self, db_mock: SqliterDB) -> None:
         """Test filtering that returns multiple matching results."""
 
         # Define a model for the test
@@ -344,7 +345,7 @@ class TestQuery:
         assert len(results) == 1  # Only one 'John Doe'
         assert results[0].name == "John Doe"
 
-    def test_filter_with_none_condition(self, db_mock) -> None:
+    def test_filter_with_none_condition(self, db_mock: SqliterDB) -> None:
         """Test filtering with None as a condition."""
 
         # Define a model for the test
@@ -368,7 +369,7 @@ class TestQuery:
         assert results[0].name == "Jane Doe"
         assert results[0].age is None
 
-    def test_limit(self, db_mock) -> None:
+    def test_limit(self, db_mock: SqliterDB) -> None:
         """Test that the limit method works as expected."""
 
         # Define a simple model for the test
@@ -392,7 +393,7 @@ class TestQuery:
         assert results[0].name == "John Doe"
         assert results[1].name == "Jane Doe"
 
-    def test_offset(self, db_mock) -> None:
+    def test_offset(self, db_mock: SqliterDB) -> None:
         """Test that the offset method works as expected."""
 
         # Define a simple model for the test
@@ -416,7 +417,7 @@ class TestQuery:
         assert results[0].name == "Jane Doe"
         assert results[1].name == "Jim Doe"
 
-    def test_limit_offset_order_combined(self, db_mock) -> None:
+    def test_limit_offset_order_combined(self, db_mock: SqliterDB) -> None:
         """Test that limit, offset, and order can work together."""
 
         # Define a simple model for the test
@@ -447,7 +448,7 @@ class TestQuery:
         assert results[0].name == "Jane Doe"
         assert results[1].name == "Jim Doe"
 
-    def test_limit_edge_cases(self, db_mock) -> None:
+    def test_limit_edge_cases(self, db_mock: SqliterDB) -> None:
         """Test limit with edge cases like zero and negative values."""
 
         # Define a simple model for the test
@@ -470,7 +471,7 @@ class TestQuery:
         results = db_mock.select(EdgeCaseTestModel).limit(-1).fetch_all()
         assert len(results) == 2
 
-    def test_offset_exceeding_row_count(self, db_mock) -> None:
+    def test_offset_exceeding_row_count(self, db_mock: SqliterDB) -> None:
         """Test that an offset > the number of rows returns an empty result."""
         # Insert multiple records
         for i in range(3):
@@ -488,7 +489,7 @@ class TestQuery:
         # Assert that the result is an empty list
         assert result == []
 
-    def test_offset_edge_cases(self, db_mock) -> None:
+    def test_offset_edge_cases(self, db_mock: SqliterDB) -> None:
         """Test offset with edge cases like zero and negative values."""
 
         # Define a simple model for the test
@@ -517,7 +518,7 @@ class TestQuery:
         assert len(results) == 1
         assert results[0].name == "Jane Doe"
 
-    def test_query_non_existent_table(self, db_mock) -> None:
+    def test_query_non_existent_table(self, db_mock: SqliterDB) -> None:
         """Test querying a non-existent table raises RecordFetchError."""
 
         class NonExistentModel(ExampleModel):
@@ -527,7 +528,7 @@ class TestQuery:
         with pytest.raises(RecordFetchError):
             db_mock.select(NonExistentModel).fetch_all()
 
-    def test_query_invalid_filter(self, db_mock) -> None:
+    def test_query_invalid_filter(self, db_mock: SqliterDB) -> None:
         """Test applying an invalid filter raises RecordFetchError."""
         # Ensure the table is created
         db_mock.create_table(ExampleModel)
@@ -538,7 +539,7 @@ class TestQuery:
                 non_existent_field="value"
             ).fetch_all()
 
-    def test_query_valid_filter(self, db_mock) -> None:
+    def test_query_valid_filter(self, db_mock: SqliterDB) -> None:
         """Test that valid filter fields do not raise InvalidFilterError."""
         # Ensure the table is created
         db_mock.create_table(ExampleModel)
@@ -549,7 +550,7 @@ class TestQuery:
         except InvalidFilterError:
             pytest.fail("Valid field raised InvalidFilterError unexpectedly")
 
-    def test_query_mixed_valid_invalid_filter(self, db_mock) -> None:
+    def test_query_mixed_valid_invalid_filter(self, db_mock: SqliterDB) -> None:
         """Test a mix of valid and invalid fields raises InvalidFilterError."""
         # Ensure the table is created
         db_mock.create_table(ExampleModel)
@@ -560,7 +561,9 @@ class TestQuery:
                 name="Valid Name", non_existent_field="Invalid"
             ).fetch_all()
 
-    def test_filter_rejects_list_for_equality_operators(self, db_mock) -> None:
+    def test_filter_rejects_list_for_equality_operators(
+        self, db_mock: SqliterDB
+    ) -> None:
         """Test that equality operators reject list values."""
         db_mock.create_table(ExampleModel)
 
@@ -577,7 +580,7 @@ class TestQuery:
             ).fetch_all()
 
     def test_filter_rejects_list_for_comparison_operators(
-        self, db_mock
+        self, db_mock: SqliterDB
     ) -> None:
         """Test that comparison operators reject list values."""
         db_mock.create_table(ExampleModel)
@@ -602,7 +605,9 @@ class TestQuery:
                 name__gte=["a", "b"]
             ).fetch_all()
 
-    def test_filter_accepts_list_for_in_operators(self, db_mock) -> None:
+    def test_filter_accepts_list_for_in_operators(
+        self, db_mock: SqliterDB
+    ) -> None:
         """Test that __in and __not_in accept and require list values."""
         db_mock.create_table(ExampleModel)
 
@@ -645,7 +650,9 @@ class TestQuery:
                 name__not_in="Alice"
             ).fetch_all()
 
-    def test_qualify_base_filter_clause_for_model_field(self, db_mock) -> None:
+    def test_qualify_base_filter_clause_for_model_field(
+        self, db_mock: SqliterDB
+    ) -> None:
         """Test base model fields are qualified in JOIN filter clauses."""
         query = db_mock.select(ExampleModel)
 
@@ -653,7 +660,9 @@ class TestQuery:
 
         assert qualified == 't0."pk" IN (?, ?)'
 
-    def test_qualify_base_filter_clause_no_regex_match(self, db_mock) -> None:
+    def test_qualify_base_filter_clause_no_regex_match(
+        self, db_mock: SqliterDB
+    ) -> None:
         """Test clauses without a leading identifier are unchanged."""
         query = db_mock.select(ExampleModel)
         clause = '"pk" IN (?, ?)'
@@ -662,7 +671,9 @@ class TestQuery:
 
         assert qualified == clause
 
-    def test_qualify_base_filter_clause_non_model_field(self, db_mock) -> None:
+    def test_qualify_base_filter_clause_non_model_field(
+        self, db_mock: SqliterDB
+    ) -> None:
         """Test unknown fields are not qualified in filter clauses."""
         query = db_mock.select(ExampleModel)
         clause = "unknown_field = ?"
@@ -671,7 +682,9 @@ class TestQuery:
 
         assert qualified == clause
 
-    def test_qualify_base_filter_clause_already_aliased(self, db_mock) -> None:
+    def test_qualify_base_filter_clause_already_aliased(
+        self, db_mock: SqliterDB
+    ) -> None:
         """Test already-aliased clauses are left unchanged."""
         query = db_mock.select(ExampleModel)
         clause = 't1."name" LIKE ?'
@@ -680,13 +693,15 @@ class TestQuery:
 
         assert qualified == clause
 
-    def test_qualify_base_field_name_wrapper(self, db_mock) -> None:
+    def test_qualify_base_field_name_wrapper(self, db_mock: SqliterDB) -> None:
         """Test wrapper method forwards to qualified base-field rendering."""
         query = db_mock.select(ExampleModel)
         assert query._qualify_base_field_name("pk") == 't0."pk"'
         assert query._qualify_base_field_name("unknown") == "unknown"
 
-    def test_fetch_result_with_list_of_tuples(self, mocker) -> None:
+    def test_fetch_result_with_list_of_tuples(
+        self, mocker: MockerFixture
+    ) -> None:
         """Test _fetch_result when _execute_query returns list of tuples."""
         # ensure we get a dependable timestamp
         mocker.patch("time.time", return_value=1234567890)
@@ -730,7 +745,7 @@ class TestQuery:
         with pytest.raises(ValueError, match=match_str):
             db.select(ExampleModel).exclude(["pk"])
 
-    def test_delete_all_records(self, db_mock) -> None:
+    def test_delete_all_records(self, db_mock: SqliterDB) -> None:
         """Test delete() removes all records when no filters are applied."""
 
         # Define a simple model for the test
@@ -753,7 +768,7 @@ class TestQuery:
         assert deleted_count == 3
         assert db_mock.select(DeleteTestModel).count() == 0
 
-    def test_delete_filtered_records(self, db_mock) -> None:
+    def test_delete_filtered_records(self, db_mock: SqliterDB) -> None:
         """Test that delete() removes only records matching the filter."""
 
         # Define a simple model for the test
@@ -785,7 +800,7 @@ class TestQuery:
         assert remaining[0].name == "John"
         assert remaining[1].name == "Jane"
 
-    def test_delete_no_matches(self, db_mock) -> None:
+    def test_delete_no_matches(self, db_mock: SqliterDB) -> None:
         """Test that delete() returns 0 when no records match the filter."""
 
         # Define a simple model for the test
@@ -808,7 +823,7 @@ class TestQuery:
         assert deleted_count == 0
         assert db_mock.select(DeleteTestModel).count() == 1
 
-    def test_delete_with_complex_filters(self, db_mock) -> None:
+    def test_delete_with_complex_filters(self, db_mock: SqliterDB) -> None:
         """Test deleting records with multiple filter conditions."""
 
         # Define a model for the test
@@ -852,7 +867,7 @@ class TestQuery:
         assert "Alice" not in remaining_names
         assert set(remaining_names) == {"John", "Jane"}
 
-    def test_delete_with_null_values(self, db_mock) -> None:
+    def test_delete_with_null_values(self, db_mock: SqliterDB) -> None:
         """Test deleting records with NULL value conditions."""
 
         # Define a model for the test
@@ -885,7 +900,7 @@ class TestQuery:
         assert all(record.optional_field is not None for record in remaining)
         assert {record.name for record in remaining} == {"John", "Bob"}
 
-    def test_delete_database_error(self, db_mock) -> None:
+    def test_delete_database_error(self, db_mock: SqliterDB) -> None:
         """Test that database errors during delete are handled properly."""
 
         # Define a model for the test
@@ -909,7 +924,7 @@ class TestQuery:
         # Verify the error message
         assert "error_delete_table" in str(exc.value)
 
-    def test_delete_ignores_limit_offset(self, db_mock) -> None:
+    def test_delete_ignores_limit_offset(self, db_mock: SqliterDB) -> None:
         """Test that delete operation ignores LIMIT and OFFSET clauses."""
 
         # Define a model for the test
@@ -933,7 +948,9 @@ class TestQuery:
         assert deleted_count == 5
         assert db_mock.select(LimitOffsetModel).count() == 0
 
-    def test_delete_with_auto_commit(self, db_mock, mocker) -> None:
+    def test_delete_with_auto_commit(
+        self, db_mock: SqliterDB, mocker: MockerFixture
+    ) -> None:
         """Test delete behavior with auto_commit enabled and disabled."""
 
         # Create a model for the test
@@ -975,7 +992,7 @@ class TestQuery:
         # Records should be gone
         assert db_mock.select(AutoCommitModel).count() == 0
 
-    def test_delete_ignores_order(self, db_mock) -> None:
+    def test_delete_ignores_order(self, db_mock: SqliterDB) -> None:
         """Test that delete operation ignores ORDER BY clause."""
 
         # Define a model for the test
@@ -1007,7 +1024,7 @@ class TestQuery:
         assert remaining[0].name == "B"
         assert remaining[0].value == 1
 
-    def test_delete_empty_table(self, db_mock) -> None:
+    def test_delete_empty_table(self, db_mock: SqliterDB) -> None:
         """Test deleting from an empty table."""
 
         # Define a model for the test
@@ -1027,7 +1044,9 @@ class TestQuery:
         assert deleted_count == 0
         assert db_mock.select(EmptyModel).count() == 0
 
-    def test_delete_with_debug_logging(self, db_mock, mocker) -> None:
+    def test_delete_with_debug_logging(
+        self, db_mock: SqliterDB, mocker: MockerFixture
+    ) -> None:
         """Test that delete operation logs SQL when debug is enabled."""
 
         # Define a model for the test

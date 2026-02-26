@@ -15,19 +15,20 @@ from sqliter.tui.demos.base import Demo, DemoCategory
 
 if TYPE_CHECKING:
     from collections.abc import Generator
+    from pathlib import Path
 
 
 memory_db = ":memory:"
 
 
 @pytest.hookimpl(tryfirst=True)
-def pytest_configure(config) -> None:
+def pytest_configure(config: pytest.Config) -> None:
     """Clear the screen before running tests."""
     os.system("cls" if os.name == "nt" else "clear")  # noqa: S605
 
 
 @contextmanager
-def not_raises(exception) -> Generator[None, Any, None]:
+def not_raises(exception: type[BaseException]) -> Generator[None, Any, None]:
     """Fake a pytest.raises context manager that does not raise an exception.
 
     Use: `with not_raises(Exception):`
@@ -198,7 +199,7 @@ def db_mock_complex_debug() -> SqliterDB:
 
 
 @pytest.fixture
-def temp_db_path(tmp_path) -> str:
+def temp_db_path(tmp_path: Path) -> str:
     """Fixture to create a temporary database file path."""
     return str(tmp_path / "test_db.sqlite")
 

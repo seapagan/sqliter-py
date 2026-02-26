@@ -7,6 +7,7 @@ import pytest
 
 from sqliter.helpers import from_unix_timestamp, to_unix_timestamp
 from sqliter.model.model import BaseDBModel
+from sqliter.sqliter import SqliterDB
 
 
 class TestDates:
@@ -101,7 +102,9 @@ class TestDates:
         with pytest.raises(TypeError):
             from_unix_timestamp(1697803200, str)
 
-    def test_date_fields_create_integer_columns(self, db_mock) -> None:
+    def test_date_fields_create_integer_columns(
+        self, db_mock: SqliterDB
+    ) -> None:
         """Test that date & datetime fields create INTEGER columns in SQLite."""
 
         class DateModel(BaseDBModel):
@@ -126,7 +129,7 @@ class TestDates:
         assert columns["date_field"] == "INTEGER"
         assert columns["datetime_field"] == "INTEGER"
 
-    def test_date_field_roundtrip(self, db_mock) -> None:
+    def test_date_field_roundtrip(self, db_mock: SqliterDB) -> None:
         """Test that dates survive a round trip to and from the database."""
         test_datetime = datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc)
         test_date = date(2024, 1, 1)
@@ -154,7 +157,7 @@ class TestDates:
         assert fetched.date_field == test_date
         assert fetched.datetime_field == test_datetime
 
-    def test_datetime_different_timezones(self, db_mock) -> None:
+    def test_datetime_different_timezones(self, db_mock: SqliterDB) -> None:
         """Test handling of datetimes in different timezones."""
 
         class TimezoneModel(BaseDBModel):
@@ -191,7 +194,7 @@ class TestDates:
         assert fetched_1.dt_field.timestamp() == test_dt_plus_2.timestamp()
         assert fetched_2.dt_field.timestamp() == test_dt_minus_5.timestamp()
 
-    def test_date_edge_cases(self, db_mock) -> None:
+    def test_date_edge_cases(self, db_mock: SqliterDB) -> None:
         """Test dates near Unix timestamp boundaries."""
 
         class EdgeDateModel(BaseDBModel):
@@ -227,7 +230,7 @@ class TestDates:
             assert fetched is not None
             assert fetched.dt_field.timestamp() == original_dt.timestamp()
 
-    def test_optional_date_fields(self, db_mock) -> None:
+    def test_optional_date_fields(self, db_mock: SqliterDB) -> None:
         """Test handling of Optional[date] and Optional[datetime] fields."""
 
         class OptionalDateModel(BaseDBModel):
@@ -262,12 +265,13 @@ class TestDates:
         fetched_value = db_mock.get(OptionalDateModel, inserted_value.pk)
         assert fetched_value is not None
         assert fetched_value.date_field == date(2024, 1, 1)
+        assert fetched_value.dt_field is not None
         assert (
             fetched_value.dt_field.timestamp()
             == datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc).timestamp()
         )
 
-    def test_update_date_fields(self, db_mock) -> None:
+    def test_update_date_fields(self, db_mock: SqliterDB) -> None:
         """Test updating date and datetime fields."""
 
         class UpdateDateModel(BaseDBModel):

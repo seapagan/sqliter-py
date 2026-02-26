@@ -11,7 +11,7 @@ from sqliter.tui.demos.base import Demo, DemoCategory
 class TestDemoRegistry:
     """Test the DemoRegistry class."""
 
-    def test_register_category(self, reset_demo_registry) -> None:
+    def test_register_category(self, reset_demo_registry: None) -> None:
         """Test registering a single category."""
         category = DemoCategory(
             id="test_category",
@@ -25,7 +25,9 @@ class TestDemoRegistry:
         assert len(categories) == 1
         assert categories[0] == category
 
-    def test_register_multiple_categories(self, reset_demo_registry) -> None:
+    def test_register_multiple_categories(
+        self, reset_demo_registry: None
+    ) -> None:
         """Test registering multiple categories."""
         cat1 = DemoCategory(id="cat1", title="Category 1")
         cat2 = DemoCategory(id="cat2", title="Category 2")
@@ -39,7 +41,7 @@ class TestDemoRegistry:
         assert len(categories) == 3
         assert categories == (cat1, cat2, cat3)
 
-    def test_get_demo_by_id(self, reset_demo_registry) -> None:
+    def test_get_demo_by_id(self, reset_demo_registry: None) -> None:
         """Test retrieving a demo by its ID."""
         demo = Demo(
             id="test_demo",
@@ -58,12 +60,12 @@ class TestDemoRegistry:
         assert retrieved.id == "test_demo"
         assert retrieved.title == "Test Demo"
 
-    def test_get_demo_not_found(self, reset_demo_registry) -> None:
+    def test_get_demo_not_found(self, reset_demo_registry: None) -> None:
         """Test retrieving a non-existent demo."""
         result = DemoRegistry.get_demo("nonexistent")
         assert result is None
 
-    def test_get_demo_code_with_setup(self, reset_demo_registry) -> None:
+    def test_get_demo_code_with_setup(self, reset_demo_registry: None) -> None:
         """Test getting demo code including setup."""
         demo = Demo(
             id="test_demo",
@@ -83,7 +85,9 @@ class TestDemoRegistry:
         assert "print('setup')" in code
         assert "print('main')" in code
 
-    def test_get_demo_code_without_setup(self, reset_demo_registry) -> None:
+    def test_get_demo_code_without_setup(
+        self, reset_demo_registry: None
+    ) -> None:
         """Test getting demo code without setup."""
         demo = Demo(
             id="test_demo",
@@ -100,12 +104,12 @@ class TestDemoRegistry:
         code = DemoRegistry.get_demo_code("test_demo")
         assert code == "print('main')"
 
-    def test_get_demo_code_not_found(self, reset_demo_registry) -> None:
+    def test_get_demo_code_not_found(self, reset_demo_registry: None) -> None:
         """Test getting code for non-existent demo."""
         code = DemoRegistry.get_demo_code("nonexistent")
         assert code == ""
 
-    def test_reset_registry(self, reset_demo_registry) -> None:
+    def test_reset_registry(self, reset_demo_registry: None) -> None:
         """Test resetting the registry."""
         category = DemoCategory(id="test", title="Test")
         DemoRegistry.register_category(category)
@@ -117,7 +121,7 @@ class TestDemoRegistry:
         assert len(DemoRegistry.get_categories()) == 0
         assert DemoRegistry.get_demo("test") is None
 
-    def test_demo_id_uniqueness(self, reset_demo_registry) -> None:
+    def test_demo_id_uniqueness(self, reset_demo_registry: None) -> None:
         """Test that duplicate demo IDs raise ValueError."""
         demo1 = Demo(
             id="duplicate",
@@ -145,7 +149,9 @@ class TestDemoRegistry:
         with pytest.raises(ValueError, match="Duplicate demo id: duplicate"):
             DemoRegistry.register_category(cat2)
 
-    def test_get_categories_returns_sequence(self, reset_demo_registry) -> None:
+    def test_get_categories_returns_sequence(
+        self, reset_demo_registry: None
+    ) -> None:
         """Test that get_categories returns a sequence."""
         category = DemoCategory(id="test", title="Test")
         DemoRegistry.register_category(category)
@@ -156,7 +162,9 @@ class TestDemoRegistry:
         # Should support len()
         assert len(categories) == 1
 
-    def test_category_with_multiple_demos(self, reset_demo_registry) -> None:
+    def test_category_with_multiple_demos(
+        self, reset_demo_registry: None
+    ) -> None:
         """Test a category with multiple demos."""
 
         def make_demo(idx: int) -> Demo:
@@ -184,7 +192,7 @@ class TestDemoRegistry:
             assert retrieved is not None
             assert retrieved.id == f"demo{i}"
 
-    def test_demo_code_formatting(self, reset_demo_registry) -> None:
+    def test_demo_code_formatting(self, reset_demo_registry: None) -> None:
         """Test that demo code is formatted correctly."""
         demo = Demo(
             id="test",

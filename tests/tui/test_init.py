@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
 import sqliter.tui
@@ -11,6 +13,9 @@ from sqliter.tui import (
     get_app,
     run,
 )
+
+if TYPE_CHECKING:
+    from pytest_mock import MockerFixture
 
 if _TEXTUAL_AVAILABLE:
     from sqliter.tui.app import SQLiterDemoApp
@@ -38,7 +43,9 @@ class TestGetApp:
         app = get_app()
         assert isinstance(app, SQLiterDemoApp)
 
-    def test_get_app_without_textual_raises_import_error(self, mocker) -> None:
+    def test_get_app_without_textual_raises_import_error(
+        self, mocker: MockerFixture
+    ) -> None:
         """Test get_app raises ImportError when textual is not available."""
         # Mock _TEXTUAL_AVAILABLE to False
         mocker.patch("sqliter.tui._TEXTUAL_AVAILABLE", False)
@@ -53,7 +60,7 @@ class TestRunFunction:
     """Test the run function."""
 
     @pytest.mark.skipif(not _TEXTUAL_AVAILABLE, reason="textual not installed")
-    def test_run_calls_app_run(self, mocker) -> None:
+    def test_run_calls_app_run(self, mocker: MockerFixture) -> None:
         """Test that run() calls app.run()."""
         mock_run = mocker.patch("sqliter.tui.app.SQLiterDemoApp.run")
         run()
