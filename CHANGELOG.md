@@ -5,7 +5,7 @@ project since the first release, with the latest changes at the top.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/seapagan/sqliter-py/tree/HEAD)
+## [0.20.0](https://github.com/seapagan/sqliter-py/releases/tag/0.20.0) (March 11, 2026)
 
 **Closed Issues**
 
@@ -27,7 +27,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - Fix runtime db_column mapping for foreign keys ([#139](https://github.com/seapagan/sqliter-py/pull/139)) by [seapagan](https://github.com/seapagan)
 
-[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.19.0...HEAD) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.19.0...HEAD.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.19.0...HEAD.patch)
+[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.19.0...0.20.0) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.19.0...0.20.0.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.19.0...0.20.0.patch)
 
 ## [0.19.0](https://github.com/seapagan/sqliter-py/releases/tag/0.19.0) (February 14, 2026)
 
