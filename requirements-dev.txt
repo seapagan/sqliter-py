@@ -63,7 +63,13 @@ jsmin==3.0.1
     # via mkdocs-minify-plugin
 librt==0.7.3 ; platform_python_implementation != 'PyPy'
     # via mypy
-markdown==3.8
+markdown==3.9 ; python_full_version < '3.10'
+    # via
+    #   mdx-truly-sane-lists
+    #   mkdocs
+    #   mkdocs-material
+    #   pymdown-extensions
+markdown==3.10.2 ; python_full_version >= '3.10'
     # via
     #   mdx-truly-sane-lists
     #   mkdocs
@@ -131,7 +137,7 @@ pygments==2.19.2
     #   mkdocs-material
     #   pytest
     #   rich
-pyjwt==2.10.1
+pyjwt==2.12.1
     # via pygithub
 pymdown-extensions==10.20
     # via mkdocs-material
@@ -216,6 +222,7 @@ typing-extensions==4.15.0
     #   pydantic
     #   pydantic-core
     #   pygithub
+    #   pyjwt
     #   pytest-asyncio
     #   typer
     #   typing-inspection
