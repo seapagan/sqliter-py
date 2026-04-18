@@ -54,6 +54,7 @@ module-root = ""
 
 [dependency-groups]
 dev = [
+  "aiosqlite>=0.20.0",
   "mock>=5.1.0",
   "mypy>=1.11.2",
   "pytest>=8.3.2,<9.0",
@@ -141,6 +142,21 @@ convention = "google"
   "ARG00",   # test fixtures often are not directly used
   "PLR2004", # magic numbers are often used in test files
   "SLF001",  # sometimes we need to test private methods
+]
+"sqliter/asyncio/__init__.py" = [
+  "A005", # intended public namespace: sqliter.asyncio
+]
+"sqliter/asyncio/db.py" = [
+  "S608",   # SQL is built from validated model metadata and query state
+  "TRY301", # keep not-found handling aligned with sync implementation shape
+]
+"sqliter/asyncio/query.py" = [
+  "S608",   # SQL is built from validated query-builder state
+  "SLF001", # async wrapper intentionally reuses sync query internals
+  "C901",   # execution path mirrors existing sync query complexity
+  "PLR0911",
+  "PLR0912",
+  "PLR0915",
 ]
 
 [tool.ruff.lint.isort]

@@ -27,6 +27,7 @@ repos:
         # we need to force python 3.10 or it chokes on pytest v9+
         args: ["--strict", "--python-version", "3.10"]
         additional_dependencies:
+          - aiosqlite
           - pydantic
           - sqladmin
           - types-redis
