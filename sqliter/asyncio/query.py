@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 import sqlite3
 from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar, cast
 
@@ -12,7 +11,7 @@ from sqliter.exceptions import (
     RecordFetchError,
     RecordUpdateError,
 )
-from sqliter.query.query import QueryBuilder
+from sqliter.query.query import QueryBuilder, get_prefetch_target_model
 
 if TYPE_CHECKING:  # pragma: no cover
     from sqliter.asyncio.db import AsyncSqliterDB
@@ -22,7 +21,7 @@ T = TypeVar("T", bound="BaseDBModel")
 
 
 class AsyncQueryBuilder(Generic[T]):
-    """Async wrapper around SQLiter's sync query-building logic."""
+    """Async wrapper around SQLiter's shared query-building logic."""
 
     def __init__(
         self,
@@ -120,15 +119,22 @@ class AsyncQueryBuilder(Generic[T]):
         self._query.select_related(*paths)
         return self
 
+    def prefetch_related(self, *paths: str) -> AsyncQueryBuilder[T]:
+        """Specify reverse FK or M2M relationships to prefetch."""
+        self._query.prefetch_related(*paths)
+        return self
+
     async def _execute_projection_query(self) -> list[tuple[Any, ...]]:
         """Execute a projection query and return raw rows."""
-        sql, values, projection_columns = self._query._build_projection_sql()
-        self._query._projection_columns = projection_columns
+        sql, values, projection_columns = (
+            self._query.build_projection_query_plan()
+        )
+        self._query.set_projection_columns(projection_columns)
 
         try:
             conn = await self.db.connect()
             cursor = await conn.cursor()
-            await self.db._execute_async(cursor, sql, values)
+            await self.db.execute_cursor(cursor, sql, values)
             rows = await cursor.fetchall()
         except sqlite3.Error as exc:
             raise RecordFetchError(self.table_name) from exc
@@ -137,28 +143,28 @@ class AsyncQueryBuilder(Generic[T]):
 
     async def _fetch_projection_result(self) -> list[dict[str, Any]]:
         """Fetch projection rows as dictionaries with query caching."""
-        if not self._query._projection_mode:
+        if not self._query.projection_mode:
             msg = "fetch_dicts() requires projection mode."
             raise InvalidProjectionError(msg)
 
         cache_key: Optional[str] = None
-        if not self._query._bypass_cache:
-            cache_key = self._query._make_cache_key(fetch_one=False)
-            hit, cached = self.db._cache_get(self.table_name, cache_key)
+        if not self._query.cache_bypassed:
+            cache_key = self._query.make_cache_key(fetch_one=False)
+            hit, cached = self.db.cache_get(self.table_name, cache_key)
             if hit:
                 return cast("list[dict[str, Any]]", cached)
 
         rows = await self._execute_projection_query()
         results = [
-            self._query._convert_projection_row_to_dict(row) for row in rows
+            self._query.convert_projection_row_to_dict(row) for row in rows
         ]
 
-        if not self._query._bypass_cache and cache_key is not None:
-            self.db._cache_set(
+        if not self._query.cache_bypassed and cache_key is not None:
+            self.db.cache_set(
                 self.table_name,
                 cache_key,
                 results,
-                ttl=self._query._query_cache_ttl,
+                ttl=self._query.query_cache_ttl,
             )
 
         return results
@@ -173,135 +179,21 @@ class AsyncQueryBuilder(Generic[T]):
         list[tuple[str, str, type[BaseDBModel]]],
     ]:
         """Execute the constructed SQL query."""
-        needs_join_for_filters = False
-        if self._query._join_info and (count_only or self._query._fields):
-            _values, where_clause = self._query._parse_filter()
-            if re.search(r"\bt\d+\.", where_clause):
-                needs_join_for_filters = True
-
-        if self._query._join_info and (
-            not (count_only or self._query._fields) or needs_join_for_filters
-        ):
-            join_clause, select_clause, column_names = (
-                self._query._build_join_sql()
-            )
-
-            if count_only and needs_join_for_filters:
-                sql = (
-                    f'SELECT COUNT(*) FROM "{self.table_name}" AS t0 '
-                    f"{join_clause}"
-                )
-            elif self._query._fields:
-                field_list = ", ".join(
-                    self._query._column_sql(field, table_alias="t0")
-                    for field in self._query._fields
-                )
-                sql = (
-                    f'SELECT {field_list} FROM "{self.table_name}" AS t0 '
-                    f"{join_clause}"
-                )
-                column_names = [
-                    ("t0", field, self.model_class)
-                    for field in self._query._fields
-                ]
-            else:
-                sql = (
-                    f'SELECT {select_clause} FROM "{self.table_name}" AS t0 '
-                    f"{join_clause}"
-                )
-
-            values, where_clause = self._query._parse_filter(
-                qualify_base_fields=True
-            )
-
-            if self._query.filters:
-                sql += f" WHERE {where_clause}"
-
-            if self._query._order_by:
-                match = re.match(r'"([^"]+)"\s+(.*)', self._query._order_by)
-                if match:
-                    field_name = match.group(1)
-                    direction = match.group(2)
-                    field_sql = self._query._column_sql(
-                        field_name,
-                        table_alias="t0",
-                    )
-                    sql += f" ORDER BY {field_sql} {direction}"
-                elif self._query._order_by.lower().startswith("rowid"):
-                    sql += f" ORDER BY t0.{self._query._order_by}"
-
-            if self._query._limit is not None:
-                sql += " LIMIT ?"
-                values.append(self._query._limit)
-
-            if self._query._offset is not None:
-                sql += " OFFSET ?"
-                values.append(self._query._offset)
-
-            try:
-                conn = await self.db.connect()
-                cursor = await conn.cursor()
-                await self.db._execute_async(cursor, sql, values)
-                results = (
-                    await cursor.fetchone()
-                    if fetch_one
-                    else await cursor.fetchall()
-                )
-            except sqlite3.Error as exc:
-                raise RecordFetchError(self.table_name) from exc
-            else:
-                return (cast("Any", results), column_names)
-
-        if count_only:
-            fields = "COUNT(*)"
-        elif self._query._fields:
-            if "pk" not in self._query._fields:
-                self._query._fields.append("pk")
-            fields = ", ".join(
-                self._query._column_sql(field) for field in self._query._fields
-            )
-        else:
-            fields = ", ".join(
-                self._query._column_sql(field)
-                for field in self.model_class.model_fields
-            )
-
-        sql = f'SELECT {fields} FROM "{self.table_name}"'
-        values, where_clause = self._query._parse_filter()
-
-        if self._query.filters:
-            sql += f" WHERE {where_clause}"
-
-        if self._query._order_by:
-            match = re.match(r'"([^"]+)"\s+(ASC|DESC)', self._query._order_by)
-            if match:
-                field_name = match.group(1)
-                direction = match.group(2)
-                field_sql = self._query._column_sql(field_name)
-                sql += f" ORDER BY {field_sql} {direction}"
-            else:
-                sql += f" ORDER BY {self._query._order_by}"
-
-        if self._query._limit is not None:
-            sql += " LIMIT ?"
-            values.append(self._query._limit)
-
-        if self._query._offset is not None:
-            sql += " OFFSET ?"
-            values.append(self._query._offset)
+        plan = self._query.build_execution_plan(count_only=count_only)
 
         try:
             conn = await self.db.connect()
             cursor = await conn.cursor()
-            await self.db._execute_async(cursor, sql, values)
-            if fetch_one:
-                results = await cursor.fetchone()
-            else:
-                results = await cursor.fetchall()
+            await self.db.execute_cursor(cursor, plan.sql, plan.values)
+            results = (
+                await cursor.fetchone()
+                if fetch_one
+                else await cursor.fetchall()
+            )
         except sqlite3.Error as exc:
             raise RecordFetchError(self.table_name) from exc
         else:
-            return (cast("Any", results), [])
+            return (cast("Any", results), plan.column_names)
 
     async def _fetch_result(
         self,
@@ -309,96 +201,253 @@ class AsyncQueryBuilder(Generic[T]):
         fetch_one: bool = False,
     ) -> list[T] | Optional[T]:
         """Fetch and convert query results to model instances."""
-        if not self._query._bypass_cache:
-            cache_key = self._query._make_cache_key(fetch_one=fetch_one)
-            hit, cached = self.db._cache_get(self.table_name, cache_key)
+        if not self._query.cache_bypassed:
+            cache_key = self._query.make_cache_key(fetch_one=fetch_one)
+            hit, cached = self.db.cache_get(self.table_name, cache_key)
             if hit:
                 return cast("list[T] | Optional[T]", cached)
 
         result, column_names = await self._execute_query(fetch_one=fetch_one)
 
         if not result:
-            if not self._query._bypass_cache:
-                cache_key = self._query._make_cache_key(fetch_one=fetch_one)
-                if fetch_one:
-                    self.db._cache_set(
-                        self.table_name,
-                        cache_key,
-                        None,
-                        ttl=self._query._query_cache_ttl,
-                    )
-                    return None
-                self.db._cache_set(
+            if not self._query.cache_bypassed:
+                cache_key = self._query.make_cache_key(fetch_one=fetch_one)
+                cached_empty: list[T] | Optional[T] = None if fetch_one else []
+                self.db.cache_set(
                     self.table_name,
                     cache_key,
-                    [],
-                    ttl=self._query._query_cache_ttl,
+                    cached_empty,
+                    ttl=self._query.query_cache_ttl,
                 )
-                return []
+                return cached_empty
             return None if fetch_one else []
 
-        if column_names:
-            if fetch_one:
-                single_row = cast("tuple[Any, ...]", result)
-                single_result = self._query._convert_joined_row_to_model(
-                    single_row,
-                    column_names,
-                )
-                if not self._query._bypass_cache:
-                    cache_key = self._query._make_cache_key(fetch_one=True)
-                    self.db._cache_set(
-                        self.table_name,
-                        cache_key,
-                        single_result,
-                        ttl=self._query._query_cache_ttl,
-                    )
-                return single_result
-
-            row_list = cast("list[tuple[Any, ...]]", result)
-            list_results = [
-                self._query._convert_joined_row_to_model(row, column_names)
-                for row in row_list
-            ]
-            if not self._query._bypass_cache:
-                cache_key = self._query._make_cache_key(fetch_one=False)
-                self.db._cache_set(
-                    self.table_name,
-                    cache_key,
-                    list_results,
-                    ttl=self._query._query_cache_ttl,
-                )
-            return list_results
-
-        if fetch_one:
-            std_single_row = cast("tuple[Any, ...]", result)
-            single_result = self._query._convert_row_to_model(std_single_row)
-            if not self._query._bypass_cache:
-                cache_key = self._query._make_cache_key(fetch_one=True)
-                self.db._cache_set(
-                    self.table_name,
-                    cache_key,
-                    single_result,
-                    ttl=self._query._query_cache_ttl,
-                )
-            return single_result
-
-        std_row_list = cast("list[tuple[Any, ...]]", result)
-        list_results = [
-            self._query._convert_row_to_model(row) for row in std_row_list
-        ]
-        if not self._query._bypass_cache:
-            cache_key = self._query._make_cache_key(fetch_one=False)
-            self.db._cache_set(
+        converted = self._query.convert_fetched_result(
+            result,
+            column_names,
+            fetch_one=fetch_one,
+            execute_prefetch=False,
+        )
+        await self._execute_prefetch(converted)
+        if not self._query.cache_bypassed:
+            cache_key = self._query.make_cache_key(fetch_one=fetch_one)
+            self.db.cache_set(
                 self.table_name,
                 cache_key,
-                list_results,
-                ttl=self._query._query_cache_ttl,
+                converted,
+                ttl=self._query.query_cache_ttl,
             )
-        return list_results
+        return converted
+
+    async def _prefetch_reverse_fk(
+        self,
+        path: str,
+        descriptor: Any,  # noqa: ANN401
+        instances: list[Any],
+        pks: list[Any],
+    ) -> None:
+        """Prefetch reverse FK relationships."""
+        fk_field = descriptor.fk_field
+        related_model = descriptor.from_model
+        pk_filter: list[Any] = list(pks)
+        related_objects = await (
+            self.db.select(related_model)
+            .filter(**{f"{fk_field}_id__in": pk_filter})
+            .fetch_all()
+        )
+
+        grouped: dict[int, list[Any]] = {pk: [] for pk in pks}
+        for obj in related_objects:
+            parent_pk = getattr(obj, f"{fk_field}_id", None)
+            if parent_pk and parent_pk in grouped:
+                grouped[parent_pk].append(obj)
+
+        for inst in instances:
+            cache = inst.__dict__.get("_prefetch_cache", {})
+            cache[path] = grouped.get(inst.pk or 0, [])
+            object.__setattr__(inst, "_prefetch_cache", cache)
+
+    async def _query_junction_table(
+        self,
+        junction_table: str,
+        columns: tuple[str, str, str, str],
+        pks: list[int],
+        *,
+        symmetrical: bool,
+    ) -> list[tuple[int, int]]:
+        """Query a M2M junction table for related pairs."""
+        conn = await self.db.connect()
+        cursor = await conn.cursor()
+        sql, values = self._query.build_m2m_junction_query(
+            junction_table,
+            columns,
+            pks,
+            symmetrical=symmetrical,
+        )
+        await self.db.execute_cursor(cursor, sql, values)
+        rows = await cursor.fetchall()
+        return cast("list[tuple[int, int]]", rows)
+
+    async def _prefetch_m2m_for_model(
+        self,
+        path: str,
+        descriptor: Any,  # noqa: ANN401
+        instances: list[Any],
+        pks: list[int],
+        owner_model: type[BaseDBModel],
+    ) -> None:
+        """Prefetch M2M relationships for a given owner model."""
+        resolved = self._query.resolve_m2m_columns(
+            descriptor,
+            owner_model.get_table_name(),
+        )
+        if resolved is None:
+            return
+
+        (
+            target_model,
+            junction_table,
+            col_a,
+            col_b,
+            from_col,
+            to_col,
+            symmetrical,
+        ) = resolved
+
+        rows = await self._query_junction_table(
+            junction_table,
+            (col_a, col_b, from_col, to_col),
+            pks,
+            symmetrical=symmetrical,
+        )
+        parent_to_target, all_target_pks = self._query.build_m2m_mapping(
+            rows,
+            pks,
+            symmetrical=symmetrical,
+        )
+
+        target_objects: dict[int, Any] = {}
+        if all_target_pks:
+            target_filter: list[Any] = list(all_target_pks)
+            results = await (
+                self.db.select(target_model)
+                .filter(pk__in=target_filter)
+                .fetch_all()
+            )
+            for obj in results:
+                if obj.pk is not None:
+                    target_objects[obj.pk] = obj
+
+        for inst in instances:
+            target_pks = parent_to_target.get(inst.pk or 0, [])
+            related = [
+                target_objects[tpk]
+                for tpk in target_pks
+                if tpk in target_objects
+            ]
+            cache = inst.__dict__.get("_prefetch_cache", {})
+            cache[path] = related
+            object.__setattr__(inst, "_prefetch_cache", cache)
+
+    async def _prefetch_segment(
+        self,
+        segment: str,
+        parent_instances: list[Any],
+        current_model: type[BaseDBModel],
+    ) -> None:
+        """Run the prefetch query for a single relationship segment."""
+        from sqliter.orm.m2m import (  # noqa: PLC0415
+            ManyToMany,
+            ReverseManyToMany,
+        )
+        from sqliter.orm.query import ReverseRelationship  # noqa: PLC0415
+
+        seen_pks: set[Any] = set()
+        parent_pks: list[Any] = []
+        for inst in parent_instances:
+            pk = getattr(inst, "pk", None)
+            if not pk or pk in seen_pks:
+                continue
+            seen_pks.add(pk)
+            parent_pks.append(pk)
+        if not parent_pks:
+            return
+
+        descriptor = getattr(current_model, segment)
+
+        if isinstance(descriptor, ReverseRelationship):
+            await self._prefetch_reverse_fk(
+                segment,
+                descriptor,
+                parent_instances,
+                parent_pks,
+            )
+        elif isinstance(descriptor, (ManyToMany, ReverseManyToMany)):
+            await self._prefetch_m2m_for_model(
+                segment,
+                descriptor,
+                parent_instances,
+                parent_pks,
+                owner_model=current_model,
+            )
+
+    async def _execute_prefetch(
+        self,
+        instances: list[T] | Optional[T],
+    ) -> None:
+        """Run prefetch queries and populate caches on instances."""
+        if instances is None or not self._query.prefetch_related_paths:
+            return
+
+        if not isinstance(instances, list):
+            instance_list: list[Any] = [instances]
+        else:
+            instance_list = instances
+
+        if not instance_list:
+            return
+        if not any(getattr(inst, "pk", None) for inst in instance_list):
+            return
+
+        levels: dict[int, set[tuple[str, str]]] = {}
+        for path in self._query.prefetch_related_paths:
+            segments = path.split("__")
+            for depth, segment in enumerate(segments):
+                parent_path = "__".join(segments[:depth]) if depth > 0 else ""
+                levels.setdefault(depth, set()).add((parent_path, segment))
+
+        instances_by_path: dict[str, list[Any]] = {"": list(instance_list)}
+        model_at_path: dict[str, type[BaseDBModel]] = {"": self.model_class}
+
+        max_depth = max(levels)
+        for depth in range(max_depth + 1):
+            for parent_path, segment in levels[depth]:
+                parent_instances = instances_by_path.get(parent_path, [])
+                if not parent_instances:
+                    continue
+
+                current_model = model_at_path[parent_path]
+                await self._prefetch_segment(
+                    segment,
+                    parent_instances,
+                    current_model,
+                )
+
+                full_path = (
+                    f"{parent_path}__{segment}" if parent_path else segment
+                )
+                instances_by_path[full_path] = (
+                    self._query.collect_prefetched_children(
+                        parent_instances,
+                        segment,
+                    )
+                )
+                descriptor = getattr(current_model, segment)
+                model_at_path[full_path] = get_prefetch_target_model(descriptor)
 
     async def fetch_all(self) -> list[T]:
         """Fetch all query results."""
-        self._query._ensure_projection_method_allowed(
+        self._query.ensure_projection_method_allowed(
             "fetch_all",
             hint="Use fetch_dicts() instead.",
         )
@@ -406,7 +455,7 @@ class AsyncQueryBuilder(Generic[T]):
 
     async def fetch_one(self) -> Optional[T]:
         """Fetch a single query result."""
-        self._query._ensure_projection_method_allowed(
+        self._query.ensure_projection_method_allowed(
             "fetch_one",
             hint="Use fetch_dicts() instead.",
         )
@@ -414,21 +463,20 @@ class AsyncQueryBuilder(Generic[T]):
 
     async def fetch_first(self) -> Optional[T]:
         """Fetch the first query result."""
-        self._query._ensure_projection_method_allowed(
+        self._query.ensure_projection_method_allowed(
             "fetch_first",
             hint="Use fetch_dicts() instead.",
         )
-        self._query._limit = 1
+        self._query.prepare_fetch_first()
         return cast("Optional[T]", await self._fetch_result(fetch_one=True))
 
     async def fetch_last(self) -> Optional[T]:
         """Fetch the last query result."""
-        self._query._ensure_projection_method_allowed(
+        self._query.ensure_projection_method_allowed(
             "fetch_last",
             hint="Use fetch_dicts() instead.",
         )
-        self._query._limit = 1
-        self._query._order_by = "rowid DESC"
+        self._query.prepare_fetch_last()
         return cast("Optional[T]", await self._fetch_result(fetch_one=True))
 
     async def fetch_dicts(self) -> list[dict[str, Any]]:
@@ -437,7 +485,7 @@ class AsyncQueryBuilder(Generic[T]):
 
     async def count(self) -> int:
         """Count rows matching the current query."""
-        self._query._ensure_projection_method_allowed(
+        self._query.ensure_projection_method_allowed(
             "count",
             hint="Use len(fetch_dicts()) instead.",
         )
@@ -447,7 +495,7 @@ class AsyncQueryBuilder(Generic[T]):
 
     async def exists(self) -> bool:
         """Return whether the query matches any rows."""
-        self._query._ensure_projection_method_allowed(
+        self._query.ensure_projection_method_allowed(
             "exists",
             hint="Use len(fetch_dicts()) > 0 instead.",
         )
@@ -455,20 +503,16 @@ class AsyncQueryBuilder(Generic[T]):
 
     async def delete(self) -> int:
         """Delete rows matching the current query."""
-        self._query._ensure_projection_method_allowed("delete")
-        sql = f'DELETE FROM "{self.table_name}"'
-        values, where_clause = self._query._parse_filter()
-
-        if self._query.filters:
-            sql += f" WHERE {where_clause}"
+        self._query.ensure_projection_method_allowed("delete")
+        sql, values = self._query.build_delete_statement()
 
         try:
             conn = await self.db.connect()
             cursor = await conn.cursor()
-            await self.db._execute_async(cursor, sql, values)
+            await self.db.execute_cursor(cursor, sql, values)
             deleted_count = int(cursor.rowcount)
             await self.db.maybe_commit()
-            self.db._cache_invalidate_table(self.table_name)
+            self.db.invalidate_table_cache(self.table_name)
         except sqlite3.Error as exc:
             if not self.db.in_transaction and self.db.conn is not None:
                 await self.db.conn.rollback()
@@ -478,7 +522,7 @@ class AsyncQueryBuilder(Generic[T]):
 
     async def update(self, values: dict[str, Any]) -> int:
         """Update rows matching the current query."""
-        self._query._ensure_projection_method_allowed("update")
+        self._query.ensure_projection_method_allowed("update")
         if not values:
             return 0
 
@@ -493,35 +537,18 @@ class AsyncQueryBuilder(Generic[T]):
             invalid_names = ", ".join(sorted(invalid_fields))
             raise RecordUpdateError(invalid_names)
 
-        set_clauses: list[str] = []
-        set_values: list[Any] = []
-
-        if "updated_at" in valid_fields and "updated_at" not in values:
-            set_clauses.append('"updated_at" = ?')
-            set_values.append(self.db.now())
-
-        for field_name, value in values.items():
-            serialized = self.model_class.serialize_field(value)
-            db_column = self.db._model_field_to_db_column(
-                self.model_class,
-                field_name,
-            )
-            set_clauses.append(f'"{db_column}" = ?')
-            set_values.append(serialized)
-
-        sql = f'UPDATE "{self.table_name}" SET {", ".join(set_clauses)}'
-        where_values, where_clause = self._query._parse_filter()
-        if self._query.filters:
-            sql += f" WHERE {where_clause}"
-        all_values = set_values + where_values
+        sql, all_values = self._query.build_update_statement(
+            values,
+            current_timestamp=self.db.now(),
+        )
 
         try:
             conn = await self.db.connect()
             cursor = await conn.cursor()
-            await self.db._execute_async(cursor, sql, all_values)
+            await self.db.execute_cursor(cursor, sql, all_values)
             updated_count = int(cursor.rowcount)
             await self.db.maybe_commit()
-            self.db._cache_invalidate_table(self.table_name)
+            self.db.invalidate_table_cache(self.table_name)
         except sqlite3.Error as exc:
             if not self.db.in_transaction and self.db.conn is not None:
                 await self.db.conn.rollback()

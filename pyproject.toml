@@ -142,6 +142,7 @@ convention = "google"
   "ARG00",   # test fixtures often are not directly used
   "PLR2004", # magic numbers are often used in test files
   "SLF001",  # sometimes we need to test private methods
+  "S608",    # tests sometimes construct validated SQL snippets directly
 ]
 "sqliter/asyncio/__init__.py" = [
   "A005", # intended public namespace: sqliter.asyncio
@@ -150,13 +151,8 @@ convention = "google"
   "S608",   # SQL is built from validated model metadata and query state
   "TRY301", # keep not-found handling aligned with sync implementation shape
 ]
-"sqliter/asyncio/query.py" = [
-  "S608",   # SQL is built from validated query-builder state
-  "SLF001", # async wrapper intentionally reuses sync query internals
-  "C901",   # execution path mirrors existing sync query complexity
-  "PLR0911",
-  "PLR0912",
-  "PLR0915",
+"sqliter/query/query.py" = [
+  "S608", # SQL is built from validated model metadata and query-builder state
 ]
 
 [tool.ruff.lint.isort]

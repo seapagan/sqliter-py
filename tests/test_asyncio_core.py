@@ -10,6 +10,9 @@ from typing import TYPE_CHECKING
 import pytest
 
 from sqliter.asyncio import AsyncSqliterDB
+from sqliter.orm import BaseDBModel, ForeignKey, ManyToMany
+from sqliter.orm.m2m import _m2m_column_names
+from sqliter.orm.registry import ModelRegistry
 from tests.conftest import ExampleModel
 
 if TYPE_CHECKING:
@@ -165,3 +168,121 @@ async def test_async_bulk_insert_and_update_where() -> None:
     assert updated.content == "updated"
 
     await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_prefetch_related_reverse_fk() -> None:
+    """Async queries prefetch reverse-FK relationships."""
+    state = ModelRegistry.snapshot()
+    try:
+
+        class AsyncAuthor(BaseDBModel):
+            """Author model for async prefetch tests."""
+
+            name: str
+            email: str
+
+        class AsyncPublisher(BaseDBModel):
+            """Publisher model for async prefetch tests."""
+
+            name: str
+
+        class AsyncBook(BaseDBModel):
+            """Book model for async reverse-FK prefetch tests."""
+
+            title: str
+            year: int
+            author: ForeignKey[AsyncAuthor] = ForeignKey(
+                AsyncAuthor,
+                on_delete="CASCADE",
+                related_name="books",
+            )
+            publisher: ForeignKey[AsyncPublisher] = ForeignKey(
+                AsyncPublisher,
+                on_delete="SET NULL",
+                null=True,
+            )
+
+        db = AsyncSqliterDB(memory=True)
+        await db.create_table(AsyncAuthor)
+        await db.create_table(AsyncPublisher)
+        await db.create_table(AsyncBook)
+
+        author = await db.insert(AsyncAuthor(name="Jane", email="jane@test"))
+        await db.insert(AsyncBook(title="One", year=1813, author_id=author.pk))
+        await db.insert(AsyncBook(title="Two", year=1814, author_id=author.pk))
+
+        authors = await (
+            db.select(AsyncAuthor).prefetch_related("books").fetch_all()
+        )
+
+        prefetched_author = authors[0]
+        cache = prefetched_author.__dict__.get("_prefetch_cache", {})
+        assert "books" in cache
+        assert [book.title for book in cache["books"]] == ["One", "Two"]
+
+        await db.close()
+    finally:
+        ModelRegistry.restore(state)
+
+
+@pytest.mark.asyncio
+async def test_async_prefetch_related_m2m() -> None:
+    """Async queries prefetch M2M relationships."""
+    state = ModelRegistry.snapshot()
+    try:
+
+        class AsyncTag(BaseDBModel):
+            """Tag model for async M2M prefetch tests."""
+
+            name: str
+
+        class AsyncArticle(BaseDBModel):
+            """Article model for async M2M prefetch tests."""
+
+            title: str
+            tags: ManyToMany[AsyncTag] = ManyToMany(AsyncTag)
+
+        db = AsyncSqliterDB(memory=True)
+        await db.create_table(AsyncTag)
+        await db.create_table(AsyncArticle)
+
+        tag_python = await db.insert(AsyncTag(name="python"))
+        tag_async = await db.insert(AsyncTag(name="async"))
+        article = await db.insert(AsyncArticle(title="Guide"))
+        conn = await db.connect()
+        cursor = await conn.cursor()
+        junction_table = AsyncArticle.tags.junction_table or ""
+        col_a, col_b = _m2m_column_names(
+            AsyncArticle.get_table_name(),
+            AsyncTag.get_table_name(),
+        )
+        await db.execute_cursor(
+            cursor,
+            (
+                f'INSERT INTO "{junction_table}" '
+                f'("{col_a}", "{col_b}") VALUES (?, ?)'
+            ),
+            [article.pk, tag_python.pk],
+        )
+        await db.execute_cursor(
+            cursor,
+            (
+                f'INSERT INTO "{junction_table}" '
+                f'("{col_a}", "{col_b}") VALUES (?, ?)'
+            ),
+            [article.pk, tag_async.pk],
+        )
+        await db.commit()
+
+        articles = await (
+            db.select(AsyncArticle).prefetch_related("tags").fetch_all()
+        )
+
+        cache = articles[0].__dict__.get("_prefetch_cache", {})
+        assert "tags" in cache
+        assert {tag.name for tag in cache["tags"]} == {"python", "async"}
+
+        await db.close()
+    finally:
+        ModelRegistry.restore(state)

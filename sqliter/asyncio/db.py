@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 import time
+from contextlib import suppress
 from typing import TYPE_CHECKING, Any, Optional, TypeVar, cast
 
 import aiosqlite
@@ -13,6 +14,7 @@ from sqliter.asyncio.query import AsyncQueryBuilder
 from sqliter.exceptions import (
     DatabaseConnectionError,
     ForeignKeyConstraintError,
+    InvalidIndexError,
     RecordDeletionError,
     RecordFetchError,
     RecordInsertionError,
@@ -117,12 +119,12 @@ class AsyncSqliterDB:
     @property
     def _in_transaction(self) -> bool:
         """Return the transaction flag."""
-        return self._sync._in_transaction  # noqa: SLF001
+        return self._sync.in_transaction
 
     @_in_transaction.setter
     def _in_transaction(self, value: bool) -> None:
         """Set the transaction flag."""
-        self._sync._in_transaction = value  # noqa: SLF001
+        self._sync.set_in_transaction(value=value)
 
     def now(self) -> int:
         """Return the current unix timestamp."""
@@ -172,7 +174,15 @@ class AsyncSqliterDB:
         cache_key: str,
     ) -> tuple[bool, Any]:
         """Delegate cache lookup to the sync helper instance."""
-        return self._sync._cache_get(table_name, cache_key)  # noqa: SLF001
+        return self._sync.cache_get(table_name, cache_key)
+
+    def cache_get(
+        self,
+        table_name: str,
+        cache_key: str,
+    ) -> tuple[bool, Any]:
+        """Return a cached value for a table/query key pair."""
+        return self._cache_get(table_name, cache_key)
 
     def _cache_set(
         self,
@@ -182,11 +192,25 @@ class AsyncSqliterDB:
         ttl: Optional[int] = None,
     ) -> None:
         """Delegate cache writes to the sync helper instance."""
-        self._sync._cache_set(table_name, cache_key, result, ttl=ttl)  # noqa: SLF001
+        self._sync.cache_set(table_name, cache_key, result, ttl=ttl)
+
+    def cache_set(
+        self,
+        table_name: str,
+        cache_key: str,
+        result: Any,  # noqa: ANN401
+        ttl: Optional[int] = None,
+    ) -> None:
+        """Store a value in the query cache."""
+        self._cache_set(table_name, cache_key, result, ttl=ttl)
 
     def _cache_invalidate_table(self, table_name: str) -> None:
         """Delegate cache invalidation to the sync helper instance."""
-        self._sync._cache_invalidate_table(table_name)  # noqa: SLF001
+        self._sync.invalidate_table_cache(table_name)
+
+    def invalidate_table_cache(self, table_name: str) -> None:
+        """Invalidate all cache entries for a specific table."""
+        self._cache_invalidate_table(table_name)
 
     def _create_instance_from_data(
         self,
@@ -195,7 +219,7 @@ class AsyncSqliterDB:
         pk: Optional[int] = None,
     ) -> T:
         """Create a model instance using the sync helper logic."""
-        instance = self._sync._create_instance_from_data(  # noqa: SLF001
+        instance = self._sync.create_instance_from_data(
             model_class,
             data,
             pk=pk,
@@ -210,11 +234,11 @@ class AsyncSqliterDB:
         primary_key: str,
     ) -> tuple[list[str], list[str], list[str]]:
         """Delegate field definition generation to the sync helper instance."""
-        return self._sync._build_field_definitions(model_class, primary_key)  # noqa: SLF001
+        return self._sync.build_field_definitions(model_class, primary_key)
 
     def _build_model_select_list(self, model_class: type[BaseDBModel]) -> str:
         """Delegate SELECT list construction to the sync helper instance."""
-        return self._sync._build_model_select_list(model_class)  # noqa: SLF001
+        return self._sync.build_model_select_list(model_class)
 
     def _map_data_to_db_columns(
         self,
@@ -222,7 +246,7 @@ class AsyncSqliterDB:
         data: dict[str, Any],
     ) -> dict[str, Any]:
         """Delegate field-to-column mapping to the sync helper instance."""
-        return self._sync._map_data_to_db_columns(model_class, data)  # noqa: SLF001
+        return self._sync.map_data_to_db_columns(model_class, data)
 
     def _model_field_to_db_column(
         self,
@@ -230,7 +254,7 @@ class AsyncSqliterDB:
         field_name: str,
     ) -> str:
         """Delegate model-field column resolution to the sync helper."""
-        return self._sync._model_field_to_db_column(model_class, field_name)  # noqa: SLF001
+        return self._sync.model_field_to_db_column(model_class, field_name)
 
     def _set_insert_timestamps(
         self,
@@ -239,7 +263,7 @@ class AsyncSqliterDB:
         timestamp_override: bool,
     ) -> None:
         """Delegate insert timestamp handling to the sync helper instance."""
-        self._sync._set_insert_timestamps(  # noqa: SLF001
+        self._sync.set_insert_timestamps(
             model_instance,
             timestamp_override=timestamp_override,
         )
@@ -251,9 +275,18 @@ class AsyncSqliterDB:
         values: Sequence[Any] = (),
     ) -> aiosqlite.Cursor:
         """Execute SQL and preserve SQL debug logging."""
-        self._sync._log_sql(sql, values)  # noqa: SLF001
+        self._sync.log_sql(sql, values)
         await cursor.execute(sql, values)
         return cursor
+
+    async def execute_cursor(
+        self,
+        cursor: aiosqlite.Cursor,
+        sql: str,
+        values: Sequence[Any] = (),
+    ) -> aiosqlite.Cursor:
+        """Execute SQL on an existing async cursor."""
+        return await self._execute_async(cursor, sql, values)
 
     async def connect(self) -> aiosqlite.Connection:
         """Establish a connection to the SQLite database."""
@@ -320,8 +353,7 @@ class AsyncSqliterDB:
             await self.conn.close()
             self.conn = None
         self._sync.clear_cache()
-        self._sync._cache_hits = 0  # noqa: SLF001
-        self._sync._cache_misses = 0  # noqa: SLF001
+        self._sync.reset_cache_stats()
 
     async def commit(self) -> None:
         """Commit the current transaction."""
@@ -383,6 +415,99 @@ class AsyncSqliterDB:
                 f'ON "{table_name}" ("{column_name}")'
             )
             await self._execute_sql(index_sql)
+
+        if hasattr(model_class.Meta, "indexes"):
+            await self._create_indexes(
+                model_class,
+                model_class.Meta.indexes,
+                unique=False,
+            )
+
+        if hasattr(model_class.Meta, "unique_indexes"):
+            await self._create_indexes(
+                model_class,
+                model_class.Meta.unique_indexes,
+                unique=True,
+            )
+
+        await self._create_m2m_junction_tables(model_class)
+
+    async def _create_indexes(
+        self,
+        model_class: type[BaseDBModel],
+        indexes: list[str | tuple[str]],
+        *,
+        unique: bool = False,
+    ) -> None:
+        """Create regular or unique indexes for a model."""
+        valid_fields = set(model_class.model_fields.keys())
+
+        for index in indexes:
+            fields = list(index) if isinstance(index, tuple) else [index]
+            invalid_fields = [
+                field for field in fields if field not in valid_fields
+            ]
+            if invalid_fields:
+                raise InvalidIndexError(invalid_fields, model_class.__name__)
+
+            index_name = "_".join(fields)
+            index_postfix = "_unique" if unique else ""
+            index_type = " UNIQUE " if unique else " "
+            quoted_fields = ", ".join(f'"{field}"' for field in fields)
+            create_index_sql = (
+                f"CREATE{index_type}INDEX IF NOT EXISTS "
+                f"idx_{model_class.get_table_name()}"
+                f"_{index_name}{index_postfix} "
+                f'ON "{model_class.get_table_name()}" ({quoted_fields})'
+            )
+            await self._execute_sql(create_index_sql)
+
+    async def _create_m2m_junction_tables(
+        self,
+        model_class: type[BaseDBModel],
+    ) -> None:
+        """Create junction tables for M2M relationships on a model."""
+        try:
+            from sqliter.orm.m2m import _m2m_column_names  # noqa: PLC0415
+            from sqliter.orm.registry import ModelRegistry  # noqa: PLC0415
+        except ImportError:
+            return
+
+        table_name = model_class.get_table_name()
+        m2m_rels = ModelRegistry.get_m2m_relationships(table_name)
+
+        for rel in m2m_rels:
+            junction_table = rel["junction_table"]
+            to_model = rel["to_model"]
+            to_table = to_model.get_table_name()
+            sorted_tables = sorted([table_name, to_table])
+            col_a, col_b = _m2m_column_names(
+                sorted_tables[0],
+                sorted_tables[1],
+            )
+            create_sql = (
+                f'CREATE TABLE IF NOT EXISTS "{junction_table}" ('
+                f'"id" INTEGER PRIMARY KEY AUTOINCREMENT, '
+                f'"{col_a}" INTEGER NOT NULL, '
+                f'"{col_b}" INTEGER NOT NULL, '
+                f'FOREIGN KEY ("{col_a}") REFERENCES '
+                f'"{sorted_tables[0]}"("pk") '
+                f"ON DELETE CASCADE ON UPDATE CASCADE, "
+                f'FOREIGN KEY ("{col_b}") REFERENCES '
+                f'"{sorted_tables[1]}"("pk") '
+                f"ON DELETE CASCADE ON UPDATE CASCADE, "
+                f'UNIQUE ("{col_a}", "{col_b}")'
+                f")"
+            )
+            await self._execute_sql(create_sql)
+
+            for col in (col_a, col_b):
+                index_sql = (
+                    f'CREATE INDEX IF NOT EXISTS "idx_{junction_table}_{col}" '
+                    f'ON "{junction_table}" ("{col}")'
+                )
+                with suppress(SqlExecutionError):
+                    await self._execute_sql(index_sql)
 
     async def _execute_sql(self, sql: str) -> None:
         """Execute a raw SQL statement."""
@@ -674,5 +799,4 @@ class AsyncSqliterDB:
                 self.conn = None
                 self._in_transaction = False
         self._sync.clear_cache()
-        self._sync._cache_hits = 0  # noqa: SLF001
-        self._sync._cache_misses = 0  # noqa: SLF001
+        self._sync.reset_cache_stats()

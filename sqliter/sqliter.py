@@ -177,6 +177,11 @@ class SqliterDB:
         return self.conn is not None
 
     @property
+    def in_transaction(self) -> bool:
+        """Return whether the DB is in an explicit transaction."""
+        return self._in_transaction
+
+    @property
     def table_names(self) -> list[str]:
         """Returns a list of all table names in the database.
 
@@ -278,6 +283,10 @@ class SqliterDB:
 
             self.logger.debug("Executing SQL: %s", formatted_sql)
 
+    def log_sql(self, sql: str, values: Sequence[Any] = ()) -> None:
+        """Log a SQL statement if debug output is enabled."""
+        self._log_sql(sql, values)
+
     def _execute(
         self,
         cursor: sqlite3.Cursor,
@@ -300,6 +309,15 @@ class SqliterDB:
         self._log_sql(sql, values)
         cursor.execute(sql, values)
         return cursor
+
+    def execute_cursor(
+        self,
+        cursor: sqlite3.Cursor,
+        sql: str,
+        values: Sequence[Any] = (),
+    ) -> sqlite3.Cursor:
+        """Execute SQL on an existing cursor."""
+        return self._execute(cursor, sql, values)
 
     def connect(self) -> sqlite3.Connection:
         """Establish a connection to the SQLite database.
@@ -357,6 +375,14 @@ class SqliterDB:
         self._cache_hits += 1
         return True, result
 
+    def cache_get(
+        self,
+        table_name: str,
+        cache_key: str,
+    ) -> tuple[bool, Any]:
+        """Return a cached value for a table/query key pair."""
+        return self._cache_get(table_name, cache_key)
+
     def _cache_set(
         self,
         table_name: str,
@@ -402,6 +428,16 @@ class SqliterDB:
         if len(self._cache[table_name]) > self._cache_max_size:
             self._cache[table_name].popitem(last=False)
 
+    def cache_set(
+        self,
+        table_name: str,
+        cache_key: str,
+        result: Any,  # noqa: ANN401
+        ttl: Optional[int] = None,
+    ) -> None:
+        """Store a value in the query cache."""
+        self._cache_set(table_name, cache_key, result, ttl=ttl)
+
     def _cache_invalidate_table(self, table_name: str) -> None:
         """Clear all cached queries for a specific table.
 
@@ -411,6 +447,10 @@ class SqliterDB:
         if not self._cache_enabled:
             return
         self._cache.pop(table_name, None)
+
+    def invalidate_table_cache(self, table_name: str) -> None:
+        """Clear all cached queries for a specific table."""
+        self._cache_invalidate_table(table_name)
 
     def _get_table_memory_usage(  # noqa: C901
         self, table_name: str
@@ -522,6 +562,11 @@ class SqliterDB:
         """
         self._cache.clear()
 
+    def reset_cache_stats(self) -> None:
+        """Reset cache hit/miss counters."""
+        self._cache_hits = 0
+        self._cache_misses = 0
+
     def close(self) -> None:
         """Close the database connection.
 
@@ -580,6 +625,14 @@ class SqliterDB:
                 fields.append(self._build_regular_field(field_name, field_info))
 
         return fields, foreign_keys, fk_columns
+
+    def build_field_definitions(
+        self,
+        model_class: type[BaseDBModel],
+        primary_key: str,
+    ) -> tuple[list[str], list[str], list[str]]:
+        """Build SQL field definitions for table creation."""
+        return self._build_field_definitions(model_class, primary_key)
 
     def _build_fk_field(
         self, field_name: str, fk_info: ForeignKeyInfo
@@ -746,6 +799,12 @@ class SqliterDB:
                 sorted_tables[1],
             )
 
+    def create_m2m_junction_tables(
+        self, model_class: type[BaseDBModel]
+    ) -> None:
+        """Create junction tables for M2M relationships on a model."""
+        self._create_m2m_junction_tables(model_class)
+
     def _create_indexes(
         self,
         model_class: type[BaseDBModel],
@@ -796,6 +855,20 @@ class SqliterDB:
             )
             self._execute_sql(create_index_sql)
 
+    def create_indexes(
+        self,
+        model_class: type[BaseDBModel],
+        indexes: list[Union[str, tuple[str]]],
+        *,
+        unique: bool = False,
+    ) -> None:
+        """Create regular or unique indexes for a model."""
+        self._create_indexes(
+            model_class,
+            indexes,
+            unique=unique,
+        )
+
     def _execute_sql(self, sql: str) -> None:
         """Execute an SQL statement.
 
@@ -842,6 +915,14 @@ class SqliterDB:
         if not self._in_transaction and self.auto_commit and self.conn:
             self.conn.commit()
 
+    def set_in_transaction(self, *, value: bool) -> None:
+        """Set the explicit transaction flag."""
+        self._in_transaction = value
+
+    def maybe_commit(self) -> None:
+        """Public wrapper for conditional commit behavior."""
+        self._maybe_commit()
+
     def _set_insert_timestamps(
         self, model_instance: T, *, timestamp_override: bool
     ) -> None:
@@ -861,6 +942,15 @@ class SqliterDB:
                 model_instance.created_at = current_timestamp
             if model_instance.updated_at == 0:
                 model_instance.updated_at = current_timestamp
+
+    def set_insert_timestamps(
+        self, model_instance: T, *, timestamp_override: bool
+    ) -> None:
+        """Set created/updated timestamps for a new model instance."""
+        self._set_insert_timestamps(
+            model_instance,
+            timestamp_override=timestamp_override,
+        )
 
     def _create_instance_from_data(
         self,
@@ -900,12 +990,28 @@ class SqliterDB:
             instance.db_context = self
         return instance
 
+    def create_instance_from_data(
+        self,
+        model_class: type[T],
+        data: dict[str, Any],
+        pk: Optional[int] = None,
+    ) -> T:
+        """Create a model instance from raw database data."""
+        return self._create_instance_from_data(model_class, data, pk=pk)
+
     @staticmethod
     def _model_field_to_db_column(
         model_class: type[BaseDBModel], field_name: str
     ) -> str:
         """Resolve a model field name to its database column name."""
         return get_model_field_db_column(model_class, field_name)
+
+    @staticmethod
+    def model_field_to_db_column(
+        model_class: type[BaseDBModel], field_name: str
+    ) -> str:
+        """Resolve a model field name to its database column name."""
+        return SqliterDB._model_field_to_db_column(model_class, field_name)
 
     def _map_data_to_db_columns(
         self, model_class: type[BaseDBModel], data: dict[str, Any]
@@ -915,6 +1021,12 @@ class SqliterDB:
             self._model_field_to_db_column(model_class, field_name): value
             for field_name, value in data.items()
         }
+
+    def map_data_to_db_columns(
+        self, model_class: type[BaseDBModel], data: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Map model-field keyed data to database-column keyed data."""
+        return self._map_data_to_db_columns(model_class, data)
 
     def _build_model_select_list(self, model_class: type[BaseDBModel]) -> str:
         """Build a SELECT column list that maps DB columns to model fields."""
@@ -926,6 +1038,10 @@ class SqliterDB:
             else:
                 select_parts.append(f'"{db_column}" AS "{field_name}"')
         return ", ".join(select_parts)
+
+    def build_model_select_list(self, model_class: type[BaseDBModel]) -> str:
+        """Build a SELECT column list that maps DB columns to model fields."""
+        return self._build_model_select_list(model_class)
 
     def insert(
         self, model_instance: T, *, timestamp_override: bool = False
