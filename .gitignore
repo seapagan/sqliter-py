@@ -227,6 +227,7 @@ demo-db
 .claude
 CLAUDE.md
 AGENTS.md
+.codex
 
 # reference docs
 PLAN-cache.md
