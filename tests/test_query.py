@@ -80,6 +80,17 @@ class TestQuery:
         # Assert that fetch_one returns None when no results are found
         assert result is None
 
+    def test_build_update_statement_empty_values(
+        self, db_mock: SqliterDB
+    ) -> None:
+        """build_update_statement returns an empty statement for no values."""
+        query = db_mock.select(ExampleModel)
+
+        assert query.build_update_statement({}, current_timestamp=1) == (
+            "",
+            [],
+        )
+
     def test_fetch_first_single_result(self, db_mock: SqliterDB) -> None:
         """Test that fetch_first returns a single result as a model instance."""
 

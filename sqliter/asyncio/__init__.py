@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 _IMPORT_ERROR: ImportError | None = None
 
 try:
@@ -11,10 +9,6 @@ try:
     from sqliter.asyncio.query import AsyncQueryBuilder
 except ImportError as exc:
     _IMPORT_ERROR = exc
-
-    if TYPE_CHECKING:
-        from sqliter.asyncio.db import AsyncSqliterDB
-        from sqliter.asyncio.query import AsyncQueryBuilder
 
 __all__ = ["AsyncQueryBuilder", "AsyncSqliterDB"]
 

@@ -111,6 +111,43 @@ class TestIndexes:
         )
         mock_execute.assert_any_call(expected_sql)
 
+    def test_create_indexes_wrapper_delegates(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Public create_indexes delegates to the private helper."""
+        db = SqliterDB(":memory:")
+        delegate = mocker.patch.object(db, "_create_indexes")
+
+        class UserModel(BaseDBModel):
+            slug: str
+            email: str
+
+        db.create_indexes(UserModel, ["email"], unique=True)
+
+        delegate.assert_called_once_with(
+            UserModel,
+            ["email"],
+            unique=True,
+        )
+
+    def test_create_m2m_junction_tables_wrapper_delegates(
+        self, mocker: MockerFixture
+    ) -> None:
+        """Public M2M junction wrapper delegates to the private helper."""
+        db = SqliterDB(":memory:")
+        delegate = mocker.patch.object(db, "_create_m2m_junction_tables")
+
+        class TagModel(BaseDBModel):
+            name: str
+
+        class ArticleModel(BaseDBModel):
+            title: str
+            tags: ManyToMany[TagModel] = ManyToMany(TagModel)
+
+        db.create_m2m_junction_tables(ArticleModel)
+
+        delegate.assert_called_once_with(ArticleModel)
+
     def test_invalid_index_raises_error(self) -> None:
         """Test that an invalid index raises an InvalidIndexError."""
         db = SqliterDB(":memory:")
