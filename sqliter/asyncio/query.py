@@ -21,7 +21,7 @@ T = TypeVar("T", bound="BaseDBModel")
 
 
 class AsyncQueryBuilder(Generic[T]):
-    """Async wrapper around SQLiter's shared query-building logic."""
+    """Async query builder with the same chain-building API as QueryBuilder."""
 
     def __init__(
         self,

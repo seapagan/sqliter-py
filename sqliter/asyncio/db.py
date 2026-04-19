@@ -36,7 +36,7 @@ T = TypeVar("T", bound=BaseDBModel)
 
 
 class AsyncSqliterDB:
-    """Async wrapper around SQLiter's sync helper logic."""
+    """Async SQLite database interface backed by aiosqlite."""
 
     def __init__(  # noqa: PLR0913
         self,
