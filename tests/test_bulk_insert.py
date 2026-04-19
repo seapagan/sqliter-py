@@ -250,9 +250,9 @@ class TestBulkInsertErrorHandling:
                 ]
             )
 
-    def test_mixed_model_types_raises_value_error(self, db: SqliterDB) -> None:
-        """Passing mixed model types raises ValueError."""
-        with pytest.raises(ValueError, match="All instances must be"):
+    def test_mixed_model_types_raises_type_error(self, db: SqliterDB) -> None:
+        """Passing mixed model types raises TypeError."""
+        with pytest.raises(TypeError, match="All instances must be"):
             db.bulk_insert(
                 [
                     SimpleModel(name="a"),

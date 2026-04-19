@@ -462,7 +462,7 @@ async def test_async_bulk_insert_rejects_mixed_models() -> None:
         await db.create_table(ExampleModel)
         await db.create_table(OtherModel)
 
-        with pytest.raises(ValueError, match="All instances must be the same"):
+        with pytest.raises(TypeError, match="All instances must be the same"):
             await db.bulk_insert(
                 [
                     ExampleModel(slug="a", name="A", content="one"),
