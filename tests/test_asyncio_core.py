@@ -1402,6 +1402,37 @@ async def test_async_get_cache_stats_tracks_hits_and_resets() -> None:
 
 
 @pytest.mark.asyncio
+async def test_async_cache_management_wrappers() -> None:
+    """Async DB exposes public sync-backed cache clear/reset wrappers."""
+    db = AsyncSqliterDB(memory=True, cache_enabled=True)
+
+    db.cache_set("users", "pk:1", {"name": "Ada"})
+    assert db.get_cache_stats()["total"] == 0
+
+    hit, _ = db.cache_get("users", "pk:1")
+    assert hit is True
+    hit, _ = db.cache_get("users", "missing")
+    assert hit is False
+    stats = db.get_cache_stats()
+    assert stats["hits"] == 1
+    assert stats["misses"] == 1
+
+    db.clear_cache()
+    hit, _ = db.cache_get("users", "pk:1")
+    assert hit is False
+
+    db.reset_cache_stats()
+    assert db.get_cache_stats() == {
+        "hits": 0,
+        "misses": 0,
+        "total": 0,
+        "hit_rate": 0.0,
+    }
+
+    await db.close()
+
+
+@pytest.mark.asyncio
 async def test_async_helper_wrappers_delegate_consistently() -> None:
     """Async helper wrappers should expose shared sync helper behavior."""
     db = AsyncSqliterDB(memory=True)

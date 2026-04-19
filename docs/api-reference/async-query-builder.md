@@ -35,12 +35,14 @@ These methods mirror the sync query builder and return `self` for chaining:
 - `order(field, reverse=False)`
 - `limit(count)`
 - `offset(count)`
+- `bypass_cache()`
+- `cache_ttl(ttl)`
 - `group_by(*fields)`
 - `annotate(**aggregates)`
 - `having(**conditions)`
 - `select_related(*paths)`
 - `prefetch_related(*paths)`
-- `with_count(*paths)`
+- `with_count(path, alias="count", distinct=False)`
 
 `only()` accepts exactly one field, matching the sync query builder.
 

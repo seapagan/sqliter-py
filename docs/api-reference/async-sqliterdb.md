@@ -167,7 +167,9 @@ async def insert(self, model_instance: T) -> T:
 ```python
 async def bulk_insert(
     self,
-    model_instances: list[T],
+    instances: Sequence[T],
+    *,
+    timestamp_override: bool = False,
 ) -> list[T]:
 ```
 
@@ -177,7 +179,10 @@ async def bulk_insert(
 async def get(
     self,
     model_class: type[T],
-    pk: int,
+    primary_key_value: int,
+    *,
+    bypass_cache: bool = False,
+    cache_ttl: int | None = None,
 ) -> T | None:
 ```
 
@@ -192,9 +197,9 @@ async def update(self, model_instance: BaseDBModel) -> None:
 ```python
 async def update_where(
     self,
-    model_class: type[BaseDBModel],
-    updates: dict[str, object],
-    **conditions: FilterValue,
+    model_class: type[T],
+    where: dict[str, Any],
+    values: dict[str, Any],
 ) -> int:
 ```
 
@@ -204,7 +209,7 @@ async def update_where(
 async def delete(
     self,
     model_class: type[BaseDBModel],
-    pk: int,
+    primary_key_value: int | str,
 ) -> None:
 ```
 
@@ -215,6 +220,7 @@ def select(
     self,
     model_class: type[T],
     fields: list[str] | None = None,
+    exclude: list[str] | None = None,
 ) -> AsyncQueryBuilder[T]:
 ```
 
@@ -222,6 +228,22 @@ This is sync to construct the query object. The query's terminal methods are
 awaited.
 
 ## Cache Methods
+
+### `clear_cache()`
+
+```python
+def clear_cache(self) -> None:
+```
+
+Clears all cached query results.
+
+### `reset_cache_stats()`
+
+```python
+def reset_cache_stats(self) -> None:
+```
+
+Resets cache hit/miss counters without changing current cached entries.
 
 ### `get_cache_stats()`
 

@@ -216,6 +216,14 @@ class AsyncSqliterDB:
         """Return query cache performance statistics."""
         return self._sync.get_cache_stats()
 
+    def clear_cache(self) -> None:
+        """Clear all cached query results."""
+        self._sync.clear_cache()
+
+    def reset_cache_stats(self) -> None:
+        """Reset cache hit/miss performance statistics."""
+        self._sync.reset_cache_stats()
+
     def _create_instance_from_data(
         self,
         model_class: type[T],
