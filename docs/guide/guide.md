@@ -5,6 +5,10 @@ using Pydantic models. It provides a range of functionality including table
 creation, CRUD operations, querying, filtering, and more. This overview briefly
 introduces each feature.
 
+SQLiter also provides an optional async API via `sqliter.asyncio`. The sync and
+async surfaces are intentionally similar, but async ORM relationships use
+explicit async access patterns. See [Asyncio Support](asyncio.md).
+
 ## Basic Setup
 
 To get started, import the necessary modules and define a Pydantic model for

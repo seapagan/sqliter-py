@@ -46,3 +46,10 @@ delete_count = db.select(User).filter(age__gt=30).delete()
 
 See the [Guide](guide/guide.md) for more detailed information on how to use
 `SQLiter`.
+
+If you want to use SQLiter with `asyncio`, install the `async` extra and see
+the [async guide](guide/asyncio.md):
+
+```bash
+uv add 'sqliter-py[async]'
+```

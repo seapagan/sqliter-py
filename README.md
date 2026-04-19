@@ -13,7 +13,7 @@ is Pydantic itself.
 
 It does not aim to be a full-fledged ORM like SQLAlchemy, but rather a simple
 and easy-to-use library for basic database operations, especially for small
-projects. It is NOT asynchronous (at this time, though that is planned).
+projects. It supports both synchronous and asynchronous APIs.
 
 The ideal use case is more for Python CLI tools that need to store data in a
 database-like format without needing to learn SQL or use a full ORM.
@@ -51,6 +51,7 @@ Full documentation is available on the [Website](https://sqliter.grantramsay.dev
 - Foreign key relationships with referential integrity and CASCADE actions
 - ORM mode with lazy loading, reverse relationships, many-to-many support, and
   eager loading
+- Optional async support for database, query, and ORM usage
 - Chained Query building with filtering, ordering, and pagination
 - Projection and aggregation queries with grouping, aggregate helpers, and
   dictionary-based results
@@ -94,9 +95,10 @@ Currently by default, the only external dependency is Pydantic. However, there
 are some optional dependencies that can be installed to enable additional
 features:
 
+- `async`: Installs `aiosqlite` for `sqliter.asyncio` support
 - `demo`: Installs the Textual TUI framework for the interactive demo
 - `extras`: Installs Inflect for better pluralization of table names
-- `full`: Installs all optional dependencies (Textual and Inflect)
+- `full`: Installs all optional dependencies
 
 See [Installing Optional
 Dependencies](https://sqliter.grantramsay.dev/installation#optional-dependencies)
@@ -144,6 +146,10 @@ delete_count = db.select(User).filter(age__gt=30).delete()
 See the [Guide](https://sqliter.grantramsay.dev/guide/guide/) section of the
 documentation for more detailed information on how to use SQLiter, and advanced
 features.
+
+Async usage is available through `sqliter.asyncio` and `sqliter.asyncio.orm`.
+See the [async guide](https://sqliter.grantramsay.dev/guide/asyncio/) for the
+async API and async ORM relationship patterns.
 
 You can also run the interactive TUI demo to explore SQLiter features hands-on:
 

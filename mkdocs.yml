@@ -84,6 +84,7 @@ nav:
           - Overview: guide/foreign-keys.md
           - Explicit Foreign Keys: guide/foreign-keys/explicit.md
           - ORM Foreign Keys: guide/foreign-keys/orm.md
+      - Asyncio Support: guide/asyncio.md
       - Many-to-Many: guide/many-to-many.md
       - Caching: guide/caching.md
       - Exceptions: guide/exceptions.md
@@ -91,11 +92,14 @@ nav:
   - API Reference:
       - Overview: api-reference/index.md
       - SqliterDB: api-reference/sqliterdb.md
+      - AsyncSqliterDB: api-reference/async-sqliterdb.md
       - BaseDBModel: api-reference/base-model.md
       - QueryBuilder: api-reference/query-builder.md
+      - AsyncQueryBuilder: api-reference/async-query-builder.md
       - Foreign Keys: api-reference/foreign-keys.md
       - ORM Mode: api-reference/orm.md
       - Many-to-Many: api-reference/many-to-many.md
+      - Async ORM: api-reference/async-orm.md
       - Exceptions: api-reference/exceptions.md
       - Helpers & Constants: api-reference/helpers.md
   - Interactive Demo:

@@ -14,7 +14,7 @@ is Pydantic itself.
 
 It does not aim to be a full-fledged ORM like SQLAlchemy, but rather a simple
 and easy-to-use library for basic database operations, especially for small
-projects. It is NOT asynchronous (at this time, though that is planned).
+projects. It supports both synchronous and asynchronous APIs.
 
 The ideal use case is more for Python CLI tools that need to store data in a
 database-like format without needing to learn SQL or use a full ORM.
@@ -43,6 +43,7 @@ database-like format without needing to learn SQL or use a full ORM.
 - Foreign key relationships with referential integrity and CASCADE actions
 - ORM mode with lazy loading, reverse relationships, many-to-many support, and
   eager loading
+- Optional async database, query, and ORM support
 - Chained Query building with filtering, ordering, and pagination
 - Projection and aggregation queries with grouping, aggregate helpers, and
   dictionary-based results
