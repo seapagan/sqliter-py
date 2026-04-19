@@ -122,6 +122,42 @@ def _build_m2m_sql_metadata(
     )
 
 
+def build_junction_table_sql(
+    junction_table: str,
+    table_a: str,
+    table_b: str,
+) -> tuple[str, tuple[str, str]]:
+    """Build the CREATE TABLE SQL for a M2M junction table."""
+    col_a, col_b = _m2m_column_names(table_a, table_b)
+    create_sql = (
+        f'CREATE TABLE IF NOT EXISTS "{junction_table}" ('
+        f'"id" INTEGER PRIMARY KEY AUTOINCREMENT, '
+        f'"{col_a}" INTEGER NOT NULL, '
+        f'"{col_b}" INTEGER NOT NULL, '
+        f'FOREIGN KEY ("{col_a}") REFERENCES "{table_a}"("pk") '
+        f"ON DELETE CASCADE ON UPDATE CASCADE, "
+        f'FOREIGN KEY ("{col_b}") REFERENCES "{table_b}"("pk") '
+        f"ON DELETE CASCADE ON UPDATE CASCADE, "
+        f'UNIQUE ("{col_a}", "{col_b}")'
+        f")"
+    )
+    return create_sql, (col_a, col_b)
+
+
+def build_junction_index_sqls(
+    junction_table: str,
+    columns: tuple[str, str],
+) -> list[str]:
+    """Build CREATE INDEX SQL statements for a M2M junction table."""
+    return [
+        (
+            f'CREATE INDEX IF NOT EXISTS "idx_{junction_table}_{column}" '
+            f'ON "{junction_table}" ("{column}")'
+        )
+        for column in columns
+    ]
+
+
 class ManyToManyManager(Generic[T]):
     """Manager for M2M relationships on a model instance.
 
@@ -987,19 +1023,10 @@ def create_junction_table(
         table_a: First table name (alphabetically first).
         table_b: Second table name (alphabetically second).
     """
-    col_a, col_b = _m2m_column_names(table_a, table_b)
-
-    create_sql = (
-        f'CREATE TABLE IF NOT EXISTS "{junction_table}" ('
-        f'"id" INTEGER PRIMARY KEY AUTOINCREMENT, '
-        f'"{col_a}" INTEGER NOT NULL, '
-        f'"{col_b}" INTEGER NOT NULL, '
-        f'FOREIGN KEY ("{col_a}") REFERENCES "{table_a}"("pk") '
-        f"ON DELETE CASCADE ON UPDATE CASCADE, "
-        f'FOREIGN KEY ("{col_b}") REFERENCES "{table_b}"("pk") '
-        f"ON DELETE CASCADE ON UPDATE CASCADE, "
-        f'UNIQUE ("{col_a}", "{col_b}")'
-        f")"
+    create_sql, columns = build_junction_table_sql(
+        junction_table,
+        table_a,
+        table_b,
     )
 
     try:
@@ -1011,16 +1038,11 @@ def create_junction_table(
         raise TableCreationError(junction_table) from exc
 
     # Create indexes on both FK columns
-    for col in (col_a, col_b):
-        index_sql = (
-            f"CREATE INDEX IF NOT EXISTS "
-            f'"idx_{junction_table}_{col}" '
-            f'ON "{junction_table}" ("{col}")'
-        )
-        try:
+    try:
+        for index_sql in build_junction_index_sqls(junction_table, columns):
             conn = db.connect()
             cursor = conn.cursor()
             db._execute(cursor, index_sql)  # noqa: SLF001
             conn.commit()
-        except sqlite3.Error:
-            pass  # Non-critical: index creation failure
+    except sqlite3.Error:
+        pass  # Non-critical: index creation failure

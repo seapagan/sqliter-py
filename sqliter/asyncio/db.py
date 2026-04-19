@@ -14,7 +14,6 @@ from sqliter.asyncio.query import AsyncQueryBuilder
 from sqliter.exceptions import (
     DatabaseConnectionError,
     ForeignKeyConstraintError,
-    InvalidIndexError,
     RecordDeletionError,
     RecordFetchError,
     RecordInsertionError,
@@ -429,24 +428,15 @@ class AsyncSqliterDB:
     ) -> None:
         """Create a table from a SQLiter model class."""
         table_name = model_class.get_table_name()
-        primary_key = model_class.get_primary_key()
-
         if force:
             await self._execute_sql(f"DROP TABLE IF EXISTS {table_name}")
 
-        fields, foreign_keys, fk_columns = self._build_field_definitions(
-            model_class,
-            primary_key,
+        table_name, create_table_sql, fk_columns = (
+            self._sync._build_create_table_sql(  # noqa: SLF001
+                model_class,
+                exists_ok=exists_ok,
+            )
         )
-        all_definitions = fields + foreign_keys
-        create_str = (
-            "CREATE TABLE IF NOT EXISTS" if exists_ok else "CREATE TABLE"
-        )
-        create_table_sql = f"""
-        {create_str} "{table_name}" (
-            {", ".join(all_definitions)}
-        )
-        """
 
         try:
             conn = await self.connect()
@@ -457,11 +447,12 @@ class AsyncSqliterDB:
             raise TableCreationError(table_name) from exc
 
         for column_name in fk_columns:
-            index_sql = (
-                f'CREATE INDEX IF NOT EXISTS "idx_{table_name}_{column_name}" '
-                f'ON "{table_name}" ("{column_name}")'
+            await self._execute_sql(
+                self._sync._build_fk_index_sql(  # noqa: SLF001
+                    table_name,
+                    column_name,
+                )
             )
-            await self._execute_sql(index_sql)
 
         if hasattr(model_class.Meta, "indexes"):
             await self._create_indexes(
@@ -487,27 +478,14 @@ class AsyncSqliterDB:
         unique: bool = False,
     ) -> None:
         """Create regular or unique indexes for a model."""
-        valid_fields = set(model_class.model_fields.keys())
-
         for index in indexes:
-            fields = list(index) if isinstance(index, tuple) else [index]
-            invalid_fields = [
-                field for field in fields if field not in valid_fields
-            ]
-            if invalid_fields:
-                raise InvalidIndexError(invalid_fields, model_class.__name__)
-
-            index_name = "_".join(fields)
-            index_postfix = "_unique" if unique else ""
-            index_type = " UNIQUE " if unique else " "
-            quoted_fields = ", ".join(f'"{field}"' for field in fields)
-            create_index_sql = (
-                f"CREATE{index_type}INDEX IF NOT EXISTS "
-                f"idx_{model_class.get_table_name()}"
-                f"_{index_name}{index_postfix} "
-                f'ON "{model_class.get_table_name()}" ({quoted_fields})'
+            await self._execute_sql(
+                self._sync._build_index_sql(  # noqa: SLF001
+                    model_class,
+                    index,
+                    unique=unique,
+                )
             )
-            await self._execute_sql(create_index_sql)
 
     async def _create_m2m_junction_tables(
         self,
@@ -515,7 +493,6 @@ class AsyncSqliterDB:
     ) -> None:
         """Create junction tables for M2M relationships on a model."""
         try:
-            from sqliter.orm.m2m import _m2m_column_names  # noqa: PLC0415
             from sqliter.orm.registry import ModelRegistry  # noqa: PLC0415
         except ImportError:
             return
@@ -528,31 +505,14 @@ class AsyncSqliterDB:
             to_model = rel["to_model"]
             to_table = to_model.get_table_name()
             sorted_tables = sorted([table_name, to_table])
-            col_a, col_b = _m2m_column_names(
+            create_sql, index_sqls = self._sync._build_m2m_junction_sql(  # noqa: SLF001
+                junction_table,
                 sorted_tables[0],
                 sorted_tables[1],
             )
-            create_sql = (
-                f'CREATE TABLE IF NOT EXISTS "{junction_table}" ('
-                f'"id" INTEGER PRIMARY KEY AUTOINCREMENT, '
-                f'"{col_a}" INTEGER NOT NULL, '
-                f'"{col_b}" INTEGER NOT NULL, '
-                f'FOREIGN KEY ("{col_a}") REFERENCES '
-                f'"{sorted_tables[0]}"("pk") '
-                f"ON DELETE CASCADE ON UPDATE CASCADE, "
-                f'FOREIGN KEY ("{col_b}") REFERENCES '
-                f'"{sorted_tables[1]}"("pk") '
-                f"ON DELETE CASCADE ON UPDATE CASCADE, "
-                f'UNIQUE ("{col_a}", "{col_b}")'
-                f")"
-            )
             await self._execute_sql(create_sql)
 
-            for col in (col_a, col_b):
-                index_sql = (
-                    f'CREATE INDEX IF NOT EXISTS "idx_{junction_table}_{col}" '
-                    f'ON "{junction_table}" ("{col}")'
-                )
+            for index_sql in index_sqls:
                 with suppress(SqlExecutionError):
                     await self._execute_sql(index_sql)
 

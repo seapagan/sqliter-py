@@ -13,6 +13,7 @@ import sqlite3
 import sys
 import time
 from collections import OrderedDict
+from contextlib import suppress
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, cast
 
@@ -727,6 +728,84 @@ class SqliterDB:
             unique_constraint = "UNIQUE"
         return f'"{field_name}" {sqlite_type} {unique_constraint}'.strip()
 
+    @staticmethod
+    def _build_fk_index_sql(table_name: str, column_name: str) -> str:
+        """Build SQL for an index on a foreign-key column."""
+        return (
+            f'CREATE INDEX IF NOT EXISTS "idx_{table_name}_{column_name}" '
+            f'ON "{table_name}" ("{column_name}")'
+        )
+
+    def _build_create_table_sql(
+        self,
+        model_class: type[BaseDBModel],
+        *,
+        exists_ok: bool,
+    ) -> tuple[str, str, list[str]]:
+        """Build CREATE TABLE SQL and FK-index columns for a model."""
+        table_name = model_class.get_table_name()
+        primary_key = model_class.get_primary_key()
+        fields, foreign_keys, fk_columns = self._build_field_definitions(
+            model_class,
+            primary_key,
+        )
+        all_definitions = fields + foreign_keys
+        create_str = (
+            "CREATE TABLE IF NOT EXISTS" if exists_ok else "CREATE TABLE"
+        )
+        create_table_sql = f"""
+        {create_str} "{table_name}" (
+            {", ".join(all_definitions)}
+        )
+        """
+        return table_name, create_table_sql, fk_columns
+
+    def _build_index_sql(
+        self,
+        model_class: type[BaseDBModel],
+        index: str | tuple[str, ...],
+        *,
+        unique: bool,
+    ) -> str:
+        """Build CREATE INDEX SQL for one configured index entry."""
+        valid_fields = set(model_class.model_fields.keys())
+        fields = list(index) if isinstance(index, tuple) else [index]
+        invalid_fields = [
+            field for field in fields if field not in valid_fields
+        ]
+        if invalid_fields:
+            raise InvalidIndexError(invalid_fields, model_class.__name__)
+
+        index_name = "_".join(fields)
+        index_postfix = "_unique" if unique else ""
+        index_type = " UNIQUE " if unique else " "
+        quoted_fields = ", ".join(f'"{field}"' for field in fields)
+        return (
+            f"CREATE{index_type}INDEX IF NOT EXISTS "
+            f"idx_{model_class.get_table_name()}"
+            f"_{index_name}{index_postfix} "
+            f'ON "{model_class.get_table_name()}" ({quoted_fields})'
+        )
+
+    @staticmethod
+    def _build_m2m_junction_sql(
+        junction_table: str,
+        table_a: str,
+        table_b: str,
+    ) -> tuple[str, list[str]]:
+        """Build CREATE TABLE and CREATE INDEX SQL for a junction table."""
+        from sqliter.orm.m2m import (  # noqa: PLC0415
+            build_junction_index_sqls,
+            build_junction_table_sql,
+        )
+
+        create_sql, columns = build_junction_table_sql(
+            junction_table,
+            table_a,
+            table_b,
+        )
+        return create_sql, build_junction_index_sqls(junction_table, columns)
+
     def create_table(
         self,
         model_class: type[BaseDBModel],
@@ -748,28 +827,14 @@ class SqliterDB:
             ValueError: If the primary key field is not found in the model.
         """
         table_name = model_class.get_table_name()
-        primary_key = model_class.get_primary_key()
-
         if force:
             drop_table_sql = f"DROP TABLE IF EXISTS {table_name}"
             self._execute_sql(drop_table_sql)
 
-        fields, foreign_keys, fk_columns = self._build_field_definitions(
-            model_class, primary_key
+        table_name, create_table_sql, fk_columns = self._build_create_table_sql(
+            model_class,
+            exists_ok=exists_ok,
         )
-
-        # Combine field definitions and FK constraints
-        all_definitions = fields + foreign_keys
-
-        create_str = (
-            "CREATE TABLE IF NOT EXISTS" if exists_ok else "CREATE TABLE"
-        )
-
-        create_table_sql = f"""
-        {create_str} "{table_name}" (
-            {", ".join(all_definitions)}
-        )
-        """
 
         try:
             with self.connect() as conn:
@@ -781,11 +846,7 @@ class SqliterDB:
 
         # Create indexes for FK columns
         for column_name in fk_columns:
-            index_sql = (
-                f'CREATE INDEX IF NOT EXISTS "idx_{table_name}_{column_name}" '
-                f'ON "{table_name}" ("{column_name}")'
-            )
-            self._execute_sql(index_sql)
+            self._execute_sql(self._build_fk_index_sql(table_name, column_name))
 
         # Create regular indexes
         if hasattr(model_class.Meta, "indexes"):
@@ -814,9 +875,6 @@ class SqliterDB:
             model_class: The model class to check for M2M relationships.
         """
         try:
-            from sqliter.orm.m2m import (  # noqa: PLC0415
-                create_junction_table,
-            )
             from sqliter.orm.registry import (  # noqa: PLC0415
                 ModelRegistry,
             )
@@ -833,12 +891,15 @@ class SqliterDB:
 
             # Sort alphabetically for consistent column naming
             sorted_tables = sorted([table_name, to_table])
-            create_junction_table(
-                self,
+            create_sql, index_sqls = self._build_m2m_junction_sql(
                 junction_table,
                 sorted_tables[0],
                 sorted_tables[1],
             )
+            self._execute_sql(create_sql)
+            for index_sql in index_sqls:
+                with suppress(SqlExecutionError):
+                    self._execute_sql(index_sql)
 
     def create_m2m_junction_tables(
         self, model_class: type[BaseDBModel]
@@ -865,36 +926,14 @@ class SqliterDB:
             InvalidIndexError: If any fields specified for indexing do not exist
                 in the model.
         """
-        valid_fields = set(
-            model_class.model_fields.keys()
-        )  # Get valid fields from the model
-
         for index in indexes:
-            # Handle multiple fields in tuple form
-            fields = list(index) if isinstance(index, tuple) else [index]
-
-            # Check if all fields exist in the model
-            invalid_fields = [
-                field for field in fields if field not in valid_fields
-            ]
-            if invalid_fields:
-                raise InvalidIndexError(invalid_fields, model_class.__name__)
-
-            # Build the SQL string
-            index_name = "_".join(fields)
-            index_postfix = "_unique" if unique else ""
-            index_type = " UNIQUE " if unique else " "
-
-            # Quote field names for index creation
-            quoted_fields = ", ".join(f'"{field}"' for field in fields)
-
-            create_index_sql = (
-                f"CREATE{index_type}INDEX IF NOT EXISTS "
-                f"idx_{model_class.get_table_name()}"
-                f"_{index_name}{index_postfix} "
-                f'ON "{model_class.get_table_name()}" ({quoted_fields})'
+            self._execute_sql(
+                self._build_index_sql(
+                    model_class,
+                    index,
+                    unique=unique,
+                )
             )
-            self._execute_sql(create_index_sql)
 
     def create_indexes(
         self,
