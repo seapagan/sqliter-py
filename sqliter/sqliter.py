@@ -1370,20 +1370,11 @@ class SqliterDB:
             RecordInsertionError: If an error occurs during insertion.
             ForeignKeyConstraintError: If a foreign key constraint is violated.
         """
-        if not instances:
+        prepared = self._prepare_bulk_insert(instances)
+        if prepared is None:
             return []
 
-        model_class = type(instances[0])
-        for inst in instances[1:]:
-            if not isinstance(inst, model_class):
-                msg = (
-                    "All instances must be the same model type. "
-                    f"Expected {model_class.__name__}, "
-                    f"got {type(inst).__name__}."
-                )
-                raise TypeError(msg)
-
-        table_name = model_class.get_table_name()
+        _, table_name = prepared
 
         try:
             conn = self.connect()
@@ -1415,6 +1406,33 @@ class SqliterDB:
         else:
             self._cache_invalidate_table(table_name)
             return results
+
+    @staticmethod
+    def _prepare_bulk_insert(
+        instances: Sequence[T],
+    ) -> tuple[type[T], str] | None:
+        """Validate bulk-insert instances and return shared metadata."""
+        if not instances:
+            return None
+
+        model_class = type(instances[0])
+        for inst in instances[1:]:
+            if not isinstance(inst, model_class):
+                msg = (
+                    "All instances must be the same model type. "
+                    f"Expected {model_class.__name__}, "
+                    f"got {type(inst).__name__}."
+                )
+                raise TypeError(msg)
+
+        return model_class, model_class.get_table_name()
+
+    @staticmethod
+    def prepare_bulk_insert(
+        instances: Sequence[T],
+    ) -> tuple[type[T], str] | None:
+        """Validate bulk-insert instances and return shared metadata."""
+        return SqliterDB._prepare_bulk_insert(instances)
 
     def get(
         self,
