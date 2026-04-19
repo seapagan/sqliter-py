@@ -9,10 +9,10 @@ from __future__ import annotations
 import builtins
 import importlib
 import sys
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
-from sqliter.asyncio import AsyncSqliterDB
 from sqliter.tui.demos import async_demos
 from sqliter.tui.demos.async_demos import (
     _demo_code,
@@ -190,16 +190,12 @@ class TestDemoCode:
 
     def test_leading_blank_lines_removed(self) -> None:
         """Leading blank lines in extracted code are stripped."""
-        mock_func = MagicMock()
-        mock_func.__module__ = async_demos.__name__
-        mock_func.__qualname__ = "_fake_demo"
-
         source = "\n\n\n    def fake():\n        pass\n"
         with patch(
             "sqliter.tui.demos.async_demos.extract_demo_code",
             return_value=source,
         ):
-            result = _demo_code(mock_func)
+            result = _demo_code(_run_async_conn)
         assert not result.startswith("\n")
 
 
@@ -312,7 +308,6 @@ class TestImportErrorFallback:
     def test_async_available_false_when_import_fails(
         self,
         monkeypatch: pytest.MonkeyPatch,
-        mocker: MockerFixture,
     ) -> None:
         """Module sets _ASYNC_AVAILABLE=False when async imports fail."""
         real_import = builtins.__import__
@@ -329,26 +324,21 @@ class TestImportErrorFallback:
                 raise ImportError(msg)
             return real_import(name, globals_, locals_, fromlist, level)
 
-        mocker.patch.dict(
-            "sys.modules",
-            {
-                "sqliter.asyncio": None,
-                "sqliter.asyncio.orm": None,
-            },
-            clear=False,
-        )
+        monkeypatch.setitem(sys.modules, "sqliter.asyncio", None)
+        monkeypatch.setitem(sys.modules, "sqliter.asyncio.orm", None)
         monkeypatch.setattr(builtins, "__import__", fake_import)
-        saved = sys.modules.get("sqliter.tui.demos.async_demos")
-        sys.modules.pop("sqliter.tui.demos.async_demos", None)
+        monkeypatch.delitem(
+            sys.modules, "sqliter.tui.demos.async_demos", raising=False
+        )
+        # importlib.import_module also sets the attribute on the
+        # parent package, so save it for monkeypatch to restore.
+        parent = sys.modules["sqliter.tui.demos"]
+        monkeypatch.setattr(parent, "async_demos", parent.async_demos)
 
-        try:
-            module = importlib.import_module("sqliter.tui.demos.async_demos")
-            assert module._ASYNC_AVAILABLE is False
-            output = module._run_async_conn()
-            assert "requires aiosqlite" in output
-        finally:
-            if saved is not None:
-                sys.modules["sqliter.tui.demos.async_demos"] = saved
+        module = importlib.import_module("sqliter.tui.demos.async_demos")
+        assert module._ASYNC_AVAILABLE is False
+        output = module._run_async_conn()
+        assert "requires aiosqlite" in output
 
 
 class TestGuardClauses:
@@ -358,10 +348,17 @@ class TestGuardClauses:
         self, mocker: MockerFixture
     ) -> None:
         """FK lazy demo returns early when db.get returns None."""
-        mocker.patch.object(
-            AsyncSqliterDB,
-            "get",
-            AsyncMock(return_value=None),
+        mock_db = AsyncMock()
+        mock_db.insert = AsyncMock(
+            side_effect=[
+                SimpleNamespace(pk=1),
+                SimpleNamespace(pk=2),
+            ]
+        )
+        mock_db.get = AsyncMock(return_value=None)
+        mocker.patch(
+            "sqliter.tui.demos.async_demos.AsyncSqliterDB",
+            return_value=mock_db,
         )
         output = _run_async_fk_lazy()
         assert "Author:" not in output
@@ -371,10 +368,18 @@ class TestGuardClauses:
         self, mocker: MockerFixture
     ) -> None:
         """Reverse demo returns early when db.get returns None."""
-        mocker.patch.object(
-            AsyncSqliterDB,
-            "get",
-            AsyncMock(return_value=None),
+        mock_db = AsyncMock()
+        mock_db.insert = AsyncMock(
+            side_effect=[
+                SimpleNamespace(pk=1),
+                SimpleNamespace(pk=2),
+                SimpleNamespace(pk=3),
+            ]
+        )
+        mock_db.get = AsyncMock(return_value=None)
+        mocker.patch(
+            "sqliter.tui.demos.async_demos.AsyncSqliterDB",
+            return_value=mock_db,
         )
         output = _run_async_reverse()
         assert "Author:" not in output
