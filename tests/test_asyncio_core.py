@@ -484,6 +484,81 @@ async def test_async_bulk_insert_empty_returns_empty_list() -> None:
 
 
 @pytest.mark.asyncio
+async def test_async_bulk_insert_fk_violation_raises(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """bulk_insert wraps FK failures in ForeignKeyConstraintError."""
+    db = AsyncSqliterDB(memory=True)
+    fake_conn = _FakeConnection(
+        _FakeCursor(
+            execute_error=sqlite3.IntegrityError(
+                "FOREIGN KEY constraint failed"
+            )
+        )
+    )
+    db.conn = cast("Any", fake_conn)
+
+    async def return_conn() -> _FakeConnection:
+        return fake_conn
+
+    monkeypatch.setattr(db, "connect", return_conn)
+
+    with pytest.raises(ForeignKeyConstraintError):
+        await db.bulk_insert([ExampleModel(slug="a", name="A", content="one")])
+
+    assert fake_conn.rollback_calls == 1
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_bulk_insert_non_fk_integrity_error_raises(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """bulk_insert wraps non-FK IntegrityError as RecordInsertionError."""
+    db = AsyncSqliterDB(memory=True)
+    fake_conn = _FakeConnection(
+        _FakeCursor(
+            execute_error=sqlite3.IntegrityError("UNIQUE constraint failed")
+        )
+    )
+    db.conn = cast("Any", fake_conn)
+
+    async def return_conn() -> _FakeConnection:
+        return fake_conn
+
+    monkeypatch.setattr(db, "connect", return_conn)
+
+    with pytest.raises(RecordInsertionError):
+        await db.bulk_insert([ExampleModel(slug="a", name="A", content="one")])
+
+    assert fake_conn.rollback_calls == 1
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_bulk_insert_sqlite_error_rolls_back(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """bulk_insert wraps generic sqlite errors and rolls back."""
+    db = AsyncSqliterDB(memory=True)
+    fake_conn = _FakeConnection(
+        _FakeCursor(execute_error=sqlite3.Error("bulk failure"))
+    )
+    db.conn = cast("Any", fake_conn)
+
+    async def return_conn() -> _FakeConnection:
+        return fake_conn
+
+    monkeypatch.setattr(db, "connect", return_conn)
+
+    with pytest.raises(RecordInsertionError):
+        await db.bulk_insert([ExampleModel(slug="a", name="A", content="one")])
+
+    assert fake_conn.rollback_calls == 1
+    await db.close()
+
+
+@pytest.mark.asyncio
 async def test_async_get_validates_negative_cache_ttl() -> None:
     """Get rejects negative cache TTL."""
     db = AsyncSqliterDB(memory=True)

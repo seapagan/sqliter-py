@@ -592,6 +592,48 @@ class AsyncSqliterDB:
                 pk=cursor.lastrowid,
             )
 
+    async def _insert_single_record_async(
+        self,
+        model_instance: T,
+        table_name: str,
+        cursor: aiosqlite.Cursor,
+        *,
+        timestamp_override: bool,
+    ) -> T:
+        """Insert one record on a shared cursor without committing."""
+        model_class = type(model_instance)
+        self._set_insert_timestamps(
+            model_instance,
+            timestamp_override=timestamp_override,
+        )
+
+        data = model_instance.model_dump()
+        for field_name, value in list(data.items()):
+            data[field_name] = model_instance.serialize_field(value)
+
+        if data.get("pk", None) == 0:
+            data.pop("pk")
+
+        sql_data = self._map_data_to_db_columns(model_class, data)
+        fields = ", ".join(f'"{field}"' for field in sql_data)
+        placeholders = ", ".join(
+            "?" if value is not None else "NULL" for value in sql_data.values()
+        )
+        values = tuple(
+            value for value in sql_data.values() if value is not None
+        )
+        insert_sql = (
+            f"INSERT INTO {table_name} ({fields}) VALUES ({placeholders})"
+        )
+        await self._execute_async(cursor, insert_sql, values)
+
+        data.pop("pk", None)
+        return self._create_instance_from_data(
+            model_class,
+            data,
+            pk=cursor.lastrowid,
+        )
+
     async def bulk_insert(
         self,
         instances: Sequence[T],
@@ -612,13 +654,36 @@ class AsyncSqliterDB:
                 )
                 raise ValueError(msg)
 
-        return [
-            await self.insert(
-                instance,
-                timestamp_override=timestamp_override,
-            )
-            for instance in instances
-        ]
+        table_name = model_class.get_table_name()
+
+        try:
+            conn = await self.connect()
+            cursor = await conn.cursor()
+            results = [
+                await self._insert_single_record_async(
+                    inst,
+                    table_name,
+                    cursor,
+                    timestamp_override=timestamp_override,
+                )
+                for inst in instances
+            ]
+            await self._maybe_commit()
+        except sqlite3.IntegrityError as exc:
+            if not self._in_transaction and self.conn is not None:
+                await self.conn.rollback()
+            if "FOREIGN KEY constraint failed" in str(exc):
+                operation = "insert"
+                reason = "does not exist in referenced table"
+                raise ForeignKeyConstraintError(operation, reason) from exc
+            raise RecordInsertionError(table_name) from exc
+        except sqlite3.Error as exc:
+            if not self._in_transaction and self.conn is not None:
+                await self.conn.rollback()
+            raise RecordInsertionError(table_name) from exc
+        else:
+            self._cache_invalidate_table(table_name)
+            return results
 
     async def get(
         self,
