@@ -1876,24 +1876,13 @@ class QueryBuilder(Generic[T]):
             msg = "fetch_dicts() requires projection mode."
             raise InvalidProjectionError(msg)
 
-        cache_key: Optional[str] = None
-        if not self._bypass_cache:
-            cache_key = self._make_cache_key(fetch_one=False)
-            hit, cached = self.db.cache_get(self.table_name, cache_key)
-            if hit:
-                return cast("list[dict[str, Any]]", cached)
+        hit, cached = self.lookup_cache(fetch_one=False)
+        if hit:
+            return cast("list[dict[str, Any]]", cached)
 
         rows = self._execute_projection_query()
         results = [self._convert_projection_row_to_dict(row) for row in rows]
-
-        if not self._bypass_cache and cache_key is not None:
-            self.db.cache_set(
-                self.table_name,
-                cache_key,
-                results,
-                ttl=self._query_cache_ttl,
-            )
-
+        self.store_cache(results, fetch_one=False)
         return results
 
     def _build_join_sql(
@@ -2056,19 +2045,21 @@ class QueryBuilder(Generic[T]):
         """Return whether projection mode is active."""
         return self._projection_mode
 
-    @property
-    def cache_bypassed(self) -> bool:
-        """Return whether this query bypasses the cache."""
-        return self._bypass_cache
+    def lookup_cache(self, *, fetch_one: bool) -> tuple[bool, Any]:
+        """Check the cache; return (hit, value) or (False, None) if bypassed."""
+        if self._bypass_cache:
+            return False, None
+        cache_key = self._make_cache_key(fetch_one=fetch_one)
+        return self.db.cache_get(self.table_name, cache_key)
 
-    @property
-    def query_cache_ttl(self) -> Optional[int]:
-        """Return the per-query cache TTL override."""
-        return self._query_cache_ttl
-
-    def make_cache_key(self, *, fetch_one: bool) -> str:
-        """Generate a cache key from the current query state."""
-        return self._make_cache_key(fetch_one=fetch_one)
+    def store_cache(self, value: object, *, fetch_one: bool) -> None:
+        """Store value in the cache unless caching is bypassed."""
+        if self._bypass_cache:
+            return
+        cache_key = self._make_cache_key(fetch_one=fetch_one)
+        self.db.cache_set(
+            self.table_name, cache_key, value, ttl=self._query_cache_ttl
+        )
 
     def ensure_projection_method_allowed(
         self, method_name: str, *, hint: Optional[str] = None
@@ -2736,49 +2727,23 @@ class QueryBuilder(Generic[T]):
             A list of model instances, a single model instance, or None if no
             results are found.
         """
-        # Check cache first (unless bypass is enabled)
-        if not self._bypass_cache:
-            cache_key = self._make_cache_key(fetch_one=fetch_one)
-            hit, cached = self.db.cache_get(self.table_name, cache_key)
-            if hit:
-                # Cache stores correctly typed data, cast from Any
-                return cast("Union[list[T], Optional[T]]", cached)
+        hit, cached = self.lookup_cache(fetch_one=fetch_one)
+        if hit:
+            return cast("Union[list[T], Optional[T]]", cached)
 
         result, column_names = self._execute_query(fetch_one=fetch_one)
 
         if not result:
-            if not self._bypass_cache:
-                # Generate cache key for empty result
-                cache_key = self._make_cache_key(fetch_one=fetch_one)
-                if fetch_one:
-                    # Cache empty result
-                    self.db.cache_set(
-                        self.table_name,
-                        cache_key,
-                        None,
-                        ttl=self._query_cache_ttl,
-                    )
-                    return None
-                # Cache empty list
-                self.db.cache_set(
-                    self.table_name, cache_key, [], ttl=self._query_cache_ttl
-                )
-                return []
-            return None if fetch_one else []
+            empty: Union[list[T], Optional[T]] = None if fetch_one else []
+            self.store_cache(empty, fetch_one=fetch_one)
+            return empty
 
         converted = self.convert_fetched_result(
             result,
             column_names,
             fetch_one=fetch_one,
         )
-        if not self._bypass_cache:
-            cache_key = self._make_cache_key(fetch_one=fetch_one)
-            self.db.cache_set(
-                self.table_name,
-                cache_key,
-                converted,
-                ttl=self._query_cache_ttl,
-            )
+        self.store_cache(converted, fetch_one=fetch_one)
         return converted
 
     def fetch_all(self) -> list[T]:

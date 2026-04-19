@@ -147,26 +147,15 @@ class AsyncQueryBuilder(Generic[T]):
             msg = "fetch_dicts() requires projection mode."
             raise InvalidProjectionError(msg)
 
-        cache_key: Optional[str] = None
-        if not self._query.cache_bypassed:
-            cache_key = self._query.make_cache_key(fetch_one=False)
-            hit, cached = self.db.cache_get(self.table_name, cache_key)
-            if hit:
-                return cast("list[dict[str, Any]]", cached)
+        hit, cached = self._query.lookup_cache(fetch_one=False)
+        if hit:
+            return cast("list[dict[str, Any]]", cached)
 
         rows = await self._execute_projection_query()
         results = [
             self._query.convert_projection_row_to_dict(row) for row in rows
         ]
-
-        if not self._query.cache_bypassed and cache_key is not None:
-            self.db.cache_set(
-                self.table_name,
-                cache_key,
-                results,
-                ttl=self._query.query_cache_ttl,
-            )
-
+        self._query.store_cache(results, fetch_one=False)
         return results
 
     async def _execute_query(
@@ -201,26 +190,16 @@ class AsyncQueryBuilder(Generic[T]):
         fetch_one: bool = False,
     ) -> list[T] | Optional[T]:
         """Fetch and convert query results to model instances."""
-        if not self._query.cache_bypassed:
-            cache_key = self._query.make_cache_key(fetch_one=fetch_one)
-            hit, cached = self.db.cache_get(self.table_name, cache_key)
-            if hit:
-                return cast("list[T] | Optional[T]", cached)
+        hit, cached = self._query.lookup_cache(fetch_one=fetch_one)
+        if hit:
+            return cast("list[T] | Optional[T]", cached)
 
         result, column_names = await self._execute_query(fetch_one=fetch_one)
 
         if not result:
-            if not self._query.cache_bypassed:
-                cache_key = self._query.make_cache_key(fetch_one=fetch_one)
-                cached_empty: list[T] | Optional[T] = None if fetch_one else []
-                self.db.cache_set(
-                    self.table_name,
-                    cache_key,
-                    cached_empty,
-                    ttl=self._query.query_cache_ttl,
-                )
-                return cached_empty
-            return None if fetch_one else []
+            empty: list[T] | Optional[T] = None if fetch_one else []
+            self._query.store_cache(empty, fetch_one=fetch_one)
+            return empty
 
         converted = self._query.convert_fetched_result(
             result,
@@ -229,14 +208,7 @@ class AsyncQueryBuilder(Generic[T]):
             execute_prefetch=False,
         )
         await self._execute_prefetch(converted)
-        if not self._query.cache_bypassed:
-            cache_key = self._query.make_cache_key(fetch_one=fetch_one)
-            self.db.cache_set(
-                self.table_name,
-                cache_key,
-                converted,
-                ttl=self._query.query_cache_ttl,
-            )
+        self._query.store_cache(converted, fetch_one=fetch_one)
         return converted
 
     async def _prefetch_reverse_fk(
