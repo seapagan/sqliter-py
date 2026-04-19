@@ -131,6 +131,27 @@ async def drop_table(
 async def get_table_names(self) -> list[str]:
 ```
 
+This is a method in the async API instead of a property because async
+properties cannot be awaited.
+
+## Read-Only Properties
+
+### `auto_commit`
+
+```python
+@property
+def auto_commit(self) -> bool:
+```
+
+### `is_autocommit`
+
+```python
+@property
+def is_autocommit(self) -> bool:
+```
+
+Compatibility alias for the sync property name.
+
 ---
 
 ## CRUD Methods
@@ -199,6 +220,16 @@ def select(
 
 This is sync to construct the query object. The query's terminal methods are
 awaited.
+
+## Cache Methods
+
+### `get_cache_stats()`
+
+```python
+def get_cache_stats(self) -> dict[str, int | float]:
+```
+
+Returns the same cache statistics as the sync API.
 
 ---
 

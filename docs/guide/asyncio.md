@@ -68,6 +68,12 @@ These query terminal methods are async:
 - `update()`
 - `delete()`
 
+Async query builders also support the same chain methods as sync, including
+`fields()`, `only()`, and aggregate filtering via `having()`.
+
+`AsyncSqliterDB.get_table_names()` is a method rather than a property because
+async properties cannot be awaited.
+
 ## Async ORM
 
 For async ORM usage, define models with `AsyncBaseDBModel` and the async

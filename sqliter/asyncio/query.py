@@ -78,9 +78,17 @@ class AsyncQueryBuilder(Generic[T]):
         self._query.exclude(fields)
         return self
 
-    def only(self, *fields: str) -> AsyncQueryBuilder[T]:
-        """Include only specific fields in the query."""
-        self._query.only(*fields)
+    def fields(
+        self,
+        fields: Optional[list[str]] = None,
+    ) -> AsyncQueryBuilder[T]:
+        """Specify which fields to select in the query."""
+        self._query.fields(fields)
+        return self
+
+    def only(self, field: str) -> AsyncQueryBuilder[T]:
+        """Include only a single field in the query."""
+        self._query.only(field)
         return self
 
     def bypass_cache(self) -> AsyncQueryBuilder[T]:
@@ -101,6 +109,11 @@ class AsyncQueryBuilder(Generic[T]):
     def annotate(self, **aggregates: Any) -> AsyncQueryBuilder[T]:  # noqa: ANN401
         """Add aggregate projections to the query."""
         self._query.annotate(**aggregates)
+        return self
+
+    def having(self, **conditions: Any) -> AsyncQueryBuilder[T]:  # noqa: ANN401
+        """Apply HAVING filters to grouped/aggregate projection queries."""
+        self._query.having(**conditions)
         return self
 
     def with_count(

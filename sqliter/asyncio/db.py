@@ -87,6 +87,11 @@ class AsyncSqliterDB:
         return self._sync.auto_commit
 
     @property
+    def is_autocommit(self) -> bool:
+        """Return whether auto-commit is enabled."""
+        return self._sync.is_autocommit
+
+    @property
     def debug(self) -> bool:
         """Return whether debug logging is enabled."""
         return self._sync.debug
@@ -201,6 +206,10 @@ class AsyncSqliterDB:
     def invalidate_table_cache(self, table_name: str) -> None:
         """Invalidate all cache entries for a specific table."""
         self._cache_invalidate_table(table_name)
+
+    def get_cache_stats(self) -> dict[str, int | float]:
+        """Return query cache performance statistics."""
+        return self._sync.get_cache_stats()
 
     def _create_instance_from_data(
         self,

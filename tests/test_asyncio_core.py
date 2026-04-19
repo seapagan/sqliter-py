@@ -302,6 +302,7 @@ async def test_async_db_properties_expose_sync_configuration(
     assert db.is_memory is True
     assert db.filename is None
     assert db.auto_commit is False
+    assert db.is_autocommit is False
     assert db.in_transaction is False
 
     await db.create_table(ExampleModel)
@@ -1293,6 +1294,7 @@ async def test_async_query_builder_chain_methods() -> None:
     await db.insert(ExampleModel(slug="c", name="C", content="three"))
 
     query = db.select(ExampleModel, exclude=["content"])
+    assert query.fields(["slug"]) is query
     assert query.only("slug") is query
     assert query.exclude(["name"]) is query
     assert query.bypass_cache() is query
@@ -1306,3 +1308,94 @@ async def test_async_query_builder_chain_methods() -> None:
     assert len(rows) == 1
     assert rows[0].slug == "b"
     await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_query_fields_selects_subset() -> None:
+    """fields() mirrors the sync query-builder API."""
+    db = AsyncSqliterDB(memory=True)
+    await db.create_table(ExampleModel)
+    await db.insert(ExampleModel(slug="a", name="A", content="one"))
+
+    result = await db.select(ExampleModel).fields(["name"]).fetch_one()
+
+    assert result is not None
+    assert result.name == "A"
+    assert result.pk is not None
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_query_only_rejects_multiple_fields() -> None:
+    """only() matches the sync single-field contract."""
+    db = AsyncSqliterDB(memory=True)
+    await db.create_table(ExampleModel)
+    query = db.select(ExampleModel)
+    only_method = cast("Any", query.only)
+
+    with pytest.raises(TypeError):
+        only_method("slug", "name")
+
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_query_having_filters_grouped_results() -> None:
+    """having() is available for async grouped projection queries."""
+
+    class Sale(BaseDBModel):
+        """Simple model for aggregate query tests."""
+
+        category: str
+        amount: float
+
+        class Meta:
+            """Aggregate test table metadata."""
+
+            table_name = "sales_async"
+
+    db = AsyncSqliterDB(memory=True)
+    await db.create_table(Sale)
+    await db.insert(Sale(category="books", amount=10))
+    await db.insert(Sale(category="books", amount=20))
+    await db.insert(Sale(category="music", amount=5))
+
+    rows = await (
+        db.select(Sale)
+        .group_by("category")
+        .annotate(total=func.sum("amount"))
+        .having(total__gt=15)
+        .fetch_dicts()
+    )
+
+    assert rows == [{"category": "books", "total": 30.0}]
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_get_cache_stats_tracks_hits_and_resets() -> None:
+    """Async DB exposes sync-backed cache statistics."""
+    db = AsyncSqliterDB(memory=True, cache_enabled=True)
+    await db.create_table(ExampleModel)
+    inserted = await db.insert(ExampleModel(slug="a", name="A", content="one"))
+
+    stats = db.get_cache_stats()
+    assert stats == {"hits": 0, "misses": 0, "total": 0, "hit_rate": 0.0}
+
+    first = await db.get(ExampleModel, inserted.pk)
+    second = await db.get(ExampleModel, inserted.pk)
+    stats = db.get_cache_stats()
+
+    assert first is not None
+    assert second is not None
+    assert stats["hits"] == 1
+    assert stats["misses"] == 1
+    assert stats["total"] == 2
+
+    await db.close()
+    assert db.get_cache_stats() == {
+        "hits": 0,
+        "misses": 0,
+        "total": 0,
+        "hit_rate": 0.0,
+    }

@@ -42,6 +42,8 @@ These methods mirror the sync query builder and return `self` for chaining:
 - `prefetch_related(*paths)`
 - `with_count(*paths)`
 
+`only()` accepts exactly one field, matching the sync query builder.
+
 ---
 
 ## Async Terminal Methods
