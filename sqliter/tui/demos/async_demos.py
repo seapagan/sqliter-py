@@ -15,12 +15,13 @@ from sqliter.tui.demos.base import Demo, DemoCategory, extract_demo_code
 if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Callable, Coroutine
 
+    from sqliter.asyncio.orm import AsyncLazyLoader
+
 try:
     from sqliter.asyncio import AsyncSqliterDB
     from sqliter.asyncio.orm import (
         AsyncBaseDBModel,
         AsyncForeignKey,
-        AsyncLazyLoader,
         AsyncReverseQuery,
     )
 

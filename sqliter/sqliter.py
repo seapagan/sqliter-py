@@ -1219,13 +1219,13 @@ class SqliterDB:
 
         model_class = type(instances[0])
         for inst in instances[1:]:
-            if type(inst) is not model_class:
+            if not isinstance(inst, model_class):
                 msg = (
                     "All instances must be the same model type. "
                     f"Expected {model_class.__name__}, "
                     f"got {type(inst).__name__}."
                 )
-                raise ValueError(msg)
+                raise TypeError(msg)
 
         table_name = model_class.get_table_name()
 
