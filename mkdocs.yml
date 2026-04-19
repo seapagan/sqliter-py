@@ -118,6 +118,7 @@ nav:
       - Auto Timestamps: tui-demo/timestamps.md
       - Transactions: tui-demo/transactions.md
       - Error Handling: tui-demo/errors.md
+      - Async Support: tui-demo/async.md
   - Changelog:
       - changelog/index.md
   - Contributing:

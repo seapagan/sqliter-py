@@ -126,6 +126,12 @@ Group multiple operations into atomic transactions for data consistency.
 
 Understand common errors and how to handle them properly.
 
+### [Async Support](async.md)
+
+Use SQLiter's async API with `AsyncSqliterDB` — covers connections, CRUD,
+queries, FK relationships, and transactions with `async`/`await`. Includes a
+dedicated section on the key difference from sync mode: explicit FK loading.
+
 ## Tips for Learning
 
 1. **Start with Connection and Models**: Before diving into queries, understand how to connect to databases and define your data models.
