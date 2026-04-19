@@ -248,9 +248,11 @@ class AsyncQueryBuilder(Generic[T]):
                 grouped[parent_pk].append(obj)
 
         for inst in instances:
-            cache = inst.__dict__.get("_prefetch_cache", {})
-            cache[path] = grouped.get(inst.pk or 0, [])
-            object.__setattr__(inst, "_prefetch_cache", cache)
+            self._query.store_prefetch_cache(
+                inst,
+                path,
+                grouped.get(inst.pk or 0, []),
+            )
 
     async def _query_junction_table(
         self,
@@ -330,9 +332,7 @@ class AsyncQueryBuilder(Generic[T]):
                 for tpk in target_pks
                 if tpk in target_objects
             ]
-            cache = inst.__dict__.get("_prefetch_cache", {})
-            cache[path] = related
-            object.__setattr__(inst, "_prefetch_cache", cache)
+            self._query.store_prefetch_cache(inst, path, related)
 
     async def _prefetch_segment(
         self,
@@ -347,14 +347,9 @@ class AsyncQueryBuilder(Generic[T]):
         )
         from sqliter.orm.query import ReverseRelationship  # noqa: PLC0415
 
-        seen_pks: set[Any] = set()
-        parent_pks: list[Any] = []
-        for inst in parent_instances:
-            pk = getattr(inst, "pk", None)
-            if not pk or pk in seen_pks:
-                continue
-            seen_pks.add(pk)
-            parent_pks.append(pk)
+        parent_pks = self._query.collect_prefetch_parent_pks(
+            parent_instances,
+        )
         if not parent_pks:
             return
 
@@ -394,12 +389,9 @@ class AsyncQueryBuilder(Generic[T]):
         if not any(getattr(inst, "pk", None) for inst in instance_list):
             return
 
-        levels: dict[int, set[tuple[str, str]]] = {}
-        for path in self._query.prefetch_related_paths:
-            segments = path.split("__")
-            for depth, segment in enumerate(segments):
-                parent_path = "__".join(segments[:depth]) if depth > 0 else ""
-                levels.setdefault(depth, set()).add((parent_path, segment))
+        levels = self._query.build_prefetch_levels(
+            self._query.prefetch_related_paths,
+        )
 
         instances_by_path: dict[str, list[Any]] = {"": list(instance_list)}
         model_at_path: dict[str, type[BaseDBModel]] = {"": self.model_class}

@@ -980,6 +980,65 @@ class QueryBuilder(Generic[T]):
             segment,
         )
 
+    @staticmethod
+    def _collect_prefetch_parent_pks(instances: list[Any]) -> list[Any]:
+        """Collect unique, truthy PK values from parent instances."""
+        seen_pks: set[Any] = set()
+        parent_pks: list[Any] = []
+        for inst in instances:
+            pk = getattr(inst, "pk", None)
+            if not pk or pk in seen_pks:
+                continue
+            seen_pks.add(pk)
+            parent_pks.append(pk)
+        return parent_pks
+
+    @staticmethod
+    def collect_prefetch_parent_pks(instances: list[Any]) -> list[Any]:
+        """Collect unique, truthy PK values from parent instances."""
+        return QueryBuilder._collect_prefetch_parent_pks(instances)
+
+    @staticmethod
+    def _build_prefetch_levels(
+        paths: list[str],
+    ) -> dict[int, set[tuple[str, str]]]:
+        """Build a depth-indexed map of prefetch path segments."""
+        levels: dict[int, set[tuple[str, str]]] = {}
+        for path in paths:
+            segments = path.split("__")
+            for depth, segment in enumerate(segments):
+                parent_path = "__".join(segments[:depth]) if depth > 0 else ""
+                levels.setdefault(depth, set()).add((parent_path, segment))
+        return levels
+
+    @staticmethod
+    def build_prefetch_levels(
+        paths: list[str],
+    ) -> dict[int, set[tuple[str, str]]]:
+        """Build a depth-indexed map of prefetch path segments."""
+        return QueryBuilder._build_prefetch_levels(paths)
+
+    @staticmethod
+    def _store_prefetch_cache(
+        instance: object,
+        path: str,
+        related: list[Any],
+    ) -> None:
+        """Store prefetched children on an instance cache."""
+        instance_obj = cast("Any", instance)
+        cache = instance_obj.__dict__.get("_prefetch_cache", {})
+        cache[path] = related
+        object.__setattr__(instance_obj, "_prefetch_cache", cache)
+
+    @staticmethod
+    def store_prefetch_cache(
+        instance: object,
+        path: str,
+        related: list[Any],
+    ) -> None:
+        """Store prefetched children on an instance cache."""
+        QueryBuilder._store_prefetch_cache(instance, path, related)
+
     def _execute_prefetch(self, instances: list[T]) -> None:
         """Run prefetch queries and populate _prefetch_cache on instances.
 
@@ -997,13 +1056,7 @@ class QueryBuilder(Generic[T]):
         if not any(getattr(inst, "pk", None) for inst in instances):
             return
 
-        # ── 1. Build a depth-indexed map of unique segments ──────
-        levels: dict[int, set[tuple[str, str]]] = {}
-        for path in self._prefetch_related_paths:
-            segments = path.split("__")
-            for depth, segment in enumerate(segments):
-                parent_path = "__".join(segments[:depth]) if depth > 0 else ""
-                levels.setdefault(depth, set()).add((parent_path, segment))
+        levels = self._build_prefetch_levels(self._prefetch_related_paths)
 
         # ── 2. Track instances and models at each path prefix ───
         instances_by_path: dict[str, list[Any]] = {"": list(instances)}
@@ -1068,11 +1121,12 @@ class QueryBuilder(Generic[T]):
             if parent_pk and parent_pk in grouped:
                 grouped[parent_pk].append(obj)
 
-        # Populate _prefetch_cache on each instance
         for inst in instances:
-            cache = inst.__dict__.get("_prefetch_cache", {})
-            cache[path] = grouped.get(inst.pk or 0, [])
-            object.__setattr__(inst, "_prefetch_cache", cache)
+            self._store_prefetch_cache(
+                inst,
+                path,
+                grouped.get(inst.pk or 0, []),
+            )
 
     @staticmethod
     def _resolve_m2m_columns(
@@ -1195,7 +1249,6 @@ class QueryBuilder(Generic[T]):
                 if obj.pk is not None:
                     target_objects[obj.pk] = obj
 
-        # Populate _prefetch_cache on each instance
         for inst in instances:
             target_pks = parent_to_target.get(inst.pk or 0, [])
             related = [
@@ -1203,9 +1256,7 @@ class QueryBuilder(Generic[T]):
                 for tpk in target_pks
                 if tpk in target_objects
             ]
-            cache = inst.__dict__.get("_prefetch_cache", {})
-            cache[path] = related
-            object.__setattr__(inst, "_prefetch_cache", cache)
+            self._store_prefetch_cache(inst, path, related)
 
     def _query_junction_table(
         self,
