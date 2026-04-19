@@ -841,3 +841,23 @@ class TestSqliterDB:
         # Check for CREATE TABLE
         create_call = mock_cursor.execute.call_args_list[1]
         assert "CREATE TABLE" in create_call[0][0]
+
+    def test_helper_wrappers_delegate_consistently(self) -> None:
+        """Public helper wrappers should expose shared sync helper behavior."""
+        db = SqliterDB(":memory:")
+        instance = ExampleModel(slug="a", name="A", content="one")
+
+        db.set_insert_timestamps(instance, timestamp_override=False)
+        mapped = db.map_data_to_db_columns(
+            ExampleModel,
+            {"slug": "a", "name": "A", "content": "one"},
+        )
+        select_list = db.build_model_select_list(ExampleModel)
+
+        assert instance.created_at > 0
+        assert instance.updated_at > 0
+        assert mapped == {"slug": "a", "name": "A", "content": "one"}
+        assert (
+            select_list
+            == '"pk", "created_at", "updated_at", "slug", "name", "content"'
+        )

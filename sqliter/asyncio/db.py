@@ -25,7 +25,13 @@ from sqliter.exceptions import (
     TableDeletionError,
 )
 from sqliter.model.model import BaseDBModel
-from sqliter.sqliter import SqliterDB
+from sqliter.sqliter import (
+    DeletePlan,
+    GetPlan,
+    InsertPlan,
+    SqliterDB,
+    UpdatePlan,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     import logging
@@ -263,6 +269,50 @@ class AsyncSqliterDB:
         self._sync.set_insert_timestamps(
             model_instance,
             timestamp_override=timestamp_override,
+        )
+
+    def _build_insert_plan(
+        self,
+        model_instance: T,
+        *,
+        timestamp_override: bool,
+    ) -> InsertPlan:
+        """Delegate insert SQL/value construction to the sync helper."""
+        return self._sync._build_insert_plan(  # noqa: SLF001
+            model_instance,
+            timestamp_override=timestamp_override,
+        )
+
+    def _build_get_plan(
+        self,
+        model_class: type[BaseDBModel],
+        primary_key_value: int,
+    ) -> GetPlan:
+        """Delegate single-record SELECT construction to the sync helper."""
+        return self._sync._build_get_plan(  # noqa: SLF001
+            model_class,
+            primary_key_value,
+        )
+
+    def _build_update_plan(
+        self,
+        model_instance: BaseDBModel,
+    ) -> UpdatePlan:
+        """Delegate update SQL/value construction to the sync helper."""
+        return self._sync._build_update_plan(  # noqa: SLF001
+            model_instance,
+            current_timestamp=self.now(),
+        )
+
+    def _build_delete_plan(
+        self,
+        model_class: type[BaseDBModel],
+        primary_key_value: int | str,
+    ) -> DeletePlan:
+        """Delegate delete SQL/value construction to the sync helper."""
+        return self._sync._build_delete_plan(  # noqa: SLF001
+            model_class,
+            primary_key_value,
         )
 
     async def _execute_async(
@@ -536,37 +586,19 @@ class AsyncSqliterDB:
         timestamp_override: bool = False,
     ) -> T:
         """Insert a model instance into the database."""
-        model_class = type(model_instance)
-        table_name = model_class.get_table_name()
-        self._set_insert_timestamps(
+        insert_plan = self._build_insert_plan(
             model_instance,
             timestamp_override=timestamp_override,
         )
 
-        data = model_instance.model_dump()
-        for field_name, value in list(data.items()):
-            data[field_name] = model_instance.serialize_field(value)
-
-        if data.get("pk", None) == 0:
-            data.pop("pk")
-
-        sql_data = self._map_data_to_db_columns(model_class, data)
-        fields = ", ".join(f'"{field}"' for field in sql_data)
-        placeholders = ", ".join(
-            "?" if value is not None else "NULL" for value in sql_data.values()
-        )
-        values = tuple(
-            value for value in sql_data.values() if value is not None
-        )
-        insert_sql = f"""
-        INSERT INTO {table_name} ({fields})
-        VALUES ({placeholders})
-        """
-
         try:
             conn = await self.connect()
             cursor = await conn.cursor()
-            await self._execute_async(cursor, insert_sql, values)
+            await self._execute_async(
+                cursor,
+                insert_plan.sql,
+                insert_plan.values,
+            )
             await self._maybe_commit()
         except sqlite3.IntegrityError as exc:
             if not self.in_transaction and self.conn is not None:
@@ -575,59 +607,40 @@ class AsyncSqliterDB:
                 operation = "insert"
                 reason = "does not exist in referenced table"
                 raise ForeignKeyConstraintError(operation, reason) from exc
-            raise RecordInsertionError(table_name) from exc
+            raise RecordInsertionError(insert_plan.table_name) from exc
         except sqlite3.Error as exc:
             if not self.in_transaction and self.conn is not None:
                 await self.conn.rollback()
-            raise RecordInsertionError(table_name) from exc
+            raise RecordInsertionError(insert_plan.table_name) from exc
         else:
-            self._cache_invalidate_table(table_name)
-            data.pop("pk", None)
+            self._cache_invalidate_table(insert_plan.table_name)
+            insert_data = dict(insert_plan.data)
+            insert_data.pop("pk", None)
             return self._create_instance_from_data(
-                model_class,
-                data,
+                cast("type[T]", insert_plan.model_class),
+                insert_data,
                 pk=cursor.lastrowid,
             )
 
     async def _insert_single_record_async(
         self,
         model_instance: T,
-        table_name: str,
         cursor: aiosqlite.Cursor,
         *,
         timestamp_override: bool,
     ) -> T:
         """Insert one record on a shared cursor without committing."""
-        model_class = type(model_instance)
-        self._set_insert_timestamps(
+        insert_plan = self._build_insert_plan(
             model_instance,
             timestamp_override=timestamp_override,
         )
+        await self._execute_async(cursor, insert_plan.sql, insert_plan.values)
 
-        data = model_instance.model_dump()
-        for field_name, value in list(data.items()):
-            data[field_name] = model_instance.serialize_field(value)
-
-        if data.get("pk", None) == 0:
-            data.pop("pk")
-
-        sql_data = self._map_data_to_db_columns(model_class, data)
-        fields = ", ".join(f'"{field}"' for field in sql_data)
-        placeholders = ", ".join(
-            "?" if value is not None else "NULL" for value in sql_data.values()
-        )
-        values = tuple(
-            value for value in sql_data.values() if value is not None
-        )
-        insert_sql = (
-            f"INSERT INTO {table_name} ({fields}) VALUES ({placeholders})"
-        )
-        await self._execute_async(cursor, insert_sql, values)
-
-        data.pop("pk", None)
+        insert_data = dict(insert_plan.data)
+        insert_data.pop("pk", None)
         return self._create_instance_from_data(
-            model_class,
-            data,
+            cast("type[T]", insert_plan.model_class),
+            insert_data,
             pk=cursor.lastrowid,
         )
 
@@ -659,7 +672,6 @@ class AsyncSqliterDB:
             results = [
                 await self._insert_single_record_async(
                     inst,
-                    table_name,
                     cursor,
                     timestamp_override=timestamp_override,
                 )
@@ -695,27 +707,21 @@ class AsyncSqliterDB:
             msg = "cache_ttl must be non-negative"
             raise ValueError(msg)
 
-        table_name = model_class.get_table_name()
-        primary_key = model_class.get_primary_key()
         cache_key = f"pk:{primary_key_value}"
+        get_plan = self._build_get_plan(model_class, primary_key_value)
 
         if not bypass_cache:
-            hit, cached = self._cache_get(table_name, cache_key)
+            hit, cached = self._cache_get(get_plan.table_name, cache_key)
             if hit:
                 return cast("Optional[T]", cached)
-
-        fields = self._build_model_select_list(model_class)
-        select_sql = f"""
-            SELECT {fields} FROM {table_name} WHERE {primary_key} = ?
-        """
 
         try:
             conn = await self.connect()
             cursor = await conn.cursor()
-            await self._execute_async(cursor, select_sql, (primary_key_value,))
+            await self._execute_async(cursor, get_plan.sql, get_plan.values)
             result = await cursor.fetchone()
         except sqlite3.Error as exc:
-            raise RecordFetchError(table_name) from exc
+            raise RecordFetchError(get_plan.table_name) from exc
 
         if result:
             result_dict = {
@@ -724,48 +730,41 @@ class AsyncSqliterDB:
             }
             instance = self._create_instance_from_data(model_class, result_dict)
             if not bypass_cache:
-                self._cache_set(table_name, cache_key, instance, ttl=cache_ttl)
+                self._cache_set(
+                    get_plan.table_name,
+                    cache_key,
+                    instance,
+                    ttl=cache_ttl,
+                )
             return instance
 
         if not bypass_cache:
-            self._cache_set(table_name, cache_key, None, ttl=cache_ttl)
+            self._cache_set(
+                get_plan.table_name,
+                cache_key,
+                None,
+                ttl=cache_ttl,
+            )
         return None
 
     async def update(self, model_instance: BaseDBModel) -> None:
         """Update an existing model instance."""
-        model_class = type(model_instance)
-        table_name = model_class.get_table_name()
-        primary_key = model_class.get_primary_key()
-        model_instance.updated_at = self.now()
-
-        data = model_instance.model_dump()
-        for field_name, value in list(data.items()):
-            data[field_name] = model_instance.serialize_field(value)
-
-        primary_key_value = data.pop(primary_key)
-        sql_data = self._map_data_to_db_columns(model_class, data)
-        fields = ", ".join(f'"{field}" = ?' for field in sql_data)
-        values = tuple(sql_data.values())
-        update_sql = f"""
-            UPDATE {table_name}
-            SET {fields}
-            WHERE {primary_key} = ?
-        """
+        update_plan = self._build_update_plan(model_instance)
 
         try:
             conn = await self.connect()
             cursor = await conn.cursor()
             await self._execute_async(
                 cursor,
-                update_sql,
-                (*values, primary_key_value),
+                update_plan.sql,
+                update_plan.values,
             )
 
             if cursor.rowcount == 0:
-                raise RecordNotFoundError(primary_key_value)
+                raise RecordNotFoundError(update_plan.primary_key_value)
 
             await self._maybe_commit()
-            self._cache_invalidate_table(table_name)
+            self._cache_invalidate_table(update_plan.table_name)
         except RecordNotFoundError:
             if not self.in_transaction and self.conn is not None:
                 await self.conn.rollback()
@@ -773,7 +772,7 @@ class AsyncSqliterDB:
         except sqlite3.Error as exc:
             if not self.in_transaction and self.conn is not None:
                 await self.conn.rollback()
-            raise RecordUpdateError(table_name) from exc
+            raise RecordUpdateError(update_plan.table_name) from exc
 
     async def delete(
         self,
@@ -781,22 +780,22 @@ class AsyncSqliterDB:
         primary_key_value: int | str,
     ) -> None:
         """Delete a record by primary key."""
-        table_name = model_class.get_table_name()
-        primary_key = model_class.get_primary_key()
-        delete_sql = f"""
-            DELETE FROM {table_name} WHERE {primary_key} = ?
-        """
+        delete_plan = self._build_delete_plan(model_class, primary_key_value)
 
         try:
             conn = await self.connect()
             cursor = await conn.cursor()
-            await self._execute_async(cursor, delete_sql, (primary_key_value,))
+            await self._execute_async(
+                cursor,
+                delete_plan.sql,
+                delete_plan.values,
+            )
 
             if cursor.rowcount == 0:
-                raise RecordNotFoundError(primary_key_value)
+                raise RecordNotFoundError(delete_plan.primary_key_value)
 
             await self._maybe_commit()
-            self._cache_invalidate_table(table_name)
+            self._cache_invalidate_table(delete_plan.table_name)
         except RecordNotFoundError:
             if not self.in_transaction and self.conn is not None:
                 await self.conn.rollback()
@@ -808,11 +807,11 @@ class AsyncSqliterDB:
                 operation = "delete"
                 reason = "is still referenced by other records"
                 raise ForeignKeyConstraintError(operation, reason) from exc
-            raise RecordDeletionError(table_name) from exc
+            raise RecordDeletionError(delete_plan.table_name) from exc
         except sqlite3.Error as exc:
             if not self.in_transaction and self.conn is not None:
                 await self.conn.rollback()
-            raise RecordDeletionError(table_name) from exc
+            raise RecordDeletionError(delete_plan.table_name) from exc
 
     async def update_where(
         self,

@@ -1399,3 +1399,32 @@ async def test_async_get_cache_stats_tracks_hits_and_resets() -> None:
         "total": 0,
         "hit_rate": 0.0,
     }
+
+
+@pytest.mark.asyncio
+async def test_async_helper_wrappers_delegate_consistently() -> None:
+    """Async helper wrappers should expose shared sync helper behavior."""
+    db = AsyncSqliterDB(memory=True)
+    instance = ExampleModel(slug="a", name="A", content="one")
+
+    db._set_insert_timestamps(instance, timestamp_override=False)
+    mapped = db._map_data_to_db_columns(
+        ExampleModel,
+        {"slug": "a", "name": "A", "content": "one"},
+    )
+    select_list = db._build_model_select_list(ExampleModel)
+    fields, foreign_keys, fk_columns = db._build_field_definitions(
+        ExampleModel,
+        ExampleModel.get_primary_key(),
+    )
+
+    assert instance.created_at > 0
+    assert instance.updated_at > 0
+    assert mapped == {"slug": "a", "name": "A", "content": "one"}
+    assert (
+        select_list
+        == '"pk", "created_at", "updated_at", "slug", "name", "content"'
+    )
+    assert len(fields) >= 1
+    assert foreign_keys == []
+    assert fk_columns == []

@@ -13,6 +13,7 @@ import sqlite3
 import sys
 import time
 from collections import OrderedDict
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, cast
 
 from typing_extensions import Self
@@ -46,6 +47,46 @@ if TYPE_CHECKING:  # pragma: no cover
     from pydantic.fields import FieldInfo
 
 T = TypeVar("T", bound=BaseDBModel)
+
+
+@dataclass(frozen=True)
+class InsertPlan:
+    """Prepared SQL plan for inserting a single model instance."""
+
+    model_class: type[BaseDBModel]
+    table_name: str
+    data: dict[str, Any]
+    sql: str
+    values: tuple[Any, ...]
+
+
+@dataclass(frozen=True)
+class GetPlan:
+    """Prepared SQL plan for fetching a single model instance by PK."""
+
+    table_name: str
+    sql: str
+    values: tuple[Any, ...]
+
+
+@dataclass(frozen=True)
+class UpdatePlan:
+    """Prepared SQL plan for updating a single model instance."""
+
+    table_name: str
+    primary_key_value: Any
+    sql: str
+    values: tuple[Any, ...]
+
+
+@dataclass(frozen=True)
+class DeletePlan:
+    """Prepared SQL plan for deleting a single model instance by PK."""
+
+    table_name: str
+    primary_key_value: int | str
+    sql: str
+    values: tuple[int | str, ...]
 
 
 class SqliterDB:
@@ -1051,6 +1092,128 @@ class SqliterDB:
         """Build a SELECT column list that maps DB columns to model fields."""
         return self._build_model_select_list(model_class)
 
+    def _serialize_model_data(
+        self,
+        model_instance: BaseDBModel,
+    ) -> dict[str, Any]:
+        """Return serialized model data keyed by model field names."""
+        data = model_instance.model_dump()
+        for field_name, value in list(data.items()):
+            data[field_name] = model_instance.serialize_field(value)
+        return data
+
+    def _build_insert_plan(
+        self,
+        model_instance: T,
+        *,
+        timestamp_override: bool,
+    ) -> InsertPlan:
+        """Build the SQL and values needed to insert one model instance."""
+        model_class = type(model_instance)
+        table_name = model_class.get_table_name()
+
+        self._set_insert_timestamps(
+            model_instance,
+            timestamp_override=timestamp_override,
+        )
+
+        data = self._serialize_model_data(model_instance)
+        if data.get("pk", None) == 0:
+            data.pop("pk")
+
+        sql_data = self._map_data_to_db_columns(model_class, data)
+        fields = ", ".join(f'"{field}"' for field in sql_data)
+        placeholders = ", ".join(
+            "?" if value is not None else "NULL" for value in sql_data.values()
+        )
+        values = tuple(
+            value for value in sql_data.values() if value is not None
+        )
+        insert_sql = (
+            f"INSERT INTO {table_name} ({fields}) "  # noqa: S608
+            f"VALUES ({placeholders})"
+        )
+
+        return InsertPlan(
+            model_class=model_class,
+            table_name=table_name,
+            data=data,
+            sql=insert_sql,
+            values=values,
+        )
+
+    def _build_get_plan(
+        self,
+        model_class: type[BaseDBModel],
+        primary_key_value: int,
+    ) -> GetPlan:
+        """Build the SQL and values needed to fetch one record by PK."""
+        table_name = model_class.get_table_name()
+        primary_key = model_class.get_primary_key()
+        fields = self._build_model_select_list(model_class)
+        select_sql = (
+            f"SELECT {fields} FROM {table_name} "  # noqa: S608
+            f"WHERE {primary_key} = ?"
+        )
+        return GetPlan(
+            table_name=table_name,
+            sql=select_sql,
+            values=(primary_key_value,),
+        )
+
+    def _build_update_plan(
+        self,
+        model_instance: BaseDBModel,
+        *,
+        current_timestamp: int,
+    ) -> UpdatePlan:
+        """Build the SQL and values needed to update one model instance."""
+        model_class = type(model_instance)
+        table_name = model_class.get_table_name()
+        primary_key = model_class.get_primary_key()
+
+        model_instance.updated_at = current_timestamp
+        data = self._serialize_model_data(model_instance)
+        primary_key_value = data.pop(primary_key)
+        sql_data = self._map_data_to_db_columns(model_class, data)
+        fields = ", ".join(f'"{field}" = ?' for field in sql_data)
+        values = tuple(sql_data.values())
+        update_sql = (
+            f"UPDATE {table_name} "  # noqa: S608
+            f"SET {fields} "
+            f"WHERE {primary_key} = ?"
+        )
+        return UpdatePlan(
+            table_name=table_name,
+            primary_key_value=primary_key_value,
+            sql=update_sql,
+            values=(*values, primary_key_value),
+        )
+
+    @staticmethod
+    def _build_delete_plan(
+        model_class: type[BaseDBModel],
+        primary_key_value: int | str,
+    ) -> DeletePlan:
+        """Build the SQL and values needed to delete one record by PK."""
+        table_name = model_class.get_table_name()
+        primary_key = model_class.get_primary_key()
+        delete_sql = (
+            f"DELETE FROM {table_name} "  # noqa: S608
+            f"WHERE {primary_key} = ?"
+        )
+        return DeletePlan(
+            table_name=table_name,
+            primary_key_value=primary_key_value,
+            sql=delete_sql,
+            values=(primary_key_value,),
+        )
+
+    @staticmethod
+    def _raise_record_not_found(primary_key_value: int | str) -> None:
+        """Raise a consistent not-found error for single-record operations."""
+        raise RecordNotFoundError(primary_key_value)
+
     def insert(
         self, model_instance: T, *, timestamp_override: bool = False
     ) -> T:
@@ -1070,46 +1233,14 @@ class SqliterDB:
         Raises:
             RecordInsertionError: If an error occurs during the insertion.
         """
-        model_class = type(model_instance)
-        table_name = model_class.get_table_name()
-
-        self._set_insert_timestamps(
+        insert_plan = self._build_insert_plan(
             model_instance, timestamp_override=timestamp_override
         )
-
-        # Get the data from the model
-        data = model_instance.model_dump()
-
-        # Serialize the data
-        for field_name, value in list(data.items()):
-            data[field_name] = model_instance.serialize_field(value)
-
-        # remove the primary key field if it exists, otherwise we'll get
-        # TypeErrors as multiple primary keys will exist
-        if data.get("pk", None) == 0:
-            data.pop("pk")
-
-        sql_data = self._map_data_to_db_columns(model_class, data)
-        fields = ", ".join(f'"{field}"' for field in sql_data)
-        placeholders = ", ".join(
-            [
-                "?" if value is not None else "NULL"
-                for value in sql_data.values()
-            ]
-        )
-        values = tuple(
-            value for value in sql_data.values() if value is not None
-        )
-
-        insert_sql = f"""
-        INSERT INTO {table_name} ({fields})
-        VALUES ({placeholders})
-        """  # noqa: S608
 
         try:
             conn = self.connect()
             cursor = conn.cursor()
-            self._execute(cursor, insert_sql, values)
+            self._execute(cursor, insert_plan.sql, insert_plan.values)
             self._maybe_commit()
 
         except sqlite3.IntegrityError as exc:
@@ -1123,23 +1254,25 @@ class SqliterDB:
                 raise ForeignKeyConstraintError(
                     fk_operation, fk_reason
                 ) from exc
-            raise RecordInsertionError(table_name) from exc
+            raise RecordInsertionError(insert_plan.table_name) from exc
         except sqlite3.Error as exc:
             # Rollback implicit transaction if not in user-managed transaction
             if not self._in_transaction and self.conn:
                 self.conn.rollback()
-            raise RecordInsertionError(table_name) from exc
+            raise RecordInsertionError(insert_plan.table_name) from exc
         else:
-            self._cache_invalidate_table(table_name)
-            data.pop("pk", None)
+            self._cache_invalidate_table(insert_plan.table_name)
+            insert_data = dict(insert_plan.data)
+            insert_data.pop("pk", None)
             return self._create_instance_from_data(
-                model_class, data, pk=cursor.lastrowid
+                cast("type[T]", insert_plan.model_class),
+                insert_data,
+                pk=cursor.lastrowid,
             )
 
     def _insert_single_record(
         self,
         model_instance: T,
-        table_name: str,
         cursor: sqlite3.Cursor,
         *,
         timestamp_override: bool,
@@ -1158,34 +1291,18 @@ class SqliterDB:
         Returns:
             A new model instance with the assigned primary key.
         """
-        model_class = type(model_instance)
-        self._set_insert_timestamps(
-            model_instance, timestamp_override=timestamp_override
+        insert_plan = self._build_insert_plan(
+            model_instance,
+            timestamp_override=timestamp_override,
         )
+        self._execute(cursor, insert_plan.sql, insert_plan.values)
 
-        data = model_instance.model_dump()
-        for field_name, value in list(data.items()):
-            data[field_name] = model_instance.serialize_field(value)
-
-        if data.get("pk") == 0:
-            data.pop("pk")
-
-        sql_data = self._map_data_to_db_columns(model_class, data)
-        fields = ", ".join(f'"{field}"' for field in sql_data)
-        placeholders = ", ".join(
-            "?" if v is not None else "NULL" for v in sql_data.values()
-        )
-        values = tuple(v for v in sql_data.values() if v is not None)
-
-        insert_sql = (
-            f"INSERT INTO {table_name} ({fields}) "  # noqa: S608
-            f"VALUES ({placeholders})"
-        )
-        self._execute(cursor, insert_sql, values)
-
-        data.pop("pk", None)
+        insert_data = dict(insert_plan.data)
+        insert_data.pop("pk", None)
         return self._create_instance_from_data(
-            model_class, data, pk=cursor.lastrowid
+            cast("type[T]", insert_plan.model_class),
+            insert_data,
+            pk=cursor.lastrowid,
         )
 
     def bulk_insert(
@@ -1235,7 +1352,6 @@ class SqliterDB:
             results = [
                 self._insert_single_record(
                     inst,
-                    table_name,
                     cursor,
                     timestamp_override=timestamp_override,
                 )
@@ -1287,25 +1403,18 @@ class SqliterDB:
             msg = "cache_ttl must be non-negative"
             raise ValueError(msg)
 
-        table_name = model_class.get_table_name()
-        primary_key = model_class.get_primary_key()
         cache_key = f"pk:{primary_key_value}"
+        get_plan = self._build_get_plan(model_class, primary_key_value)
 
         if not bypass_cache:
-            hit, cached = self._cache_get(table_name, cache_key)
+            hit, cached = self._cache_get(get_plan.table_name, cache_key)
             if hit:
                 return cast("Optional[T]", cached)
-
-        fields = self._build_model_select_list(model_class)
-
-        select_sql = f"""
-            SELECT {fields} FROM {table_name} WHERE {primary_key} = ?
-        """  # noqa: S608
 
         try:
             conn = self.connect()
             cursor = conn.cursor()
-            self._execute(cursor, select_sql, (primary_key_value,))
+            self._execute(cursor, get_plan.sql, get_plan.values)
             result = cursor.fetchone()
 
             if result:
@@ -1318,14 +1427,22 @@ class SqliterDB:
                 )
                 if not bypass_cache:
                     self._cache_set(
-                        table_name, cache_key, instance, ttl=cache_ttl
+                        get_plan.table_name,
+                        cache_key,
+                        instance,
+                        ttl=cache_ttl,
                     )
                 return instance
         except sqlite3.Error as exc:
-            raise RecordFetchError(table_name) from exc
+            raise RecordFetchError(get_plan.table_name) from exc
         else:
             if not bypass_cache:
-                self._cache_set(table_name, cache_key, None, ttl=cache_ttl)
+                self._cache_set(
+                    get_plan.table_name,
+                    cache_key,
+                    None,
+                    ttl=cache_ttl,
+                )
             return None
 
     def update(self, model_instance: BaseDBModel) -> None:
@@ -1338,45 +1455,22 @@ class SqliterDB:
             RecordUpdateError: If there's an error updating the record or if it
                 is not found.
         """
-        model_class = type(model_instance)
-        table_name = model_class.get_table_name()
-        primary_key = model_class.get_primary_key()
-
-        # Set updated_at timestamp
-        current_timestamp = int(time.time())
-        model_instance.updated_at = current_timestamp
-
-        # Get the data and serialize any datetime/date fields
-        data = model_instance.model_dump()
-
-        for field_name, value in list(data.items()):
-            data[field_name] = model_instance.serialize_field(value)
-
-        # Remove the primary key from the update data
-        primary_key_value = data.pop(primary_key)
-
-        # Create the SQL using the processed data
-        sql_data = self._map_data_to_db_columns(model_class, data)
-        fields = ", ".join(f'"{field}" = ?' for field in sql_data)
-        values = tuple(sql_data.values())
-
-        update_sql = f"""
-            UPDATE {table_name}
-            SET {fields}
-            WHERE {primary_key} = ?
-        """  # noqa: S608
+        update_plan = self._build_update_plan(
+            model_instance,
+            current_timestamp=int(time.time()),
+        )
 
         try:
             conn = self.connect()
             cursor = conn.cursor()
-            self._execute(cursor, update_sql, (*values, primary_key_value))
+            self._execute(cursor, update_plan.sql, update_plan.values)
 
             # Check if any rows were updated
             if cursor.rowcount == 0:
-                raise RecordNotFoundError(primary_key_value)  # noqa: TRY301
+                self._raise_record_not_found(update_plan.primary_key_value)
 
             self._maybe_commit()
-            self._cache_invalidate_table(table_name)
+            self._cache_invalidate_table(update_plan.table_name)
 
         except RecordNotFoundError:
             # Rollback implicit transaction if not in user-managed transaction
@@ -1387,7 +1481,7 @@ class SqliterDB:
             # Rollback implicit transaction if not in user-managed transaction
             if not self._in_transaction and self.conn:
                 self.conn.rollback()
-            raise RecordUpdateError(table_name) from exc
+            raise RecordUpdateError(update_plan.table_name) from exc
 
     def delete(
         self, model_class: type[BaseDBModel], primary_key_value: Union[int, str]
@@ -1403,22 +1497,17 @@ class SqliterDB:
             RecordDeletionError: If there's an error deleting the record.
             RecordNotFoundError: If the record to delete is not found.
         """
-        table_name = model_class.get_table_name()
-        primary_key = model_class.get_primary_key()
-
-        delete_sql = f"""
-            DELETE FROM {table_name} WHERE {primary_key} = ?
-        """  # noqa: S608
+        delete_plan = self._build_delete_plan(model_class, primary_key_value)
 
         try:
             conn = self.connect()
             cursor = conn.cursor()
-            self._execute(cursor, delete_sql, (primary_key_value,))
+            self._execute(cursor, delete_plan.sql, delete_plan.values)
 
             if cursor.rowcount == 0:
-                raise RecordNotFoundError(primary_key_value)  # noqa: TRY301
+                self._raise_record_not_found(delete_plan.primary_key_value)
             self._maybe_commit()
-            self._cache_invalidate_table(table_name)
+            self._cache_invalidate_table(delete_plan.table_name)
         except RecordNotFoundError:
             # Rollback implicit transaction if not in user-managed transaction
             if not self._in_transaction and self.conn:
@@ -1435,12 +1524,12 @@ class SqliterDB:
                 raise ForeignKeyConstraintError(
                     fk_operation, fk_reason
                 ) from exc
-            raise RecordDeletionError(table_name) from exc
+            raise RecordDeletionError(delete_plan.table_name) from exc
         except sqlite3.Error as exc:
             # Rollback implicit transaction if not in user-managed transaction
             if not self._in_transaction and self.conn:
                 self.conn.rollback()
-            raise RecordDeletionError(table_name) from exc
+            raise RecordDeletionError(delete_plan.table_name) from exc
 
     def update_where(
         self,
