@@ -957,6 +957,8 @@ class SqliterDB:
         model_class: type[T],
         data: dict[str, Any],
         pk: Optional[int] = None,
+        *,
+        db_context: Optional[object] = None,
     ) -> T:
         """Create a model instance from deserialized data.
 
@@ -966,6 +968,8 @@ class SqliterDB:
             model_class: The model class to instantiate.
             data: Raw data dictionary from the database.
             pk: Optional primary key value to set.
+            db_context: DB instance to bind for ORM lazy loading. Defaults
+                to ``self`` when omitted.
 
         Returns:
             A new model instance with db_context set if applicable.
@@ -987,7 +991,7 @@ class SqliterDB:
 
         # Set db_context for ORM lazy loading and reverse relationships
         if hasattr(instance, "db_context"):
-            instance.db_context = self
+            instance.db_context = db_context if db_context is not None else self
         return instance
 
     def create_instance_from_data(
@@ -995,9 +999,13 @@ class SqliterDB:
         model_class: type[T],
         data: dict[str, Any],
         pk: Optional[int] = None,
+        *,
+        db_context: Optional[object] = None,
     ) -> T:
         """Create a model instance from raw database data."""
-        return self._create_instance_from_data(model_class, data, pk=pk)
+        return self._create_instance_from_data(
+            model_class, data, pk=pk, db_context=db_context
+        )
 
     @staticmethod
     def _model_field_to_db_column(

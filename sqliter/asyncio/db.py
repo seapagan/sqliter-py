@@ -117,23 +117,13 @@ class AsyncSqliterDB:
         return self._sync.filename
 
     @property
-    def _in_transaction(self) -> bool:
-        """Return the transaction flag."""
+    def in_transaction(self) -> bool:
+        """Return whether the DB is in an explicit transaction."""
         return self._sync.in_transaction
-
-    @_in_transaction.setter
-    def _in_transaction(self, value: bool) -> None:
-        """Set the transaction flag."""
-        self._sync.set_in_transaction(value=value)
 
     def now(self) -> int:
         """Return the current unix timestamp."""
         return int(time.time())
-
-    @property
-    def in_transaction(self) -> bool:
-        """Return whether the DB is in an explicit transaction."""
-        return self._in_transaction
 
     @classmethod
     async def create(  # noqa: PLR0913
@@ -219,14 +209,12 @@ class AsyncSqliterDB:
         pk: Optional[int] = None,
     ) -> T:
         """Create a model instance using the sync helper logic."""
-        instance = self._sync.create_instance_from_data(
+        return self._sync.create_instance_from_data(
             model_class,
             data,
             pk=pk,
+            db_context=self,
         )
-        if hasattr(instance, "db_context"):
-            instance.db_context = self
-        return instance
 
     def _build_field_definitions(
         self,
@@ -363,7 +351,7 @@ class AsyncSqliterDB:
     async def _maybe_commit(self) -> None:
         """Commit changes when auto-commit is enabled."""
         if (
-            not self._in_transaction
+            not self.in_transaction
             and self.auto_commit
             and self.conn is not None
         ):
@@ -572,7 +560,7 @@ class AsyncSqliterDB:
             await self._execute_async(cursor, insert_sql, values)
             await self._maybe_commit()
         except sqlite3.IntegrityError as exc:
-            if not self._in_transaction and self.conn is not None:
+            if not self.in_transaction and self.conn is not None:
                 await self.conn.rollback()
             if "FOREIGN KEY constraint failed" in str(exc):
                 operation = "insert"
@@ -580,7 +568,7 @@ class AsyncSqliterDB:
                 raise ForeignKeyConstraintError(operation, reason) from exc
             raise RecordInsertionError(table_name) from exc
         except sqlite3.Error as exc:
-            if not self._in_transaction and self.conn is not None:
+            if not self.in_transaction and self.conn is not None:
                 await self.conn.rollback()
             raise RecordInsertionError(table_name) from exc
         else:
@@ -670,7 +658,7 @@ class AsyncSqliterDB:
             ]
             await self._maybe_commit()
         except sqlite3.IntegrityError as exc:
-            if not self._in_transaction and self.conn is not None:
+            if not self.in_transaction and self.conn is not None:
                 await self.conn.rollback()
             if "FOREIGN KEY constraint failed" in str(exc):
                 operation = "insert"
@@ -678,7 +666,7 @@ class AsyncSqliterDB:
                 raise ForeignKeyConstraintError(operation, reason) from exc
             raise RecordInsertionError(table_name) from exc
         except sqlite3.Error as exc:
-            if not self._in_transaction and self.conn is not None:
+            if not self.in_transaction and self.conn is not None:
                 await self.conn.rollback()
             raise RecordInsertionError(table_name) from exc
         else:
@@ -770,11 +758,11 @@ class AsyncSqliterDB:
             await self._maybe_commit()
             self._cache_invalidate_table(table_name)
         except RecordNotFoundError:
-            if not self._in_transaction and self.conn is not None:
+            if not self.in_transaction and self.conn is not None:
                 await self.conn.rollback()
             raise
         except sqlite3.Error as exc:
-            if not self._in_transaction and self.conn is not None:
+            if not self.in_transaction and self.conn is not None:
                 await self.conn.rollback()
             raise RecordUpdateError(table_name) from exc
 
@@ -801,11 +789,11 @@ class AsyncSqliterDB:
             await self._maybe_commit()
             self._cache_invalidate_table(table_name)
         except RecordNotFoundError:
-            if not self._in_transaction and self.conn is not None:
+            if not self.in_transaction and self.conn is not None:
                 await self.conn.rollback()
             raise
         except sqlite3.IntegrityError as exc:
-            if not self._in_transaction and self.conn is not None:
+            if not self.in_transaction and self.conn is not None:
                 await self.conn.rollback()
             if "FOREIGN KEY constraint failed" in str(exc):
                 operation = "delete"
@@ -813,7 +801,7 @@ class AsyncSqliterDB:
                 raise ForeignKeyConstraintError(operation, reason) from exc
             raise RecordDeletionError(table_name) from exc
         except sqlite3.Error as exc:
-            if not self._in_transaction and self.conn is not None:
+            if not self.in_transaction and self.conn is not None:
                 await self.conn.rollback()
             raise RecordDeletionError(table_name) from exc
 
@@ -843,7 +831,7 @@ class AsyncSqliterDB:
     async def __aenter__(self) -> Self:
         """Enter the async transaction context."""
         await self.connect()
-        self._in_transaction = True
+        self._sync.set_in_transaction(value=True)
         return self
 
     async def __aexit__(
@@ -862,6 +850,6 @@ class AsyncSqliterDB:
             finally:
                 await self.conn.close()
                 self.conn = None
-                self._in_transaction = False
+                self._sync.set_in_transaction(value=False)
         self._sync.clear_cache()
         self._sync.reset_cache_stats()
