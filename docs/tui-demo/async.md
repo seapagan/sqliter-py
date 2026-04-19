@@ -278,8 +278,9 @@ return an `AsyncLazyLoader` object — you must explicitly call
 ```python
 # --8<-- [start:async-fk-lazy]
 import asyncio
+from typing import cast
 from sqliter.asyncio import AsyncSqliterDB
-from sqliter.asyncio.orm import AsyncBaseDBModel, AsyncForeignKey
+from sqliter.asyncio.orm import AsyncBaseDBModel, AsyncForeignKey, AsyncLazyLoader
 
 class Author(AsyncBaseDBModel):
     name: str
@@ -304,12 +305,14 @@ async def main():
     # AttributeError: Async foreign key 'name' is not loaded.
     #   Use `await relation.fetch()` first.
 
-    # CORRECT — get the loader, then await it
-    loader = fresh.author    # AsyncLazyLoader (not the Author yet)
-    author = await loader.fetch()    # now we have the Author
+    # CORRECT — get the loader, then await it.
+    # mypy: AsyncForeignKey is typed as returning T (Author) to keep
+    # eager-loaded access ergonomic. For lazy loading, a cast is needed
+    # under --strict. See the async guide for the full explanation.
+    loader = cast(AsyncLazyLoader[Author], fresh.author)
+    author = await loader.fetch()
     print(f"Book: {fresh.title}")
     print(f"Author: {author.name}")
-    print("Loaded via: await book.author.fetch()")
 
     await db.close()
 
@@ -329,6 +332,14 @@ asyncio.run(main())
 
     This is intentional — hidden I/O inside property access is not safe in
     async code.
+
+!!! note "mypy strict mode"
+    `AsyncForeignKey` is typed to return the model type (`T`) so that
+    eager-loaded access (`book.author.name` after `select_related`) type-checks
+    without any extra annotation. At runtime the lazy-loaded value is
+    `AsyncLazyLoader[T]`, so strict mypy requires the `cast` shown above. See
+    [mypy and Static Type Checking](../guide/asyncio.md#mypy-and-static-type-checking)
+    for the full explanation and both workarounds.
 
 ### Sync vs Async FK Access
 
@@ -401,8 +412,9 @@ reverse accessor. In async mode this returns an `AsyncReverseQuery` — call
 ```python
 # --8<-- [start:async-reverse]
 import asyncio
+from typing import cast
 from sqliter.asyncio import AsyncSqliterDB
-from sqliter.asyncio.orm import AsyncBaseDBModel, AsyncForeignKey
+from sqliter.asyncio.orm import AsyncBaseDBModel, AsyncForeignKey, AsyncReverseQuery
 
 class Author(AsyncBaseDBModel):
     name: str
@@ -422,15 +434,20 @@ async def main():
     await db.insert(Book(title="Oliver Twist", author=dickens))
     await db.insert(Book(title="Great Expectations", author=dickens))
 
-    # Reverse accessor returns AsyncReverseQuery, not a list
     author = await db.get(Author, dickens.pk)
-    books = await author.books.fetch_all()
+
+    # mypy: reverse accessors are set dynamically via setattr, so
+    # __getattribute__ returns `object`. Cast to AsyncReverseQuery for
+    # strict mypy. fetch_all() returns list[BaseDBModel], cast to the
+    # concrete type. Without --strict these casts are not needed.
+    books_query = cast(AsyncReverseQuery, author.books)
+    books = cast(list[Book], await books_query.fetch_all())
     print(f"Author: {author.name}")
     print(f"Books ({len(books)}):")
     for b in books:
         print(f"  - {b.title}")
 
-    count = await author.books.count()
+    count = await books_query.count()
     print(f"Total via .count(): {count}")
 
     await db.close()
@@ -445,6 +462,12 @@ asyncio.run(main())
 list. Only when you call a terminal method (`fetch_all()`, `fetch_one()`,
 `count()`, `exists()`) is the database queried. You can also call `.filter()`
 on it before fetching to narrow the results.
+
+!!! note "mypy strict mode"
+    Reverse accessors are installed dynamically so `__getattribute__` returns
+    `object` for them. Under `--strict` mypy, cast to `AsyncReverseQuery` and
+    cast the result of `fetch_all()` to `list[YourModel]` as shown above.
+    Without strict type checking these casts are unnecessary.
 
 ---
 

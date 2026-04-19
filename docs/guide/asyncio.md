@@ -174,3 +174,55 @@ The main intentional difference is foreign-key lazy loading:
 
 This difference is required because Python attribute access cannot implicitly
 `await`.
+
+## mypy and Static Type Checking
+
+Two areas require explicit `cast()` calls when using strict mypy.
+
+### FK lazy loading
+
+`AsyncForeignKey` is typed to return the related model type (`T`) so that
+eager-loaded access — `book.author.name` after `select_related()` — type-checks
+without any extra annotation. At runtime the **lazy-loaded** value is an
+`AsyncLazyLoader[T]`, not `T` itself. The two return types cannot both be
+expressed accurately as a single overload without breaking one of the two use
+cases, so the eager-loading path was chosen as the ergonomic default.
+
+When using `--strict` mypy, lazy FK access requires a `cast`:
+
+```python
+from typing import cast
+from sqliter.asyncio.orm import AsyncLazyLoader
+
+# mypy sees book.author as Author, not AsyncLazyLoader[Author]
+loader = cast(AsyncLazyLoader[Author], book.author)
+author = await loader.fetch()
+```
+
+Without `--strict` (or with `# type: ignore[union-attr]`) you can write the
+simpler form directly:
+
+```python
+author = await book.author.fetch()
+```
+
+### Reverse FK accessors
+
+Reverse relationship accessors (`author.books`, `post.tags`, etc.) are
+installed dynamically via `setattr`, so `AsyncBaseDBModel.__getattribute__`
+returns `object` for them. Under strict mypy, cast to the appropriate manager
+type:
+
+```python
+from typing import cast
+from sqliter.asyncio.orm import AsyncReverseQuery
+
+books_query = cast(AsyncReverseQuery, author.books)
+books = cast(list[Book], await books_query.fetch_all())
+```
+
+!!! note
+    These are **mypy-only** workarounds. At runtime `book.author` is always
+    an `AsyncLazyLoader` (lazy) or the model instance (eager), and
+    `author.books` is always an `AsyncReverseQuery`. No cast is needed if
+    you are not running strict type checking.
