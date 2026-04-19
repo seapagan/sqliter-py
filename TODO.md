@@ -59,6 +59,8 @@ Items marked with :fire: are high priority.
 
 - Tidy up the test suite - remove any duplicates, sort them into logical files
   (many already are), try to reduce and centralize fixtures.
+- Add suitable icons to all TUI demo categories (currently all use `icon=""`)
+  for a more visually scannable tree view.
 
 ## Documentation
 

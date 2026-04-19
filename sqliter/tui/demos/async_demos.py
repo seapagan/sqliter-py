@@ -495,7 +495,7 @@ def get_category() -> DemoCategory:
     return DemoCategory(
         id="async_support",
         title="Async Support",
-        icon="⚡",
+        icon="",
         demos=[
             Demo(
                 id="async_conn",
