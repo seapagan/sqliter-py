@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar, cast
 
 from sqliter.exceptions import (
     InvalidProjectionError,
+    InvalidUpdateError,
     RecordDeletionError,
     RecordFetchError,
     RecordUpdateError,
@@ -506,13 +507,13 @@ class AsyncQueryBuilder(Generic[T]):
         pk_field = self.model_class.get_primary_key()
         if pk_field in values:
             msg = f"Cannot update the primary key '{pk_field}' via bulk update"
-            raise RecordUpdateError(msg)
+            raise InvalidUpdateError(msg)
 
         valid_fields = set(self.model_class.model_fields.keys())
         invalid_fields = set(values.keys()) - valid_fields
         if invalid_fields:
             invalid_names = ", ".join(sorted(invalid_fields))
-            raise RecordUpdateError(invalid_names)
+            raise InvalidUpdateError(invalid_names)
 
         sql, all_values = self._query.build_update_statement(
             values,

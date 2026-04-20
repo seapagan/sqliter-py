@@ -18,6 +18,7 @@ from sqliter.exceptions import (
     ForeignKeyConstraintError,
     InvalidIndexError,
     InvalidProjectionError,
+    InvalidUpdateError,
     RecordDeletionError,
     RecordFetchError,
     RecordInsertionError,
@@ -1406,10 +1407,10 @@ async def test_async_query_update_rejects_invalid_fields() -> None:
     await db.create_table(ExampleModel)
     await db.insert(ExampleModel(slug="a", name="A", content="one"))
 
-    with pytest.raises(RecordUpdateError, match="primary key"):
+    with pytest.raises(InvalidUpdateError, match="primary key"):
         await db.select(ExampleModel).update({"pk": 1})
 
-    with pytest.raises(RecordUpdateError, match="unknown"):
+    with pytest.raises(InvalidUpdateError, match="unknown"):
         await db.select(ExampleModel).update({"unknown": "x"})
 
     assert await db.select(ExampleModel).update({}) == 0
