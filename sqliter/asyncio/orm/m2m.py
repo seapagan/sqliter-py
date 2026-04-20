@@ -410,18 +410,22 @@ class AsyncPrefetchedM2MResult(Generic[T]):
     async def add(self, *instances: T) -> None:
         """Delegate add."""
         await self._manager.add(*instances)
+        self._items = await self._manager.fetch_all()
 
     async def remove(self, *instances: T) -> None:
         """Delegate remove."""
         await self._manager.remove(*instances)
+        self._items = await self._manager.fetch_all()
 
     async def clear(self) -> None:
         """Delegate clear."""
         await self._manager.clear()
+        self._items = await self._manager.fetch_all()
 
     async def set(self, *instances: T) -> None:
         """Delegate set."""
         await self._manager.set(*instances)
+        self._items = await self._manager.fetch_all()
 
 
 class AsyncManyToMany(SyncManyToMany[T]):

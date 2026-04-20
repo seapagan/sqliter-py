@@ -15,6 +15,7 @@ from sqliter.orm import BaseDBModel, ManyToMany
 from sqliter.orm.m2m import (
     M2MSQLMetadata,
     ManyToManyManager,
+    PrefetchedM2MResult,
     ReverseManyToMany,
     create_junction_table,
 )
@@ -650,6 +651,27 @@ class TestManyToManySet:
         article.tags.set()
 
         assert article.tags.count() == 0
+
+    def test_prefetched_wrapper_refreshes_after_writes(
+        self, db: SqliterDB
+    ) -> None:
+        """Prefetched wrapper reflects delegated write operations."""
+        article = db.insert(Article(title="Guide"))
+        tag1 = db.insert(Tag(name="python"))
+        tag2 = db.insert(Tag(name="tutorial"))
+
+        manager = cast("ManyToManyManager[Tag]", article.tags)
+        prefetched = PrefetchedM2MResult([tag1], manager)
+
+        assert prefetched.count() == 1
+        prefetched.add(tag1)
+        assert prefetched.count() == 1
+        prefetched.set(tag2)
+        fetched = prefetched.fetch_one()
+        assert fetched is not None
+        assert fetched.name == "tutorial"
+        prefetched.clear()
+        assert prefetched.fetch_all() == []
 
 
 # ── TestManyToManyQuery ──────────────────────────────────────────────

@@ -565,6 +565,52 @@ async def test_async_m2m_manager_and_prefetched_edge_paths() -> None:
 
 
 @pytest.mark.asyncio
+async def test_async_prefetched_wrapper_refreshes_after_writes() -> None:
+    """Async prefetched wrapper reflects delegated write operations."""
+    state = ModelRegistry.snapshot()
+    try:
+
+        class Tag(AsyncBaseDBModel):
+            """Tag model for async prefetched wrapper tests."""
+
+            name: str
+
+        class Article(AsyncBaseDBModel):
+            """Article model for async prefetched wrapper tests."""
+
+            title: str
+            tags: AsyncManyToMany[Tag] = AsyncManyToMany(
+                Tag,
+                related_name="articles",
+            )
+
+        db = AsyncSqliterDB(memory=True)
+        await db.create_table(Tag)
+        await db.create_table(Article)
+
+        article = await db.insert(Article(title="Guide"))
+        tag1 = await db.insert(Tag(name="python"))
+        tag2 = await db.insert(Tag(name="tutorial"))
+        manager = cast("AsyncManyToManyManager[Tag]", article.tags)
+        prefetched = AsyncPrefetchedM2MResult([tag1], manager)
+
+        assert await prefetched.count() == 1
+        await prefetched.add(tag1)
+        assert await prefetched.count() == 1
+        await prefetched.remove(Tag(name="missing"))
+        assert await prefetched.count() == 1
+        await prefetched.set(tag2)
+        fetched = await prefetched.fetch_one()
+        assert fetched is not None
+        assert fetched.name == "tutorial"
+        await prefetched.clear()
+        assert await prefetched.fetch_all() == []
+        await db.close()
+    finally:
+        ModelRegistry.restore(state)
+
+
+@pytest.mark.asyncio
 async def test_async_m2m_set_preserves_links_on_validation_failure() -> None:
     """Async M2M set keeps existing links when replacement validation fails."""
     state = ModelRegistry.snapshot()
