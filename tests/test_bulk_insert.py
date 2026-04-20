@@ -77,6 +77,10 @@ class OtherModel(BaseDBModel):
     color: str
 
 
+class SubSimpleModel(SimpleModel):
+    """Subclass of SimpleModel for exact-type bulk insert validation tests."""
+
+
 # ── Fixtures ─────────────────────────────────────────────────────────
 
 
@@ -257,6 +261,21 @@ class TestBulkInsertErrorHandling:
                 [
                     SimpleModel(name="a"),
                     OtherModel(color="red"),
+                ]
+            )
+
+    def test_subclass_model_types_raises_type_error(
+        self, db: SqliterDB
+    ) -> None:
+        """Passing subclass instances in bulk inserts raises TypeError."""
+        db.create_table(SubSimpleModel)
+        with pytest.raises(
+            TypeError, match="Expected SimpleModel, got SubSimpleModel"
+        ):
+            db.bulk_insert(
+                [
+                    SimpleModel(name="a"),
+                    SubSimpleModel(name="b"),
                 ]
             )
 

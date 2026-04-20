@@ -1417,7 +1417,7 @@ class SqliterDB:
 
         model_class = type(instances[0])
         for inst in instances[1:]:
-            if not isinstance(inst, model_class):
+            if type(inst) is not model_class:
                 msg = (
                     "All instances must be the same model type. "
                     f"Expected {model_class.__name__}, "
