@@ -530,7 +530,7 @@ class AsyncSqliterDB:
             conn = await self.connect()
             cursor = await conn.cursor()
             await self._execute_async(cursor, sql)
-            await conn.commit()
+            await self._maybe_commit()
         except (sqlite3.Error, sqlite3.Warning) as exc:
             raise SqlExecutionError(sql) from exc
 
