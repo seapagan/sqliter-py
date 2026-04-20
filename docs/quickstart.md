@@ -52,4 +52,6 @@ the [async guide](guide/asyncio.md):
 
 ```bash
 uv add 'sqliter-py[async]'
+# or
+pip install 'sqliter-py[async]'
 ```
