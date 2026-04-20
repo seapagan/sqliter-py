@@ -266,37 +266,38 @@ def _run_async_fk_lazy() -> str:
 
     async def main() -> None:
         db = AsyncSqliterDB(memory=True)
-        await db.create_table(Author)
-        await db.create_table(Book)
+        try:
+            await db.create_table(Author)
+            await db.create_table(Book)
 
-        tolkien = await db.insert(Author(name="J.R.R. Tolkien"))
-        book = await db.insert(Book(title="The Hobbit", author=tolkien))
+            tolkien = await db.insert(Author(name="J.R.R. Tolkien"))
+            book = await db.insert(Book(title="The Hobbit", author=tolkien))
 
-        # Re-fetch from DB to get a fresh instance (no in-memory cache)
-        fresh = await db.get(Book, book.pk)
-        if fresh is None:
-            return
+            # Re-fetch from DB to get a fresh instance (no in-memory cache)
+            fresh = await db.get(Book, book.pk)
+            if fresh is None:
+                return
 
-        # WRONG — raises AttributeError in async mode:
-        # fresh.author.name
-        # AttributeError: Async foreign key 'name' is not loaded.
-        # Use `await relation.fetch()` first.
+            # WRONG — raises AttributeError in async mode:
+            # fresh.author.name
+            # AttributeError: Async foreign key 'name' is not loaded.
+            # Use `await relation.fetch()` first.
 
-        # CORRECT — explicitly fetch the loader, then await it
-        #
-        # mypy note: AsyncForeignKey is typed to return T (Author) so
-        # that eager-loaded access (book.author.name) type-checks. At
-        # runtime the lazy-loaded value is AsyncLazyLoader[T], not T,
-        # so strict mypy requires a cast. This is a known trade-off —
-        # see the async guide for a full explanation.
-        loader = cast("AsyncLazyLoader[Author]", fresh.author)
-        fetched_author = await loader.fetch()
-        output.write(f"Book: {fresh.title}\n")
-        if fetched_author is not None:
-            output.write(f"Author: {fetched_author.name}\n")
-        output.write("Loaded via: await book.author.fetch()\n")
-
-        await db.close()
+            # CORRECT — explicitly fetch the loader, then await it
+            #
+            # mypy note: AsyncForeignKey is typed to return T (Author) so
+            # that eager-loaded access (book.author.name) type-checks. At
+            # runtime the lazy-loaded value is AsyncLazyLoader[T], not T,
+            # so strict mypy requires a cast. This is a known trade-off —
+            # see the async guide for a full explanation.
+            loader = cast("AsyncLazyLoader[Author]", fresh.author)
+            fetched_author = await loader.fetch()
+            output.write(f"Book: {fresh.title}\n")
+            if fetched_author is not None:
+                output.write(f"Author: {fetched_author.name}\n")
+            output.write("Loaded via: await book.author.fetch()\n")
+        finally:
+            await db.close()
 
     _run_async(main())
     return output.getvalue()
@@ -367,32 +368,35 @@ def _run_async_reverse() -> str:
 
     async def main() -> None:
         db = AsyncSqliterDB(memory=True)
-        await db.create_table(Author)
-        await db.create_table(Book)
+        try:
+            await db.create_table(Author)
+            await db.create_table(Book)
 
-        dickens = await db.insert(Author(name="Charles Dickens"))
-        await db.insert(Book(title="Oliver Twist", author=dickens))
-        await db.insert(Book(title="Great Expectations", author=dickens))
+            dickens = await db.insert(Author(name="Charles Dickens"))
+            await db.insert(Book(title="Oliver Twist", author=dickens))
+            await db.insert(Book(title="Great Expectations", author=dickens))
 
-        author = await db.get(Author, dickens.pk)
-        if author is None:
-            return
+            author = await db.get(Author, dickens.pk)
+            if author is None:
+                return
 
-        # mypy note: reverse accessors are set dynamically via setattr,
-        # so __getattribute__ returns `object`. Cast to AsyncReverseQuery
-        # for strict mypy. fetch_all() returns list[BaseDBModel], so a
-        # second cast to the concrete type is also needed.
-        books_query: AsyncReverseQuery = cast("AsyncReverseQuery", author.books)
-        fetched_books = cast("list[Book]", await books_query.fetch_all())
-        output.write(f"Author: {author.name}\n")
-        output.write(f"Books ({len(fetched_books)}):\n")
-        for b in fetched_books:
-            output.write(f"  - {b.title}\n")
+            # mypy note: reverse accessors are set dynamically via setattr,
+            # so __getattribute__ returns `object`. Cast to AsyncReverseQuery
+            # for strict mypy. fetch_all() returns list[BaseDBModel], so a
+            # second cast to the concrete type is also needed.
+            books_query: AsyncReverseQuery = cast(
+                "AsyncReverseQuery", author.books
+            )
+            fetched_books = cast("list[Book]", await books_query.fetch_all())
+            output.write(f"Author: {author.name}\n")
+            output.write(f"Books ({len(fetched_books)}):\n")
+            for b in fetched_books:
+                output.write(f"  - {b.title}\n")
 
-        count = await books_query.count()
-        output.write(f"Total via .count(): {count}\n")
-
-        await db.close()
+            count = await books_query.count()
+            output.write(f"Total via .count(): {count}\n")
+        finally:
+            await db.close()
 
     _run_async(main())
     return output.getvalue()
