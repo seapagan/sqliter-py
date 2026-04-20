@@ -62,7 +62,8 @@ Full documentation is available on the [Website](https://sqliter.grantramsay.dev
 - Full type hinting and type checking
 - Detailed documentation and examples
 - Interactive TUI demo for exploring features
-- No external dependencies other than Pydantic
+- No required external dependencies other than Pydantic for normal synchronous
+  usage.
 - Full test coverage
 
 ## Installation
