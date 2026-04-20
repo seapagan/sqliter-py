@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from dataclasses import dataclass, field
 from typing import (
@@ -21,6 +22,8 @@ from pydantic_core import core_schema
 
 from sqliter.exceptions import ManyToManyIntegrityError, TableCreationError
 from sqliter.helpers import validate_table_name
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:  # pragma: no cover
     from pydantic import GetCoreSchemaHandler
@@ -1042,11 +1045,17 @@ def create_junction_table(
         raise TableCreationError(junction_table) from exc
 
     # Create indexes on both FK columns
-    try:
-        for index_sql in build_junction_index_sqls(junction_table, columns):
-            conn = db.connect()
-            cursor = conn.cursor()
+    conn = db.connect()
+    cursor = conn.cursor()
+
+    for index_sql in build_junction_index_sqls(junction_table, columns):
+        try:
             db._execute(cursor, index_sql)  # noqa: SLF001
             conn.commit()
-    except sqlite3.Error:
-        pass  # Non-critical: index creation failure
+        except sqlite3.Error as exc:  # noqa: PERF203
+            logger.debug(
+                "Ignoring junction index creation failure for %s: %s",
+                junction_table,
+                index_sql,
+            )
+            logger.debug("Index creation error: %s", exc)
