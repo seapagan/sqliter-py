@@ -185,7 +185,7 @@ class TestDemoCode:
         ]:
             code = _demo_code(func)
             assert len(code.strip()) > 0, (
-                f"_demo_code({_run_async_conn.__name__}) is empty"
+                f"_demo_code({func.__name__}) is empty"
             )
 
     def test_leading_blank_lines_removed(self) -> None:
