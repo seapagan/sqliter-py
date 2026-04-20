@@ -1,6 +1,7 @@
 """Tests for the query module."""
 
 from typing import Optional
+from unittest.mock import patch
 
 import pytest
 from pytest_mock import MockerFixture
@@ -90,6 +91,73 @@ class TestQuery:
             "",
             [],
         )
+
+    def test_cache_key_fields_returns_none_for_missing_selected_fields(
+        self, db_mock: SqliterDB
+    ) -> None:
+        """Cache key field normalization tolerates missing selected fields."""
+        query = db_mock.select(ExampleModel, fields=["name"])
+
+        with patch.object(
+            query,
+            "_selected_fields_for_execution",
+            return_value=None,
+        ):
+            assert query._cache_key_fields() is None
+
+    def test_selected_fields_for_execution_returns_none_without_fields(
+        self, db_mock: SqliterDB
+    ) -> None:
+        """Selected fields are absent when the query does not project fields."""
+        query = db_mock.select(ExampleModel)
+
+        assert query._selected_fields_for_execution() is None
+
+    def test_simple_execution_plan_raises_for_missing_selected_fields(
+        self, db_mock: SqliterDB
+    ) -> None:
+        """Simple execution plans reject missing selected fields."""
+        query = db_mock.select(ExampleModel, fields=["name"])
+
+        with (
+            patch.object(
+                query,
+                "_selected_fields_for_execution",
+                return_value=None,
+            ),
+            pytest.raises(
+                RuntimeError,
+                match="Unexpected state: selected fields missing",
+            ),
+        ):
+            query._build_simple_execution_plan(count_only=False)
+
+    def test_join_execution_plan_raises_for_missing_selected_fields(
+        self, db_mock: SqliterDB
+    ) -> None:
+        """JOIN execution plans reject missing selected fields."""
+        query = db_mock.select(ExampleModel, fields=["name"])
+
+        with (
+            patch.object(
+                query,
+                "_build_join_sql",
+                return_value=("JOIN test_join", '"t0"."pk"', []),
+            ),
+            patch.object(
+                query,
+                "_selected_fields_for_execution",
+                return_value=None,
+            ),
+            pytest.raises(
+                RuntimeError,
+                match="Unexpected state: selected fields missing",
+            ),
+        ):
+            query._build_join_execution_plan(
+                count_only=False,
+                needs_join_for_filters=False,
+            )
 
     def test_fetch_first_single_result(self, db_mock: SqliterDB) -> None:
         """Test that fetch_first returns a single result as a model instance."""
