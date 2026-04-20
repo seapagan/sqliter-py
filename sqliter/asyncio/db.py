@@ -423,6 +423,15 @@ class AsyncSqliterDB:
         ):
             await self.conn.commit()
 
+    async def _maybe_rollback(self) -> None:
+        """Rollback changes when auto-commit is enabled."""
+        if (
+            not self.in_transaction
+            and self.auto_commit
+            and self.conn is not None
+        ):
+            await self.conn.rollback()
+
     async def maybe_commit(self) -> None:
         """Public wrapper for conditional commit behavior."""
         await self._maybe_commit()
@@ -569,16 +578,14 @@ class AsyncSqliterDB:
             )
             await self._maybe_commit()
         except sqlite3.IntegrityError as exc:
-            if not self.in_transaction and self.conn is not None:
-                await self.conn.rollback()
+            await self._maybe_rollback()
             if "FOREIGN KEY constraint failed" in str(exc):
                 operation = "insert"
                 reason = "does not exist in referenced table"
                 raise ForeignKeyConstraintError(operation, reason) from exc
             raise RecordInsertionError(insert_plan.table_name) from exc
         except sqlite3.Error as exc:
-            if not self.in_transaction and self.conn is not None:
-                await self.conn.rollback()
+            await self._maybe_rollback()
             raise RecordInsertionError(insert_plan.table_name) from exc
         else:
             self._cache_invalidate_table(insert_plan.table_name)
@@ -638,16 +645,14 @@ class AsyncSqliterDB:
             ]
             await self._maybe_commit()
         except sqlite3.IntegrityError as exc:
-            if not self.in_transaction and self.conn is not None:
-                await self.conn.rollback()
+            await self._maybe_rollback()
             if "FOREIGN KEY constraint failed" in str(exc):
                 operation = "insert"
                 reason = "does not exist in referenced table"
                 raise ForeignKeyConstraintError(operation, reason) from exc
             raise RecordInsertionError(table_name) from exc
         except sqlite3.Error as exc:
-            if not self.in_transaction and self.conn is not None:
-                await self.conn.rollback()
+            await self._maybe_rollback()
             raise RecordInsertionError(table_name) from exc
         else:
             self._cache_invalidate_table(table_name)
@@ -725,12 +730,10 @@ class AsyncSqliterDB:
             await self._maybe_commit()
             self._cache_invalidate_table(update_plan.table_name)
         except RecordNotFoundError:
-            if not self.in_transaction and self.conn is not None:
-                await self.conn.rollback()
+            await self._maybe_rollback()
             raise
         except sqlite3.Error as exc:
-            if not self.in_transaction and self.conn is not None:
-                await self.conn.rollback()
+            await self._maybe_rollback()
             raise RecordUpdateError(update_plan.table_name) from exc
 
     async def delete(
@@ -756,20 +759,17 @@ class AsyncSqliterDB:
             await self._maybe_commit()
             self._cache_invalidate_table(delete_plan.table_name)
         except RecordNotFoundError:
-            if not self.in_transaction and self.conn is not None:
-                await self.conn.rollback()
+            await self._maybe_rollback()
             raise
         except sqlite3.IntegrityError as exc:
-            if not self.in_transaction and self.conn is not None:
-                await self.conn.rollback()
+            await self._maybe_rollback()
             if "FOREIGN KEY constraint failed" in str(exc):
                 operation = "delete"
                 reason = "is still referenced by other records"
                 raise ForeignKeyConstraintError(operation, reason) from exc
             raise RecordDeletionError(delete_plan.table_name) from exc
         except sqlite3.Error as exc:
-            if not self.in_transaction and self.conn is not None:
-                await self.conn.rollback()
+            await self._maybe_rollback()
             raise RecordDeletionError(delete_plan.table_name) from exc
 
     async def update_where(
