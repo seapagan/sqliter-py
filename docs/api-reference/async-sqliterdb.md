@@ -289,5 +289,7 @@ class Book(AsyncBaseDBModel):
 
 
 book = await db.get(Book, 1)
+if book is None:
+    raise ValueError("Book not found")
 author = await book.author.fetch()
 ```
