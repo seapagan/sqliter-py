@@ -46,22 +46,11 @@ class AsyncLazyLoader(Generic[T]):
             return None
 
         if self._cached is None and self._db is not None:
-            from sqliter.exceptions import SqliterError  # noqa: PLC0415
-
-            try:
-                result = await self._db.get(
-                    cast("type[BaseDBModel]", self._to_model),
-                    self._fk_id,
-                )
-                self._cached = cast("Optional[T]", result)
-            except SqliterError as exc:
-                logger.debug(
-                    "AsyncLazyLoader failed to fetch %s with pk=%s: %s",
-                    self._to_model.__name__,
-                    self._fk_id,
-                    exc,
-                )
-                self._cached = None
+            result = await self._db.get(
+                cast("type[BaseDBModel]", self._to_model),
+                self._fk_id,
+            )
+            self._cached = cast("Optional[T]", result)
         return self._cached
 
     def __getattr__(self, name: str) -> object:

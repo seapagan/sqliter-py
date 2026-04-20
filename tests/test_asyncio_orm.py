@@ -144,7 +144,8 @@ async def test_async_fk_loader_descriptor_and_model_edge_paths(
             fk_id=author.pk,
             db_context=db,
         )
-        assert await failing.fetch() is None
+        with pytest.raises(RecordFetchError):
+            await failing.fetch()
 
         await db.close()
     finally:
