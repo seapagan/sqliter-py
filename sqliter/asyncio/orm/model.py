@@ -20,7 +20,7 @@ class AsyncBaseDBModel(SyncBaseDBModel):
         """Return async FK loaders while preserving normal attribute access."""
         if name in object.__getattribute__(self, "fk_descriptors"):
             fk_id = object.__getattribute__(self, f"{name}_id")
-            if fk_id is None:
+            if not fk_id:
                 return None
 
             instance_dict = object.__getattribute__(self, "__dict__")

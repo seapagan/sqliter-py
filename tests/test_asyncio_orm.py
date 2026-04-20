@@ -153,6 +153,35 @@ async def test_async_fk_loader_descriptor_and_model_edge_paths(
 
 
 @pytest.mark.asyncio
+async def test_async_fk_zero_fk_id_is_missing() -> None:
+    """Async FK with unsaved value 0 should behave as a missing relation."""
+    state = ModelRegistry.snapshot()
+    try:
+
+        class Author(AsyncBaseDBModel):
+            """Author model for async unsaved FK tests."""
+
+            name: str
+
+        class Book(AsyncBaseDBModel):
+            """Book model for async unsaved FK tests."""
+
+            title: str
+            author: AsyncForeignKey[Author] = AsyncForeignKey(
+                Author,
+                null=True,
+                on_delete="CASCADE",
+                related_name="books",
+            )
+
+        draft = Book(title="Draft", author_id=0)
+        assert draft.author is None
+        assert draft.__dict__.get("_fk_cache", {}) == {}
+    finally:
+        ModelRegistry.restore(state)
+
+
+@pytest.mark.asyncio
 async def test_async_fk_descriptor_direct_paths() -> None:
     """Direct descriptor access covers null, cached, and new loader branches."""
     state = ModelRegistry.snapshot()
