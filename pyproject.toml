@@ -31,7 +31,7 @@ classifiers = [
 [project.optional-dependencies]
 async = ["aiosqlite>=0.20.0"]
 demo = ["textual>=7.3.0"]
-extras = ["inflect==7.0.0"]
+extras = ["inflect>=7.0.0"]
 full = ["inflect>=7.0.0", "textual>=7.3.0", "aiosqlite>=0.20.0"]
 
 [project.scripts]
