@@ -444,16 +444,14 @@ class AsyncSqliterDB:
         force: bool = False,
     ) -> None:
         """Create a table from a SQLiter model class."""
-        table_name = model_class.get_table_name()
-        if force:
-            await self._execute_sql(f"DROP TABLE IF EXISTS {table_name}")
-
         table_name, create_table_sql, fk_columns = (
             self._sync._build_create_table_sql(  # noqa: SLF001
                 model_class,
                 exists_ok=exists_ok,
             )
         )
+        if force:
+            await self._execute_sql(f"DROP TABLE IF EXISTS {table_name}")
 
         try:
             conn = await self.connect()
