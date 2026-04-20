@@ -434,6 +434,25 @@ class TestSqliterDB:
         db_reader.close()
         db_writer.close()
 
+    def test_get_caches_negative_result_with_explicit_ttl(
+        self, tmp_path: Path
+    ) -> None:
+        """Explicit cache_ttl keeps negative cache entries for later lookups."""
+        db_path = tmp_path / "negative-cache-ttl.db"
+        db_reader = SqliterDB(str(db_path), cache_enabled=True)
+        db_writer = SqliterDB(str(db_path), cache_enabled=True)
+        db_reader.create_table(ExampleModel)
+
+        assert db_reader.get(ExampleModel, 1, cache_ttl=60) is None
+
+        db_writer.insert(
+            ExampleModel(pk=1, slug="later", name="Later", content="Inserted")
+        )
+
+        assert db_reader.get(ExampleModel, 1, cache_ttl=60) is None
+        db_reader.close()
+        db_writer.close()
+
     def test_delete_non_existent_record(self, db_mock: SqliterDB) -> None:
         """Test that trying to delete a non-existent record raises exception."""
         with pytest.raises(RecordNotFoundError):

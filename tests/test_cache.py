@@ -289,7 +289,7 @@ class TestCacheClearedOnClose:
         assert len(db._cache) == 0
 
     def test_cache_context_manager(self, tmp_path: Path) -> None:
-        """Cache cleared when using context manager."""
+        """Cache persists when using context manager."""
         with SqliterDB(str(tmp_path / "test.db"), cache_enabled=True) as db:
             db.create_table(User)
             db.insert(User(name="Alice", age=30))
@@ -298,8 +298,9 @@ class TestCacheClearedOnClose:
             db.select(User).fetch_all()
             assert len(db._cache) > 0
 
-        # Cache should be cleared after exiting context
-        assert len(db._cache) == 0
+        # Cache should remain available after exiting context
+        assert len(db._cache) > 0
+        db.close()
 
 
 class TestCacheTtlExpiration:
@@ -915,7 +916,7 @@ class TestCacheMemoryLimit:
     def test_memory_tracking_cleared_on_context_exit(
         self, tmp_path: Path
     ) -> None:
-        """Memory usage is 0 when exiting context manager."""
+        """Memory tracking remains until the connection is explicitly closed."""
         with SqliterDB(
             str(tmp_path / "test.db"), cache_enabled=True, cache_max_memory_mb=1
         ) as db:
@@ -926,7 +927,8 @@ class TestCacheMemoryLimit:
             db.select(User).filter(name="Alice").fetch_all()
             assert db._get_table_memory_usage(User.get_table_name()) > 0
 
-        # After exiting context, memory usage should be 0
+        assert db._get_table_memory_usage(User.get_table_name()) > 0
+        db.close()
         assert db._get_table_memory_usage(User.get_table_name()) == 0
 
     def test_memory_limit_with_both_limits(self, tmp_path: Path) -> None:

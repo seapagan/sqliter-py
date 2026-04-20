@@ -92,14 +92,13 @@ The cache is tied to the database connection instance and is automatically
 cleared when:
 
 - The connection is closed: `db.close()`
-- Exiting a context manager: `with SqliterDB(...) as db:`
 - The connection is deleted
 
 ```python
 with SqliterDB("mydb.db", cache_enabled=True) as db:
     db.select(User).fetch_all()  # Cached
-    # Cache is cleared when exiting context
-# Cache is empty here
+    # Cache remains available until the connection is closed
+db.close()
 ```
 
 ## Limitations

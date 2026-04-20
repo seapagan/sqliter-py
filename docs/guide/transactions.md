@@ -12,5 +12,9 @@ with db:
 Using the context manager will automatically commit the transaction at the end
 (unless an exception occurs), regardless of the `auto_commit` setting. If an
 exception occurs, all changes made within the transaction block are rolled back.
-The `close()` method will also be called when the context manager exits, so you
-do not need to call it manually.
+
+> [!WARNING]
+>
+> Breaking change in `0.21.0`: the context manager no longer closes the
+> connection on exit. Use `close()` explicitly when you are finished with the
+> database instance.

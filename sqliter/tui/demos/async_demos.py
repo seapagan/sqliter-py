@@ -81,8 +81,8 @@ def _run_async_conn() -> str:
 def _run_async_context() -> str:
     """Use async context manager for automatic transaction management.
 
-    The `async with db:` block handles connection, transactions, and
-    cleanup automatically. Note: you must use `async with`, not `with`.
+    The `async with db:` block handles transaction scope. Note: you must use
+    `async with`, not `with`.
     """
     if not _ASYNC_AVAILABLE:
         return _unavailable("Async Context Manager")
@@ -103,6 +103,7 @@ def _run_async_context() -> str:
             output.write("Transaction auto-commits on exit\n")
 
         output.write(f"\nAfter context: connected={db.is_connected}\n")
+        await db.close()
 
     _run_async(main())
     return output.getvalue()

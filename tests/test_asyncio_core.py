@@ -135,6 +135,42 @@ def test_asyncio_import_error_without_aiosqlite(
         _ = module.AsyncSqliterDB
 
 
+def test_asyncio_reraises_non_aiosqlite_import_errors(
+    monkeypatch: pytest.MonkeyPatch,
+    mocker: MockerFixture,
+) -> None:
+    """Importing sqliter.asyncio reraises unrelated module import failures."""
+    real_import = builtins.__import__
+
+    def fake_import(
+        name: str,
+        globals_: Mapping[str, object] | None = None,
+        locals_: Mapping[str, object] | None = None,
+        fromlist: tuple[str, ...] = (),
+        level: int = 0,
+    ) -> object:
+        if name == "sqliter.asyncio.db":
+            msg = "No module named 'boommod'"
+            raise ModuleNotFoundError(msg, name="boommod")
+        return real_import(name, globals_, locals_, fromlist, level)
+
+    mocker.patch.dict(
+        "sys.modules",
+        {
+            "sqliter.asyncio": None,
+            "sqliter.asyncio.db": None,
+            "sqliter.asyncio.query": None,
+        },
+    )
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    sys.modules.pop("sqliter.asyncio", None)
+    sys.modules.pop("sqliter.asyncio.db", None)
+    sys.modules.pop("sqliter.asyncio.query", None)
+
+    with pytest.raises(ModuleNotFoundError, match="boommod"):
+        importlib.import_module("sqliter.asyncio")
+
+
 def test_asyncio_module_getattr_paths() -> None:
     """Async package exposes expected attributes via __getattr__."""
     module = importlib.reload(sqliter_asyncio)
@@ -196,6 +232,17 @@ async def test_async_get_table_names_keeps_memory_connection_open() -> None:
 
 
 @pytest.mark.asyncio
+async def test_async_get_table_names_closes_temporary_file_connection(
+    temp_db_path: str,
+) -> None:
+    """get_table_names closes a temporary file-backed connection after use."""
+    db = AsyncSqliterDB(temp_db_path)
+
+    assert await db.get_table_names() == []
+    assert db.conn is None
+
+
+@pytest.mark.asyncio
 async def test_async_query_builder_fetch_and_count() -> None:
     """Async QueryBuilder supports basic fetch and count operations."""
     db = AsyncSqliterDB(memory=True)
@@ -233,6 +280,7 @@ async def test_async_context_manager_commits_transaction(
     fetched = await db.get(ExampleModel, 1)
     assert fetched is not None
     assert fetched.slug == "apache"
+    assert db.conn is not None
 
     await db.close()
 
@@ -606,6 +654,27 @@ async def test_async_get_does_not_cache_default_negative_result(
 
     assert fetched is not None
     assert fetched.slug == "later"
+    await db_reader.close()
+    await db_writer.close()
+
+
+@pytest.mark.asyncio
+async def test_async_get_caches_negative_result_with_explicit_ttl(
+    tmp_path: Path,
+) -> None:
+    """Explicit cache_ttl keeps negative cache entries for later lookups."""
+    db_path = tmp_path / "async-negative-cache-ttl.db"
+    db_reader = AsyncSqliterDB(str(db_path), cache_enabled=True)
+    db_writer = AsyncSqliterDB(str(db_path), cache_enabled=True)
+    await db_reader.create_table(ExampleModel)
+
+    assert await db_reader.get(ExampleModel, 1, cache_ttl=60) is None
+
+    await db_writer.insert(
+        ExampleModel(pk=1, slug="later", name="Later", content="Inserted")
+    )
+
+    assert await db_reader.get(ExampleModel, 1, cache_ttl=60) is None
     await db_reader.close()
     await db_writer.close()
 
@@ -1104,6 +1173,43 @@ async def test_async_context_manager_rolls_back_on_error(
         await fail_transaction()
 
     assert await db.get(ExampleModel, 1) is None
+    assert db.conn is not None
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_context_manager_keeps_memory_database_available() -> None:
+    """In-memory async DB data survives after leaving the context."""
+    db = AsyncSqliterDB(memory=True)
+
+    async with db:
+        await db.create_table(ExampleModel)
+        inserted = await db.insert(
+            ExampleModel(slug="persist", name="Persist", content="context")
+        )
+
+    fetched = await db.get(ExampleModel, inserted.pk)
+
+    assert fetched is not None
+    assert fetched.slug == "persist"
+    assert db.conn is not None
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_context_manager_preserves_cache() -> None:
+    """Cache entries remain available after async transaction exit."""
+    db = AsyncSqliterDB(memory=True, cache_enabled=True)
+    await db.create_table(ExampleModel)
+    inserted = await db.insert(
+        ExampleModel(slug="cache", name="Cache", content="persist")
+    )
+
+    async with db:
+        fetched = await db.get(ExampleModel, inserted.pk)
+        assert fetched is not None
+
+    assert len(db._sync._cache) > 0
     await db.close()
 
 

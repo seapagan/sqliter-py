@@ -59,9 +59,8 @@ context can block the event loop.
 
 ## Async Context Manager
 
-The `async with db:` block manages the connection, transaction, and cleanup
-automatically — identical semantics to the sync `with db:`, but you must use
-the `async` form.
+The `async with db:` block manages transaction scope automatically — identical
+semantics to the sync `with db:`, but you must use the `async` form.
 
 ```python
 # --8<-- [start:async-context]
@@ -83,6 +82,7 @@ async def main():
         print("Transaction auto-commits on exit")
 
     print(f"\nAfter context: connected={db.is_connected}")
+    await db.close()
 
 asyncio.run(main())
 # --8<-- [end:async-context]
@@ -96,8 +96,9 @@ changes are rolled back automatically.
 
 ### When to Use
 
-Prefer `async with db:` over manually calling `await db.connect()` and
-`await db.close()`. It ensures cleanup even when exceptions occur.
+Prefer `async with db:` when you need atomicity. From `0.21.0` onward it no
+longer closes the connection automatically, so call `await db.close()`
+explicitly when the async database instance is no longer needed.
 
 !!! warning "Must use `async with`, not `with`"
     Using the plain `with db:` on an `AsyncSqliterDB` instance will raise a
@@ -528,6 +529,11 @@ asyncio.run(main())
 The `async with db:` block begins an implicit transaction. When `RuntimeError`
 is raised, the context manager catches it, rolls back all changes, then
 re-raises. The second connection confirms the original balance was preserved.
+
+> [!WARNING]
+>
+> Breaking change in `0.21.0`: `async with db:` no longer closes the
+> connection. Use `await db.close()` for explicit teardown.
 
 ### When to Use
 

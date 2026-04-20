@@ -1683,7 +1683,7 @@ class SqliterDB:
 
         This method is called when exiting a 'with' statement. It handles
         committing or rolling back transactions based on whether an exception
-        occurred, and closes the database connection.
+        occurred.
 
         Args:
             exc_type: The type of the exception that caused the context to be
@@ -1705,11 +1705,4 @@ class SqliterDB:
                 else:
                     self.conn.commit()
             finally:
-                # Close the connection and reset the instance variable
-                self.conn.close()
-                self.conn = None
                 self._in_transaction = False
-        # Clear cache when exiting context
-        self._cache.clear()
-        self._cache_hits = 0
-        self._cache_misses = 0

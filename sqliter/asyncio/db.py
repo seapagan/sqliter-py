@@ -817,8 +817,4 @@ class AsyncSqliterDB:
                 else:
                     await self.conn.commit()
             finally:
-                await self.conn.close()
-                self.conn = None
                 self._sync.set_in_transaction(value=False)
-        self._sync.clear_cache()
-        self._sync.reset_cache_stats()

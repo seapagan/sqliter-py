@@ -98,6 +98,12 @@ async with AsyncSqliterDB("app.db") as db:
     ...
 ```
 
+> [!WARNING]
+>
+> Breaking change in `0.21.0`: `async with` commits or rolls back the
+> transaction but does not close the connection on exit. Call `await db.close()`
+> explicitly when the async database instance is no longer needed.
+
 ---
 
 ## Table Methods

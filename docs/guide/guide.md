@@ -229,9 +229,13 @@ with db:
 If an error occurs within the transaction block, all changes made inside the
 block will be rolled back automatically.
 
-If no errors occur, the transaction will commit and changes will be saved. The
-`close()` method will also be called when the context manager exits, so there is
-no need to call it manually.
+If no errors occur, the transaction will commit and changes will be saved.
+
+> [!WARNING]
+>
+> Breaking change in `0.21.0`: `with db:` now manages transaction scope only.
+> It no longer closes the database connection when the block exits. Call
+> `db.close()` explicitly when you are done with the database instance.
 
 ## Closing the Database
 
@@ -243,10 +247,9 @@ db.close()
 
 > [!NOTE]
 >
-> If you are using the database connection as a context manager (see above), you
-> do not need to call `close()` explicitly. The connection will be closed
-> automatically when the context manager exits, and any changes **will be
-> committed**.
+> From `0.21.0` onward, the context manager commits or rolls back the
+> transaction but does not close the connection. You should still call
+> `close()` explicitly when the database instance is no longer needed.
 
 This is a quick look at the core features of SQLiter. For more details on each
 functionality, see the next section.

@@ -298,8 +298,8 @@ db.commit()
 >
 > If you are using the database connection as a context manager (see
 > [tansactions](transactions.md)), you do not need to call `commit()`
-> explicitly. The connection will be closed automatically when the context
-> manager exits, and any changes **will be committed**.
+> explicitly. From `0.21.0` onward, the context manager still commits
+> successful transactions, but it does not close the connection automatically.
 
 ## Close the Connection
 
@@ -315,7 +315,5 @@ Note that closing the connection will also commit any pending changes, unless
 
 > [!NOTE]
 >
-> If you are using the database connection as a context manager (see
-> [tansactions](transactions.md)), you do not need to call `close()` explicitly.
-> The connection will be closed automatically when the context manager exits,
-> and any changes **will be committed**.
+> From `0.21.0` onward, the context manager does not close the connection.
+> Call `close()` explicitly when the database instance is no longer needed.

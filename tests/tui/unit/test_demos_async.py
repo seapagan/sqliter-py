@@ -68,7 +68,7 @@ class TestAsyncContextDemo:
         output = _run_async_context()
         assert "Inserted: Learn async SQLiter" in output
         assert "Transaction auto-commits on exit" in output
-        assert "After context: connected=False" in output
+        assert "After context: connected=True" in output
 
 
 class TestAsyncCrudDemo:

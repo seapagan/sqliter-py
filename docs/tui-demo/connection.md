@@ -97,6 +97,7 @@ with db:
     print("Transaction auto-commits on exit")
 
 print(f"\nAfter context: connected={db.is_connected}")
+db.close()
 # --8<-- [end:context-manager]
 ```
 
@@ -105,6 +106,11 @@ print(f"\nAfter context: connected={db.is_connected}")
 - **Automatic Commit**: Transaction commits when context exits successfully
 - **Automatic Rollback**: Changes are rolled back if an error occurs
 - **Cleaner Code**: No need to manually call `db.commit()`
+
+> [!WARNING]
+>
+> Breaking change in `0.21.0`: the context manager no longer closes the
+> connection automatically. Call `db.close()` explicitly when you are done.
 
 ### When to Use
 

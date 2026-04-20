@@ -28,10 +28,10 @@ class TestContextManager:
         # Ensure commit was called
         mock_commit.commit.assert_called_once()
 
-    def test_transaction_closes_connection(
+    def test_transaction_keeps_connection_open(
         self, db_mock: SqliterDB, mocker: MockerFixture
     ) -> None:
-        """Test the connection is closed after the transaction completes."""
+        """Test the connection stays open after the transaction completes."""
         # Mock the connection object itself
         mock_conn = mocker.patch.object(db_mock, "conn", autospec=True)
 
@@ -39,8 +39,8 @@ class TestContextManager:
         with db_mock:
             """Dummy transaction."""
 
-        # Ensure the connection is closed
-        mock_conn.close.assert_called_once()
+        # Ensure the connection is not closed
+        mock_conn.close.assert_not_called()
 
     def test_transaction_rollback_on_exception(
         self, db_mock: SqliterDB, mocker: MockerFixture
@@ -101,6 +101,8 @@ class TestContextManager:
             db_mock._maybe_commit()
             mock_conn.commit.assert_not_called()
 
+        mock_conn.commit.assert_called_once()
+        mock_conn.commit.reset_mock()
         db_mock._maybe_commit()
         mock_conn.commit.assert_called_once()
 
@@ -135,3 +137,20 @@ class TestContextManager:
 
         # Close the new connection
         new_conn.close()
+
+    def test_context_manager_keeps_memory_database_available(self) -> None:
+        """In-memory DB data survives after leaving the transaction context."""
+        db = SqliterDB(memory=True)
+
+        with db:
+            db.create_table(ExampleModel)
+            inserted = db.insert(
+                ExampleModel(slug="persist", name="Persist", content="context")
+            )
+
+        fetched = db.get(ExampleModel, inserted.pk)
+
+        assert fetched is not None
+        assert fetched.slug == "persist"
+        assert db.conn is not None
+        db.close()
