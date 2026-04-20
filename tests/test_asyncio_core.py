@@ -35,6 +35,7 @@ from tests.conftest import ExampleModel
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
+    from pathlib import Path
 
     from pytest_mock import MockerFixture
 
@@ -583,6 +584,30 @@ async def test_async_get_uses_cache_after_first_lookup() -> None:
 
     assert first is second
     await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_get_does_not_cache_default_negative_result(
+    tmp_path: Path,
+) -> None:
+    """Default negative cache entries do not mask inserts from other DBs."""
+    db_path = tmp_path / "async-negative-cache.db"
+    db_reader = AsyncSqliterDB(str(db_path), cache_enabled=True)
+    db_writer = AsyncSqliterDB(str(db_path), cache_enabled=True)
+    await db_reader.create_table(ExampleModel)
+
+    assert await db_reader.get(ExampleModel, 1) is None
+
+    await db_writer.insert(
+        ExampleModel(pk=1, slug="later", name="Later", content="Inserted")
+    )
+
+    fetched = await db_reader.get(ExampleModel, 1)
+
+    assert fetched is not None
+    assert fetched.slug == "later"
+    await db_reader.close()
+    await db_writer.close()
 
 
 @pytest.mark.asyncio

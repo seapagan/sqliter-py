@@ -1493,7 +1493,10 @@ class SqliterDB:
         except sqlite3.Error as exc:
             raise RecordFetchError(get_plan.table_name) from exc
         else:
-            if not bypass_cache:
+            if not bypass_cache and cache_ttl is not None:
+                # Negative cache entries are opt-in because invalidation is
+                # local to this instance and cannot observe cross-process
+                # inserts.
                 self._cache_set(
                     get_plan.table_name,
                     cache_key,

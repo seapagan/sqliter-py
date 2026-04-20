@@ -1,5 +1,7 @@
 """Test suite for the 'sqliter' library."""
 
+from pathlib import Path
+
 import pytest
 from pytest_mock import MockerFixture
 
@@ -409,6 +411,28 @@ class TestSqliterDB:
         """Test fetching a non-existent record returns None."""
         result = db_mock.get(ExampleModel, -1)
         assert result is None
+
+    def test_get_does_not_cache_default_negative_result(
+        self, tmp_path: Path
+    ) -> None:
+        """Default negative cache entries do not mask inserts from other DBs."""
+        db_path = tmp_path / "negative-cache.db"
+        db_reader = SqliterDB(str(db_path), cache_enabled=True)
+        db_writer = SqliterDB(str(db_path), cache_enabled=True)
+        db_reader.create_table(ExampleModel)
+
+        assert db_reader.get(ExampleModel, 1) is None
+
+        db_writer.insert(
+            ExampleModel(pk=1, slug="later", name="Later", content="Inserted")
+        )
+
+        fetched = db_reader.get(ExampleModel, 1)
+
+        assert fetched is not None
+        assert fetched.slug == "later"
+        db_reader.close()
+        db_writer.close()
 
     def test_delete_non_existent_record(self, db_mock: SqliterDB) -> None:
         """Test that trying to delete a non-existent record raises exception."""
