@@ -726,10 +726,11 @@ class TestQuery:
         ]
 
         # Mock the _execute_query method on the QueryBuilder instance
-        # Return tuple of (result, column_names) for new signature
+        # Return tuple of:
+        # (result, column_names, selected_fields) for new signature.
         query = db.select(ExampleModel)
         mocker.patch.object(
-            query, "_execute_query", return_value=(mock_result, [])
+            query, "_execute_query", return_value=(mock_result, [], None)
         )
 
         # Perform the fetch_one (this will internally call _fetch_result)

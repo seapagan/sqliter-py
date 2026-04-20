@@ -143,6 +143,7 @@ class QueryExecutionPlan:
     sql: str
     values: list[Any]
     column_names: list[tuple[str, str, type[BaseDBModel]]]
+    selected_fields: Optional[tuple[str, ...]] = None
 
 
 class QueryBuilder(Generic[T]):
@@ -2145,6 +2146,16 @@ class QueryBuilder(Generic[T]):
             )
         return self._build_simple_execution_plan(count_only=count_only)
 
+    def _selected_fields_for_execution(self) -> Optional[list[str]]:
+        """Return selected fields for SQL execution, adding `pk` if needed."""
+        if self._fields is None:
+            return None
+
+        selected_fields = list(self._fields)
+        if "pk" not in selected_fields:
+            selected_fields.append("pk")
+        return selected_fields
+
     def _needs_join_for_filters(self, *, count_only: bool) -> bool:
         """Return whether filters require JOIN-qualified SQL."""
         if not self._join_info or not (count_only or self._fields):
@@ -2225,27 +2236,39 @@ class QueryBuilder(Generic[T]):
             sql = (
                 f'SELECT COUNT(*) FROM "{self.table_name}" AS t0 {join_clause}'
             )
+            selected_fields = None
         elif self._fields:
+            selected_fields = self._selected_fields_for_execution()
+            if selected_fields is None:
+                msg = "Unexpected state: selected fields missing"
+                raise RuntimeError(msg)
+
             field_list = ", ".join(
                 self._column_sql(field, table_alias="t0")
-                for field in self._fields
+                for field in selected_fields
             )
             sql = (
                 f'SELECT {field_list} FROM "{self.table_name}" AS t0 '
                 f"{join_clause}"
             )
             column_names = [
-                ("t0", field, self.model_class) for field in self._fields
+                ("t0", field, self.model_class) for field in selected_fields
             ]
         else:
             sql = (
                 f'SELECT {select_clause} FROM "{self.table_name}" AS t0 '
                 f"{join_clause}"
             )
+            selected_fields = None
 
         values, where_clause = self._parse_filter(qualify_base_fields=True)
         sql, values = self._apply_join_query_suffix(sql, values, where_clause)
-        return QueryExecutionPlan(sql, values, column_names)
+        return QueryExecutionPlan(
+            sql,
+            values,
+            column_names,
+            tuple(selected_fields) if selected_fields else None,
+        )
 
     def _build_simple_execution_plan(
         self,
@@ -2255,17 +2278,21 @@ class QueryBuilder(Generic[T]):
         """Build SQL and metadata for a non-JOIN query."""
         if count_only:
             fields = "COUNT(*)"
+            selected_fields = None
         elif self._fields:
-            if "pk" not in self._fields:
-                self._fields.append("pk")
+            selected_fields = self._selected_fields_for_execution()
+            if selected_fields is None:
+                msg = "Unexpected state: selected fields missing"
+                raise RuntimeError(msg)
             fields = ", ".join(
-                self._column_sql(field) for field in self._fields
+                self._column_sql(field) for field in selected_fields
             )
         else:
             fields = ", ".join(
                 self._column_sql(field)
                 for field in self.model_class.model_fields
             )
+            selected_fields = None
 
         sql = f'SELECT {fields} FROM "{self.table_name}"'
         values, where_clause = self._parse_filter()
@@ -2274,7 +2301,12 @@ class QueryBuilder(Generic[T]):
             values,
             where_clause,
         )
-        return QueryExecutionPlan(sql, values, [])
+        return QueryExecutionPlan(
+            sql,
+            values,
+            [],
+            tuple(selected_fields) if selected_fields else None,
+        )
 
     def _execute_query(
         self,
@@ -2284,6 +2316,7 @@ class QueryBuilder(Generic[T]):
     ) -> tuple[
         list[tuple[Any, ...]] | tuple[Any, ...],
         list[tuple[str, str, type[BaseDBModel]]],
+        Optional[tuple[str, ...]],
     ]:
         """Execute the constructed SQL query.
 
@@ -2309,7 +2342,7 @@ class QueryBuilder(Generic[T]):
         except sqlite3.Error as exc:
             raise RecordFetchError(self.table_name) from exc
         else:
-            return (results, plan.column_names)
+            return (results, plan.column_names, plan.selected_fields)
 
     def _render_base_field_name(
         self, field_name: str, *, qualify_base_fields: bool
@@ -2420,19 +2453,29 @@ class QueryBuilder(Generic[T]):
         where_clause = " AND ".join(where_clauses)
         return values, where_clause
 
-    def _convert_row_to_model(self, row: tuple[Any, ...]) -> T:
+    def _convert_row_to_model(
+        self,
+        row: tuple[Any, ...],
+        *,
+        selected_fields: Optional[tuple[str, ...]] = None,
+    ) -> T:
         """Convert a database row to a model instance.
 
         Args:
             row: A tuple representing a database row.
+            selected_fields: Optional list of fields selected for this
+                execution.
 
         Returns:
             An instance of the model class populated with the row data.
         """
-        if self._fields:
+        if selected_fields is None and self._fields:
+            selected_fields = tuple(self._fields)
+
+        if selected_fields:
             data = {
                 field: self._deserialize(field, row[idx])
-                for idx, field in enumerate(self._fields)
+                for idx, field in enumerate(selected_fields)
             }
             instance = self.model_class.model_validate_partial(data)
         else:
@@ -2638,7 +2681,7 @@ class QueryBuilder(Generic[T]):
             "limit": self._limit,
             "offset": self._offset,
             "order_by": self._order_by,
-            "fields": tuple(sorted(self._fields)) if self._fields else None,
+            "fields": self._cache_key_fields(),
             "fetch_one": fetch_one,
             "select_related": tuple(sorted(self._select_related_paths)),
             "prefetch_related": tuple(sorted(self._prefetch_related_paths)),
@@ -2668,6 +2711,17 @@ class QueryBuilder(Generic[T]):
         key_json = json.dumps(key_parts, sort_keys=True, default=str)
         return hashlib.sha256(key_json.encode()).hexdigest()
 
+    def _cache_key_fields(self) -> Optional[tuple[str, ...]]:
+        """Return cache key fields in a normalized form."""
+        if self._fields is None:
+            return None
+
+        selected_fields = self._selected_fields_for_execution()
+        if selected_fields is None:
+            return None
+
+        return tuple(sorted(selected_fields))
+
     def convert_fetched_result(
         self,
         result: list[tuple[Any, ...]] | tuple[Any, ...],
@@ -2675,6 +2729,7 @@ class QueryBuilder(Generic[T]):
         *,
         fetch_one: bool,
         execute_prefetch: bool = True,
+        selected_fields: Optional[tuple[str, ...]] = None,
     ) -> Union[list[T], Optional[T]]:
         """Convert raw query results into model instances."""
         if column_names:
@@ -2694,7 +2749,10 @@ class QueryBuilder(Generic[T]):
                 result if isinstance(result, list) else [result]
             )
             list_results = [
-                self._convert_joined_row_to_model(row, column_names)
+                self._convert_joined_row_to_model(
+                    row,
+                    column_names,
+                )
                 for row in row_list
             ]
             if execute_prefetch:
@@ -2705,7 +2763,10 @@ class QueryBuilder(Generic[T]):
             std_single_row: tuple[Any, ...] = (
                 result if isinstance(result, tuple) else result[0]
             )
-            single_result = self._convert_row_to_model(std_single_row)
+            single_result = self._convert_row_to_model(
+                std_single_row,
+                selected_fields=selected_fields,
+            )
             if execute_prefetch:
                 self._execute_prefetch([single_result])
             return single_result
@@ -2713,7 +2774,13 @@ class QueryBuilder(Generic[T]):
         std_row_list: list[tuple[Any, ...]] = (
             result if isinstance(result, list) else [result]
         )
-        list_results = [self._convert_row_to_model(row) for row in std_row_list]
+        list_results = [
+            self._convert_row_to_model(
+                row,
+                selected_fields=selected_fields,
+            )
+            for row in std_row_list
+        ]
         if execute_prefetch:
             self._execute_prefetch(list_results)
         return list_results
@@ -2782,7 +2849,9 @@ class QueryBuilder(Generic[T]):
         if hit:
             return cast("Union[list[T], Optional[T]]", cached)
 
-        result, column_names = self._execute_query(fetch_one=fetch_one)
+        result, column_names, selected_fields = self._execute_query(
+            fetch_one=fetch_one
+        )
 
         if not result:
             empty: Union[list[T], Optional[T]] = None if fetch_one else []
@@ -2793,6 +2862,7 @@ class QueryBuilder(Generic[T]):
             result,
             column_names,
             fetch_one=fetch_one,
+            selected_fields=selected_fields,
         )
         self.store_cache(converted, fetch_one=fetch_one)
         return converted
@@ -2862,7 +2932,9 @@ class QueryBuilder(Generic[T]):
             "count",
             hint="Use len(fetch_dicts()) instead.",
         )
-        result, _column_names = self._execute_query(count_only=True)
+        result, _column_names, _selected_fields = self._execute_query(
+            count_only=True
+        )
 
         return int(result[0][0]) if result else 0
 

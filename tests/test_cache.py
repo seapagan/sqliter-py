@@ -116,6 +116,26 @@ class TestCacheHitOnRepeatedQuery:
 
         db.close()
 
+    def test_cache_key_stable_with_partial_fields(self, tmp_path: Path) -> None:
+        """Partial-field queries should not mutate query state or cache key."""
+        db = SqliterDB(str(tmp_path / "test.db"), cache_enabled=True)
+        db.create_table(User)
+        db.insert(User(name="Alice", age=30))
+
+        query = db.select(User, fields=["name"])  # partial select
+        key_before = query._make_cache_key(fetch_one=False)
+
+        result = query.fetch_all()
+        assert len(result) == 1
+        assert result[0].name == "Alice"
+        assert result[0].pk == 1
+
+        key_after = query._make_cache_key(fetch_one=False)
+        assert query._fields == ["name"]
+        assert key_before == key_after
+
+        db.close()
+
 
 class TestGetCacheControls:
     """Test caching behavior for get() calls."""
