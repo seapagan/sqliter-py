@@ -110,7 +110,7 @@ def test_asyncio_import_error_without_aiosqlite(
     ) -> object:
         if name == "aiosqlite":
             msg = "No module named 'aiosqlite'"
-            raise ImportError(msg)
+            raise ModuleNotFoundError(msg, name="aiosqlite")
         return real_import(name, globals_, locals_, fromlist, level)
 
     mocker.patch.dict(

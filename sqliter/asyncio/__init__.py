@@ -7,7 +7,9 @@ _IMPORT_ERROR: ImportError | None = None
 try:
     from sqliter.asyncio.db import AsyncSqliterDB
     from sqliter.asyncio.query import AsyncQueryBuilder
-except ImportError as exc:
+except ModuleNotFoundError as exc:
+    if exc.name != "aiosqlite":
+        raise
     _IMPORT_ERROR = exc
 
 __all__ = ["AsyncQueryBuilder", "AsyncSqliterDB"]
