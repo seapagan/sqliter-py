@@ -41,7 +41,7 @@ class AsyncLazyLoader(Generic[T]):
 
     async def fetch(self) -> Optional[T]:
         """Load and return the related object, if present."""
-        if self._fk_id is None:
+        if not self._fk_id:
             self._cached = None
             return None
 
@@ -115,7 +115,7 @@ class AsyncForeignKey(SyncForeignKey[T]):
             return self
 
         fk_id = getattr(instance, f"{self.name}_id", None)
-        if fk_id is None:
+        if not fk_id:
             return cast("T", None)
 
         cache = getattr(instance, "__dict__", {}).setdefault("_fk_cache", {})
