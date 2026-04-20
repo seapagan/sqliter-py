@@ -116,7 +116,7 @@ class AsyncReverseQuery:
 
     def _build_query(self) -> AsyncQueryBuilder[BaseDBModel] | None:
         fk_id = self.fk_value
-        if fk_id is None or self._db is None:
+        if not fk_id or self._db is None:
             return None
 
         query = self._db.select(self.to_model).filter(

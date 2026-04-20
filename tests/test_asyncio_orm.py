@@ -403,6 +403,55 @@ async def test_async_reverse_query_and_prefetched_result_edge_paths() -> None:
 
 
 @pytest.mark.asyncio
+async def test_async_reverse_query_skips_unsaved_parent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Unsaved parent with pk=0 should skip reverse query execution."""
+    state = ModelRegistry.snapshot()
+    try:
+
+        class Author(AsyncBaseDBModel):
+            """Author model for unsaved reverse skip tests."""
+
+            name: str
+
+        class Book(AsyncBaseDBModel):
+            """Book model for unsaved reverse skip tests."""
+
+            title: str
+            author: AsyncForeignKey[Author] = AsyncForeignKey(
+                Author,
+                on_delete="CASCADE",
+                related_name="books",
+            )
+
+        db = AsyncSqliterDB(memory=True)
+        await db.create_table(Author)
+        await db.create_table(Book)
+
+        def guarded_select(*args: object, **kwargs: object) -> object:
+            msg = (
+                "reverse queries should be skipped for unsaved parent instances"
+            )
+            raise AssertionError(msg)
+
+        monkeypatch.setattr(db, "select", guarded_select)
+        unsaved_author = Author(name="Unsaved")
+        unsaved_author.db_context = db
+
+        reverse = cast("AsyncReverseQuery", unsaved_author.books)
+        assert unsaved_author.pk == 0
+        assert await reverse.fetch_all() == []
+        assert await reverse.fetch_one() is None
+        assert await reverse.count() == 0
+        assert await reverse.exists() is False
+
+        await db.close()
+    finally:
+        ModelRegistry.restore(state)
+
+
+@pytest.mark.asyncio
 async def test_async_reverse_query_filter_and_model_registry_skip_paths() -> (
     None
 ):
