@@ -1475,34 +1475,38 @@ async def test_async_query_only_rejects_multiple_fields() -> None:
 @pytest.mark.asyncio
 async def test_async_query_having_filters_grouped_results() -> None:
     """having() is available for async grouped projection queries."""
+    state = ModelRegistry.snapshot()
+    try:
 
-    class Sale(BaseDBModel):
-        """Simple model for aggregate query tests."""
+        class Sale(BaseDBModel):
+            """Simple model for aggregate query tests."""
 
-        category: str
-        amount: float
+            category: str
+            amount: float
 
-        class Meta:
-            """Aggregate test table metadata."""
+            class Meta:
+                """Aggregate test table metadata."""
 
-            table_name = "sales_async"
+                table_name = "sales_async"
 
-    db = AsyncSqliterDB(memory=True)
-    await db.create_table(Sale)
-    await db.insert(Sale(category="books", amount=10))
-    await db.insert(Sale(category="books", amount=20))
-    await db.insert(Sale(category="music", amount=5))
+        db = AsyncSqliterDB(memory=True)
+        await db.create_table(Sale)
+        await db.insert(Sale(category="books", amount=10))
+        await db.insert(Sale(category="books", amount=20))
+        await db.insert(Sale(category="music", amount=5))
 
-    rows = await (
-        db.select(Sale)
-        .group_by("category")
-        .annotate(total=func.sum("amount"))
-        .having(total__gt=15)
-        .fetch_dicts()
-    )
+        rows = await (
+            db.select(Sale)
+            .group_by("category")
+            .annotate(total=func.sum("amount"))
+            .having(total__gt=15)
+            .fetch_dicts()
+        )
 
-    assert rows == [{"category": "books", "total": 30.0}]
-    await db.close()
+        assert rows == [{"category": "books", "total": 30.0}]
+        await db.close()
+    finally:
+        ModelRegistry.restore(state)
 
 
 @pytest.mark.asyncio
