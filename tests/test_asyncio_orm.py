@@ -182,6 +182,52 @@ async def test_async_fk_zero_fk_id_is_missing() -> None:
 
 
 @pytest.mark.asyncio
+async def test_async_fk_cache_refreshes_when_fk_id_changes() -> None:
+    """Changing FK id invalidates stale async FK cache entries."""
+    state = ModelRegistry.snapshot()
+    try:
+
+        class Author(AsyncBaseDBModel):
+            """Author model for async cache refresh tests."""
+
+            name: str
+
+        class Book(AsyncBaseDBModel):
+            """Book model for async cache refresh tests."""
+
+            title: str
+            author: AsyncForeignKey[Author] = AsyncForeignKey(
+                Author,
+                null=True,
+                on_delete="CASCADE",
+                related_name="books",
+            )
+
+        book = Book(title="Draft", author_id=1)
+        first_loader = cast("AsyncLazyLoader[Author]", book.author)
+        assert first_loader._fk_id == 1
+
+        object.__setattr__(book, "author_id", 2)
+        second_loader = cast("AsyncLazyLoader[Author]", book.author)
+        assert second_loader is not first_loader
+        assert second_loader._fk_id == 2
+
+        cached_author = Author(name="Loaded")
+        cached_author.pk = 2
+        book.__dict__.setdefault("_fk_cache", {})["author"] = cached_author
+
+        object.__setattr__(book, "author_id", 3)
+        stale_cache = book.__dict__["_fk_cache"]["author"]
+        assert stale_cache is not second_loader
+
+        refresh_loader = cast("AsyncLazyLoader[Author]", book.author)
+        assert refresh_loader is not stale_cache
+        assert refresh_loader._fk_id == 3
+    finally:
+        ModelRegistry.restore(state)
+
+
+@pytest.mark.asyncio
 async def test_async_fk_descriptor_direct_paths() -> None:
     """Direct descriptor access covers null, cached, and new loader branches."""
     state = ModelRegistry.snapshot()

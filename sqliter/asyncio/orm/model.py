@@ -26,22 +26,36 @@ class AsyncBaseDBModel(SyncBaseDBModel):
             instance_dict = object.__getattribute__(self, "__dict__")
             cache = instance_dict.setdefault("_fk_cache", {})
             db_context = object.__getattribute__(self, "db_context")
+            descriptor = object.__getattribute__(self, "fk_descriptors")[name]
             cached = cache.get(name)
             if cached is not None:
                 if isinstance(cached, AsyncLazyLoader):
-                    if cached.db_context is None and db_context is not None:
+                    cached_fk_id = getattr(cached, "_fk_id", None)
+                    db_unset = (
+                        cached.db_context is None and db_context is not None
+                    )
+                    if cached_fk_id != fk_id or db_unset:
                         cache[name] = AsyncLazyLoader(
                             instance=self,
-                            to_model=object.__getattribute__(
-                                self, "fk_descriptors"
-                            )[name].to_model,
+                            to_model=descriptor.to_model,
                             fk_id=fk_id,
                             db_context=db_context,
                         )
                     return cache[name]
+
+                if (
+                    isinstance(cached, descriptor.to_model)
+                    and cached.pk != fk_id
+                ):
+                    cache[name] = AsyncLazyLoader(
+                        instance=self,
+                        to_model=descriptor.to_model,
+                        fk_id=fk_id,
+                        db_context=db_context,
+                    )
+                    return cache[name]
                 return cached
 
-            descriptor = object.__getattribute__(self, "fk_descriptors")[name]
             cache[name] = AsyncLazyLoader(
                 instance=self,
                 to_model=descriptor.to_model,
