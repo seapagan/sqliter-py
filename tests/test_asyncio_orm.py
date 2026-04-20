@@ -565,6 +565,49 @@ async def test_async_m2m_manager_and_prefetched_edge_paths() -> None:
 
 
 @pytest.mark.asyncio
+async def test_async_m2m_set_preserves_links_on_validation_failure() -> None:
+    """Async M2M set keeps existing links when replacement validation fails."""
+    state = ModelRegistry.snapshot()
+    try:
+
+        class Tag(AsyncBaseDBModel):
+            """Tag model for async M2M set validation tests."""
+
+            name: str
+
+        class Article(AsyncBaseDBModel):
+            """Article model for async M2M set validation tests."""
+
+            title: str
+            tags: AsyncManyToMany[Tag] = AsyncManyToMany(
+                Tag,
+                related_name="articles",
+            )
+
+        db = AsyncSqliterDB(memory=True)
+        await db.create_table(Tag)
+        await db.create_table(Article)
+
+        article = await db.insert(Article(title="Guide"))
+        replacement = await db.insert(Tag(name="keep"))
+        manager = cast("AsyncManyToManyManager[Tag]", article.tags)
+        await manager.add(replacement)
+
+        with pytest.raises(
+            ManyToManyIntegrityError,
+            match="Related instance has no primary key",
+        ):
+            await manager.set(Tag(name="unsaved"))
+
+        remaining = await manager.fetch_one()
+        assert remaining is not None
+        assert remaining.name == "keep"
+        await db.close()
+    finally:
+        ModelRegistry.restore(state)
+
+
+@pytest.mark.asyncio
 async def test_async_m2m_manager_rollback_paths(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

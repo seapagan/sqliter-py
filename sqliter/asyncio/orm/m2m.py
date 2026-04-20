@@ -303,9 +303,15 @@ class AsyncManyToManyManager(Generic[T]):
 
     async def set(self, *instances: T) -> None:
         """Replace all related objects."""
-        await self.clear()
-        if instances:
-            await self.add(*instances)
+        db = self._check_context()
+        for inst in instances:
+            if not getattr(inst, "pk", None):
+                self._raise_missing_pk()
+
+        async with db:
+            await self.clear()
+            if instances:
+                await self.add(*instances)
 
     async def fetch_all(self) -> list[T]:
         """Fetch all related objects."""
