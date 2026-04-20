@@ -370,7 +370,7 @@ class AsyncSqliterDB:
         )
         tables = [row[0] for row in await cursor.fetchall()]
 
-        if not was_connected:
+        if not was_connected and not self.is_memory:
             await self.close()
 
         return tables

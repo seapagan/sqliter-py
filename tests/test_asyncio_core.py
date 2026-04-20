@@ -184,13 +184,14 @@ async def test_async_insert_get_update_delete() -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_get_table_names_closes_temporary_connection() -> None:
-    """get_table_names closes a temporary connection after use."""
+async def test_async_get_table_names_keeps_memory_connection_open() -> None:
+    """get_table_names keeps in-memory connections open after use."""
     db = AsyncSqliterDB(memory=True)
 
     assert await db.get_table_names() == []
-    assert db.conn is None
+    assert db.conn is not None
     assert db._model_field_to_db_column(ExampleModel, "slug") == "slug"
+    await db.close()
 
 
 @pytest.mark.asyncio
