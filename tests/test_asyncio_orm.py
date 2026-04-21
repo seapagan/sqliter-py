@@ -153,6 +153,57 @@ async def test_async_fk_loader_descriptor_and_model_edge_paths(
 
 
 @pytest.mark.asyncio
+async def test_async_fk_missing_relation_is_cached(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Missing async FK lookups should not re-query after first fetch."""
+    state = ModelRegistry.snapshot()
+    try:
+
+        class Author(AsyncBaseDBModel):
+            """Author model for missing async FK cache tests."""
+
+            name: str
+
+        class Book(AsyncBaseDBModel):
+            """Book model for missing async FK cache tests."""
+
+            title: str
+            author: AsyncForeignKey[Author] = AsyncForeignKey(
+                Author,
+                null=True,
+                on_delete="CASCADE",
+                related_name="books",
+            )
+
+        db = AsyncSqliterDB(memory=True)
+        loader = AsyncLazyLoader(
+            instance=Book(title="Draft", author_id=99),
+            to_model=Author,
+            fk_id=99,
+            db_context=db,
+        )
+        calls = {"count": 0}
+
+        async def missing_get(
+            model: type[AsyncBaseDBModel],
+            pk: int,
+        ) -> None:
+            calls["count"] += 1
+
+        monkeypatch.setattr(db, "get", missing_get)
+
+        assert await loader.fetch() is None
+        assert await loader.fetch() is None
+        assert calls["count"] == 1
+        assert "loaded" in repr(loader)
+
+        await db.close()
+    finally:
+        ModelRegistry.restore(state)
+
+
+@pytest.mark.asyncio
 async def test_async_fk_zero_fk_id_is_missing() -> None:
     """Async FK with unsaved value 0 should behave as a missing relation."""
     state = ModelRegistry.snapshot()

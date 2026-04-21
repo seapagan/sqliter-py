@@ -33,6 +33,7 @@ class AsyncLazyLoader(Generic[T]):
         self._fk_id = fk_id
         self._db = db_context
         self._cached: Optional[T] = None
+        self._loaded = False
 
     @property
     def db_context(self) -> object:
@@ -43,14 +44,16 @@ class AsyncLazyLoader(Generic[T]):
         """Load and return the related object, if present."""
         if not self._fk_id:
             self._cached = None
+            self._loaded = True
             return None
 
-        if self._cached is None and self._db is not None:
+        if not self._loaded and self._db is not None:
             result = await self._db.get(
                 cast("type[BaseDBModel]", self._to_model),
                 self._fk_id,
             )
             self._cached = cast("Optional[T]", result)
+            self._loaded = True
         return self._cached
 
     def __getattr__(self, name: str) -> object:
@@ -63,7 +66,7 @@ class AsyncLazyLoader(Generic[T]):
 
     def __repr__(self) -> str:
         """Show lazy state for debugging."""
-        if self._cached is None:
+        if not self._loaded:
             return (
                 f"<AsyncLazyLoader unloaded for {self._to_model.__name__} "
                 f"id={self._fk_id}>"
