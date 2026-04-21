@@ -678,6 +678,10 @@ class PrefetchedM2MResult(Generic[T]):
         """
         return self._manager.filter(**kwargs)
 
+    def _refresh_items(self) -> None:
+        """Refresh cached items while preserving the prefetch-cache list."""
+        self._items[:] = self._manager.fetch_all()
+
     def add(self, *instances: T) -> None:
         """Delegate add to the real manager.
 
@@ -685,7 +689,7 @@ class PrefetchedM2MResult(Generic[T]):
             *instances: Model instances to relate.
         """
         self._manager.add(*instances)
-        self._items = self._manager.fetch_all()
+        self._refresh_items()
 
     def remove(self, *instances: T) -> None:
         """Delegate remove to the real manager.
@@ -694,12 +698,12 @@ class PrefetchedM2MResult(Generic[T]):
             *instances: Model instances to unrelate.
         """
         self._manager.remove(*instances)
-        self._items = self._manager.fetch_all()
+        self._refresh_items()
 
     def clear(self) -> None:
         """Delegate clear to the real manager."""
         self._manager.clear()
-        self._items = self._manager.fetch_all()
+        self._refresh_items()
 
     def set(self, *instances: T) -> None:
         """Delegate set to the real manager.
@@ -708,7 +712,7 @@ class PrefetchedM2MResult(Generic[T]):
             *instances: Model instances to set as the new related set.
         """
         self._manager.set(*instances)
-        self._items = self._manager.fetch_all()
+        self._refresh_items()
 
 
 class ManyToMany(Generic[T]):

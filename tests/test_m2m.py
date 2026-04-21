@@ -791,6 +791,28 @@ class TestManyToManySet:
         )
         assert cleared_tag_rel.fetch_all() == []
 
+    def test_prefetched_wrapper_updates_cached_list_in_place(
+        self, db: SqliterDB
+    ) -> None:
+        """Wrapper writes should mutate the cached prefetch list in place."""
+        article = db.insert(Article(title="Guide"))
+        tag1 = db.insert(Tag(name="python"))
+        tag2 = db.insert(Tag(name="tutorial"))
+
+        cached_items = [tag1]
+        article.__dict__["_prefetch_cache"] = {"tags": cached_items}
+        manager = cast("ManyToManyManager[Tag]", article.tags)
+        prefetched = PrefetchedM2MResult(cached_items, manager)
+        original_items = prefetched._items
+
+        prefetched.set(tag2)
+
+        assert prefetched._items is original_items
+        assert prefetched._items is cached_items
+        assert prefetched.fetch_all() == [tag2]
+        refreshed = cast("PrefetchedM2MResult[Tag]", article.tags)
+        assert refreshed.fetch_all() == [tag2]
+
 
 # ── TestManyToManyQuery ──────────────────────────────────────────────
 
