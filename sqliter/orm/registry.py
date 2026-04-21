@@ -424,6 +424,7 @@ class ModelRegistry:
                 junction_table=junction_table,
                 related_name=related_name,
                 symmetrical=symmetrical,
+                forward_name=m2m_field,
             ),
         )
 

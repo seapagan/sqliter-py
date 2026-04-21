@@ -22,6 +22,7 @@ from sqliter.orm.m2m import (
     ManyToManyOptions,
     PrefetchedM2MResult,
     _build_m2m_sql_metadata,
+    _M2MCacheInvalidationMixin,
 )
 from sqliter.orm.m2m import (
     ManyToMany as SyncManyToMany,
@@ -47,7 +48,7 @@ class HasPKAndContext(Protocol):
     db_context: Optional[Any]
 
 
-class AsyncManyToManyManager(Generic[T]):
+class AsyncManyToManyManager(_M2MCacheInvalidationMixin, Generic[T]):
     """Async manager for M2M relationships."""
 
     def __init__(
@@ -66,6 +67,8 @@ class AsyncManyToManyManager(Generic[T]):
         self._from_model = from_model
         self._junction_table = junction_table
         self._db = db_context
+        self._current_cache_key: Optional[str] = None
+        self._reverse_cache_key: Optional[str] = None
 
         from_table = cast("type[BaseDBModel]", from_model).get_table_name()
         to_table = cast("type[BaseDBModel]", to_model).get_table_name()
@@ -261,6 +264,8 @@ class AsyncManyToManyManager(Generic[T]):
             raise
 
         await db.maybe_commit()
+        self._invalidate_related_query_caches(db)
+        self._invalidate_prefetch_caches(related_instances=instances)
 
     async def remove(self, *instances: T) -> None:
         """Remove related objects."""
@@ -286,6 +291,8 @@ class AsyncManyToManyManager(Generic[T]):
             raise
 
         await db.maybe_commit()
+        self._invalidate_related_query_caches(db)
+        self._invalidate_prefetch_caches(related_instances=instances)
 
     async def clear(self) -> None:
         """Remove all related objects for this instance."""
@@ -300,6 +307,8 @@ class AsyncManyToManyManager(Generic[T]):
             await self._rollback_if_needed(db)
             raise
         await db.maybe_commit()
+        self._invalidate_related_query_caches(db)
+        self._invalidate_prefetch_caches(clear_current_related=True)
 
     async def set(self, *instances: T) -> None:
         """Replace all related objects."""
@@ -448,6 +457,7 @@ class AsyncManyToMany(SyncManyToMany[T]):
                     junction_table=self._junction_table or "",
                     related_name=self.related_name,
                     symmetrical=self.m2m_info.symmetrical,
+                    forward_name=self.name,
                 ),
             )
 
@@ -497,6 +507,10 @@ class AsyncManyToMany(SyncManyToMany[T]):
             db_context=getattr(instance, "db_context", None),
             options=ManyToManyOptions(symmetrical=self.m2m_info.symmetrical),
         )
+        manager.configure_cache_keys(
+            current_cache_key=self.name,
+            reverse_cache_key=self.related_name,
+        )
         cache = getattr(instance, "__dict__", {}).get("_prefetch_cache", {})
         if self.name and self.name in cache:
             return cast(
@@ -508,6 +522,26 @@ class AsyncManyToMany(SyncManyToMany[T]):
 
 class AsyncReverseManyToMany(SyncReverseManyToMany):
     """Async reverse M2M descriptor."""
+
+    def __init__(
+        self,
+        from_model: type[Any],
+        to_model: type[Any],
+        junction_table: str,
+        related_name: str,
+        *,
+        symmetrical: bool = False,
+        forward_name: Optional[str] = None,
+    ) -> None:
+        """Store reverse descriptor metadata and cache keys."""
+        super().__init__(
+            from_model=from_model,
+            to_model=to_model,
+            junction_table=junction_table,
+            related_name=related_name,
+            symmetrical=symmetrical,
+        )
+        self._forward_name = forward_name
 
     @overload
     def __get__(
@@ -549,6 +583,10 @@ class AsyncReverseManyToMany(SyncReverseManyToMany):
                 symmetrical=self._symmetrical,
                 swap_columns=self._swap_columns,
             ),
+        )
+        manager.configure_cache_keys(
+            current_cache_key=self._related_name,
+            reverse_cache_key=self._forward_name,
         )
         cache = getattr(instance, "__dict__", {}).get("_prefetch_cache", {})
         if self._related_name in cache:

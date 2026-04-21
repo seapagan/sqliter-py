@@ -673,6 +673,124 @@ class TestManyToManySet:
         prefetched.clear()
         assert prefetched.fetch_all() == []
 
+    def test_write_invalidates_cached_prefetch_queries(self) -> None:
+        """M2M writes invalidate cached prefetched root queries."""
+        db = SqliterDB(memory=True, cache_enabled=True)
+        db.create_table(Tag)
+        db.create_table(Article)
+
+        article = db.insert(Article(title="Guide"))
+        tag = db.insert(Tag(name="python"))
+        manager = cast("ManyToManyManager[Tag]", article.tags)
+
+        initial_article = (
+            db.select(Article).prefetch_related("tags").fetch_one()
+        )
+        assert initial_article is not None
+        initial_article_tags = cast(
+            "PrefetchedM2MResult[Tag]",
+            initial_article.tags,
+        )
+        assert initial_article_tags.fetch_all() == []
+
+        initial_tag = db.select(Tag).prefetch_related("articles").fetch_one()
+        assert initial_tag is not None
+        initial_tag_articles = cast(
+            "PrefetchedM2MResult[Article]",
+            initial_tag.articles,
+        )
+        assert initial_tag_articles.fetch_all() == []
+
+        manager.add(tag)
+
+        refreshed_article = (
+            db.select(Article).prefetch_related("tags").fetch_one()
+        )
+        assert refreshed_article is not None
+        refreshed_article_tags = cast(
+            "PrefetchedM2MResult[Tag]",
+            refreshed_article.tags,
+        )
+        refreshed_tags = refreshed_article_tags.fetch_all()
+        assert [item.name for item in refreshed_tags] == ["python"]
+
+        refreshed_tag = db.select(Tag).prefetch_related("articles").fetch_one()
+        assert refreshed_tag is not None
+        refreshed_tag_articles = cast(
+            "PrefetchedM2MResult[Article]",
+            refreshed_tag.articles,
+        )
+        refreshed_articles = refreshed_tag_articles.fetch_all()
+        assert [item.title for item in refreshed_articles] == ["Guide"]
+
+        manager.clear()
+
+        cleared_article = (
+            db.select(Article).prefetch_related("tags").fetch_one()
+        )
+        assert cleared_article is not None
+        cleared_article_tags = cast(
+            "PrefetchedM2MResult[Tag]",
+            cleared_article.tags,
+        )
+        assert cleared_article_tags.fetch_all() == []
+
+        cleared_tag = db.select(Tag).prefetch_related("articles").fetch_one()
+        assert cleared_tag is not None
+        cleared_tag_articles = cast(
+            "PrefetchedM2MResult[Article]",
+            cleared_tag.articles,
+        )
+        assert cleared_tag_articles.fetch_all() == []
+
+    def test_write_invalidates_instance_prefetch_caches(
+        self, db: SqliterDB
+    ) -> None:
+        """M2M writes clear stale in-memory prefetched relationship data."""
+        db.insert(Article(title="Guide"))
+        db.insert(Tag(name="python"))
+
+        prefetched_article = (
+            db.select(Article).prefetch_related("tags").fetch_one()
+        )
+        assert prefetched_article is not None
+        prefetched_tags = cast(
+            "PrefetchedM2MResult[Tag]",
+            prefetched_article.tags,
+        )
+        assert prefetched_tags.fetch_all() == []
+
+        prefetched_tag = db.select(Tag).prefetch_related("articles").fetch_one()
+        assert prefetched_tag is not None
+        prefetched_tag_articles = cast(
+            "PrefetchedM2MResult[Article]",
+            prefetched_tag.articles,
+        )
+        assert prefetched_tag_articles.fetch_all() == []
+
+        manager = prefetched_tags._manager
+        manager.add(prefetched_tag)
+
+        refreshed_article_rel = prefetched_article.tags
+        refreshed_tags = refreshed_article_rel.fetch_all()
+        assert [item.name for item in refreshed_tags] == ["python"]
+
+        refreshed_tag_rel = cast(
+            "ManyToManyManager[Article] | PrefetchedM2MResult[Article]",
+            prefetched_tag.articles,
+        )
+        refreshed_articles = refreshed_tag_rel.fetch_all()
+        assert [item.title for item in refreshed_articles] == ["Guide"]
+
+        manager.clear()
+        cleared_article_rel = prefetched_article.tags
+        assert cleared_article_rel.fetch_all() == []
+        cleared_tag_rel = cast(
+            "ManyToManyManager[Article] | PrefetchedM2MResult[Article]",
+            prefetched_tag.articles,
+        )
+        assert cleared_tag_rel.fetch_all() == []
+
 
 # ── TestManyToManyQuery ──────────────────────────────────────────────
 

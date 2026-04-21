@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:  # pragma: no cover
     from pydantic import GetCoreSchemaHandler
 
+    from sqliter.asyncio.db import AsyncSqliterDB
     from sqliter.model.model import BaseDBModel
     from sqliter.query.query import QueryBuilder
     from sqliter.sqliter import SqliterDB
@@ -41,6 +42,72 @@ class HasPKAndContext(Protocol):
 
     pk: Optional[int]
     db_context: Optional[Any]
+
+
+class _M2MCacheInvalidationMixin:
+    """Shared cache invalidation helpers for sync and async M2M managers."""
+
+    _instance: HasPKAndContext
+    _from_model: type[Any]
+    _to_model: type[Any]
+    _current_cache_key: Optional[str]
+    _reverse_cache_key: Optional[str]
+
+    def _invalidate_related_query_caches(
+        self,
+        db: SqliterDB | AsyncSqliterDB,
+    ) -> None:
+        """Invalidate cached queries for both sides of the relationship."""
+        for model in (self._from_model, self._to_model):
+            table_name = cast("type[BaseDBModel]", model).get_table_name()
+            db.invalidate_table_cache(table_name)
+
+    @staticmethod
+    def _clear_prefetch_cache_entry(
+        instance: object,
+        cache_key: Optional[str],
+    ) -> object:
+        """Remove one prefetched relationship entry from an instance."""
+        if cache_key is None:
+            return []
+        cache = getattr(instance, "__dict__", {}).get("_prefetch_cache")
+        if not isinstance(cache, dict):
+            return []
+        return cache.pop(cache_key, [])
+
+    def _invalidate_prefetch_caches(
+        self,
+        *,
+        related_instances: tuple[Any, ...] = (),
+        clear_current_related: bool = False,
+    ) -> None:
+        """Drop affected in-memory prefetched relationship caches."""
+        cached_related: list[object] = []
+        if clear_current_related:
+            cached = self._clear_prefetch_cache_entry(
+                self._instance,
+                self._current_cache_key,
+            )
+            if isinstance(cached, list):
+                cached_related = list(cast("list[object]", cached))
+        else:
+            self._clear_prefetch_cache_entry(
+                self._instance,
+                self._current_cache_key,
+            )
+
+        for inst in [*cached_related, *related_instances]:
+            self._clear_prefetch_cache_entry(inst, self._reverse_cache_key)
+
+    def configure_cache_keys(
+        self,
+        *,
+        current_cache_key: Optional[str],
+        reverse_cache_key: Optional[str],
+    ) -> None:
+        """Attach the forward and reverse prefetch-cache keys."""
+        self._current_cache_key = current_cache_key
+        self._reverse_cache_key = reverse_cache_key
 
 
 @dataclass
@@ -161,7 +228,7 @@ def build_junction_index_sqls(
     ]
 
 
-class ManyToManyManager(Generic[T]):
+class ManyToManyManager(_M2MCacheInvalidationMixin, Generic[T]):
     """Manager for M2M relationships on a model instance.
 
     Provides methods to add, remove, clear, set, and query related
@@ -193,6 +260,8 @@ class ManyToManyManager(Generic[T]):
         self._from_model = from_model
         self._junction_table = junction_table
         self._db = db_context
+        self._current_cache_key: Optional[str] = None
+        self._reverse_cache_key: Optional[str] = None
 
         # Column/metadata names derived from from_model/to_model table names
         # (with optional column swapping)
@@ -342,6 +411,8 @@ class ManyToManyManager(Generic[T]):
             raise
 
         db._maybe_commit()  # noqa: SLF001
+        self._invalidate_related_query_caches(db)
+        self._invalidate_prefetch_caches(related_instances=instances)
 
     def remove(self, *instances: T) -> None:
         """Remove one or more related objects.
@@ -379,6 +450,8 @@ class ManyToManyManager(Generic[T]):
             raise
 
         db._maybe_commit()  # noqa: SLF001
+        self._invalidate_related_query_caches(db)
+        self._invalidate_prefetch_caches(related_instances=instances)
 
     def clear(self) -> None:
         """Remove all relationships for this instance.
@@ -413,6 +486,8 @@ class ManyToManyManager(Generic[T]):
         finally:
             cursor.close()
         db._maybe_commit()  # noqa: SLF001
+        self._invalidate_related_query_caches(db)
+        self._invalidate_prefetch_caches(clear_current_related=True)
 
     def set(self, *instances: T) -> None:
         """Replace all relationships with the given instances.
@@ -854,6 +929,10 @@ class ManyToMany(Generic[T]):
             db_context=getattr(instance, "db_context", None),
             options=ManyToManyOptions(symmetrical=self.m2m_info.symmetrical),
         )
+        manager.configure_cache_keys(
+            current_cache_key=self.name,
+            reverse_cache_key=self.related_name,
+        )
 
         # Check prefetch cache
         cache = getattr(instance, "__dict__", {}).get("_prefetch_cache", {})
@@ -897,6 +976,7 @@ class ReverseManyToMany:
         related_name: str,
         *,
         symmetrical: bool = False,
+        forward_name: Optional[str] = None,
     ) -> None:
         """Initialize reverse M2M descriptor.
 
@@ -906,12 +986,14 @@ class ReverseManyToMany:
             junction_table: Name of the junction table.
             related_name: Name of this reverse accessor.
             symmetrical: Whether self-referential relationships are symmetric.
+            forward_name: Name of the forward accessor on the source model.
         """
         self._from_model = from_model
         self._to_model = to_model
         self._junction_table = junction_table
         self._related_name = related_name
         self._symmetrical = symmetrical
+        self._forward_name = forward_name
         self._sql_metadata: Optional[M2MSQLMetadata] = None
 
     @property
@@ -983,6 +1065,10 @@ class ReverseManyToMany:
                 symmetrical=self._symmetrical,
                 swap_columns=self._swap_columns,
             ),
+        )
+        manager.configure_cache_keys(
+            current_cache_key=self._related_name,
+            reverse_cache_key=self._forward_name,
         )
 
         # Check prefetch cache

@@ -786,6 +786,192 @@ async def test_async_prefetched_wrapper_refreshes_after_writes() -> None:
 
 
 @pytest.mark.asyncio
+async def test_async_m2m_write_invalidates_cached_prefetch_queries() -> None:
+    """M2M writes should invalidate cached prefetched query results."""
+    state = ModelRegistry.snapshot()
+    try:
+
+        class Tag(AsyncBaseDBModel):
+            """Tag model for cached async M2M query tests."""
+
+            name: str
+
+        class Article(AsyncBaseDBModel):
+            """Article model for cached async M2M query tests."""
+
+            title: str
+            tags: AsyncManyToMany[Tag] = AsyncManyToMany(
+                Tag,
+                related_name="articles",
+            )
+
+        db = AsyncSqliterDB(memory=True, cache_enabled=True)
+        await db.create_table(Tag)
+        await db.create_table(Article)
+
+        article = await db.insert(Article(title="Guide"))
+        tag = await db.insert(Tag(name="python"))
+        manager = cast("AsyncManyToManyManager[Tag]", article.tags)
+
+        initial_article = await (
+            db.select(Article).prefetch_related("tags").fetch_one()
+        )
+        assert initial_article is not None
+        initial_article_tags = cast(
+            "AsyncPrefetchedM2MResult[Tag]",
+            initial_article.tags,
+        )
+        assert await initial_article_tags.fetch_all() == []
+
+        initial_tag = await (
+            db.select(Tag).prefetch_related("articles").fetch_one()
+        )
+        assert initial_tag is not None
+        initial_tag_articles = cast(
+            "AsyncPrefetchedM2MResult[Article]",
+            initial_tag.articles,
+        )
+        assert await initial_tag_articles.fetch_all() == []
+
+        await manager.add(tag)
+
+        refreshed_article = await (
+            db.select(Article).prefetch_related("tags").fetch_one()
+        )
+        assert refreshed_article is not None
+        refreshed_article_tags = cast(
+            "AsyncPrefetchedM2MResult[Tag]",
+            refreshed_article.tags,
+        )
+        refreshed_tags = await refreshed_article_tags.fetch_all()
+        assert [item.name for item in refreshed_tags] == ["python"]
+
+        refreshed_tag = await (
+            db.select(Tag).prefetch_related("articles").fetch_one()
+        )
+        assert refreshed_tag is not None
+        refreshed_tag_articles = cast(
+            "AsyncPrefetchedM2MResult[Article]",
+            refreshed_tag.articles,
+        )
+        refreshed_articles = await refreshed_tag_articles.fetch_all()
+        assert [item.title for item in refreshed_articles] == ["Guide"]
+
+        await manager.clear()
+
+        cleared_article = await (
+            db.select(Article).prefetch_related("tags").fetch_one()
+        )
+        assert cleared_article is not None
+        cleared_article_tags = cast(
+            "AsyncPrefetchedM2MResult[Tag]",
+            cleared_article.tags,
+        )
+        assert await cleared_article_tags.fetch_all() == []
+
+        cleared_tag = await (
+            db.select(Tag).prefetch_related("articles").fetch_one()
+        )
+        assert cleared_tag is not None
+        cleared_tag_articles = cast(
+            "AsyncPrefetchedM2MResult[Article]",
+            cleared_tag.articles,
+        )
+        assert await cleared_tag_articles.fetch_all() == []
+
+        await db.close()
+    finally:
+        ModelRegistry.restore(state)
+
+
+@pytest.mark.asyncio
+async def test_async_m2m_write_invalidates_instance_prefetch_caches() -> None:
+    """M2M writes should clear stale in-memory prefetched relationship data."""
+    state = ModelRegistry.snapshot()
+    try:
+
+        class Tag(AsyncBaseDBModel):
+            """Tag model for async M2M instance cache tests."""
+
+            name: str
+
+        class Article(AsyncBaseDBModel):
+            """Article model for async M2M instance cache tests."""
+
+            title: str
+            tags: AsyncManyToMany[Tag] = AsyncManyToMany(
+                Tag,
+                related_name="articles",
+            )
+
+        db = AsyncSqliterDB(memory=True)
+        await db.create_table(Tag)
+        await db.create_table(Article)
+
+        await db.insert(Article(title="Guide"))
+        await db.insert(Tag(name="python"))
+
+        prefetched_article = await (
+            db.select(Article).prefetch_related("tags").fetch_one()
+        )
+        assert prefetched_article is not None
+        prefetched_article_tags = cast(
+            "AsyncPrefetchedM2MResult[Tag]",
+            prefetched_article.tags,
+        )
+        assert await prefetched_article_tags.fetch_all() == []
+
+        prefetched_tag = await (
+            db.select(Tag).prefetch_related("articles").fetch_one()
+        )
+        assert prefetched_tag is not None
+        prefetched_tag_articles = cast(
+            "AsyncPrefetchedM2MResult[Article]",
+            prefetched_tag.articles,
+        )
+        assert await prefetched_tag_articles.fetch_all() == []
+
+        prefetched_tags = cast(
+            "AsyncPrefetchedM2MResult[Tag]",
+            prefetched_article.tags,
+        )
+        manager = prefetched_tags._manager
+        await manager.add(prefetched_tag)
+
+        refreshed_article_rel = cast(
+            "AsyncManyToManyManager[Tag] | AsyncPrefetchedM2MResult[Tag]",
+            prefetched_article.tags,
+        )
+        refreshed_tags = await refreshed_article_rel.fetch_all()
+        assert [item.name for item in refreshed_tags] == ["python"]
+
+        refreshed_tag_rel = cast(
+            "AsyncManyToManyManager[Article]"
+            " | AsyncPrefetchedM2MResult[Article]",
+            prefetched_tag.articles,
+        )
+        refreshed_articles = await refreshed_tag_rel.fetch_all()
+        assert [item.title for item in refreshed_articles] == ["Guide"]
+
+        await manager.clear()
+        cleared_article_rel = cast(
+            "AsyncManyToManyManager[Tag] | AsyncPrefetchedM2MResult[Tag]",
+            prefetched_article.tags,
+        )
+        assert await cleared_article_rel.fetch_all() == []
+        cleared_tag_rel = cast(
+            "AsyncManyToManyManager[Article]"
+            " | AsyncPrefetchedM2MResult[Article]",
+            prefetched_tag.articles,
+        )
+        assert await cleared_tag_rel.fetch_all() == []
+
+        await db.close()
+    finally:
+        ModelRegistry.restore(state)
+
+
+@pytest.mark.asyncio
 async def test_async_m2m_set_preserves_links_on_validation_failure() -> None:
     """Async M2M set keeps existing links when replacement validation fails."""
     state = ModelRegistry.snapshot()
