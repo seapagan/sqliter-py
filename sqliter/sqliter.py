@@ -159,6 +159,8 @@ class SqliterDB:
         self.return_local_time = return_local_time
 
         self._in_transaction = False
+        self._transaction_depth = 0
+        self._rollback_requested = False
 
         # Initialize cache
         self._cache_enabled = cache_enabled
@@ -221,7 +223,7 @@ class SqliterDB:
     @property
     def in_transaction(self) -> bool:
         """Return whether the DB is in an explicit transaction."""
-        return self._in_transaction
+        return self._transaction_depth > 0
 
     @property
     def table_names(self) -> list[str]:
@@ -992,12 +994,15 @@ class SqliterDB:
         This method is called after operations that modify the database,
         committing changes only if auto_commit is set to True.
         """
-        if not self._in_transaction and self.auto_commit and self.conn:
+        if not self.in_transaction and self.auto_commit and self.conn:
             self.conn.commit()
 
     def set_in_transaction(self, *, value: bool) -> None:
         """Set the explicit transaction flag."""
+        self._transaction_depth = 1 if value else 0
         self._in_transaction = value
+        if not value:
+            self._rollback_requested = False
 
     def maybe_commit(self) -> None:
         """Public wrapper for conditional commit behavior."""
@@ -1284,7 +1289,7 @@ class SqliterDB:
 
         except sqlite3.IntegrityError as exc:
             # Rollback implicit transaction if not in user-managed transaction
-            if not self._in_transaction and self.conn:
+            if not self.in_transaction and self.conn:
                 self.conn.rollback()
             # Check for foreign key constraint violation
             if "FOREIGN KEY constraint failed" in str(exc):
@@ -1296,7 +1301,7 @@ class SqliterDB:
             raise RecordInsertionError(insert_plan.table_name) from exc
         except sqlite3.Error as exc:
             # Rollback implicit transaction if not in user-managed transaction
-            if not self._in_transaction and self.conn:
+            if not self.in_transaction and self.conn:
                 self.conn.rollback()
             raise RecordInsertionError(insert_plan.table_name) from exc
         else:
@@ -1390,7 +1395,7 @@ class SqliterDB:
             self._maybe_commit()
 
         except sqlite3.IntegrityError as exc:
-            if not self._in_transaction and self.conn:
+            if not self.in_transaction and self.conn:
                 self.conn.rollback()
             if "FOREIGN KEY constraint failed" in str(exc):
                 fk_operation = "insert"
@@ -1400,7 +1405,7 @@ class SqliterDB:
                 ) from exc
             raise RecordInsertionError(table_name) from exc
         except sqlite3.Error as exc:
-            if not self._in_transaction and self.conn:
+            if not self.in_transaction and self.conn:
                 self.conn.rollback()
             raise RecordInsertionError(table_name) from exc
         else:
@@ -1534,12 +1539,12 @@ class SqliterDB:
 
         except RecordNotFoundError:
             # Rollback implicit transaction if not in user-managed transaction
-            if not self._in_transaction and self.conn:
+            if not self.in_transaction and self.conn:
                 self.conn.rollback()
             raise
         except sqlite3.Error as exc:
             # Rollback implicit transaction if not in user-managed transaction
-            if not self._in_transaction and self.conn:
+            if not self.in_transaction and self.conn:
                 self.conn.rollback()
             raise RecordUpdateError(update_plan.table_name) from exc
 
@@ -1570,12 +1575,12 @@ class SqliterDB:
             self._cache_invalidate_table(delete_plan.table_name)
         except RecordNotFoundError:
             # Rollback implicit transaction if not in user-managed transaction
-            if not self._in_transaction and self.conn:
+            if not self.in_transaction and self.conn:
                 self.conn.rollback()
             raise
         except sqlite3.IntegrityError as exc:
             # Rollback implicit transaction if not in user-managed transaction
-            if not self._in_transaction and self.conn:
+            if not self.in_transaction and self.conn:
                 self.conn.rollback()
             # Check for foreign key constraint violation (RESTRICT)
             if "FOREIGN KEY constraint failed" in str(exc):
@@ -1587,7 +1592,7 @@ class SqliterDB:
             raise RecordDeletionError(delete_plan.table_name) from exc
         except sqlite3.Error as exc:
             # Rollback implicit transaction if not in user-managed transaction
-            if not self._in_transaction and self.conn:
+            if not self.in_transaction and self.conn:
                 self.conn.rollback()
             raise RecordDeletionError(delete_plan.table_name) from exc
 
@@ -1670,6 +1675,7 @@ class SqliterDB:
 
         """
         self.connect()
+        self._transaction_depth += 1
         self._in_transaction = True
         return self
 
@@ -1697,12 +1703,19 @@ class SqliterDB:
         called by the 'with' statement when exiting the context.
 
         """
-        if self.conn:
+        if exc_type is not None:
+            self._rollback_requested = True
+
+        self._transaction_depth = max(0, self._transaction_depth - 1)
+        self._in_transaction = self._transaction_depth > 0
+
+        if self.conn and self._transaction_depth == 0:
             try:
-                if exc_type:
+                if self._rollback_requested:
                     # Roll back the transaction if there was an exception
                     self.conn.rollback()
                 else:
                     self.conn.commit()
             finally:
+                self._rollback_requested = False
                 self._in_transaction = False
