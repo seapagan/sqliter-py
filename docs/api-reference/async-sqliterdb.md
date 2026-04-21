@@ -87,7 +87,7 @@ async def commit(self) -> None:
 ### Async context manager
 
 ```python
-async def __aenter__(self) -> AsyncSqliterDB:
+async def __aenter__(self) -> Self:
 async def __aexit__(self, exc_type, exc, tb) -> None:
 ```
 
@@ -142,6 +142,13 @@ properties cannot be awaited.
 
 ## Read-Only Properties
 
+### `db_filename`
+
+```python
+@property
+def db_filename(self) -> str:
+```
+
 ### `auto_commit`
 
 ```python
@@ -157,6 +164,55 @@ def is_autocommit(self) -> bool:
 ```
 
 Compatibility alias for the sync property name.
+
+### `debug`
+
+```python
+@property
+def debug(self) -> bool:
+```
+
+### `logger`
+
+```python
+@property
+def logger(self) -> logging.Logger | None:
+```
+
+### `return_local_time`
+
+```python
+@property
+def return_local_time(self) -> bool:
+```
+
+### `is_connected`
+
+```python
+@property
+def is_connected(self) -> bool:
+```
+
+### `is_memory`
+
+```python
+@property
+def is_memory(self) -> bool:
+```
+
+### `filename`
+
+```python
+@property
+def filename(self) -> str | None:
+```
+
+### `in_transaction`
+
+```python
+@property
+def in_transaction(self) -> bool:
+```
 
 ---
 
@@ -234,6 +290,40 @@ This is sync to construct the query object. The query's terminal methods are
 awaited.
 
 ## Cache Methods
+
+### `cache_get()`
+
+```python
+def cache_get(
+    self,
+    table_name: str,
+    cache_key: str,
+) -> tuple[bool, Any]:
+```
+
+Returns a cached value for a table/query key pair.
+
+### `cache_set()`
+
+```python
+def cache_set(
+    self,
+    table_name: str,
+    cache_key: str,
+    result: Any,
+    ttl: int | None = None,
+) -> None:
+```
+
+Stores a value in the query cache.
+
+### `invalidate_table_cache()`
+
+```python
+def invalidate_table_cache(self, table_name: str) -> None:
+```
+
+Invalidates all cache entries for a specific table.
 
 ### `clear_cache()`
 

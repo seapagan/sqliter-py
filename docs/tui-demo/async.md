@@ -237,7 +237,7 @@ async def main():
     in_stock = await db.select(Item).filter(qty__gt=4).fetch_all()
     print(f"qty > 4: {[i.name for i in in_stock]}")
 
-    first = await db.select(Item).order("qty", "DESC").fetch_first()
+    first = await db.select(Item).order("qty", reverse=True).fetch_first()
     if first:
         print(f"Most stock: {first.name} ({first.qty})")
 
