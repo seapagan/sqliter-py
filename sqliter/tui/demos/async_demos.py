@@ -453,8 +453,10 @@ def _run_async_txn() -> str:
         await db2.close()
         await db.close()
 
-    _run_async(main())
-    Path(db_path).unlink(missing_ok=True)
+    try:
+        _run_async(main())
+    finally:
+        Path(db_path).unlink(missing_ok=True)
     return output.getvalue()
 
 
@@ -462,24 +464,16 @@ def _demo_code(func: Callable[[], str]) -> str:
     """Extract display code, stripping async demo boilerplate."""
     lines = extract_demo_code(func).splitlines()
     filtered: list[str] = []
-    skip_next = False
+    index = 0
 
-    for line in lines:
-        stripped = line.strip()
-
-        # Skip the availability guard (if line) and its body (next line)
-        if "not _ASYNC_AVAILABLE" in stripped:
-            skip_next = True
-            continue
-        if skip_next:
-            skip_next = False
+    while index < len(lines):
+        next_index = _skip_async_demo_boilerplate(lines, index, filtered)
+        if next_index is not None:
+            index = next_index
             continue
 
-        # Skip the internal run call and the file cleanup line
-        if stripped.startswith("_run_async(") or ".unlink(" in stripped:
-            continue
-
-        filtered.append(line)
+        filtered.append(lines[index])
+        index += 1
 
     # Collapse multiple consecutive blank lines into one
     result: list[str] = []
@@ -498,6 +492,40 @@ def _demo_code(func: Callable[[], str]) -> str:
         result.pop()
 
     return "\n".join(result)
+
+
+def _skip_async_demo_boilerplate(
+    lines: list[str],
+    index: int,
+    filtered: list[str],
+) -> int | None:
+    """Return next index when the current line is internal demo boilerplate."""
+    stripped = lines[index].strip()
+
+    # Skip the availability guard (if line) and its body (next line)
+    if "not _ASYNC_AVAILABLE" in stripped:
+        return index + 2
+
+    # Skip the internal runner block without stripping unrelated try/finally
+    if stripped == "_run_async(main())":
+        if filtered and filtered[-1].strip() == "try:":
+            filtered.pop()
+
+        index += 1
+        if index < len(lines) and lines[index].strip() == "finally:":
+            index += 1
+            if (
+                index < len(lines)
+                and lines[index].strip()
+                == "Path(db_path).unlink(missing_ok=True)"
+            ):
+                index += 1
+        return index
+
+    if stripped == "Path(db_path).unlink(missing_ok=True)":
+        return index + 1
+
+    return None
 
 
 def get_category() -> DemoCategory:

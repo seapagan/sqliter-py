@@ -166,10 +166,50 @@ class TestDemoCode:
         assert "_ASYNC_AVAILABLE" not in code
         assert "_run_async(" not in code
 
-    def test_strips_unlink(self) -> None:
-        """File cleanup (.unlink) lines are removed from display code."""
-        code = _demo_code(_run_async_txn)
-        assert ".unlink(" not in code
+    def test_strips_internal_runner_wrapper_only(self) -> None:
+        """Only the internal runner/cleanup wrapper should be stripped."""
+        source = """
+    def fake():
+        try:
+            do_work()
+        finally:
+            cleanup()
+
+        try:
+            _run_async(main())
+        finally:
+            Path(db_path).unlink(missing_ok=True)
+"""
+        with patch(
+            "sqliter.tui.demos.async_demos.extract_demo_code",
+            return_value=source,
+        ):
+            result = _demo_code(_run_async_txn)
+
+        assert result.count("try:") == 1
+        assert result.count("finally:") == 1
+        assert "cleanup()" in result
+        assert "do_work()" in result
+        assert "_run_async(main())" not in result
+        assert "Path(db_path).unlink(missing_ok=True)" not in result
+
+    def test_strips_standalone_cleanup_line(self) -> None:
+        """A bare cleanup line should also be removed from display code."""
+        source = """
+    def fake():
+        do_work()
+        Path(db_path).unlink(missing_ok=True)
+        return done
+"""
+        with patch(
+            "sqliter.tui.demos.async_demos.extract_demo_code",
+            return_value=source,
+        ):
+            result = _demo_code(_run_async_txn)
+
+        assert "do_work()" in result
+        assert "return done" in result
+        assert "Path(db_path).unlink(missing_ok=True)" not in result
 
     def test_produces_non_empty_output(self) -> None:
         """Each demo produces non-empty display code."""
