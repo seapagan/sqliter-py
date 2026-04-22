@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import sqlite3
 import time
-from contextlib import suppress
 from typing import TYPE_CHECKING, Any, Optional, TypeVar, cast
 
 import aiosqlite
@@ -528,8 +527,19 @@ class AsyncSqliterDB:
             await self._execute_sql(create_sql)
 
             for index_sql in index_sqls:
-                with suppress(SqlExecutionError):
-                    await self._execute_sql(index_sql)
+                await self._execute_m2m_index_sql(index_sql)
+
+    async def _execute_m2m_index_sql(self, index_sql: str) -> None:
+        """Execute M2M index SQL and surface failures with context."""
+        try:
+            await self._execute_sql(index_sql)
+        except SqlExecutionError:
+            if self.logger is not None:
+                self.logger.exception(
+                    "Failed to create M2M junction index with SQL: %s",
+                    index_sql,
+                )
+            raise
 
     async def _execute_sql(self, sql: str) -> None:
         """Execute a raw SQL statement."""

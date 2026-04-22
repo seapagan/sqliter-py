@@ -10,7 +10,11 @@ from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 
-from sqliter.exceptions import ManyToManyIntegrityError, TableCreationError
+from sqliter.exceptions import (
+    ManyToManyIntegrityError,
+    SqlExecutionError,
+    TableCreationError,
+)
 from sqliter.orm import BaseDBModel, ManyToMany
 from sqliter.orm.m2m import (
     M2MSQLMetadata,
@@ -24,6 +28,7 @@ from sqliter.sqliter import SqliterDB
 
 if TYPE_CHECKING:
     from pydantic import GetCoreSchemaHandler
+    from pytest_mock import MockerFixture
 
 # ── Test models ──────────────────────────────────────────────────────
 
@@ -436,8 +441,8 @@ class TestJunctionTableCreation:
         with pytest.raises(TableCreationError, match="bad_table"):
             create_junction_table(DummyDB(), "bad_table", "a", "b")
 
-    def test_junction_table_index_error_ignored(self) -> None:
-        """Index creation errors are ignored."""
+    def test_junction_table_index_error_raises(self) -> None:
+        """Index creation errors raise TableCreationError."""
         msg = "index fail"
 
         class DummyCursor:
@@ -470,7 +475,16 @@ class TestJunctionTableCreation:
             def connect(self) -> sqlite3.Connection:
                 return cast("sqlite3.Connection", DummyConn())
 
-        create_junction_table(DummyDB(), "articles_tags", "articles", "tags")
+        with pytest.raises(
+            TableCreationError,
+            match="articles_tags",
+        ):
+            create_junction_table(
+                DummyDB(),
+                "articles_tags",
+                "articles",
+                "tags",
+            )
 
 
 # ── TestManyToManyAdd ────────────────────────────────────────────────
@@ -1383,6 +1397,61 @@ class TestManyToManyEdgeCases:
 
         db = SqliterDB(memory=True)
         db._create_m2m_junction_tables(Article)
+
+    def test_create_m2m_junction_tables_raises_index_creation_errors(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Sync M2M setup raises if junction index creation fails."""
+        state = ModelRegistry.snapshot()
+        try:
+
+            class SyncTagEdge(BaseDBModel):
+                name: str
+
+            class SyncArticleEdge(BaseDBModel):
+                title: str
+                tags: ManyToMany[SyncTagEdge] = ManyToMany(SyncTagEdge)
+
+            db = SqliterDB(memory=True)
+            seen_sql: list[str] = []
+            original_execute_sql = db._execute_sql
+
+            def tracking_execute(sql: str) -> None:
+                seen_sql.append(sql)
+                if 'CREATE INDEX IF NOT EXISTS "idx_' in sql:
+                    raise SqlExecutionError(sql)
+                original_execute_sql(sql)
+
+            monkeypatch.setattr(db, "_execute_sql", tracking_execute)
+            db.create_table(SyncTagEdge)
+            with pytest.raises(SqlExecutionError):
+                db.create_table(SyncArticleEdge)
+
+            junction_table = SyncArticleEdge.tags.junction_table or ""
+            assert any(junction_table in sql for sql in seen_sql)
+        finally:
+            ModelRegistry.restore(state)
+
+    def test_execute_m2m_index_sql_logs_failures(
+        self, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+    ) -> None:
+        """Sync helper logs and re-raises failed junction index SQL."""
+        logger = mocker.Mock()
+        db = SqliterDB(memory=True, logger=logger)
+
+        def fail_execute(sql: str) -> None:
+            raise SqlExecutionError(sql)
+
+        monkeypatch.setattr(db, "_execute_sql", fail_execute)
+        index_sql = 'CREATE INDEX IF NOT EXISTS "idx_articles_tags_article_id"'
+
+        with pytest.raises(SqlExecutionError):
+            db._execute_m2m_index_sql(index_sql)
+
+        logger.exception.assert_called_once_with(
+            "Failed to create M2M junction index with SQL: %s",
+            index_sql,
+        )
 
     def test_self_ref_symmetrical_relationship(self) -> None:
         """Self-referential symmetrical M2M works both directions."""

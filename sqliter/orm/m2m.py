@@ -1143,9 +1143,9 @@ def create_junction_table(
             db._execute(cursor, index_sql)  # noqa: SLF001
             conn.commit()
         except sqlite3.Error as exc:  # noqa: PERF203
-            logger.debug(
-                "Ignoring junction index creation failure for %s: %s",
+            logger.exception(
+                "Failed to create junction index for %s with SQL: %s",
                 junction_table,
                 index_sql,
             )
-            logger.debug("Index creation error: %s", exc)
+            raise TableCreationError(junction_table) from exc

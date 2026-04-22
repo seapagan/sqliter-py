@@ -13,7 +13,6 @@ import sqlite3
 import sys
 import time
 from collections import OrderedDict
-from contextlib import suppress
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, cast
 
@@ -900,8 +899,19 @@ class SqliterDB:
             )
             self._execute_sql(create_sql)
             for index_sql in index_sqls:
-                with suppress(SqlExecutionError):
-                    self._execute_sql(index_sql)
+                self._execute_m2m_index_sql(index_sql)
+
+    def _execute_m2m_index_sql(self, index_sql: str) -> None:
+        """Execute M2M index SQL and surface failures with context."""
+        try:
+            self._execute_sql(index_sql)
+        except SqlExecutionError:
+            if self.logger is not None:
+                self.logger.exception(
+                    "Failed to create M2M junction index with SQL: %s",
+                    index_sql,
+                )
+            raise
 
     def create_m2m_junction_tables(
         self, model_class: type[BaseDBModel]

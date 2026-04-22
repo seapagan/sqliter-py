@@ -889,10 +889,10 @@ async def test_async_create_m2m_junction_tables_import_error_is_ignored(
 
 
 @pytest.mark.asyncio
-async def test_async_create_m2m_junction_tables_ignores_index_creation_errors(
+async def test_async_create_m2m_junction_tables_raises_index_creation_errors(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Async M2M setup keeps going if junction index creation fails."""
+    """Async M2M setup raises if junction index creation fails."""
     state = ModelRegistry.snapshot()
     try:
 
@@ -919,14 +919,37 @@ async def test_async_create_m2m_junction_tables_ignores_index_creation_errors(
 
         monkeypatch.setattr(db, "_execute_sql", tracking_execute)
         await db.create_table(AsyncTagEdge)
-        await db.create_table(AsyncArticleEdge)
+        with pytest.raises(SqlExecutionError):
+            await db.create_table(AsyncArticleEdge)
 
         junction_table = AsyncArticleEdge.tags.junction_table or ""
         assert any(junction_table in sql for sql in seen_sql)
-        assert junction_table in await db.get_table_names()
         await db.close()
     finally:
         ModelRegistry.restore(state)
+
+
+@pytest.mark.asyncio
+async def test_async_execute_m2m_index_sql_logs_failures(
+    monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+) -> None:
+    """Async helper logs and re-raises failed junction index SQL."""
+    logger = mocker.Mock()
+    db = AsyncSqliterDB(memory=True, logger=logger)
+
+    async def fail_execute(sql: str) -> None:
+        raise SqlExecutionError(sql)
+
+    monkeypatch.setattr(db, "_execute_sql", fail_execute)
+    index_sql = 'CREATE INDEX IF NOT EXISTS "idx_articles_tags_article_id"'
+
+    with pytest.raises(SqlExecutionError):
+        await db._execute_m2m_index_sql(index_sql)
+
+    logger.exception.assert_called_once_with(
+        "Failed to create M2M junction index with SQL: %s",
+        index_sql,
+    )
 
 
 @pytest.mark.asyncio
