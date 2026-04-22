@@ -675,11 +675,16 @@ class TestManyToManySet:
         tag2 = db.insert(Tag(name="tutorial"))
 
         manager = cast("ManyToManyManager[Tag]", article.tags)
-        prefetched = PrefetchedM2MResult([tag1], manager)
+        manager.add(tag1)
+        prefetched = PrefetchedM2MResult(manager.fetch_all(), manager)
 
         assert prefetched.count() == 1
-        prefetched.add(tag1)
-        assert prefetched.count() == 1
+        prefetched.add(tag2)
+        assert prefetched.count() == 2
+        assert {tag.name for tag in prefetched.fetch_all()} == {
+            "python",
+            "tutorial",
+        }
         prefetched.set(tag2)
         fetched = prefetched.fetch_one()
         assert fetched is not None

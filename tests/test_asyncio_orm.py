@@ -766,13 +766,20 @@ async def test_async_prefetched_wrapper_refreshes_after_writes() -> None:
         tag1 = await db.insert(Tag(name="python"))
         tag2 = await db.insert(Tag(name="tutorial"))
         manager = cast("AsyncManyToManyManager[Tag]", article.tags)
-        prefetched = AsyncPrefetchedM2MResult([tag1], manager)
+        await manager.add(tag1)
+        prefetched = AsyncPrefetchedM2MResult(
+            await manager.fetch_all(), manager
+        )
 
         assert await prefetched.count() == 1
-        await prefetched.add(tag1)
-        assert await prefetched.count() == 1
+        await prefetched.add(tag2)
+        assert await prefetched.count() == 2
+        assert {tag.name for tag in await prefetched.fetch_all()} == {
+            "python",
+            "tutorial",
+        }
         await prefetched.remove(Tag(name="missing"))
-        assert await prefetched.count() == 1
+        assert await prefetched.count() == 2
         await prefetched.set(tag2)
         fetched = await prefetched.fetch_one()
         assert fetched is not None
