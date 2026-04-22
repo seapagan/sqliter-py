@@ -2970,13 +2970,7 @@ class QueryBuilder(Generic[T]):
             RecordDeletionError: If there's an error deleting the records.
         """
         self._ensure_projection_method_allowed("delete")
-        sql = f'DELETE FROM "{self.table_name}"'
-
-        # Build the WHERE clause with special handling for None (NULL in SQL)
-        values, where_clause = self._parse_filter()
-
-        if self.filters:
-            sql += f" WHERE {where_clause}"
+        sql, values = self.build_delete_statement()
 
         try:
             conn = self.db.connect()
@@ -3024,38 +3018,10 @@ class QueryBuilder(Generic[T]):
             invalid_names = ", ".join(sorted(invalid_fields))
             raise InvalidUpdateError(invalid_names)
 
-        # Build SET clause
-        set_clauses: list[str] = []
-        set_values: list[Any] = []
-
-        # Auto-set updated_at timestamp if the field exists and wasn't
-        # explicitly provided
-        if "updated_at" in valid_fields and "updated_at" not in values:
-            current_timestamp = int(time.time())
-            set_clauses.append('"updated_at" = ?')
-            set_values.append(current_timestamp)
-
-        for field_name, value in values.items():
-            # Serialize the value if needed
-            serialized = self.model_class.serialize_field(value)
-            db_column = self._model_field_to_db_column(
-                self.model_class, field_name
-            )
-            set_clauses.append(f'"{db_column}" = ?')
-            set_values.append(serialized)
-
-        set_clause = ", ".join(set_clauses)
-
-        # Build the full UPDATE SQL
-        sql = f'UPDATE "{self.table_name}" SET {set_clause}'
-
-        # Build the WHERE clause
-        where_values, where_clause = self._parse_filter()
-        if self.filters:
-            sql += f" WHERE {where_clause}"
-
-        # Combine SET values with WHERE values
-        all_values = set_values + where_values
+        sql, all_values = self.build_update_statement(
+            values,
+            current_timestamp=int(time.time()),
+        )
 
         try:
             conn = self.db.connect()
