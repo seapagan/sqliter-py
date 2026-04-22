@@ -1286,7 +1286,7 @@ class QueryBuilder(Generic[T]):
         )
         conn = self.db.connect()
         cursor = conn.cursor()
-        self.db._execute(cursor, sql, values)  # noqa: SLF001
+        self.db.execute_cursor(cursor, sql, values)
         return cursor.fetchall()
 
     @staticmethod
