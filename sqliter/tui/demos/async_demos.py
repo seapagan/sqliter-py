@@ -26,7 +26,11 @@ try:
     )
 
     _ASYNC_AVAILABLE = True
-except ImportError:
+except ImportError as exc:
+    if getattr(exc, "name", None) != "aiosqlite" and (
+        "aiosqlite is required" not in str(exc)
+    ):
+        raise
     _ASYNC_AVAILABLE = False
 
 
@@ -229,7 +233,7 @@ def _run_async_query() -> str:
         in_stock = await db.select(Item).filter(qty__gt=4).fetch_all()
         output.write(f"qty > 4: {[i.name for i in in_stock]}\n")
 
-        first = await db.select(Item).order("qty", "DESC").fetch_first()
+        first = await db.select(Item).order("qty", reverse=True).fetch_first()
         if first:
             output.write(f"Most stock: {first.name} ({first.qty})\n")
 

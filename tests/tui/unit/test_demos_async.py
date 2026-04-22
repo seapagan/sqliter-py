@@ -13,6 +13,8 @@ from types import SimpleNamespace
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, patch
 
+import pytest
+
 from sqliter.tui.demos import async_demos
 from sqliter.tui.demos.async_demos import (
     _demo_code,
@@ -32,7 +34,6 @@ from sqliter.tui.demos.base import Demo
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    import pytest
     from pytest_mock import MockerFixture
 
 
@@ -305,11 +306,11 @@ class TestGetCategory:
 class TestImportErrorFallback:
     """Test that the module handles missing async imports gracefully."""
 
-    def test_async_available_false_when_import_fails(
+    def test_async_available_false_when_aiosqlite_is_missing(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """Module sets _ASYNC_AVAILABLE=False when async imports fail."""
+        """Module downgrades only the optional aiosqlite dependency failure."""
         real_import = builtins.__import__
 
         def fake_import(
@@ -320,8 +321,9 @@ class TestImportErrorFallback:
             level: int = 0,
         ) -> object:
             if name in ("sqliter.asyncio", "sqliter.asyncio.orm"):
-                msg = f"No module named '{name}'"
-                raise ImportError(msg)
+                exc = ModuleNotFoundError("No module named 'aiosqlite'")
+                exc.name = "aiosqlite"
+                raise exc
             return real_import(name, globals_, locals_, fromlist, level)
 
         monkeypatch.setitem(sys.modules, "sqliter.asyncio", None)
@@ -339,6 +341,37 @@ class TestImportErrorFallback:
         assert module._ASYNC_AVAILABLE is False
         output = module._run_async_conn()
         assert "requires aiosqlite" in output
+
+    def test_unrelated_async_import_error_is_reraised(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Module re-raises unrelated ImportError from async internals."""
+        real_import = builtins.__import__
+
+        def fake_import(
+            name: str,
+            globals_: Mapping[str, object] | None = None,
+            locals_: Mapping[str, object] | None = None,
+            fromlist: tuple[str, ...] = (),
+            level: int = 0,
+        ) -> object:
+            if name in ("sqliter.asyncio", "sqliter.asyncio.orm"):
+                msg = "broken async import"
+                raise ImportError(msg)
+            return real_import(name, globals_, locals_, fromlist, level)
+
+        monkeypatch.setitem(sys.modules, "sqliter.asyncio", None)
+        monkeypatch.setitem(sys.modules, "sqliter.asyncio.orm", None)
+        monkeypatch.setattr(builtins, "__import__", fake_import)
+        monkeypatch.delitem(
+            sys.modules, "sqliter.tui.demos.async_demos", raising=False
+        )
+        parent = sys.modules["sqliter.tui.demos"]
+        monkeypatch.setattr(parent, "async_demos", parent.async_demos)
+
+        with pytest.raises(ImportError, match="broken async import"):
+            importlib.import_module("sqliter.tui.demos.async_demos")
 
 
 class TestGuardClauses:
