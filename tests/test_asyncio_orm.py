@@ -637,8 +637,7 @@ async def test_async_many_to_many_manager_and_prefetch() -> None:
             reverse_manager,
         )
         reverse_articles = await article_manager.fetch_all()
-        article_items = cast("list[Article]", reverse_articles)
-        assert [item.title for item in article_items] == ["Guide"]
+        assert [item.title for item in reverse_articles] == ["Guide"]
 
         prefetched = await (
             db.select(Article).prefetch_related("tags").fetch_one()
@@ -938,10 +937,7 @@ async def test_async_m2m_write_invalidates_instance_prefetch_caches() -> None:
         manager = prefetched_tags._manager
         await manager.add(prefetched_tag)
 
-        refreshed_article_rel = cast(
-            "AsyncManyToManyManager[Tag] | AsyncPrefetchedM2MResult[Tag]",
-            prefetched_article.tags,
-        )
+        refreshed_article_rel = prefetched_article.tags
         refreshed_tags = await refreshed_article_rel.fetch_all()
         assert [item.name for item in refreshed_tags] == ["python"]
 
@@ -954,10 +950,7 @@ async def test_async_m2m_write_invalidates_instance_prefetch_caches() -> None:
         assert [item.title for item in refreshed_articles] == ["Guide"]
 
         await manager.clear()
-        cleared_article_rel = cast(
-            "AsyncManyToManyManager[Tag] | AsyncPrefetchedM2MResult[Tag]",
-            prefetched_article.tags,
-        )
+        cleared_article_rel = prefetched_article.tags
         assert await cleared_article_rel.fetch_all() == []
         cleared_tag_rel = cast(
             "AsyncManyToManyManager[Article]"

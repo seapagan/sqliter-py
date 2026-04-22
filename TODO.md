@@ -19,6 +19,9 @@ Items marked with :fire: are high priority.
   dynamic ORM relationship APIs (reverse FK descriptors, M2M managers, and
   prefetched relation result types) to reduce required casts in normal
   application code and tests.
+- Revisit `sqliter/asyncio/orm/m2m.py` runtime `__get__` typing so async M2M
+  descriptors type-check cleanly even under direct file-based mypy runs, not
+  just project/workspace runs that pick up the sibling `.pyi`.
 - Registry lifetime: global registry can cause cross-talk when models are
   defined repeatedly in one process (e.g., tests). Current mitigation exists
   via `ModelRegistry.reset()` and snapshot/restore helpers; longer-term option:

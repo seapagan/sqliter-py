@@ -9,18 +9,14 @@ from typing import (
     Optional,
     Protocol,
     TypeVar,
-    Union,
     cast,
-    overload,
     runtime_checkable,
 )
 
 from sqliter.exceptions import ManyToManyIntegrityError
 from sqliter.orm.m2m import (
     M2MSQLMetadata,
-    ManyToManyManager,
     ManyToManyOptions,
-    PrefetchedM2MResult,
     _build_m2m_sql_metadata,
     _M2MCacheInvalidationMixin,
 )
@@ -465,32 +461,11 @@ class AsyncManyToMany(SyncManyToMany[T]):
                 ),
             )
 
-    @overload
-    def __get__(
-        self,
-        instance: None,
-        owner: type[object],
-    ) -> SyncManyToMany[T]: ...
-
-    @overload
-    def __get__(
-        self,
-        instance: object,
-        owner: type[object],
-    ) -> Union[
-        ManyToManyManager[T],
-        PrefetchedM2MResult[T],
-    ]: ...
-
     def __get__(
         self,
         instance: object | None,
         owner: type[object],
-    ) -> Union[
-        SyncManyToMany[T],
-        ManyToManyManager[T],
-        PrefetchedM2MResult[T],
-    ]:
+    ) -> object:
         """Return an async manager or prefetched wrapper."""
         if instance is None:
             return self
@@ -517,11 +492,8 @@ class AsyncManyToMany(SyncManyToMany[T]):
         )
         cache = getattr(instance, "__dict__", {}).get("_prefetch_cache", {})
         if self.name and self.name in cache:
-            return cast(
-                "PrefetchedM2MResult[T]",
-                AsyncPrefetchedM2MResult(cache[self.name], manager),
-            )
-        return cast("ManyToManyManager[T]", manager)
+            return AsyncPrefetchedM2MResult(cache[self.name], manager)
+        return manager
 
 
 class AsyncReverseManyToMany(SyncReverseManyToMany):
@@ -547,32 +519,11 @@ class AsyncReverseManyToMany(SyncReverseManyToMany):
         )
         self._forward_name = forward_name
 
-    @overload
-    def __get__(
-        self,
-        instance: None,
-        owner: type[object],
-    ) -> SyncReverseManyToMany: ...
-
-    @overload
-    def __get__(
-        self,
-        instance: object,
-        owner: type[object],
-    ) -> Union[
-        ManyToManyManager[Any],
-        PrefetchedM2MResult[Any],
-    ]: ...
-
     def __get__(
         self,
         instance: object | None,
         owner: type[object],
-    ) -> Union[
-        SyncReverseManyToMany,
-        ManyToManyManager[Any],
-        PrefetchedM2MResult[Any],
-    ]:
+    ) -> object:
         """Return an async manager or prefetched wrapper."""
         if instance is None:
             return self
@@ -594,8 +545,5 @@ class AsyncReverseManyToMany(SyncReverseManyToMany):
         )
         cache = getattr(instance, "__dict__", {}).get("_prefetch_cache", {})
         if self._related_name in cache:
-            return cast(
-                "PrefetchedM2MResult[Any]",
-                AsyncPrefetchedM2MResult(cache[self._related_name], manager),
-            )
-        return cast("ManyToManyManager[Any]", manager)
+            return AsyncPrefetchedM2MResult(cache[self._related_name], manager)
+        return manager
