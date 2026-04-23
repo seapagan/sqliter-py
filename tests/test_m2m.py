@@ -818,9 +818,9 @@ class TestManyToManySet:
         tag1 = db.insert(Tag(name="python"))
         tag2 = db.insert(Tag(name="tutorial"))
 
+        manager = cast("ManyToManyManager[Tag]", article.tags)
         cached_items = [tag1]
         article.__dict__["_prefetch_cache"] = {"tags": cached_items}
-        manager = cast("ManyToManyManager[Tag]", article.tags)
         prefetched = PrefetchedM2MResult(cached_items, manager)
         original_items = prefetched._items
 
