@@ -914,10 +914,10 @@ async def test_async_delete_foreign_key_violation_raises() -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_create_m2m_junction_tables_import_error_is_ignored(
+async def test_async_create_m2m_junction_tables_registry_import_is_ignored(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """ImportError in async ORM helper imports is ignored for M2M setup."""
+    """ModelRegistry import failure is ignored during async M2M setup."""
     original_import = builtins.__import__
 
     def fake_import(
@@ -927,7 +927,7 @@ async def test_async_create_m2m_junction_tables_import_error_is_ignored(
         fromlist: tuple[str, ...] = (),
         level: int = 0,
     ) -> object:
-        if name in ("sqliter.orm.m2m", "sqliter.orm.registry"):
+        if name == "sqliter.orm.registry":
             msg = "no orm"
             raise ImportError(msg)
         return original_import(name, globals_, locals_, fromlist, level)
