@@ -367,6 +367,37 @@ async def test_async_db_properties_expose_sync_configuration(
 
 
 @pytest.mark.asyncio
+async def test_async_reset_database_rolls_back_inside_context(
+    temp_db_path: str,
+) -> None:
+    """reset_database should not flush an enclosing async transaction."""
+    db = AsyncSqliterDB(temp_db_path)
+    await db.create_table(ExampleModel)
+    await db.insert(ExampleModel(slug="kept", name="Kept", content="row"))
+    await db.close()
+
+    db = AsyncSqliterDB(temp_db_path)
+    msg = "boom"
+
+    async def fail_transaction() -> None:
+        async with db:
+            await db.reset_database()
+            raise RuntimeError(msg)
+
+    with pytest.raises(RuntimeError, match=msg):
+        await fail_transaction()
+
+    await db.close()
+    db = AsyncSqliterDB(temp_db_path)
+
+    assert "test_table" in await db.get_table_names()
+    fetched = await db.get(ExampleModel, 1)
+    assert fetched is not None
+    assert fetched.slug == "kept"
+    await db.close()
+
+
+@pytest.mark.asyncio
 async def test_async_drop_table_removes_table() -> None:
     """drop_table removes an existing table."""
     db = AsyncSqliterDB(memory=True)

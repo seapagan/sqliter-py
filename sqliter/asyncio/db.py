@@ -391,7 +391,7 @@ class AsyncSqliterDB:
                 f"DROP TABLE IF EXISTS {table[0]}",
             )
 
-        await conn.commit()
+        await self._maybe_commit()
 
         if self.debug and self.logger:
             self.logger.debug(
