@@ -838,10 +838,10 @@ class SqliterDB:
         )
 
         try:
-            with self.connect() as conn:
-                cursor = conn.cursor()
-                self._execute(cursor, create_table_sql)
-                conn.commit()
+            conn = self.connect()
+            cursor = conn.cursor()
+            self._execute(cursor, create_table_sql)
+            self._maybe_commit()
         except sqlite3.Error as exc:
             raise TableCreationError(table_name) from exc
 
@@ -971,10 +971,10 @@ class SqliterDB:
             SqlExecutionError: If the SQL execution fails.
         """
         try:
-            with self.connect() as conn:
-                cursor = conn.cursor()
-                self._execute(cursor, sql)
-                conn.commit()
+            conn = self.connect()
+            cursor = conn.cursor()
+            self._execute(cursor, sql)
+            self._maybe_commit()
         except (sqlite3.Error, sqlite3.Warning) as exc:
             raise SqlExecutionError(sql) from exc
 
@@ -991,10 +991,10 @@ class SqliterDB:
         drop_table_sql = f"DROP TABLE IF EXISTS {table_name}"
 
         try:
-            with self.connect() as conn:
-                cursor = conn.cursor()
-                self._execute(cursor, drop_table_sql)
-                self.commit()
+            conn = self.connect()
+            cursor = conn.cursor()
+            self._execute(cursor, drop_table_sql)
+            self._maybe_commit()
         except sqlite3.Error as exc:
             raise TableDeletionError(table_name) from exc
 
@@ -1684,7 +1684,9 @@ class SqliterDB:
             The SqliterDB instance.
 
         """
-        self.connect()
+        conn = self.connect()
+        if self._transaction_depth == 0 and not conn.in_transaction:
+            conn.execute("BEGIN")
         self._transaction_depth += 1
         self._in_transaction = True
         return self

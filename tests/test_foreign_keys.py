@@ -185,7 +185,7 @@ class TestForeignKeyTableCreation:
         mock_cursor = mocker.MagicMock()
         mocker.patch.object(
             SqliterDB, "connect"
-        ).return_value.__enter__.return_value.cursor.return_value = mock_cursor
+        ).return_value.cursor.return_value = mock_cursor
 
         db = SqliterDB(":memory:")
         db.create_table(Book)

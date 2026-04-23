@@ -102,6 +102,6 @@ class TestDropTable:
             class Meta:
                 table_name = "commit_table"
 
-        mock_commit = mocker.patch.object(db_mock, "commit")
+        mock_maybe_commit = mocker.patch.object(db_mock, "_maybe_commit")
         db_mock.drop_table(CommitModel)
-        mock_commit.assert_called_once()
+        mock_maybe_commit.assert_called_once()

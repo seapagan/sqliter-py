@@ -783,7 +783,7 @@ class TestSqliterDB:
         mock_cursor = mocker.MagicMock()
         mocker.patch.object(
             db_mock, "connect"
-        ).return_value.__enter__.return_value.cursor.return_value = mock_cursor
+        ).return_value.cursor.return_value = mock_cursor
 
         # Test with exists_ok=True
         db_mock.create_table(ExistOkModel, exists_ok=True)
@@ -873,7 +873,7 @@ class TestSqliterDB:
         mock_cursor = mocker.MagicMock()
         mocker.patch.object(
             db_mock, "connect"
-        ).return_value.__enter__.return_value.cursor.return_value = mock_cursor
+        ).return_value.cursor.return_value = mock_cursor
 
         db_mock.create_table(ExistOkModel, force=True)
 

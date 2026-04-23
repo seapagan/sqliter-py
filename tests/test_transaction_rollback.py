@@ -55,6 +55,48 @@ class TestTransactionRollback:
 
         assert len(result) == 0, "Insert should have been rolled back"
 
+    def test_schema_helpers_rollback_on_exception(self, tmp_path: Path) -> None:
+        """Schema changes inside `with db:` should rollback with the block."""
+        db_file = tmp_path / "test_schema_rollback.db"
+        db = SqliterDB(db_filename=str(db_file))
+
+        with suppress(RuntimeError), db:
+            db.create_table(Item)
+            db._execute_sql(
+                "CREATE TABLE audit_log (id INTEGER PRIMARY KEY, note TEXT)"
+            )
+            _raise_error()
+
+        separate_conn = sqlite3.connect(str(db_file))
+        cursor = separate_conn.cursor()
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' "
+            "AND name IN ('items', 'audit_log')"
+        )
+        tables = {row[0] for row in cursor.fetchall()}
+        separate_conn.close()
+
+        assert tables == set(), "Schema helpers should rollback with context"
+
+    def test_drop_table_rollback_on_exception(self, tmp_path: Path) -> None:
+        """Dropping a table inside `with db:` should rollback on failure."""
+        db_file = tmp_path / "test_drop_rollback.db"
+        db = SqliterDB(db_filename=str(db_file))
+        db.create_table(Item)
+        db.insert(Item(name="Widget", quantity=10))
+        db.close()
+
+        db = SqliterDB(db_filename=str(db_file))
+        with suppress(RuntimeError), db:
+            db.drop_table(Item)
+            _raise_error()
+
+        db = SqliterDB(db_filename=str(db_file))
+        result = db.select(Item).fetch_all()
+        db.close()
+
+        assert len(result) == 1, "Dropped table should be restored on rollback"
+
     def test_update_rollback_on_exception(self, tmp_path: Path) -> None:
         """Verify that update is rolled back when an exception occurs."""
         db_file = tmp_path / "test_rollback.db"
