@@ -1215,12 +1215,8 @@ class SqliterDB:
 
         sql_data = self._map_data_to_db_columns(model_class, data)
         fields = ", ".join(f'"{field}"' for field in sql_data)
-        placeholders = ", ".join(
-            "?" if value is not None else "NULL" for value in sql_data.values()
-        )
-        values = tuple(
-            value for value in sql_data.values() if value is not None
-        )
+        placeholders = ", ".join("?" for _ in sql_data)
+        values = tuple(sql_data.values())
         insert_sql = (
             f"INSERT INTO {table_name} ({fields}) "  # noqa: S608
             f"VALUES ({placeholders})"

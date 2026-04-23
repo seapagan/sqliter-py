@@ -195,6 +195,24 @@ class TestSqliterDB:
             assert result[4] == "MIT License"
             assert result[5] == "MIT License Content"
 
+    def test_build_insert_plan_binds_none_values(self) -> None:
+        """Insert plans keep placeholders stable when values are None."""
+        db = SqliterDB(":memory:")
+        model = ComplexModel(
+            name="Alice",
+            age=30.5,
+            is_active=True,
+            score=85,
+            nullable_field=None,
+        )
+
+        plan = db._build_insert_plan(model, timestamp_override=False)
+
+        assert '"nullable_field"' in plan.sql
+        assert "NULL" not in plan.sql
+        assert plan.sql.count("?") == len(plan.values)
+        assert plan.values[-1] is None
+
     def test_fetch_license(self, db_mock: SqliterDB) -> None:
         """Test fetching a license by primary key."""
         test_model = ExampleModel(

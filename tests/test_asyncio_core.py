@@ -32,7 +32,7 @@ from sqliter.orm import BaseDBModel, ForeignKey, ManyToMany
 from sqliter.orm.m2m import _m2m_column_names
 from sqliter.orm.registry import ModelRegistry
 from sqliter.query import func
-from tests.conftest import ExampleModel
+from tests.conftest import ComplexModel, ExampleModel
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -191,6 +191,26 @@ async def test_async_create_and_get_table_names() -> None:
     assert "test_table" in await db.get_table_names()
 
     await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_build_insert_plan_binds_none_values() -> None:
+    """Async insert plans keep placeholders stable when values are None."""
+    db = AsyncSqliterDB(memory=True)
+    model = ComplexModel(
+        name="Alice",
+        age=30.5,
+        is_active=True,
+        score=85,
+        nullable_field=None,
+    )
+
+    plan = db._build_insert_plan(model, timestamp_override=False)
+
+    assert '"nullable_field"' in plan.sql
+    assert "NULL" not in plan.sql
+    assert plan.sql.count("?") == len(plan.values)
+    assert plan.values[-1] is None
 
 
 @pytest.mark.asyncio
