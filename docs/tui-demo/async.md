@@ -300,6 +300,8 @@ async def main():
 
     # Re-fetch to simulate loading from DB (no in-memory state)
     fresh = await db.get(Book, book.pk)
+    if fresh is None:
+        raise ValueError("Book not found")
 
     # WRONG — raises AttributeError in async mode:
     # fresh.author.name
@@ -312,6 +314,8 @@ async def main():
     # under --strict. See the async guide for the full explanation.
     loader = cast(AsyncLazyLoader[Author], fresh.author)
     author = await loader.fetch()
+    if author is None:
+        raise ValueError("Author not found")
     print(f"Book: {fresh.title}")
     print(f"Author: {author.name}")
 
@@ -436,6 +440,8 @@ async def main():
     await db.insert(Book(title="Great Expectations", author=dickens))
 
     author = await db.get(Author, dickens.pk)
+    if author is None:
+        raise ValueError("Author not found")
 
     # mypy: reverse accessors are set dynamically via setattr, so
     # __getattribute__ returns `object`. Cast to AsyncReverseQuery for
