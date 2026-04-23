@@ -1202,6 +1202,67 @@ async def test_async_context_manager_rolls_back_on_error(
 
 
 @pytest.mark.asyncio
+async def test_async_schema_helpers_rollback_on_error(
+    temp_db_path: str,
+) -> None:
+    """DDL inside `async with db:` should rollback with the block."""
+    db = AsyncSqliterDB(temp_db_path)
+    msg = "boom"
+
+    async def fail_transaction() -> None:
+        async with db:
+            await db.create_table(ExampleModel)
+            await db._execute_sql(
+                "CREATE TABLE audit_log (id INTEGER PRIMARY KEY, note TEXT)"
+            )
+            raise RuntimeError(msg)
+
+    with pytest.raises(RuntimeError, match=msg):
+        await fail_transaction()
+
+    separate_conn = sqlite3.connect(temp_db_path)
+    cursor = separate_conn.cursor()
+    cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' "
+        "AND name IN ('test_table', 'audit_log')"
+    )
+    tables = {row[0] for row in cursor.fetchall()}
+    separate_conn.close()
+
+    assert tables == set()
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_drop_table_rolls_back_on_error(
+    temp_db_path: str,
+) -> None:
+    """drop_table inside `async with db:` should rollback on failure."""
+    db = AsyncSqliterDB(temp_db_path)
+    await db.create_table(ExampleModel)
+    await db.insert(ExampleModel(slug="kept", name="Kept", content="row"))
+    await db.close()
+
+    db = AsyncSqliterDB(temp_db_path)
+    msg = "boom"
+
+    async def fail_transaction() -> None:
+        async with db:
+            await db.drop_table(ExampleModel)
+            raise RuntimeError(msg)
+
+    with pytest.raises(RuntimeError, match=msg):
+        await fail_transaction()
+
+    db = AsyncSqliterDB(temp_db_path)
+    fetched = await db.get(ExampleModel, 1)
+
+    assert fetched is not None
+    assert fetched.slug == "kept"
+    await db.close()
+
+
+@pytest.mark.asyncio
 async def test_async_context_manager_keeps_memory_database_available() -> None:
     """In-memory async DB data survives after leaving the context."""
     db = AsyncSqliterDB(memory=True)

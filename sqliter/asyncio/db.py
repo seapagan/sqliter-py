@@ -456,7 +456,7 @@ class AsyncSqliterDB:
             conn = await self.connect()
             cursor = await conn.cursor()
             await self._execute_async(cursor, create_table_sql)
-            await conn.commit()
+            await self._maybe_commit()
         except sqlite3.Error as exc:
             raise TableCreationError(table_name) from exc
 
@@ -560,7 +560,7 @@ class AsyncSqliterDB:
             conn = await self.connect()
             cursor = await conn.cursor()
             await self._execute_async(cursor, drop_table_sql)
-            await self.commit()
+            await self._maybe_commit()
         except sqlite3.Error as exc:
             raise TableDeletionError(table_name) from exc
 
@@ -807,7 +807,11 @@ class AsyncSqliterDB:
 
     async def __aenter__(self) -> Self:
         """Enter the async transaction context."""
-        await self.connect()
+        conn = await self.connect()
+        if not self.in_transaction and not getattr(
+            conn, "in_transaction", False
+        ):
+            await conn.execute("BEGIN")
         self._sync.set_in_transaction(value=True)
         return self
 
