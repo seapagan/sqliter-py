@@ -1121,6 +1121,69 @@ async def test_async_m2m_manager_rollback_paths(
 
 
 @pytest.mark.asyncio
+async def test_async_m2m_manager_preserves_manual_transaction_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Async M2M failures must not rollback manual transaction mode."""
+    state = ModelRegistry.snapshot()
+    try:
+
+        class Tag(AsyncBaseDBModel):
+            """Tag model for manual transaction rollback tests."""
+
+            name: str
+
+        class Article(AsyncBaseDBModel):
+            """Article model for manual transaction rollback tests."""
+
+            title: str
+            tags: AsyncManyToMany[Tag] = AsyncManyToMany(
+                Tag,
+                related_name="articles",
+            )
+
+        db = AsyncSqliterDB(memory=True, auto_commit=False)
+        await db.create_table(Tag)
+        await db.create_table(Article)
+
+        article = await db.insert(Article(title="Guide"))
+        tag = await db.insert(Tag(name="python"))
+        await db.insert(Tag(name="pending"))
+        manager = cast("AsyncManyToManyManager[Tag]", article.tags)
+
+        rollback_calls = {"count": 0}
+
+        async def fake_rollback() -> None:
+            rollback_calls["count"] += 1
+
+        async def broken_execute(
+            cursor: object,
+            sql: str,
+            params: tuple[object, ...] | tuple[int, ...],
+        ) -> None:
+            msg = "boom"
+            raise RuntimeError(msg)
+
+        with monkeypatch.context() as ctx:
+            ctx.setattr(db.conn, "rollback", fake_rollback)
+            ctx.setattr(db, "execute_cursor", broken_execute)
+
+            with pytest.raises(RuntimeError, match="boom"):
+                await manager.add(tag)
+
+        assert rollback_calls["count"] == 0
+
+        await db.commit()
+        pending = await db.select(Tag).filter(name="pending").fetch_one()
+        assert pending is not None
+        assert pending.name == "pending"
+
+        await db.close()
+    finally:
+        ModelRegistry.restore(state)
+
+
+@pytest.mark.asyncio
 async def test_async_m2m_symmetrical_and_descriptor_edge_paths() -> None:
     """Async M2M covers symmetrical ordering and descriptor edge cases."""
     state = ModelRegistry.snapshot()

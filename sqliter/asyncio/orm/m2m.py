@@ -201,7 +201,7 @@ class AsyncManyToManyManager(_M2MCacheInvalidationMixin, Generic[T]):
         return self._db
 
     async def _rollback_if_needed(self, db: AsyncSqliterDB) -> None:
-        if not db.in_transaction and db.conn is not None:
+        if db.auto_commit and not db.in_transaction and db.conn is not None:
             await db.conn.rollback()
 
     @staticmethod
