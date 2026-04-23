@@ -86,10 +86,10 @@ interactive demo and proper pluralization.
 
 ### Installation Summary
 
-| Extra | Includes | Purpose |
-|-------|----------|---------|
-| *(none)* | Pydantic only | Basic sync ORM functionality |
-| `async` | + aiosqlite | Async database, query, and ORM support |
-| `demo` | + Textual | Interactive TUI demo |
-| `extras` | + Inflect | Better pluralization |
-| `full` | + aiosqlite + Textual + Inflect | All features |
+| Extra    | Includes                        | Purpose                                |
+| -------- | ------------------------------- | -------------------------------------- |
+| *(none)* | Pydantic only                   | Basic sync ORM functionality           |
+| `async`  | + aiosqlite                     | Async database, query, and ORM support |
+| `demo`   | + Textual                       | Interactive TUI demo                   |
+| `extras` | + Inflect                       | Better pluralization                   |
+| `full`   | + aiosqlite + Textual + Inflect | All features                           |

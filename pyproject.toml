@@ -88,6 +88,9 @@ format.help = "Format code with Ruff"
 ruff.cmd = "ruff check --output-format=concise ."
 ruff.help = "Run Ruff checks"
 
+md.cmd = 'npx markdownlint-cli2 "docs/**/*.md" "README.md"'
+md.help = "Run markdown checks on the docs"
+
 test.cmd = "pytest"
 test.help = "Run tests using Pytest"
 "test:watch".cmd = "ptw . --now --clear"

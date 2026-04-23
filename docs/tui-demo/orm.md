@@ -192,7 +192,8 @@ db.close()
 ### Storage vs Access
 
 - **Storage**: The `author` field stores only the primary key (integer)
-- **Access**: When you access `book.author`, lazy loading fetches the full Author object
+- **Access**: When you access `book.author`, lazy loading fetches the full
+  Author object
 - This dual behavior lets you store efficiently but access conveniently
 
 ## Lazy Loading
@@ -294,7 +295,8 @@ db.close()
 
 ### What Happens
 
-1. `select_related("author")` tells SQLiter to include Author data in the initial query
+1. `select_related("author")` tells SQLiter to include Author data in the
+   initial query
 2. A JOIN fetches both Book and Author data in a single database call
 3. All related objects are preloaded and cached, avoiding the N+1 problem
 
@@ -891,7 +893,10 @@ db.close()
 
 ### Note on Constraints
 
-By default, SQLite doesn't enforce foreign key constraints for backwards compatibility. However, SQLiter automatically enables foreign key enforcement on every database connection, so you don't need to manually set `PRAGMA foreign_keys = ON`.
+By default, SQLite doesn't enforce foreign key constraints for backwards
+compatibility. However, SQLiter automatically enables foreign key enforcement on
+every database connection, so you don't need to manually set `PRAGMA
+foreign_keys = ON`.
 
 ## Prefetch Reverse FK Relationships
 
@@ -944,9 +949,9 @@ db.close()
 
 ### `select_related` vs `prefetch_related`
 
-| Method | Direction | Strategy | Best For |
-|--------|-----------|----------|----------|
-| `select_related()` | Forward FK (`book.author`) | JOIN | Parent lookups |
+| Method               | Direction                   | Strategy  | Best For          |
+| -------------------- | --------------------------- | --------- | ----------------- |
+| `select_related()`   | Forward FK (`book.author`)  | JOIN      | Parent lookups    |
 | `prefetch_related()` | Reverse FK (`author.books`) | 2nd query | Child collections |
 
 ## Prefetch Nested Relationships

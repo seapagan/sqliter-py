@@ -38,7 +38,8 @@ We use `Annotated[str, unique()]` instead of `email: str = unique()` because:
 - **Best Practice**: Recommended by Pydantic for metadata on fields
 - **Clarity**: Makes it clear that `unique()` is metadata, not a default value
 
-You can use `email: str = unique()` if you don't use type checkers, but it will fail mypy.
+You can use `email: str = unique()` if you don't use type checkers, but it will
+fail mypy.
 
 ### What It Does
 
@@ -185,13 +186,13 @@ class Product(BaseDBModel):
 
 ## Constraint Summary
 
-| Constraint | How to Define | Purpose |
-|------------|---------------|---------|
-| **Primary Key** | Automatic (`pk` field) | Unique identifier for each record |
-| **Unique** | `Annotated[str, unique()]` | Field values must be unique |
-| **Not Null** | No default value | Field must have a value |
-| **Default Value** | `field: type = value` | Default value if not provided |
-| **Check** | Pydantic validator | Custom validation logic |
+| Constraint        | How to Define              | Purpose                           |
+| ----------------- | -------------------------- | --------------------------------- |
+| **Primary Key**   | Automatic (`pk` field)     | Unique identifier for each record |
+| **Unique**        | `Annotated[str, unique()]` | Field values must be unique       |
+| **Not Null**      | No default value           | Field must have a value           |
+| **Default Value** | `field: type = value`      | Default value if not provided     |
+| **Check**         | Pydantic validator         | Custom validation logic           |
 
 ## Error Handling
 

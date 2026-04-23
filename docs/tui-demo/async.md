@@ -255,17 +255,17 @@ asyncio.run(main())
 
 ### Async Terminal Methods
 
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `await .fetch_all()` | `list[T]` | All matching records |
-| `await .fetch_one()` | `T \| None` | First match or None |
-| `await .fetch_first()` | `T \| None` | First by ordering |
-| `await .fetch_last()` | `T \| None` | Last by ordering |
-| `await .fetch_dicts()` | `list[dict]` | Results as dicts (field selection) |
-| `await .count()` | `int` | Number of matching records |
-| `await .exists()` | `bool` | True if any match found |
-| `await .delete()` | `int` | Deletes matches, returns count |
-| `await .update(values)` | `int` | Bulk-updates matches, returns count |
+| Method                  | Returns      | Description                         |
+| ----------------------- | ------------ | ----------------------------------- |
+| `await .fetch_all()`    | `list[T]`    | All matching records                |
+| `await .fetch_one()`    | `T \| None`  | First match or None                 |
+| `await .fetch_first()`  | `T \| None`  | First by ordering                   |
+| `await .fetch_last()`   | `T \| None`  | Last by ordering                    |
+| `await .fetch_dicts()`  | `list[dict]` | Results as dicts (field selection)  |
+| `await .count()`        | `int`        | Number of matching records          |
+| `await .exists()`       | `bool`       | True if any match found             |
+| `await .delete()`       | `int`        | Deletes matches, returns count      |
+| `await .update(values)` | `int`        | Bulk-updates matches, returns count |
 
 ---
 
@@ -348,12 +348,12 @@ asyncio.run(main())
 
 ### Sync vs Async FK Access
 
-| | Sync | Async |
-|-|------|-------|
-| **Model base** | `BaseDBModel` | `AsyncBaseDBModel` |
-| **FK field** | `ForeignKey[T]` | `AsyncForeignKey[T]` |
-| **Access pattern** | `book.author.name` | `author = await book.author.fetch()` then `author.name` |
-| **Already loaded?** | Cached automatically | Cached after first `fetch()` |
+|                     | Sync                 | Async                                                   |
+| ------------------- | -------------------- | ------------------------------------------------------- |
+| **Model base**      | `BaseDBModel`        | `AsyncBaseDBModel`                                      |
+| **FK field**        | `ForeignKey[T]`      | `AsyncForeignKey[T]`                                    |
+| **Access pattern**  | `book.author.name`   | `author = await book.author.fetch()` then `author.name` |
+| **Already loaded?** | Cached automatically | Cached after first `fetch()`                            |
 
 ---
 
@@ -401,10 +401,10 @@ asyncio.run(main())
 
 ### When to Use Each Approach
 
-| Approach | When to use |
-|----------|-------------|
+| Approach                          | When to use                                                                                                |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | **Lazy** (`await loader.fetch()`) | You only sometimes need the related object, or are fetching a large list where not every item needs its FK |
-| **Eager** (`select_related()`) | You know you will always access the related object — avoids N+1 queries |
+| **Eager** (`select_related()`)    | You know you will always access the related object — avoids N+1 queries                                    |
 
 ---
 
@@ -550,29 +550,30 @@ block succeed, or none are persisted.
 
 ## Sync vs Async Quick Reference
 
-| Feature | Sync | Async |
-|---------|------|-------|
-| **Import** | `from sqliter import SqliterDB` | `from sqliter.asyncio import AsyncSqliterDB` |
-| **Model base (FK/M2M)** | `BaseDBModel` | `AsyncBaseDBModel` |
-| **FK field** | `ForeignKey[T]` | `AsyncForeignKey[T]` |
-| **Context manager** | `with db:` | `async with db:` |
-| **Connect** | `db.connect()` | `await db.connect()` |
-| **Create table** | `db.create_table(M)` | `await db.create_table(M)` |
-| **Insert** | `db.insert(obj)` | `await db.insert(obj)` |
-| **Get** | `db.get(M, pk)` | `await db.get(M, pk)` |
-| **Update** | `db.update(obj)` | `await db.update(obj)` |
-| **Delete** | `db.delete(M, pk)` | `await db.delete(M, pk)` |
-| **Bulk insert** | `db.bulk_insert([...])` | `await db.bulk_insert([...])` |
-| **Query terminal** | `.fetch_all()` | `await .fetch_all()` |
-| **FK access** | `book.author.name` | `author = await book.author.fetch()` |
-| **Eager FK** | `.select_related("x")` | `await .select_related("x").fetch_all()` |
-| **Reverse FK** | `author.books.fetch_all()` | `await author.books.fetch_all()` |
+| Feature                 | Sync                            | Async                                        |
+| ----------------------- | ------------------------------- | -------------------------------------------- |
+| **Import**              | `from sqliter import SqliterDB` | `from sqliter.asyncio import AsyncSqliterDB` |
+| **Model base (FK/M2M)** | `BaseDBModel`                   | `AsyncBaseDBModel`                           |
+| **FK field**            | `ForeignKey[T]`                 | `AsyncForeignKey[T]`                         |
+| **Context manager**     | `with db:`                      | `async with db:`                             |
+| **Connect**             | `db.connect()`                  | `await db.connect()`                         |
+| **Create table**        | `db.create_table(M)`            | `await db.create_table(M)`                   |
+| **Insert**              | `db.insert(obj)`                | `await db.insert(obj)`                       |
+| **Get**                 | `db.get(M, pk)`                 | `await db.get(M, pk)`                        |
+| **Update**              | `db.update(obj)`                | `await db.update(obj)`                       |
+| **Delete**              | `db.delete(M, pk)`              | `await db.delete(M, pk)`                     |
+| **Bulk insert**         | `db.bulk_insert([...])`         | `await db.bulk_insert([...])`                |
+| **Query terminal**      | `.fetch_all()`                  | `await .fetch_all()`                         |
+| **FK access**           | `book.author.name`              | `author = await book.author.fetch()`         |
+| **Eager FK**            | `.select_related("x")`          | `await .select_related("x").fetch_all()`     |
+| **Reverse FK**          | `author.books.fetch_all()`      | `await author.books.fetch_all()`             |
 
 ## Related Documentation
 
 - [Async Guide](../guide/asyncio.md) - Full async usage guide
 - [AsyncSqliterDB API](../api-reference/async-sqliterdb.md) - API reference
-- [AsyncQueryBuilder API](../api-reference/async-query-builder.md) - Query builder reference
+- [AsyncQueryBuilder API](../api-reference/async-query-builder.md) - Query
+  builder reference
 - [Async ORM API](../api-reference/async-orm.md) - FK, reverse, M2M async API
 - [Connection Demos](connection.md) - Sync connection patterns
 - [ORM Features](orm.md) - Sync ORM and relationship demos

@@ -154,7 +154,9 @@ db.delete(User, 1)
 
 ### Query-Based Deletion
 
-You can also delete multiple records that match specific criteria using a query. The `delete()` method will delete all records that match the query and return the number of records deleted:
+You can also delete multiple records that match specific criteria using a query.
+The `delete()` method will delete all records that match the query and return
+the number of records deleted:
 
 ```python
 # Delete all users over 30

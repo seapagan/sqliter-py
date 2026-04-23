@@ -191,7 +191,8 @@ db.select(User).order("age").fetch_all()
 
 ### Large Result Sets
 
-Ordering requires the database to process all matching records before returning results.
+Ordering requires the database to process all matching records before returning
+results.
 
 ## Best Practices
 

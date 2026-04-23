@@ -191,8 +191,8 @@ with db:
     # Both are committed together
 ```
 
-!!! note
-    SQLite's nested contexts are part of the same transaction - the outermost context exit finalizes everything.
+!!! note SQLite's nested contexts are part of the same transaction - the
+    outermost context exit finalizes everything.
 
 ## Performance Considerations
 

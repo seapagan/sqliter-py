@@ -4,7 +4,8 @@ These demos show different ways to connect to SQLite databases using SQLiter.
 
 ## In-Memory Database
 
-The fastest option for temporary data or testing. Data is lost when the database connection closes.
+The fastest option for temporary data or testing. Data is lost when the database
+connection closes.
 
 ```python
 # --8<-- [start:memory-db]
@@ -31,7 +32,8 @@ print(f"After close: {db.is_connected}")
 
 ### Performance
 
-In-memory databases are typically 2-3x faster than file-based databases since there's no disk I/O.
+In-memory databases are typically 2-3x faster than file-based databases since
+there's no disk I/O.
 
 ## File-Based Database
 
@@ -75,7 +77,8 @@ finally:
 
 ## Context Manager
 
-Using SQLiter as a context manager provides automatic transaction management with auto-commit on success.
+Using SQLiter as a context manager provides automatic transaction management
+with auto-commit on success.
 
 ```python
 # --8<-- [start:context-manager]
@@ -154,17 +157,17 @@ db.close()
 - **Optimization**: Identify inefficient queries
 - **Development**: See what's happening behind the scenes
 
-!!! warning
-    Debug mode outputs SQL queries to stderr. Don't enable in production unless needed for troubleshooting.
+!!! warning Debug mode outputs SQL queries to stderr. Don't enable in production
+    unless needed for troubleshooting.
 
 ## Summary Table
 
-| Method | Pros | Cons | Best For |
-|--------|------|------|----------|
-| **In-Memory** | Fast, no cleanup needed | Data lost on close | Tests, caching, prototyping |
-| **File-Based** | Persistent data | Slower, file management | Production, real data |
-| **Context Manager** | Auto cleanup, exception safe | Slightly more verbose | Scripts, batch jobs |
-| **Debug Mode** | See SQL queries | Verbose output | Learning, debugging |
+| Method              | Pros                         | Cons                    | Best For                    |
+| ------------------- | ---------------------------- | ----------------------- | --------------------------- |
+| **In-Memory**       | Fast, no cleanup needed      | Data lost on close      | Tests, caching, prototyping |
+| **File-Based**      | Persistent data              | Slower, file management | Production, real data       |
+| **Context Manager** | Auto cleanup, exception safe | Slightly more verbose   | Scripts, batch jobs         |
+| **Debug Mode**      | See SQL queries              | Verbose output          | Learning, debugging         |
 
 ## Related Documentation
 

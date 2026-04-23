@@ -310,7 +310,7 @@ def bulk_insert(
 
 | Parameter            | Type          | Default    | Description                                           |
 | -------------------- | ------------- | ---------- | ----------------------------------------------------- |
-| `instances`          | `Sequence[T]` | *required* | The model instances to insert                        |
+| `instances`          | `Sequence[T]` | *required* | The model instances to insert                         |
 | `timestamp_override` | `bool`        | `False`    | If `True`, respect provided non-zero timestamp values |
 
 **Returns:**
@@ -442,11 +442,11 @@ def update_where(
 
 **Parameters:**
 
-| Parameter     | Type                | Default    | Description                              |
-| ------------- | ------------------- | ---------- | ---------------------------------------- |
-| `model_class` | `type[T]`           | *required* | The model class to update                |
-| `where`       | `dict[str, Any]`    | *required* | Filter conditions (same as QueryBuilder) |
-| `values`      | `dict[str, Any]`    | *required* | Field names and their new values         |
+| Parameter     | Type             | Default    | Description                              |
+| ------------- | ---------------- | ---------- | ---------------------------------------- |
+| `model_class` | `type[T]`        | *required* | The model class to update                |
+| `where`       | `dict[str, Any]` | *required* | Filter conditions (same as QueryBuilder) |
+| `values`      | `dict[str, Any]` | *required* | Field names and their new values         |
 
 **Returns:**
 

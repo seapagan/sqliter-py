@@ -38,8 +38,8 @@ However, by default **this is disabled**. Any model passed to `insert()` will
 have the `created_at` and `updated_at` fields set automatically and ignore any
 values passed in these 2 fields.
 
-If you want to enable this feature, you can set the `timestamp_override` flag to `True`
-when inserting the record:
+If you want to enable this feature, you can set the `timestamp_override` flag to
+`True` when inserting the record:
 
 ```python
 result = db.insert(user, timestamp_override=True)
@@ -240,7 +240,8 @@ SQLiter provides two ways to delete records:
 
 ### Single Record Deletion
 
-To delete a single record from the database by its primary key, use the `delete()` method directly on the database instance:
+To delete a single record from the database by its primary key, use the
+`delete()` method directly on the database instance:
 
 ```python
 db.delete(User, user.pk)
@@ -255,7 +256,9 @@ db.delete(User, user.pk)
 
 ### Query-Based Deletion
 
-You can also use a query to delete records that match specific criteria. The `delete()` method will delete all records returned by the query and return an integer with the count of records deleted:
+You can also use a query to delete records that match specific criteria. The
+`delete()` method will delete all records returned by the query and return an
+integer with the count of records deleted:
 
 ```python
 # Delete all users over 30

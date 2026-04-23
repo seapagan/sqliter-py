@@ -9,15 +9,15 @@ record is deleted or updated.
 
 SQLiter offers two ways to work with foreign keys:
 
-| Feature | Explicit FK | ORM FK |
-|---------|-------------|--------|
-| Import | `sqliter.model` | `sqliter.orm` |
-| Syntax | `author_id: int = ForeignKey(Author)` | `author: ForeignKey[Author] = ForeignKey(Author)` |
-| Access related object | Manual: `db.get(Author, book.author_id)` | Automatic: `book.author.name` |
-| Reverse relationships | Manual queries | `author.books.fetch_all()` |
-| Lazy loading | No | Yes |
-| Caching | N/A | Yes (per instance) |
-| Overhead | Minimal | Slightly more |
+| Feature               | Explicit FK                              | ORM FK                                            |
+| --------------------- | ---------------------------------------- | ------------------------------------------------- |
+| Import                | `sqliter.model`                          | `sqliter.orm`                                     |
+| Syntax                | `author_id: int = ForeignKey(Author)`    | `author: ForeignKey[Author] = ForeignKey(Author)` |
+| Access related object | Manual: `db.get(Author, book.author_id)` | Automatic: `book.author.name`                     |
+| Reverse relationships | Manual queries                           | `author.books.fetch_all()`                        |
+| Lazy loading          | No                                       | Yes                                               |
+| Caching               | N/A                                      | Yes (per instance)                                |
+| Overhead              | Minimal                                  | Slightly more                                     |
 
 ## Which Should I Use?
 
@@ -78,13 +78,13 @@ informed decisions based on your use case.
 
 ### Overhead Breakdown
 
-| Aspect | Explicit FK | ORM FK |
-|--------|-------------|--------|
-| Memory overhead | None | Minimal (LazyLoader proxy per FK field) |
-| Query overhead | None | None (parameterized queries) |
-| Cache overhead | None | Small (one cached object per instance) |
-| Attribute access | Direct field access | Descriptor + proxy lookup |
-| Relationship queries | Manual `db.select()` | Built-in methods (same queries) |
+| Aspect               | Explicit FK          | ORM FK                                  |
+| -------------------- | -------------------- | --------------------------------------- |
+| Memory overhead      | None                 | Minimal (LazyLoader proxy per FK field) |
+| Query overhead       | None                 | None (parameterized queries)            |
+| Cache overhead       | None                 | Small (one cached object per instance)  |
+| Attribute access     | Direct field access  | Descriptor + proxy lookup               |
+| Relationship queries | Manual `db.select()` | Built-in methods (same queries)         |
 
 ### Query Comparison
 
@@ -191,15 +191,15 @@ memory simultaneously.
 
 ### Choosing Based on Performance
 
-| Scenario | Recommendation | Reason |
-|----------|---------------|---------|
-| **CLI tools** | Either | Performance difference is negligible |
-| **Web APIs (read-heavy)** | ORM FK | Convenience worth minimal overhead |
-| **Web APIs (write-heavy)** | Either | Both approaches have same write performance |
-| **Batch processing (large collections)** | Explicit FK | More control over when queries execute |
-| **Interactive applications** | ORM FK | Lazy loading feels more responsive |
-| **High-traffic services** | Either | Bottleneck is usually DB I/O, not FK overhead |
-| **Memory-constrained** | Explicit FK | Avoid caching overhead |
+| Scenario                                 | Recommendation | Reason                                        |
+| ---------------------------------------- | -------------- | --------------------------------------------- |
+| **CLI tools**                            | Either         | Performance difference is negligible          |
+| **Web APIs (read-heavy)**                | ORM FK         | Convenience worth minimal overhead            |
+| **Web APIs (write-heavy)**               | Either         | Both approaches have same write performance   |
+| **Batch processing (large collections)** | Explicit FK    | More control over when queries execute        |
+| **Interactive applications**             | ORM FK         | Lazy loading feels more responsive            |
+| **High-traffic services**                | Either         | Bottleneck is usually DB I/O, not FK overhead |
+| **Memory-constrained**                   | Explicit FK    | Avoid caching overhead                        |
 
 ### Performance Best Practices
 

@@ -148,11 +148,11 @@ db.close()
 
 ### Case-Insensitive Operators
 
-| Operator | Description |
-|----------|-------------|
+| Operator        | Description                    |
+| --------------- | ------------------------------ |
 | `__istartswith` | Starts with (case-insensitive) |
-| `__iendswith` | Ends with (case-insensitive) |
-| `__icontains` | Contains (case-insensitive) |
+| `__iendswith`   | Ends with (case-insensitive)   |
+| `__icontains`   | Contains (case-insensitive)    |
 
 ### When to Use
 
@@ -164,7 +164,8 @@ db.close()
 
 ### Indexes
 
-String filters (especially `contains` and `startswith`) can be slow on large datasets without proper indexing.
+String filters (especially `contains` and `startswith`) can be slow on large
+datasets without proper indexing.
 
 ### Optimization Tips
 
@@ -184,14 +185,14 @@ results = db.select(User).filter(email__endswith="@example.com").fetch_all()
 
 ## Operator Reference
 
-| Operator | Case-Sensitive | Description | Example |
-|----------|----------------|-------------|---------|
-| `__startswith` | Yes | Starts with prefix | `name__startswith="Apple"` |
-| `__endswith` | Yes | Ends with suffix | `email__endswith=".com"` |
-| `__contains` | Yes | Contains substring | `desc__contains="phone"` |
-| `__istartswith` | No | Starts with (ignore case) | `name__istartswith="apple"` |
-| `__iendswith` | No | Ends with (ignore case) | `email__iendswith=".COM"` |
-| `__icontains` | No | Contains (ignore case) | `desc__icontains="PHONE"` |
+| Operator        | Case-Sensitive | Description               | Example                     |
+| --------------- | -------------- | ------------------------- | --------------------------- |
+| `__startswith`  | Yes            | Starts with prefix        | `name__startswith="Apple"`  |
+| `__endswith`    | Yes            | Ends with suffix          | `email__endswith=".com"`    |
+| `__contains`    | Yes            | Contains substring        | `desc__contains="phone"`    |
+| `__istartswith` | No             | Starts with (ignore case) | `name__istartswith="apple"` |
+| `__iendswith`   | No             | Ends with (ignore case)   | `email__iendswith=".COM"`   |
+| `__icontains`   | No             | Contains (ignore case)    | `desc__icontains="PHONE"`   |
 
 ## Related Documentation
 
