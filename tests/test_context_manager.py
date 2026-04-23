@@ -154,3 +154,19 @@ class TestContextManager:
         assert fetched.slug == "persist"
         assert db.conn is not None
         db.close()
+
+    def test_set_in_transaction_updates_state(self, db_mock: SqliterDB) -> None:
+        """set_in_transaction should update depth and reset rollback state."""
+        db_mock.set_in_transaction(value=True)
+
+        assert db_mock._transaction_depth == 1
+        assert db_mock._in_transaction is True
+        assert db_mock.in_transaction is True
+
+        db_mock._rollback_requested = True
+        db_mock.set_in_transaction(value=False)
+
+        assert db_mock._transaction_depth == 0
+        assert db_mock._in_transaction is False
+        assert db_mock.in_transaction is False
+        assert db_mock._rollback_requested is False
