@@ -999,9 +999,9 @@ async def test_async_prefetched_wrapper_updates_cached_list_in_place() -> None:
         tag1 = await db.insert(Tag(name="python"))
         tag2 = await db.insert(Tag(name="tutorial"))
 
+        manager = cast("AsyncManyToManyManager[Tag]", article.tags)
         cached_items = [tag1]
         article.__dict__["_prefetch_cache"] = {"tags": cached_items}
-        manager = cast("AsyncManyToManyManager[Tag]", article.tags)
         prefetched = AsyncPrefetchedM2MResult(cached_items, manager)
         original_items = prefetched._items
 
