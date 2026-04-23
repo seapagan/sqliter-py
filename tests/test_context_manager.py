@@ -156,10 +156,17 @@ class TestContextManager:
         db.close()
 
     def test_set_in_transaction_updates_state(self, db_mock: SqliterDB) -> None:
-        """set_in_transaction should update depth and reset rollback state."""
+        """set_in_transaction should preserve nested depth and reset state."""
         db_mock.set_in_transaction(value=True)
 
         assert db_mock._transaction_depth == 1
+        assert db_mock._in_transaction is True
+        assert db_mock.in_transaction is True
+
+        db_mock._transaction_depth = 2
+        db_mock.set_in_transaction(value=True)
+
+        assert db_mock._transaction_depth == 2
         assert db_mock._in_transaction is True
         assert db_mock.in_transaction is True
 

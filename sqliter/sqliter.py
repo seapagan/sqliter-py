@@ -1008,9 +1008,21 @@ class SqliterDB:
             self.conn.commit()
 
     def set_in_transaction(self, *, value: bool) -> None:
-        """Set the explicit transaction flag."""
-        self._transaction_depth = 1 if value else 0
-        self._in_transaction = value
+        """Set explicit transaction state as a top-level toggle.
+
+        This helper is intended for callers that need to force transaction
+        state on or off without tracking nested entry/exit semantics. Callers
+        that may re-enter transaction scopes should use
+        ``enter_transaction_scope()`` and ``exit_transaction_scope()``.
+        """
+        if value:
+            if self._transaction_depth == 0:
+                self._transaction_depth = 1
+            self._in_transaction = True
+            return
+
+        self._transaction_depth = 0
+        self._in_transaction = False
         if not value:
             self._rollback_requested = False
 

@@ -1388,7 +1388,16 @@ async def test_async_context_manager_preserves_cache() -> None:
         fetched = await db.get(ExampleModel, inserted.pk)
         assert fetched is not None
 
-    assert len(db._sync._cache) > 0
+    stats = db.get_cache_stats()
+    assert stats["hits"] == 0
+    assert stats["misses"] == 1
+
+    fetched_again = await db.get(ExampleModel, inserted.pk)
+    stats = db.get_cache_stats()
+
+    assert fetched_again is not None
+    assert stats["hits"] == 1
+    assert stats["misses"] == 1
     await db.close()
 
 
