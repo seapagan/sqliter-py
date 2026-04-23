@@ -1251,6 +1251,22 @@ async def test_async_m2m_symmetrical_and_descriptor_edge_paths() -> None:
             match="Instance has no primary key",
         ):
             no_pk_manager._get_instance_pk()
+        zero_pk_manager = AsyncManyToManyManager(
+            instance=cast(
+                "AsyncM2MContext",
+                SimpleNamespace(pk=0, db_context=db),
+            ),
+            to_model=Person,
+            from_model=Person,
+            junction_table="people_people",
+            db_context=db,
+            options=ManyToManyOptions(symmetrical=True),
+        )
+        with pytest.raises(
+            ManyToManyIntegrityError,
+            match="Instance has no primary key",
+        ):
+            zero_pk_manager._get_instance_pk()
         with pytest.raises(
             ManyToManyIntegrityError,
             match="Instance has no primary key",

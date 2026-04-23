@@ -214,7 +214,7 @@ class AsyncManyToManyManager(_M2MCacheInvalidationMixin, Generic[T]):
 
     def _get_instance_pk(self) -> int:
         pk = self._instance.pk
-        if pk is None:
+        if not pk:
             msg = (
                 "Instance has no primary key. "
                 "Insert the instance before managing relationships."
