@@ -1202,6 +1202,49 @@ async def test_async_context_manager_rolls_back_on_error(
 
 
 @pytest.mark.asyncio
+async def test_async_nested_contexts_rollback_as_one_unit(
+    temp_db_path: str,
+) -> None:
+    """Nested async contexts should rollback as a single transaction."""
+    db = AsyncSqliterDB(temp_db_path, auto_commit=False)
+    await db.create_table(ExampleModel)
+    await db.close()
+
+    error_message = "nested rollback"
+    db = AsyncSqliterDB(temp_db_path, auto_commit=False)
+
+    async def fail_transaction() -> None:
+        async with db:
+            await db.insert(
+                ExampleModel(
+                    slug="outer-before", name="Outer Before", content="one"
+                )
+            )
+            async with db:
+                await db.insert(
+                    ExampleModel(slug="inner", name="Inner", content="two")
+                )
+
+            assert db.in_transaction is True
+            await db.insert(
+                ExampleModel(
+                    slug="outer-after", name="Outer After", content="three"
+                )
+            )
+            raise RuntimeError(error_message)
+
+    with pytest.raises(RuntimeError, match=error_message):
+        await fail_transaction()
+
+    await db.close()
+    db = AsyncSqliterDB(temp_db_path)
+    rows = await db.select(ExampleModel).fetch_all()
+
+    assert rows == []
+    await db.close()
+
+
+@pytest.mark.asyncio
 async def test_async_schema_helpers_rollback_on_error(
     temp_db_path: str,
 ) -> None:

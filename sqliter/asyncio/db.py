@@ -808,11 +808,10 @@ class AsyncSqliterDB:
     async def __aenter__(self) -> Self:
         """Enter the async transaction context."""
         conn = await self.connect()
-        if not self.in_transaction and not getattr(
+        if self._sync.enter_transaction_scope() and not getattr(
             conn, "in_transaction", False
         ):
             await conn.execute("BEGIN")
-        self._sync.set_in_transaction(value=True)
         return self
 
     async def __aexit__(
@@ -822,11 +821,15 @@ class AsyncSqliterDB:
         traceback: Optional[TracebackType],
     ) -> None:
         """Exit the async transaction context."""
-        if self.conn is not None:
+        should_finalize, should_rollback = self._sync.exit_transaction_scope(
+            had_error=exc_type is not None
+        )
+
+        if self.conn is not None and should_finalize:
             try:
-                if exc_type:
+                if should_rollback:
                     await self.conn.rollback()
                 else:
                     await self.conn.commit()
             finally:
-                self._sync.set_in_transaction(value=False)
+                self._sync.reset_transaction_scope()

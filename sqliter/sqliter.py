@@ -1014,6 +1014,44 @@ class SqliterDB:
         if not value:
             self._rollback_requested = False
 
+    def enter_transaction_scope(self) -> bool:
+        """Record entry into a transaction scope.
+
+        Returns:
+            True when the caller is entering the outermost transaction scope
+            and should begin a database transaction.
+        """
+        should_begin = self._transaction_depth == 0
+        self._transaction_depth += 1
+        self._in_transaction = True
+        return should_begin
+
+    def exit_transaction_scope(self, *, had_error: bool) -> tuple[bool, bool]:
+        """Record exit from a transaction scope.
+
+        Args:
+            had_error: Whether the exiting scope raised an exception.
+
+        Returns:
+            A tuple of ``(should_finalize, should_rollback)`` where
+            ``should_finalize`` is True only for the outermost exit and
+            ``should_rollback`` indicates whether the final transaction action
+            should rollback instead of commit.
+        """
+        if had_error:
+            self._rollback_requested = True
+
+        self._transaction_depth = max(0, self._transaction_depth - 1)
+        self._in_transaction = self._transaction_depth > 0
+
+        return self._transaction_depth == 0, self._rollback_requested
+
+    def reset_transaction_scope(self) -> None:
+        """Reset explicit transaction state after finalization."""
+        self._transaction_depth = 0
+        self._rollback_requested = False
+        self._in_transaction = False
+
     def maybe_commit(self) -> None:
         """Public wrapper for conditional commit behavior."""
         self._maybe_commit()
@@ -1685,10 +1723,8 @@ class SqliterDB:
 
         """
         conn = self.connect()
-        if self._transaction_depth == 0 and not conn.in_transaction:
+        if self.enter_transaction_scope() and not conn.in_transaction:
             conn.execute("BEGIN")
-        self._transaction_depth += 1
-        self._in_transaction = True
         return self
 
     def __exit__(
@@ -1715,19 +1751,16 @@ class SqliterDB:
         called by the 'with' statement when exiting the context.
 
         """
-        if exc_type is not None:
-            self._rollback_requested = True
+        should_finalize, should_rollback = self.exit_transaction_scope(
+            had_error=exc_type is not None
+        )
 
-        self._transaction_depth = max(0, self._transaction_depth - 1)
-        self._in_transaction = self._transaction_depth > 0
-
-        if self.conn and self._transaction_depth == 0:
+        if self.conn and should_finalize:
             try:
-                if self._rollback_requested:
+                if should_rollback:
                     # Roll back the transaction if there was an exception
                     self.conn.rollback()
                 else:
                     self.conn.commit()
             finally:
-                self._rollback_requested = False
-                self._in_transaction = False
+                self.reset_transaction_scope()
