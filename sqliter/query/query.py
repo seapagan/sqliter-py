@@ -1301,9 +1301,10 @@ class QueryBuilder(Generic[T]):
         col_a, col_b, from_col, to_col = columns
         placeholders = ", ".join("?" for _ in pks)
 
+        # Identifiers come from registered M2M metadata; values stay bound.
         if symmetrical:
             sql = (
-                f'SELECT "{col_a}", "{col_b}" '
+                f'SELECT "{col_a}", "{col_b}" '  # noqa: S608
                 f'FROM "{junction_table}" '
                 f'WHERE "{col_a}" IN ({placeholders}) '
                 f'OR "{col_b}" IN ({placeholders})'
@@ -1311,7 +1312,7 @@ class QueryBuilder(Generic[T]):
             return sql, [*pks, *pks]
 
         sql = (
-            f'SELECT "{from_col}", "{to_col}" '
+            f'SELECT "{from_col}", "{to_col}" '  # noqa: S608
             f'FROM "{junction_table}" '
             f'WHERE "{from_col}" IN ({placeholders})'
         )
@@ -1848,7 +1849,8 @@ class QueryBuilder(Generic[T]):
             msg = "Projection query has no selected columns."
             raise InvalidProjectionError(msg)
 
-        sql = f'SELECT {", ".join(select_parts)} FROM "{self.table_name}" AS t0'
+        # SQL identifiers are validated model/query metadata; values are bound.
+        sql = f'SELECT {", ".join(select_parts)} FROM "{self.table_name}" AS t0'  # noqa: S608
 
         if self._projection_join_clauses:
             sql = f"{sql} {' '.join(self._projection_join_clauses)}"
@@ -2234,7 +2236,7 @@ class QueryBuilder(Generic[T]):
 
         if count_only and needs_join_for_filters:
             sql = (
-                f'SELECT COUNT(*) FROM "{self.table_name}" AS t0 {join_clause}'
+                f'SELECT COUNT(*) FROM "{self.table_name}" AS t0 {join_clause}'  # noqa: S608
             )
             selected_fields = None
         elif self._fields:
@@ -2248,7 +2250,7 @@ class QueryBuilder(Generic[T]):
                 for field in selected_fields
             )
             sql = (
-                f'SELECT {field_list} FROM "{self.table_name}" AS t0 '
+                f'SELECT {field_list} FROM "{self.table_name}" AS t0 '  # noqa: S608
                 f"{join_clause}"
             )
             column_names = [
@@ -2256,7 +2258,7 @@ class QueryBuilder(Generic[T]):
             ]
         else:
             sql = (
-                f'SELECT {select_clause} FROM "{self.table_name}" AS t0 '
+                f'SELECT {select_clause} FROM "{self.table_name}" AS t0 '  # noqa: S608
                 f"{join_clause}"
             )
             selected_fields = None
@@ -2294,7 +2296,7 @@ class QueryBuilder(Generic[T]):
             )
             selected_fields = None
 
-        sql = f'SELECT {fields} FROM "{self.table_name}"'
+        sql = f'SELECT {fields} FROM "{self.table_name}"'  # noqa: S608
         values, where_clause = self._parse_filter()
         sql, values = self._apply_simple_query_suffix(
             sql,
@@ -2787,7 +2789,8 @@ class QueryBuilder(Generic[T]):
 
     def build_delete_statement(self) -> tuple[str, list[Any]]:
         """Build SQL and values for a DELETE query."""
-        sql = f'DELETE FROM "{self.table_name}"'
+        # Table and column names are model metadata; filter values are bound.
+        sql = f'DELETE FROM "{self.table_name}"'  # noqa: S608
         values, where_clause = self._parse_filter()
         if self.filters:
             sql += f" WHERE {where_clause}"
@@ -2820,7 +2823,7 @@ class QueryBuilder(Generic[T]):
             set_clauses.append(f'"{db_column}" = ?')
             set_values.append(serialized)
 
-        sql = f'UPDATE "{self.table_name}" SET {", ".join(set_clauses)}'
+        sql = f'UPDATE "{self.table_name}" SET {", ".join(set_clauses)}'  # noqa: S608
         where_values, where_clause = self._parse_filter()
         if self.filters:
             sql += f" WHERE {where_clause}"

@@ -57,6 +57,8 @@ Items marked with :fire: are high priority.
   CRUD/query paths (issue #138). Once closed, rewrite temporary custom-column
   regression tests (currently using setup workarounds) to use normal ORM
   insert/query flows end-to-end.
+- Investigate a dedicated SQL fragment/builder object for query construction
+  so dynamic identifier assembly is centralized and easier to validate.
 
 ## Housekeeping
 
