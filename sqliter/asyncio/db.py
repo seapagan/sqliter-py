@@ -487,7 +487,7 @@ class AsyncSqliterDB:
     async def _create_indexes(
         self,
         model_class: type[BaseDBModel],
-        indexes: list[str | tuple[str]],
+        indexes: list[str | tuple[str, ...]],
         *,
         unique: bool = False,
     ) -> None:

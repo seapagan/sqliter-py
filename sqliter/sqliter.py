@@ -922,7 +922,7 @@ class SqliterDB:
     def _create_indexes(
         self,
         model_class: type[BaseDBModel],
-        indexes: list[Union[str, tuple[str]]],
+        indexes: list[Union[str, tuple[str, ...]]],
         *,
         unique: bool = False,
     ) -> None:
@@ -950,7 +950,7 @@ class SqliterDB:
     def create_indexes(
         self,
         model_class: type[BaseDBModel],
-        indexes: list[Union[str, tuple[str]]],
+        indexes: list[Union[str, tuple[str, ...]]],
         *,
         unique: bool = False,
     ) -> None:
