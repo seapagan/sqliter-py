@@ -162,12 +162,12 @@ db.close()
 
 ## Summary Table
 
-| Method              | Pros                         | Cons                    | Best For                    |
-| ------------------- | ---------------------------- | ----------------------- | --------------------------- |
-| **In-Memory**       | Fast, no cleanup needed      | Data lost on close      | Tests, caching, prototyping |
-| **File-Based**      | Persistent data              | Slower, file management | Production, real data       |
-| **Context Manager** | Auto cleanup, exception safe | Slightly more verbose   | Scripts, batch jobs         |
-| **Debug Mode**      | See SQL queries              | Verbose output          | Learning, debugging         |
+| Method              | Pros                                 | Cons                              | Best For                    |
+| ------------------- | ------------------------------------ | --------------------------------- | --------------------------- |
+| **In-Memory**       | Fast, no cleanup needed              | Data lost on close                | Tests, caching, prototyping |
+| **File-Based**      | Persistent data                      | Slower, file management           | Production, real data       |
+| **Context Manager** | Auto commit/rollback, exception safe | Must call `db.close()` explicitly | Scripts, batch jobs         |
+| **Debug Mode**      | See SQL queries                      | Verbose output                    | Learning, debugging         |
 
 ## Related Documentation
 

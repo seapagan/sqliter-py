@@ -300,7 +300,7 @@ db.commit()
 > [!NOTE]
 >
 > If you are using the database connection as a context manager (see
-> [tansactions](transactions.md)), you do not need to call `commit()`
+> [transactions](transactions.md)), you do not need to call `commit()`
 > explicitly. From `0.21.0` onward, the context manager still commits
 > successful transactions, but it does not close the connection automatically.
 

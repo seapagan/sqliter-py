@@ -191,15 +191,15 @@ memory simultaneously.
 
 ### Choosing Based on Performance
 
-| Scenario                                 | Recommendation | Reason                                        |
-| ---------------------------------------- | -------------- | --------------------------------------------- |
-| **CLI tools**                            | Either         | Performance difference is negligible          |
-| **Web APIs (read-heavy)**                | ORM FK         | Convenience worth minimal overhead            |
-| **Web APIs (write-heavy)**               | Either         | Both approaches have same write performance   |
-| **Batch processing (large collections)** | Explicit FK    | More control over when queries execute        |
-| **Interactive applications**             | ORM FK         | Lazy loading feels more responsive            |
-| **High-traffic services**                | Either         | Bottleneck is usually DB I/O, not FK overhead |
-| **Memory-constrained**                   | Explicit FK    | Avoid caching overhead                        |
+| Scenario                                 | Recommendation | Reason                                          |
+| ---------------------------------------- | -------------- | ----------------------------------------------- |
+| **CLI tools**                            | Either         | Performance difference is negligible            |
+| **Web APIs (read-heavy)**                | ORM FK         | Convenience worth minimal overhead              |
+| **Web APIs (write-heavy)**               | Either         | Both approaches have the same write performance |
+| **Batch processing (large collections)** | Explicit FK    | More control over when queries execute          |
+| **Interactive applications**             | ORM FK         | Lazy loading feels more responsive              |
+| **High-traffic services**                | Either         | Bottleneck is usually DB I/O, not FK overhead   |
+| **Memory-constrained**                   | Explicit FK    | Avoid caching overhead                          |
 
 ### Performance Best Practices
 
