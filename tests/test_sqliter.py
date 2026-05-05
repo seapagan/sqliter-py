@@ -13,6 +13,7 @@ from sqliter.exceptions import (
 )
 from sqliter.model import BaseDBModel
 from sqliter.orm import BaseDBModel as ORMBaseDBModel
+from sqliter.orm.registry import ModelRegistry
 from tests.conftest import ComplexModel, DetailedPersonModel, ExampleModel
 
 
@@ -212,23 +213,27 @@ class TestSqliterDB:
 
     def test_insert_updates_orm_instance_context(self) -> None:
         """Insert should attach db_context to supplied ORM instances."""
+        state = ModelRegistry.snapshot()
+        try:
 
-        class SavedORMModel(ORMBaseDBModel):
-            """ORM model for insert context tests."""
+            class SavedORMModel(ORMBaseDBModel):
+                """ORM model for insert context tests."""
 
-            name: str
+                name: str
 
-        db = SqliterDB(memory=True)
-        db.create_table(SavedORMModel)
-        model = SavedORMModel(name="saved")
+            db = SqliterDB(memory=True)
+            db.create_table(SavedORMModel)
+            model = SavedORMModel(name="saved")
 
-        inserted = db.insert(model)
+            inserted = db.insert(model)
 
-        assert inserted is model
-        assert model.pk > 0
-        assert model.db_context is db
+            assert inserted is model
+            assert model.pk > 0
+            assert model.db_context is db
 
-        db.close()
+            db.close()
+        finally:
+            ModelRegistry.restore(state)
 
     def test_create_instance_from_data_applies_pk(
         self,
