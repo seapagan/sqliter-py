@@ -598,13 +598,10 @@ class AsyncSqliterDB:
             raise RecordInsertionError(insert_plan.table_name) from exc
         else:
             self._cache_invalidate_table(insert_plan.table_name)
-            insert_data = dict(insert_plan.data)
-            insert_data.pop("pk", None)
-            return self._create_instance_from_data(
-                cast("type[T]", insert_plan.model_class),
-                insert_data,
-                pk=cursor.lastrowid,
-            )
+            model_instance.pk = cast("int", cursor.lastrowid)
+            if hasattr(model_instance, "db_context"):
+                model_instance.db_context = self
+            return model_instance
 
     async def _insert_single_record_async(
         self,
@@ -620,13 +617,10 @@ class AsyncSqliterDB:
         )
         await self._execute_async(cursor, insert_plan.sql, insert_plan.values)
 
-        insert_data = dict(insert_plan.data)
-        insert_data.pop("pk", None)
-        return self._create_instance_from_data(
-            cast("type[T]", insert_plan.model_class),
-            insert_data,
-            pk=cursor.lastrowid,
-        )
+        model_instance.pk = cast("int", cursor.lastrowid)
+        if hasattr(model_instance, "db_context"):
+            model_instance.db_context = self
+        return model_instance
 
     async def bulk_insert(
         self,

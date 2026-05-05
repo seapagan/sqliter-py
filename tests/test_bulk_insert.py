@@ -132,6 +132,43 @@ class TestBulkInsertBasic:
         assert results[0].name == "only"
         assert results[0].value == 42
 
+    def test_bulk_insert_updates_supplied_instances(
+        self,
+        db: SqliterDB,
+    ) -> None:
+        """bulk_insert should mark supplied instances as saved."""
+        instances = [
+            SimpleModel(name="first", value=1),
+            SimpleModel(name="second", value=2),
+        ]
+
+        results = db.bulk_insert(instances)
+
+        assert results == instances
+        assert all(
+            result is instance for result, instance in zip(results, instances)
+        )
+        assert [instance.pk for instance in instances] == [1, 2]
+
+    def test_bulk_insert_updates_orm_instance_context(
+        self,
+        db: SqliterDB,
+    ) -> None:
+        """Bulk insert should attach db_context to supplied ORM instances."""
+        instances = [
+            ParentModel(name="first"),
+            ParentModel(name="second"),
+        ]
+
+        results = db.bulk_insert(instances)
+
+        assert results == instances
+        assert all(
+            result is instance for result, instance in zip(results, instances)
+        )
+        assert [instance.pk for instance in instances] == [1, 2]
+        assert all(instance.db_context is db for instance in instances)
+
     def test_bulk_insert_large_batch(self, db: SqliterDB) -> None:
         """Bulk insert with a large batch assigns unique PKs."""
         instances = [SimpleModel(name=f"item_{i}", value=i) for i in range(500)]

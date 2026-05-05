@@ -242,6 +242,44 @@ async def test_async_insert_get_update_delete() -> None:
 
 
 @pytest.mark.asyncio
+async def test_async_insert_updates_supplied_instance() -> None:
+    """Async insert should mark the supplied instance as saved."""
+    db = AsyncSqliterDB(memory=True)
+    await db.create_table(ExampleModel)
+    model = ExampleModel(slug="apache", name="Apache", content="License")
+
+    inserted = await db.insert(model)
+
+    assert inserted is model
+    assert model.pk == inserted.pk
+    assert model.pk > 0
+
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_insert_updates_orm_instance_context() -> None:
+    """Async insert should attach db_context to supplied ORM instances."""
+    db = AsyncSqliterDB(memory=True)
+
+    class SavedAsyncORMModel(BaseDBModel):
+        """ORM model for async insert context tests."""
+
+        name: str
+
+    await db.create_table(SavedAsyncORMModel)
+    model = SavedAsyncORMModel(name="saved")
+
+    inserted = await db.insert(model)
+
+    assert inserted is model
+    assert model.pk > 0
+    assert model.db_context is db
+
+    await db.close()
+
+
+@pytest.mark.asyncio
 async def test_async_get_table_names_keeps_memory_connection_open() -> None:
     """get_table_names keeps in-memory connections open after use."""
     db = AsyncSqliterDB(memory=True)
@@ -330,6 +368,55 @@ async def test_async_bulk_insert_and_update_where() -> None:
     updated = await db.select(ExampleModel).filter(slug="a").fetch_one()
     assert updated is not None
     assert updated.content == "updated"
+
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_bulk_insert_updates_supplied_instances() -> None:
+    """Async bulk_insert should mark supplied instances as saved."""
+    db = AsyncSqliterDB(memory=True)
+    await db.create_table(ExampleModel)
+    instances = [
+        ExampleModel(slug="a", name="A", content="one"),
+        ExampleModel(slug="b", name="B", content="two"),
+    ]
+
+    inserted = await db.bulk_insert(instances)
+
+    assert inserted == instances
+    assert all(
+        result is instance for result, instance in zip(inserted, instances)
+    )
+    assert [instance.pk for instance in instances] == [1, 2]
+
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_bulk_insert_updates_orm_instance_context() -> None:
+    """Async bulk_insert should attach db_context to supplied ORM instances."""
+    db = AsyncSqliterDB(memory=True)
+
+    class SavedAsyncBulkORMModel(BaseDBModel):
+        """ORM model for async bulk insert context tests."""
+
+        name: str
+
+    await db.create_table(SavedAsyncBulkORMModel)
+    instances = [
+        SavedAsyncBulkORMModel(name="first"),
+        SavedAsyncBulkORMModel(name="second"),
+    ]
+
+    inserted = await db.bulk_insert(instances)
+
+    assert inserted == instances
+    assert all(
+        result is instance for result, instance in zip(inserted, instances)
+    )
+    assert [instance.pk for instance in instances] == [1, 2]
+    assert all(instance.db_context is db for instance in instances)
 
     await db.close()
 

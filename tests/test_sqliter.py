@@ -12,6 +12,7 @@ from sqliter.exceptions import (
     TableCreationError,
 )
 from sqliter.model import BaseDBModel
+from sqliter.orm import BaseDBModel as ORMBaseDBModel
 from tests.conftest import ComplexModel, DetailedPersonModel, ExampleModel
 
 
@@ -194,6 +195,58 @@ class TestSqliterDB:
             assert result[3] == "mit"
             assert result[4] == "MIT License"
             assert result[5] == "MIT License Content"
+
+    def test_insert_updates_supplied_instance(self, db_mock: SqliterDB) -> None:
+        """Insert should mark the supplied instance as saved."""
+        test_model = ExampleModel(
+            slug="apache",
+            name="Apache License",
+            content="Apache License Content",
+        )
+
+        inserted = db_mock.insert(test_model)
+
+        assert inserted is test_model
+        assert test_model.pk == inserted.pk
+        assert test_model.pk > 0
+
+    def test_insert_updates_orm_instance_context(self) -> None:
+        """Insert should attach db_context to supplied ORM instances."""
+
+        class SavedORMModel(ORMBaseDBModel):
+            """ORM model for insert context tests."""
+
+            name: str
+
+        db = SqliterDB(memory=True)
+        db.create_table(SavedORMModel)
+        model = SavedORMModel(name="saved")
+
+        inserted = db.insert(model)
+
+        assert inserted is model
+        assert model.pk > 0
+        assert model.db_context is db
+
+        db.close()
+
+    def test_create_instance_from_data_applies_pk(
+        self,
+        db_mock: SqliterDB,
+    ) -> None:
+        """create_instance_from_data should apply the supplied primary key."""
+        instance = db_mock.create_instance_from_data(
+            ExampleModel,
+            {
+                "slug": "bsd",
+                "name": "BSD License",
+                "content": "BSD License Content",
+            },
+            pk=42,
+        )
+
+        assert instance.pk == 42
+        assert instance.slug == "bsd"
 
     def test_build_insert_plan_binds_none_values(self) -> None:
         """Insert plans keep placeholders stable when values are None."""
