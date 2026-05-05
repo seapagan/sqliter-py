@@ -450,6 +450,10 @@ class AsyncSqliterDB:
                 exists_ok=exists_ok,
             )
         )
+        regular_index_sqls, unique_index_sqls = (
+            self._sync.build_configured_index_sqls(model_class)
+        )
+
         if force:
             await self._execute_sql(f"DROP TABLE IF EXISTS {table_name}")
 
@@ -469,19 +473,11 @@ class AsyncSqliterDB:
                 )
             )
 
-        if hasattr(model_class.Meta, "indexes"):
-            await self._create_indexes(
-                model_class,
-                model_class.Meta.indexes,
-                unique=False,
-            )
+        for index_sql in regular_index_sqls:
+            await self._execute_sql(index_sql)
 
-        if hasattr(model_class.Meta, "unique_indexes"):
-            await self._create_indexes(
-                model_class,
-                model_class.Meta.unique_indexes,
-                unique=True,
-            )
+        for index_sql in unique_index_sqls:
+            await self._execute_sql(index_sql)
 
         await self._create_m2m_junction_tables(model_class)
 

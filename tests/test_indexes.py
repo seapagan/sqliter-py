@@ -130,6 +130,22 @@ class TestIndexes:
             unique=True,
         )
 
+    def test_create_indexes_creates_index(self) -> None:
+        """Public create_indexes creates indexes outside create_table."""
+        db = SqliterDB(":memory:")
+
+        class UserModel(BaseDBModel):
+            slug: str
+            email: str
+
+            class Meta:
+                table_name = "manual_index_users"
+
+        db.create_table(UserModel)
+        db.create_indexes(UserModel, ["email"], unique=True)
+
+        assert "idx_manual_index_users_email_unique" in get_index_names(db)
+
     def test_create_m2m_junction_tables_wrapper_delegates(
         self, mocker: MockerFixture
     ) -> None:
@@ -171,6 +187,46 @@ class TestIndexes:
         assert "Invalid fields for indexing in model 'UserModel'" in str(
             exc_info.value
         )
+
+    def test_invalid_index_does_not_create_table(self) -> None:
+        """Invalid index metadata should fail before creating the table."""
+        db = SqliterDB(":memory:")
+
+        class BadIndexModel(BaseDBModel):
+            slug: str
+
+            class Meta:
+                table_name = "bad_index_model"
+                indexes: ClassVar[list[str]] = ["missing"]
+
+        with pytest.raises(InvalidIndexError):
+            db.create_table(BadIndexModel)
+
+        assert "bad_index_model" not in db.table_names
+
+    def test_force_with_invalid_index_preserves_existing_table(self) -> None:
+        """force=True should validate indexes before dropping the old table."""
+        db = SqliterDB(":memory:")
+
+        class ExistingModel(BaseDBModel):
+            slug: str
+
+            class Meta:
+                table_name = "force_index_model"
+
+        class BadReplacementModel(BaseDBModel):
+            slug: str
+
+            class Meta:
+                table_name = "force_index_model"
+                indexes: ClassVar[list[str]] = ["missing"]
+
+        db.create_table(ExistingModel)
+
+        with pytest.raises(InvalidIndexError):
+            db.create_table(BadReplacementModel, force=True)
+
+        assert "force_index_model" in db.table_names
 
     def test_actual_regular_index_creation(self) -> None:
         """Test that the regular index is actually created in the database."""

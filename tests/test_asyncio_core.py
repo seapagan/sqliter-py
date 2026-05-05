@@ -583,6 +583,39 @@ async def test_async_create_table_force_and_indexes() -> None:
 
 
 @pytest.mark.asyncio
+async def test_async_create_indexes_creates_index() -> None:
+    """Async _create_indexes creates indexes outside create_table."""
+    state = ModelRegistry.snapshot()
+    try:
+
+        class ManualAsyncIndexModel(BaseDBModel):
+            """Model for manual async index creation."""
+
+            slug: str
+            name: str
+
+            class Meta:
+                """Manual index metadata."""
+
+                table_name = "manual_async_index_model"
+
+        db = AsyncSqliterDB(memory=True)
+        await db.create_table(ManualAsyncIndexModel)
+        await db._create_indexes(ManualAsyncIndexModel, ["name"], unique=True)
+
+        table_name = ManualAsyncIndexModel.get_table_name()
+        conn = await db.connect()
+        cursor = await conn.cursor()
+        await db.execute_cursor(cursor, f'PRAGMA index_list("{table_name}")')
+        indexes = [row[1] for row in await cursor.fetchall()]
+
+        assert f"idx_{table_name}_name_unique" in indexes
+        await db.close()
+    finally:
+        ModelRegistry.restore(state)
+
+
+@pytest.mark.asyncio
 async def test_async_create_table_invalid_index_raises() -> None:
     """Async create_table surfaces invalid index configuration."""
     state = ModelRegistry.snapshot()
@@ -601,6 +634,46 @@ async def test_async_create_table_invalid_index_raises() -> None:
         db = AsyncSqliterDB(memory=True)
         with pytest.raises(InvalidIndexError, match="BadIndexModel"):
             await db.create_table(BadIndexModel)
+        assert BadIndexModel.get_table_name() not in await db.get_table_names()
+        await db.close()
+    finally:
+        ModelRegistry.restore(state)
+
+
+@pytest.mark.asyncio
+async def test_async_create_table_force_invalid_index_preserves_table() -> None:
+    """Async force=True validates indexes before dropping the old table."""
+    state = ModelRegistry.snapshot()
+    try:
+
+        class ExistingAsyncIndexModel(BaseDBModel):
+            """Existing async table for force validation tests."""
+
+            slug: str
+
+            class Meta:
+                """Existing table metadata."""
+
+                table_name = "async_force_index_model"
+
+        class BadAsyncReplacementModel(BaseDBModel):
+            """Replacement model with invalid index metadata."""
+
+            slug: str
+
+            class Meta:
+                """Invalid replacement metadata."""
+
+                table_name = "async_force_index_model"
+                indexes = ("missing",)
+
+        db = AsyncSqliterDB(memory=True)
+        await db.create_table(ExistingAsyncIndexModel)
+
+        with pytest.raises(InvalidIndexError, match="BadAsyncReplacementModel"):
+            await db.create_table(BadAsyncReplacementModel, force=True)
+
+        assert "async_force_index_model" in await db.get_table_names()
         await db.close()
     finally:
         ModelRegistry.restore(state)

@@ -789,6 +789,21 @@ class SqliterDB:
             f'ON "{model_class.get_table_name()}" ({quoted_fields})'
         )
 
+    def build_configured_index_sqls(
+        self,
+        model_class: type[BaseDBModel],
+    ) -> tuple[list[str], list[str]]:
+        """Build configured regular and unique index SQL for a model."""
+        regular_index_sqls = [
+            self._build_index_sql(model_class, index, unique=False)
+            for index in getattr(model_class.Meta, "indexes", [])
+        ]
+        unique_index_sqls = [
+            self._build_index_sql(model_class, index, unique=True)
+            for index in getattr(model_class.Meta, "unique_indexes", [])
+        ]
+        return regular_index_sqls, unique_index_sqls
+
     @staticmethod
     def _build_m2m_junction_sql(
         junction_table: str,
@@ -828,15 +843,17 @@ class SqliterDB:
             TableCreationError: If there's an error creating the table.
             ValueError: If the primary key field is not found in the model.
         """
-        table_name = model_class.get_table_name()
-        if force:
-            drop_table_sql = f"DROP TABLE IF EXISTS {table_name}"
-            self._execute_sql(drop_table_sql)
-
         table_name, create_table_sql, fk_columns = self._build_create_table_sql(
             model_class,
             exists_ok=exists_ok,
         )
+        regular_index_sqls, unique_index_sqls = (
+            self.build_configured_index_sqls(model_class)
+        )
+
+        if force:
+            drop_table_sql = f"DROP TABLE IF EXISTS {table_name}"
+            self._execute_sql(drop_table_sql)
 
         try:
             conn = self.connect()
@@ -851,16 +868,12 @@ class SqliterDB:
             self._execute_sql(self._build_fk_index_sql(table_name, column_name))
 
         # Create regular indexes
-        if hasattr(model_class.Meta, "indexes"):
-            self._create_indexes(
-                model_class, model_class.Meta.indexes, unique=False
-            )
+        for index_sql in regular_index_sqls:
+            self._execute_sql(index_sql)
 
         # Create unique indexes
-        if hasattr(model_class.Meta, "unique_indexes"):
-            self._create_indexes(
-                model_class, model_class.Meta.unique_indexes, unique=True
-            )
+        for index_sql in unique_index_sqls:
+            self._execute_sql(index_sql)
 
         # Create junction tables for M2M relationships
         self._create_m2m_junction_tables(model_class)
