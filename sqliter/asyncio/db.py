@@ -405,6 +405,7 @@ class AsyncSqliterDB:
             await self._maybe_commit()
             await self.conn.close()
             self.conn = None
+        self._sync.reset_transaction_scope()
         self._sync.clear_cache()
         self._sync.reset_cache_stats()
 

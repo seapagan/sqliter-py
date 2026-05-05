@@ -621,6 +621,7 @@ class SqliterDB:
             self._maybe_commit()
             self.conn.close()
             self.conn = None
+        self.reset_transaction_scope()
         self._cache.clear()
         self._cache_hits = 0
         self._cache_misses = 0

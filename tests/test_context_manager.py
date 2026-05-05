@@ -177,3 +177,17 @@ class TestContextManager:
         assert db_mock._in_transaction is False
         assert db_mock.in_transaction is False
         assert db_mock._rollback_requested is False
+
+    def test_close_resets_transaction_scope(self, db_mock: SqliterDB) -> None:
+        """Close should clear stale transaction bookkeeping."""
+        db_mock.set_in_transaction(value=True)
+        db_mock._transaction_depth = 2
+        db_mock._rollback_requested = True
+
+        db_mock.close()
+
+        assert db_mock.conn is None
+        assert db_mock._transaction_depth == 0
+        assert db_mock._in_transaction is False
+        assert db_mock.in_transaction is False
+        assert db_mock._rollback_requested is False
