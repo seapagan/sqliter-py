@@ -260,23 +260,27 @@ async def test_async_insert_updates_supplied_instance() -> None:
 @pytest.mark.asyncio
 async def test_async_insert_updates_orm_instance_context() -> None:
     """Async insert should attach db_context to supplied ORM instances."""
-    db = AsyncSqliterDB(memory=True)
+    state = ModelRegistry.snapshot()
+    try:
+        db = AsyncSqliterDB(memory=True)
 
-    class SavedAsyncORMModel(BaseDBModel):
-        """ORM model for async insert context tests."""
+        class SavedAsyncORMModel(BaseDBModel):
+            """ORM model for async insert context tests."""
 
-        name: str
+            name: str
 
-    await db.create_table(SavedAsyncORMModel)
-    model = SavedAsyncORMModel(name="saved")
+        await db.create_table(SavedAsyncORMModel)
+        model = SavedAsyncORMModel(name="saved")
 
-    inserted = await db.insert(model)
+        inserted = await db.insert(model)
 
-    assert inserted is model
-    assert model.pk > 0
-    assert model.db_context is db
+        assert inserted is model
+        assert model.pk > 0
+        assert model.db_context is db
 
-    await db.close()
+        await db.close()
+    finally:
+        ModelRegistry.restore(state)
 
 
 @pytest.mark.asyncio
@@ -396,29 +400,33 @@ async def test_async_bulk_insert_updates_supplied_instances() -> None:
 @pytest.mark.asyncio
 async def test_async_bulk_insert_updates_orm_instance_context() -> None:
     """Async bulk_insert should attach db_context to supplied ORM instances."""
-    db = AsyncSqliterDB(memory=True)
+    state = ModelRegistry.snapshot()
+    try:
+        db = AsyncSqliterDB(memory=True)
 
-    class SavedAsyncBulkORMModel(BaseDBModel):
-        """ORM model for async bulk insert context tests."""
+        class SavedAsyncBulkORMModel(BaseDBModel):
+            """ORM model for async bulk insert context tests."""
 
-        name: str
+            name: str
 
-    await db.create_table(SavedAsyncBulkORMModel)
-    instances = [
-        SavedAsyncBulkORMModel(name="first"),
-        SavedAsyncBulkORMModel(name="second"),
-    ]
+        await db.create_table(SavedAsyncBulkORMModel)
+        instances = [
+            SavedAsyncBulkORMModel(name="first"),
+            SavedAsyncBulkORMModel(name="second"),
+        ]
 
-    inserted = await db.bulk_insert(instances)
+        inserted = await db.bulk_insert(instances)
 
-    assert inserted == instances
-    assert all(
-        result is instance for result, instance in zip(inserted, instances)
-    )
-    assert [instance.pk for instance in instances] == [1, 2]
-    assert all(instance.db_context is db for instance in instances)
+        assert inserted == instances
+        assert all(
+            result is instance for result, instance in zip(inserted, instances)
+        )
+        assert [instance.pk for instance in instances] == [1, 2]
+        assert all(instance.db_context is db for instance in instances)
 
-    await db.close()
+        await db.close()
+    finally:
+        ModelRegistry.restore(state)
 
 
 def test_async_init_rejects_reset() -> None:
