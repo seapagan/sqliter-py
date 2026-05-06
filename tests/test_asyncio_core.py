@@ -1943,6 +1943,27 @@ async def test_async_close_resets_transaction_scope() -> None:
 
 
 @pytest.mark.asyncio
+async def test_async_context_error_after_close_resets_scope() -> None:
+    """Closing inside an errored context should not poison later scopes."""
+    db = AsyncSqliterDB(memory=True)
+
+    async def close_with_error() -> None:
+        message = "boom"
+        async with db:
+            await db.close()
+            raise RuntimeError(message)
+
+    with pytest.raises(RuntimeError, match="boom"):
+        await close_with_error()
+
+    assert db.conn is None
+    assert db._sync._transaction_depth == 0
+    assert db._sync._in_transaction is False
+    assert db.in_transaction is False
+    assert db._sync._rollback_requested is False
+
+
+@pytest.mark.asyncio
 async def test_async_helper_wrappers_delegate_consistently() -> None:
     """Async helper wrappers should expose shared sync helper behavior."""
     db = AsyncSqliterDB(memory=True)

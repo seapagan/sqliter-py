@@ -816,11 +816,12 @@ class AsyncSqliterDB:
             had_error=exc_type is not None
         )
 
-        if self.conn is not None and should_finalize:
+        if should_finalize:
             try:
-                if should_rollback:
-                    await self.conn.rollback()
-                else:
-                    await self.conn.commit()
+                if self.conn is not None:
+                    if should_rollback:
+                        await self.conn.rollback()
+                    else:
+                        await self.conn.commit()
             finally:
                 self._sync.reset_transaction_scope()
