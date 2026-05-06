@@ -915,14 +915,7 @@ class QueryBuilder(Generic[T]):
         )
         from sqliter.orm.query import ReverseRelationship  # noqa: PLC0415
 
-        seen_pks: set[Any] = set()
-        parent_pks: list[Any] = []
-        for inst in parent_instances:
-            pk = getattr(inst, "pk", None)
-            if not pk or pk in seen_pks:
-                continue
-            seen_pks.add(pk)
-            parent_pks.append(pk)
+        parent_pks = self._collect_prefetch_parent_pks(parent_instances)
         if not parent_pks:
             return
 
