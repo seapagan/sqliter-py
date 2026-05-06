@@ -180,6 +180,7 @@ class AsyncQueryBuilder(Generic[T]):
     ) -> tuple[
         list[tuple[Any, ...]] | tuple[Any, ...] | None,
         list[tuple[str, str, type[BaseDBModel]]],
+        Optional[tuple[str, ...]],
     ]:
         """Execute the constructed SQL query."""
         plan = self._query.build_execution_plan(count_only=count_only)
@@ -196,7 +197,11 @@ class AsyncQueryBuilder(Generic[T]):
         except sqlite3.Error as exc:
             raise RecordFetchError(self.table_name) from exc
         else:
-            return (cast("Any", results), plan.column_names)
+            return (
+                cast("Any", results),
+                plan.column_names,
+                plan.selected_fields,
+            )
 
     async def _fetch_result(
         self,
@@ -208,7 +213,9 @@ class AsyncQueryBuilder(Generic[T]):
         if hit:
             return cast("list[T] | Optional[T]", cached)
 
-        result, column_names = await self._execute_query(fetch_one=fetch_one)
+        result, column_names, selected_fields = await self._execute_query(
+            fetch_one=fetch_one
+        )
 
         if not result:
             empty: list[T] | Optional[T] = None if fetch_one else []
@@ -220,6 +227,7 @@ class AsyncQueryBuilder(Generic[T]):
             column_names,
             fetch_one=fetch_one,
             execute_prefetch=False,
+            selected_fields=selected_fields,
         )
         await self._execute_prefetch(converted)
         self._query.store_cache(converted, fetch_one=fetch_one)
@@ -467,7 +475,9 @@ class AsyncQueryBuilder(Generic[T]):
             "count",
             hint="Use len(fetch_dicts()) instead.",
         )
-        result, _column_names = await self._execute_query(count_only=True)
+        result, _column_names, _selected_fields = await self._execute_query(
+            count_only=True
+        )
         row_list = cast("list[tuple[Any, ...]]", result)
         return int(row_list[0][0]) if row_list else 0
 

@@ -113,6 +113,16 @@ class TestQuery:
 
         assert query._selected_fields_for_execution() is None
 
+    def test_convert_row_to_model_uses_query_fields_fallback(
+        self, db_mock: SqliterDB
+    ) -> None:
+        """Row conversion falls back to query fields when not provided."""
+        query = db_mock.select(ExampleModel, fields=["name"])
+
+        result = query._convert_row_to_model(("A",))
+
+        assert result.name == "A"
+
     def test_simple_execution_plan_raises_for_missing_selected_fields(
         self, db_mock: SqliterDB
     ) -> None:

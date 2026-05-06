@@ -1814,6 +1814,21 @@ async def test_async_query_fields_selects_subset() -> None:
 
 
 @pytest.mark.asyncio
+async def test_async_query_constructor_fields_preserves_pk() -> None:
+    """Constructor field selection should decode execution-added PKs."""
+    db = AsyncSqliterDB(memory=True)
+    await db.create_table(ExampleModel)
+    await db.insert(ExampleModel(slug="a", name="A", content="one"))
+
+    result = await db.select(ExampleModel, fields=["name"]).fetch_one()
+
+    assert result is not None
+    assert result.name == "A"
+    assert result.pk == 1
+    await db.close()
+
+
+@pytest.mark.asyncio
 async def test_async_query_only_rejects_multiple_fields() -> None:
     """only() matches the sync single-field contract."""
     db = AsyncSqliterDB(memory=True)
