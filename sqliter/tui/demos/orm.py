@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import io
-from typing import Any, cast
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from typing import Any
 
 from sqliter import SqliterDB
 from sqliter.orm import BaseDBModel, ForeignKey, ManyToMany

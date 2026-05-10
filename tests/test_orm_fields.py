@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import sys
-from typing import Any, cast
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from typing import Any
 
 import pytest
 from pydantic.fields import FieldInfo
