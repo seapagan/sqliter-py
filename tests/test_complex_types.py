@@ -193,7 +193,7 @@ class TestComplexTypes:
         self,
         model_instance: ComplexTypesModel,
         field_name: str,
-        invalid_value: list[Any] | dict[Any, Any] | set[Any] | tuple[Any, ...],
+        invalid_value: object,
     ) -> None:
         """Test validation of incorrect types."""
         with pytest.raises(ValidationError):
