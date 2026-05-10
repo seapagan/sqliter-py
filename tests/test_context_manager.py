@@ -115,30 +115,35 @@ class TestContextManager:
 
         # Initialize the database with the file-based database
         db_mock = SqliterDB(db_filename=str(db_file), auto_commit=True)
-        db_mock.create_table(ExampleModel)
-
-        # Use the context manager to simulate a transaction
-        with db_mock:
-            db_mock.insert(
-                ExampleModel(slug="test", name="Test", content="Test content")
-            )
-
-        # After the transaction, open a new connection to query the database
-        new_conn = sqlite3.connect(str(db_file))
         try:
-            result = new_conn.execute(
-                "SELECT * FROM test_table WHERE slug = 'test'"
-            ).fetchone()
+            db_mock.create_table(ExampleModel)
+
+            # Use the context manager to simulate a transaction
+            with db_mock:
+                db_mock.insert(
+                    ExampleModel(
+                        slug="test",
+                        name="Test",
+                        content="Test content",
+                    )
+                )
+
+            # After the transaction, open a new connection to query the database
+            new_conn = sqlite3.connect(str(db_file))
+            try:
+                result = new_conn.execute(
+                    "SELECT * FROM test_table WHERE slug = 'test'"
+                ).fetchone()
+            finally:
+                new_conn.close()
+
+            # Assert that the data was committed
+            assert result is not None, "Data was not committed."
+            assert result[3] == "test", (
+                f"Expected slug to be 'test', but got {result[3]}"
+            )
         finally:
-            new_conn.close()
-
-        # Assert that the data was committed
-        assert result is not None, "Data was not committed."
-        assert result[3] == "test", (
-            f"Expected slug to be 'test', but got {result[3]}"
-        )
-
-        db_mock.close()
+            db_mock.close()
 
     def test_context_manager_keeps_memory_database_available(self) -> None:
         """In-memory DB data survives after leaving the transaction context."""
