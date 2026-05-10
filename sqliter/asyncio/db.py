@@ -386,10 +386,12 @@ class AsyncSqliterDB:
         tables = list(await cursor.fetchall())
 
         for table in tables:
+            table_name = table[0]
             await self._execute_async(
                 cursor,
-                f"DROP TABLE IF EXISTS {table[0]}",
+                f"DROP TABLE IF EXISTS {table_name}",
             )
+            self._cache_invalidate_table(table_name)
 
         await self._maybe_commit()
 
@@ -456,6 +458,7 @@ class AsyncSqliterDB:
 
         if force:
             await self._execute_sql(f"DROP TABLE IF EXISTS {table_name}")
+            self._cache_invalidate_table(table_name)
 
         try:
             conn = await self.connect()
@@ -558,6 +561,7 @@ class AsyncSqliterDB:
             cursor = await conn.cursor()
             await self._execute_async(cursor, drop_table_sql)
             await self._maybe_commit()
+            self._cache_invalidate_table(table_name)
         except sqlite3.Error as exc:
             raise TableDeletionError(table_name) from exc
 

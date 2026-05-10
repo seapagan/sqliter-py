@@ -900,6 +900,59 @@ async def test_async_get_caches_negative_result_with_explicit_ttl(
 
 
 @pytest.mark.asyncio
+async def test_async_drop_table_invalidates_get_cache() -> None:
+    """Dropping a table removes stale get() cache entries."""
+    db = AsyncSqliterDB(memory=True, cache_enabled=True)
+    await db.create_table(ExampleModel)
+    inserted = await db.insert(
+        ExampleModel(slug="drop-cache", name="Drop", content="cached")
+    )
+
+    assert await db.get(ExampleModel, inserted.pk) is not None
+
+    await db.drop_table(ExampleModel)
+    await db.create_table(ExampleModel)
+
+    assert await db.get(ExampleModel, inserted.pk) is None
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_force_create_table_invalidates_get_cache() -> None:
+    """Force-recreating a table removes stale get() cache entries."""
+    db = AsyncSqliterDB(memory=True, cache_enabled=True)
+    await db.create_table(ExampleModel)
+    inserted = await db.insert(
+        ExampleModel(slug="force-cache", name="Force", content="cached")
+    )
+
+    assert await db.get(ExampleModel, inserted.pk) is not None
+
+    await db.create_table(ExampleModel, force=True)
+
+    assert await db.get(ExampleModel, inserted.pk) is None
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_reset_database_invalidates_get_cache() -> None:
+    """Resetting the database removes stale get() cache entries."""
+    db = AsyncSqliterDB(memory=True, cache_enabled=True)
+    await db.create_table(ExampleModel)
+    inserted = await db.insert(
+        ExampleModel(slug="reset-cache", name="Reset", content="cached")
+    )
+
+    assert await db.get(ExampleModel, inserted.pk) is not None
+
+    await db.reset_database()
+    await db.create_table(ExampleModel)
+
+    assert await db.get(ExampleModel, inserted.pk) is None
+    await db.close()
+
+
+@pytest.mark.asyncio
 async def test_async_insert_foreign_key_violation_raises() -> None:
     """Insert wraps FK failures in ForeignKeyConstraintError."""
     state = ModelRegistry.snapshot()
