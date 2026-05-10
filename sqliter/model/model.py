@@ -12,6 +12,7 @@ from __future__ import annotations
 import datetime
 import pickle
 import re
+import types
 from typing import (
     Any,
     ClassVar,
@@ -110,7 +111,7 @@ class BaseDBModel(BaseModel):
                 converted_obj[field_name] = None
             else:
                 origin = get_origin(field_type)
-                if origin is Union:
+                if origin in (Union, types.UnionType):
                     args = get_args(field_type)
                     for arg in args:
                         try:

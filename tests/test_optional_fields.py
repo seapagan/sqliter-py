@@ -1,6 +1,6 @@
 """Tests for selecting specific fields from a model."""
 
-from typing import cast
+from typing import Union, cast
 
 import pytest
 
@@ -235,6 +235,25 @@ class TestOptionalFields:
         result = TestModel.model_validate_partial(obj)
 
         assert cast("str", result.field_a) == invalid_value
+
+    def test_model_validate_partial_supports_union_spellings(self) -> None:
+        """Partial validation handles typing.Union and PEP 604 unions."""
+
+        class TypingUnionModel(BaseDBModel):
+            field_a: Union[int, float]  # noqa: UP007
+
+        class Pep604UnionModel(BaseDBModel):
+            field_a: int | float
+
+        typing_result = TypingUnionModel.model_validate_partial(
+            {"field_a": "1"}
+        )
+        pep604_result = Pep604UnionModel.model_validate_partial(
+            {"field_a": "1"}
+        )
+
+        assert typing_result.field_a == 1
+        assert pep604_result.field_a == 1
 
     def test_fields_operator_all_fields_explicitly(
         self, db_mock_detailed: SqliterDB
