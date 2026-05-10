@@ -271,7 +271,7 @@ class TestDebugLogging:
 
         # Assert the SQL query for dropping the table was logged
         assert (
-            "Executing SQL: DROP TABLE IF EXISTS complex_model" in caplog.text
+            'Executing SQL: DROP TABLE IF EXISTS "complex_model"' in caplog.text
         )
 
     def test_reset_database_debug_logging(

@@ -31,7 +31,7 @@ from sqliter.exceptions import (
     TableCreationError,
     TableDeletionError,
 )
-from sqliter.helpers import infer_sqlite_type
+from sqliter.helpers import infer_sqlite_type, quote_identifier
 from sqliter.model.foreign_key import (
     ForeignKeyInfo,
     get_foreign_key_info,
@@ -268,7 +268,10 @@ class SqliterDB:
 
             # Drop each user-created table
             for table in tables:
-                self._execute(cursor, f"DROP TABLE IF EXISTS {table[0]}")
+                self._execute(
+                    cursor,
+                    f"DROP TABLE IF EXISTS {quote_identifier(table[0])}",
+                )
 
             conn.commit()
 
@@ -852,7 +855,9 @@ class SqliterDB:
         )
 
         if force:
-            drop_table_sql = f"DROP TABLE IF EXISTS {table_name}"
+            drop_table_sql = (
+                f"DROP TABLE IF EXISTS {quote_identifier(table_name)}"
+            )
             self._execute_sql(drop_table_sql)
 
         try:
@@ -1002,7 +1007,7 @@ class SqliterDB:
             TableDeletionError: If there's an error dropping the table.
         """
         table_name = model_class.get_table_name()
-        drop_table_sql = f"DROP TABLE IF EXISTS {table_name}"
+        drop_table_sql = f"DROP TABLE IF EXISTS {quote_identifier(table_name)}"
 
         try:
             conn = self.connect()

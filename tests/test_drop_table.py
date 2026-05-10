@@ -8,6 +8,7 @@ from pytest_mock import MockerFixture
 from sqliter import SqliterDB
 from sqliter.exceptions import TableDeletionError
 from sqliter.model import BaseDBModel
+from sqliter.orm.registry import ModelRegistry
 
 
 class TestDropTable:
@@ -34,6 +35,26 @@ class TestDropTable:
             )
             result = cursor.fetchone()
         assert result is None
+
+    def test_drop_table_quotes_reserved_table_name(
+        self, db_mock: SqliterDB
+    ) -> None:
+        """drop_table handles reserved table names."""
+        state = ModelRegistry.snapshot()
+        try:
+
+            class ReservedTableModel(BaseDBModel):
+                name: str
+
+                class Meta:
+                    table_name = "order"
+
+            db_mock.create_table(ReservedTableModel)
+            db_mock.drop_table(ReservedTableModel)
+
+            assert "order" not in db_mock.table_names
+        finally:
+            ModelRegistry.restore(state)
 
     def test_drop_non_existent_table(self, db_mock: SqliterDB) -> None:
         """Test dropping a table that doesn't exist."""

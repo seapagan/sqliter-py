@@ -451,6 +451,32 @@ async def test_async_create_with_reset_clears_existing_tables(
 
 
 @pytest.mark.asyncio
+async def test_async_reset_database_quotes_reserved_table_name(
+    temp_db_path: str,
+) -> None:
+    """Async reset handles reserved table names."""
+    state = ModelRegistry.snapshot()
+    try:
+
+        class AsyncReservedResetModel(BaseDBModel):
+            name: str
+
+            class Meta:
+                table_name = "order"
+
+        initial = AsyncSqliterDB(temp_db_path)
+        await initial.create_table(AsyncReservedResetModel)
+        await initial.close()
+
+        reset_db = await AsyncSqliterDB.create(temp_db_path, reset=True)
+
+        assert "order" not in await reset_db.get_table_names()
+        await reset_db.close()
+    finally:
+        ModelRegistry.restore(state)
+
+
+@pytest.mark.asyncio
 async def test_async_db_properties_expose_sync_configuration(
     mocker: MockerFixture,
 ) -> None:
@@ -520,6 +546,28 @@ async def test_async_drop_table_removes_table() -> None:
     await db.drop_table(ExampleModel)
     assert "test_table" not in await db.get_table_names()
     await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_drop_table_quotes_reserved_table_name() -> None:
+    """Async drop_table handles reserved table names."""
+    state = ModelRegistry.snapshot()
+    try:
+
+        class AsyncReservedDropModel(BaseDBModel):
+            name: str
+
+            class Meta:
+                table_name = "order"
+
+        db = AsyncSqliterDB(memory=True)
+        await db.create_table(AsyncReservedDropModel)
+        await db.drop_table(AsyncReservedDropModel)
+
+        assert "order" not in await db.get_table_names()
+        await db.close()
+    finally:
+        ModelRegistry.restore(state)
 
 
 @pytest.mark.asyncio
@@ -682,6 +730,40 @@ async def test_async_create_table_force_invalid_index_preserves_table() -> None:
             await db.create_table(BadAsyncReplacementModel, force=True)
 
         assert "async_force_index_model" in await db.get_table_names()
+        await db.close()
+    finally:
+        ModelRegistry.restore(state)
+
+
+@pytest.mark.asyncio
+async def test_async_create_table_force_quotes_reserved_table_name() -> None:
+    """Async create_table(force=True) handles reserved table names."""
+    state = ModelRegistry.snapshot()
+    try:
+
+        class AsyncReservedInitialModel(BaseDBModel):
+            name: str
+
+            class Meta:
+                table_name = "order"
+
+        class AsyncReservedReplacementModel(BaseDBModel):
+            name: str
+            email: str
+
+            class Meta:
+                table_name = "order"
+
+        db = AsyncSqliterDB(memory=True)
+        await db.create_table(AsyncReservedInitialModel)
+        await db.create_table(AsyncReservedReplacementModel, force=True)
+
+        conn = await db.connect()
+        cursor = await conn.cursor()
+        await db.execute_cursor(cursor, 'PRAGMA table_info("order")')
+        columns = [row[1] for row in await cursor.fetchall()]
+
+        assert "email" in columns
         await db.close()
     finally:
         ModelRegistry.restore(state)

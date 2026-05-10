@@ -22,6 +22,7 @@ from sqliter.exceptions import (
     TableCreationError,
     TableDeletionError,
 )
+from sqliter.helpers import quote_identifier
 from sqliter.model.model import BaseDBModel
 from sqliter.sqliter import (
     DeletePlan,
@@ -389,7 +390,7 @@ class AsyncSqliterDB:
             table_name = table[0]
             await self._execute_async(
                 cursor,
-                f"DROP TABLE IF EXISTS {table_name}",
+                f"DROP TABLE IF EXISTS {quote_identifier(table_name)}",
             )
             self._cache_invalidate_table(table_name)
 
@@ -457,7 +458,9 @@ class AsyncSqliterDB:
         )
 
         if force:
-            await self._execute_sql(f"DROP TABLE IF EXISTS {table_name}")
+            await self._execute_sql(
+                f"DROP TABLE IF EXISTS {quote_identifier(table_name)}"
+            )
             self._cache_invalidate_table(table_name)
 
         try:
@@ -554,7 +557,7 @@ class AsyncSqliterDB:
     async def drop_table(self, model_class: type[BaseDBModel]) -> None:
         """Drop the table associated with the given model class."""
         table_name = model_class.get_table_name()
-        drop_table_sql = f"DROP TABLE IF EXISTS {table_name}"
+        drop_table_sql = f"DROP TABLE IF EXISTS {quote_identifier(table_name)}"
 
         try:
             conn = await self.connect()

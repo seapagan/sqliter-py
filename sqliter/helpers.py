@@ -41,6 +41,11 @@ def validate_table_name(table_name: str) -> str:
     return table_name
 
 
+def quote_identifier(identifier: str) -> str:
+    """Quote a SQLite identifier."""
+    return '"' + identifier.replace('"', '""') + '"'
+
+
 def infer_sqlite_type(field_type: Union[type, None]) -> str:
     """Infer the SQLite column type based on the Python type.
 

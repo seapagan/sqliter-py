@@ -810,6 +810,30 @@ class TestSqliterDB:
         with pytest.raises(RecordFetchError):
             db_reset.select(TestModel2).fetch_all()
 
+    def test_reset_database_quotes_reserved_table_name(
+        self, temp_db_path: str
+    ) -> None:
+        """reset=True handles reserved table names."""
+        state = ModelRegistry.snapshot()
+        try:
+
+            class ReservedResetModel(BaseDBModel):
+                name: str
+
+                class Meta:
+                    table_name = "order"
+
+            db = SqliterDB(temp_db_path)
+            db.create_table(ReservedResetModel)
+            db.close()
+
+            db_reset = SqliterDB(temp_db_path, reset=True)
+
+            assert "order" not in db_reset.table_names
+            db_reset.close()
+        finally:
+            ModelRegistry.restore(state)
+
     def test_create_table_exists_ok_true(self, db_mock: SqliterDB) -> None:
         """Test creating a table with exists_ok=True (default behavior)."""
         # First creation should succeed
@@ -934,6 +958,38 @@ class TestSqliterDB:
 
         # Clean up
         db.close()
+
+    def test_create_table_force_quotes_reserved_table_name(self) -> None:
+        """create_table(force=True) handles reserved table names."""
+        state = ModelRegistry.snapshot()
+        try:
+
+            class ReservedInitialModel(BaseDBModel):
+                name: str
+
+                class Meta:
+                    table_name = "order"
+
+            class ReservedReplacementModel(BaseDBModel):
+                name: str
+                email: str
+
+                class Meta:
+                    table_name = "order"
+
+            db = SqliterDB(":memory:")
+            db.create_table(ReservedInitialModel)
+            db.create_table(ReservedReplacementModel, force=True)
+
+            with db.connect() as conn:
+                cursor = conn.cursor()
+                cursor.execute('PRAGMA table_info("order")')
+                columns = [column[1] for column in cursor.fetchall()]
+
+            assert "email" in columns
+            db.close()
+        finally:
+            ModelRegistry.restore(state)
 
     def test_create_table_force_and_exists_ok(self, db_mock: SqliterDB) -> None:
         """Test interaction between force and exists_ok parameters."""
