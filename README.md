@@ -27,6 +27,9 @@ Full documentation is available on the [Website](https://sqliter.grantramsay.dev
 > a stable release is made. I'll try to keep this to an absolute minimum and the
 > releases and documentation will be very clear about any breaking changes.
 >
+> The `async` feature is new. It is covered by tests and expected to work, but
+> treat it with some caution until it has seen a few releases of real-world use.
+>
 > See the [TODO](TODO.md) for planned features and improvements.
 
 - [Features](#features)

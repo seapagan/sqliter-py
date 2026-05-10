@@ -13,7 +13,7 @@ would like to suggest improvements, please open a new issue or submit a pull
 
 ## Prerequisites
 
-- This project requires **Python 3.9** or higher.
+- This project requires **Python 3.10** or higher.
 
 - We use [uv](https://docs.astral.sh/uv/) to manage our dependencies. You should
 have this installed as well. You can install `uv` by following the instructions
@@ -22,10 +22,10 @@ on their [website](https://docs.astral.sh/uv/getting-started/installation/).
 `uv` can be used to actually install Python, even if you do not have it
 installed locally (either by system, pyenv or similar).
 
-For example, to install Python 3.12 using `uv`, you can run the following command:
+For example, to install Python 3.14 using `uv`, you can run the following command:
 
 ```console
-uv python install 3.12
+uv python install 3.14
 ```
 
 If you already have a Python version installed, uv will use this.
