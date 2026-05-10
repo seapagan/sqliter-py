@@ -16,6 +16,7 @@ from sqliter.asyncio import AsyncSqliterDB
 from sqliter.exceptions import (
     DatabaseConnectionError,
     ForeignKeyConstraintError,
+    InvalidFilterError,
     InvalidIndexError,
     InvalidProjectionError,
     InvalidUpdateError,
@@ -1940,6 +1941,35 @@ async def test_async_query_update_rejects_invalid_fields() -> None:
 
     assert await db.select(ExampleModel).update({}) == 0
     await db.close()
+
+
+@pytest.mark.asyncio
+async def test_async_bulk_dml_rejects_relationship_filters() -> None:
+    """Async bulk update/delete reject relationship filter joins."""
+    state = ModelRegistry.snapshot()
+    try:
+
+        class AsyncBulkAuthor(BaseDBModel):
+            name: str
+
+        class AsyncBulkBook(BaseDBModel):
+            title: str
+            author: ForeignKey[AsyncBulkAuthor] = ForeignKey(AsyncBulkAuthor)
+
+        db = AsyncSqliterDB(memory=True)
+        await db.create_table(AsyncBulkAuthor)
+        await db.create_table(AsyncBulkBook)
+
+        filtered = db.select(AsyncBulkBook).filter(author__name="Jane Austen")
+
+        with pytest.raises(InvalidFilterError, match="relationship"):
+            await filtered.delete()
+
+        with pytest.raises(InvalidFilterError, match="relationship"):
+            await filtered.update({"title": "Updated"})
+        await db.close()
+    finally:
+        ModelRegistry.restore(state)
 
 
 @pytest.mark.asyncio

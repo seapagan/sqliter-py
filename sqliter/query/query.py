@@ -2782,6 +2782,7 @@ class QueryBuilder(Generic[T]):
 
     def build_delete_statement(self) -> tuple[str, list[Any]]:
         """Build SQL and values for a DELETE query."""
+        self._ensure_bulk_dml_filters_supported()
         # Table and column names are model metadata; filter values are bound.
         sql = f'DELETE FROM "{self.table_name}"'  # noqa: S608
         values, where_clause = self._parse_filter()
@@ -2798,6 +2799,7 @@ class QueryBuilder(Generic[T]):
         """Build SQL and values for a bulk UPDATE query."""
         if not values:
             return "", []
+        self._ensure_bulk_dml_filters_supported()
 
         valid_fields = set(self.model_class.model_fields.keys())
         set_clauses: list[str] = []
@@ -2822,6 +2824,12 @@ class QueryBuilder(Generic[T]):
             sql += f" WHERE {where_clause}"
 
         return sql, set_values + where_values
+
+    def _ensure_bulk_dml_filters_supported(self) -> None:
+        """Reject relationship filters until bulk DML can render joins."""
+        if self._join_info:
+            msg = "Bulk update/delete does not support relationship filters."
+            raise InvalidFilterError(msg)
 
     @overload
     def _fetch_result(self, *, fetch_one: Literal[True]) -> Optional[T]: ...

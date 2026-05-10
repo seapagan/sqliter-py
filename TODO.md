@@ -53,6 +53,9 @@ Items marked with :fire: are high priority.
 - Refactor filter condition handling to use one centralized builder path and
   keep validation/SQL assembly behavior in sync across code paths
   (issue #136).
+- Implement join-backed bulk update/delete for relationship filters. Current
+  bulk DML rejects traversed filters because relationship predicates require
+  JOIN/EXISTS SQL that DELETE/UPDATE builders do not yet render.
 - Support `ForeignKey(..., db_column=...)` consistently across ORM runtime
   CRUD/query paths (issue #138). Once closed, rewrite temporary custom-column
   regression tests (currently using setup workarounds) to use normal ORM

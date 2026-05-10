@@ -13,6 +13,9 @@ from sqliter.exceptions import (
     RecordFetchError,
 )
 from sqliter.model import BaseDBModel
+from sqliter.orm import BaseDBModel as ORMBaseDBModel
+from sqliter.orm import ForeignKey
+from sqliter.orm.registry import ModelRegistry
 from sqliter.sqliter import SqliterDB
 from tests.conftest import ExampleModel, not_raises
 
@@ -91,6 +94,33 @@ class TestQuery:
             "",
             [],
         )
+
+    def test_bulk_dml_rejects_relationship_filters(self) -> None:
+        """Bulk update/delete reject filters that require relationship joins."""
+        state = ModelRegistry.snapshot()
+        try:
+
+            class BulkAuthor(ORMBaseDBModel):
+                name: str
+
+            class BulkBook(ORMBaseDBModel):
+                title: str
+                author: ForeignKey[BulkAuthor] = ForeignKey(BulkAuthor)
+
+            db = SqliterDB(":memory:")
+            db.create_table(BulkAuthor)
+            db.create_table(BulkBook)
+
+            filtered = db.select(BulkBook).filter(author__name="Jane Austen")
+
+            with pytest.raises(InvalidFilterError, match="relationship"):
+                filtered.delete()
+
+            with pytest.raises(InvalidFilterError, match="relationship"):
+                filtered.update({"title": "Updated"})
+            db.close()
+        finally:
+            ModelRegistry.restore(state)
 
     def test_cache_key_fields_returns_none_for_missing_selected_fields(
         self, db_mock: SqliterDB
