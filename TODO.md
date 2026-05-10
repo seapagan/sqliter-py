@@ -19,6 +19,9 @@ Items marked with :fire: are high priority.
   dynamic ORM relationship APIs (reverse FK descriptors, M2M managers, and
   prefetched relation result types) to reduce required casts in normal
   application code and tests.
+- Revisit `sqliter/asyncio/orm/m2m.py` runtime `__get__` typing so async M2M
+  descriptors type-check cleanly even under direct file-based mypy runs, not
+  just project/workspace runs that pick up the sibling `.pyi`.
 - Registry lifetime: global registry can cause cross-talk when models are
   defined repeatedly in one process (e.g., tests). Current mitigation exists
   via `ModelRegistry.reset()` and snapshot/restore helpers; longer-term option:
@@ -50,15 +53,22 @@ Items marked with :fire: are high priority.
 - Refactor filter condition handling to use one centralized builder path and
   keep validation/SQL assembly behavior in sync across code paths
   (issue #136).
+- Implement join-backed bulk update/delete for relationship filters. Current
+  bulk DML rejects traversed filters because relationship predicates require
+  JOIN/EXISTS SQL that DELETE/UPDATE builders do not yet render.
 - Support `ForeignKey(..., db_column=...)` consistently across ORM runtime
   CRUD/query paths (issue #138). Once closed, rewrite temporary custom-column
   regression tests (currently using setup workarounds) to use normal ORM
   insert/query flows end-to-end.
+- Investigate a dedicated SQL fragment/builder object for query construction
+  so dynamic identifier assembly is centralized and easier to validate.
 
 ## Housekeeping
 
 - Tidy up the test suite - remove any duplicates, sort them into logical files
   (many already are), try to reduce and centralize fixtures.
+- Add suitable icons to all TUI demo categories (currently all use `icon=""`)
+  for a more visually scannable tree view.
 
 ## Documentation
 

@@ -89,7 +89,8 @@ else:
 
 ## Validation Errors
 
-Pydantic validates data before it reaches the database, ensuring type safety and data integrity.
+Pydantic validates data before it reaches the database, ensuring type safety and
+data integrity.
 
 ```python
 # --8<-- [start:validation-error]
@@ -126,14 +127,17 @@ db.close()
 
 ### Benefits
 
-- **Data never reaches the database in invalid form** - Validation happens before insert
+- **Data never reaches the database in invalid form** - Validation happens
+  before insert
 - **Clear error messages** - Pydantic tells you exactly what's wrong
-- **Type safety** - Catch type mismatches at model instantiation, not at database insert
+- **Type safety** - Catch type mismatches at model instantiation, not at
+  database insert
 - **Automatic** - No manual validation code needed, Pydantic handles it
 
 ## Generic Error Handling
 
-Catch all SQLiter errors with the base `SqliterError` class when you don't need to distinguish between specific error types.
+Catch all SQLiter errors with the base `SqliterError` class when you don't need
+to distinguish between specific error types.
 
 ```python
 # --8<-- [start:generic-error]
@@ -165,9 +169,11 @@ db.close()
 
 ### When to Use Generic Error Handling
 
-- **Simplified error handling**: When you don't need to take different actions based on error type
+- **Simplified error handling**: When you don't need to take different actions
+  based on error type
 - **Logging or reporting**: When you just need to log that an error occurred
-- **Top-level error handlers**: When you want to catch any SQLiter error at the application boundary
+- **Top-level error handlers**: When you want to catch any SQLiter error at the
+  application boundary
 
 ### Specific vs Generic
 

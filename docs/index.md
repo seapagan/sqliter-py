@@ -10,11 +10,12 @@
 SQLiter is a lightweight Object-Relational Mapping (ORM) library for SQLite
 databases in Python. It provides a simplified interface for interacting with
 SQLite databases using Pydantic models. The only external run-time dependency
-is Pydantic itself.
+for core synchronous usage is Pydantic itself. Async support is available via
+the optional `async` extra, which installs the additional async SQLite driver.
 
 It does not aim to be a full-fledged ORM like SQLAlchemy, but rather a simple
 and easy-to-use library for basic database operations, especially for small
-projects. It is NOT asynchronous (at this time, though that is planned).
+projects. It supports synchronous APIs and optional asynchronous APIs.
 
 The ideal use case is more for Python CLI tools that need to store data in a
 database-like format without needing to learn SQL or use a full ORM.
@@ -43,6 +44,7 @@ database-like format without needing to learn SQL or use a full ORM.
 - Foreign key relationships with referential integrity and CASCADE actions
 - ORM mode with lazy loading, reverse relationships, many-to-many support, and
   eager loading
+- Optional async database, query, and ORM support via the async extra
 - Chained Query building with filtering, ordering, and pagination
 - Projection and aggregation queries with grouping, aggregate helpers, and
   dictionary-based results
@@ -53,7 +55,7 @@ database-like format without needing to learn SQL or use a full ORM.
 - Full type hinting and type checking
 - Detailed documentation and examples
 - Interactive TUI demo for exploring features
-- No external dependencies other than Pydantic
+- No required external dependencies other than Pydantic for core sync usage
 - Full test coverage
 
 ## API Reference
@@ -63,7 +65,9 @@ constant, see the [API Reference](api-reference/index.md).
 
 ## Interactive Demo
 
-SQLiter includes an interactive terminal-based demo (TUI) that lets you explore all features hands-on without writing any code. Run the demo to see live code examples and their output:
+SQLiter includes an interactive terminal-based demo (TUI) that lets you explore
+all features hands-on without writing any code. Run the demo to see live code
+examples and their output:
 
 ```bash
 # Install with the demo extra

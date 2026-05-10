@@ -56,7 +56,9 @@ Complex Types:
 - `set[T]` - Sets of any type T
 - `tuple[T, ...]` - Tuples of any type T
 
-Complex types are automatically serialized and stored as BLOBs in the database. For more details on using complex types, see the [Fields Guide](fields.md#complex-data-types).
+Complex types are automatically serialized and stored as BLOBs in the database.
+For more details on using complex types, see the [Fields
+Guide](fields.md#complex-data-types).
 
 ### Foreign Key Fields
 

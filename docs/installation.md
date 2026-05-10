@@ -28,6 +28,17 @@ Currently by default, the only external dependency is Pydantic. However, there
 are some optional dependencies that can be installed to enable additional
 features:
 
+### Async
+
+The `async` extra installs **aiosqlite**, which enables the `sqliter.asyncio`
+package, `AsyncSqliterDB`, `AsyncQueryBuilder`, and async ORM support:
+
+```bash
+uv add 'sqliter-py[async]'
+```
+
+This is required if you want to use SQLiter from `asyncio` code.
+
 ### Demo
 
 The `demo` extra installs the **Textual** TUI framework, which is used for the
@@ -63,7 +74,8 @@ uv add 'sqliter-py[extras]'
 
 ### Full
 
-The `full` extra installs **all** optional dependencies (both Textual and Inflect):
+The `full` extra installs **all** optional dependencies (`aiosqlite`,
+Textual, and Inflect):
 
 ```bash
 uv add sqliter-py[full]
@@ -74,9 +86,10 @@ interactive demo and proper pluralization.
 
 ### Installation Summary
 
-| Extra | Includes | Purpose |
-|-------|----------|---------|
-| *(none)* | Pydantic only | Basic ORM functionality |
-| `demo` | + Textual | Interactive TUI demo |
-| `extras` | + Inflect | Better pluralization |
-| `full` | + Textual + Inflect | All features |
+| Extra    | Includes                        | Purpose                                |
+| -------- | ------------------------------- | -------------------------------------- |
+| *(none)* | Pydantic only                   | Basic sync ORM functionality           |
+| `async`  | + aiosqlite                     | Async database, query, and ORM support |
+| `demo`   | + Textual                       | Interactive TUI demo                   |
+| `extras` | + Inflect                       | Better pluralization                   |
+| `full`   | + aiosqlite + Textual + Inflect | All features                           |

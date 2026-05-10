@@ -40,8 +40,8 @@ database is in memory, auto-commit status, and the list of tables.
    print(db.is_autocommit)  # Output: True
    ```
 
-4. **`table_names`**
-   Returns a list of all user-defined table names in the database. The property temporarily reconnects if the connection is closed.
+4. **`table_names`** Returns a list of all user-defined table names in the
+   database. The property temporarily reconnects if the connection is closed.
 
    **Usage Example**:
 
@@ -55,32 +55,42 @@ database is in memory, auto-commit status, and the list of tables.
 
 ### `filename`
 
-This property allows users to retrieve the current database filename. For in-memory databases, this property returns `None`, as no filename is associated with an in-memory database.
+This property allows users to retrieve the current database filename. For
+in-memory databases, this property returns `None`, as no filename is associated
+with an in-memory database.
 
 - **Type**: `Optional[str]`
 - **Returns**: The database filename or `None` if in memory.
 
 ### `is_memory`
 
-This property indicates whether the database is in memory. It simplifies the check for memory-based databases, returning `True` for in-memory and `False` otherwise.
+This property indicates whether the database is in memory. It simplifies the
+check for memory-based databases, returning `True` for in-memory and `False`
+otherwise.
 
 - **Type**: `bool`
 - **Returns**: `True` if the database is in memory, otherwise `False`.
 
 ### `is_autocommit`
 
-This property returns whether the database is in auto-commit mode. If `auto_commit` is enabled, every operation is automatically committed without requiring an explicit `commit()` call.
+This property returns whether the database is in auto-commit mode. If
+`auto_commit` is enabled, every operation is automatically committed without
+requiring an explicit `commit()` call.
 
 - **Type**: `bool`
 - **Returns**: `True` if auto-commit mode is enabled, otherwise `False`.
 
 ### `table_names`
 
-This property retrieves a list of user-defined table names from the database. It does not include system tables (`sqlite_`). If the database connection is closed, this property will temporarily reconnect to query the table names and close the connection afterward.
+This property retrieves a list of user-defined table names from the database. It
+does not include system tables (`sqlite_`). If the database connection is
+closed, this property will temporarily reconnect to query the table names and
+close the connection afterward.
 
 - **Type**: `list[str]`
 - **Returns**: A list of user-defined table names in the database.
-- **Raises**: `DatabaseConnectionError` if the database connection fails to re-establish.
+- **Raises**: `DatabaseConnectionError` if the database connection fails to
+  re-establish.
 
 ## Example
 

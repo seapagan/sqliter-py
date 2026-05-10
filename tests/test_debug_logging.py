@@ -204,6 +204,7 @@ class TestDebugLogging:
         custom_logger = logging.getLogger("CustomLogger")
         custom_logger.setLevel(logging.DEBUG)
         db = SqliterDB(":memory:", debug=True, logger=custom_logger)
+        assert db.logger is custom_logger
         db.create_table(ComplexModel)
 
         with caplog.at_level(logging.DEBUG):
@@ -271,7 +272,7 @@ class TestDebugLogging:
 
         # Assert the SQL query for dropping the table was logged
         assert (
-            "Executing SQL: DROP TABLE IF EXISTS complex_model" in caplog.text
+            'Executing SQL: DROP TABLE IF EXISTS "complex_model"' in caplog.text
         )
 
     def test_reset_database_debug_logging(
@@ -299,7 +300,7 @@ class TestDebugLogging:
             )
 
         assert "Executing SQL:" in caplog.text
-        assert "INSERT INTO complex_model" in caplog.text
+        assert 'INSERT INTO "complex_model"' in caplog.text
 
     def test_debug_output_get(
         self, db_mock_complex_debug: SqliterDB, caplog: pytest.LogCaptureFixture
@@ -324,7 +325,7 @@ class TestDebugLogging:
             db_mock_complex_debug.update(record)
 
         assert "Executing SQL:" in caplog.text
-        assert "UPDATE complex_model" in caplog.text
+        assert 'UPDATE "complex_model"' in caplog.text
 
     def test_debug_output_delete(
         self, db_mock_complex_debug: SqliterDB, caplog: pytest.LogCaptureFixture
@@ -334,7 +335,7 @@ class TestDebugLogging:
             db_mock_complex_debug.delete(ComplexModel, 1)
 
         assert "Executing SQL:" in caplog.text
-        assert "DELETE FROM complex_model" in caplog.text
+        assert 'DELETE FROM "complex_model"' in caplog.text
 
     def test_debug_output_table_names(
         self, caplog: pytest.LogCaptureFixture

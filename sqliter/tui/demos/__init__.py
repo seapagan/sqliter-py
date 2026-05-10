@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, ClassVar
 
 from sqliter.tui.demos import (
+    async_demos,
     caching,
     connection,
     constraints,
@@ -91,6 +92,7 @@ def _init_registry() -> None:
     DemoRegistry.register_category(timestamps.get_category())
     DemoRegistry.register_category(transactions.get_category())
     DemoRegistry.register_category(errors.get_category())
+    DemoRegistry.register_category(async_demos.get_category())
 
 
 _init_registry()

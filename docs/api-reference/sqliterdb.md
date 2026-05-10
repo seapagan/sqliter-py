@@ -310,7 +310,7 @@ def bulk_insert(
 
 | Parameter            | Type          | Default    | Description                                           |
 | -------------------- | ------------- | ---------- | ----------------------------------------------------- |
-| `instances`          | `Sequence[T]` | *required* | The model instances to insert                        |
+| `instances`          | `Sequence[T]` | *required* | The model instances to insert                         |
 | `timestamp_override` | `bool`        | `False`    | If `True`, respect provided non-zero timestamp values |
 
 **Returns:**
@@ -442,11 +442,11 @@ def update_where(
 
 **Parameters:**
 
-| Parameter     | Type                | Default    | Description                              |
-| ------------- | ------------------- | ---------- | ---------------------------------------- |
-| `model_class` | `type[T]`           | *required* | The model class to update                |
-| `where`       | `dict[str, Any]`    | *required* | Filter conditions (same as QueryBuilder) |
-| `values`      | `dict[str, Any]`    | *required* | Field names and their new values         |
+| Parameter     | Type             | Default    | Description                              |
+| ------------- | ---------------- | ---------- | ---------------------------------------- |
+| `model_class` | `type[T]`        | *required* | The model class to update                |
+| `where`       | `dict[str, Any]` | *required* | Filter conditions (same as QueryBuilder) |
+| `values`      | `dict[str, Any]` | *required* | Field names and their new values         |
 
 **Returns:**
 
@@ -628,11 +628,13 @@ def __exit__(
 **Behavior:**
 
 - **`__enter__`**: Opens a connection and begins a transaction.
-- **`__exit__` (no exception)**: Commits the transaction and closes
-  the connection.
-- **`__exit__` (exception raised)**: Rolls back the transaction and
-  closes the connection.
-- Cache is cleared on exit in both cases.
+- **`__exit__` (no exception)**: Commits the transaction.
+- **`__exit__` (exception raised)**: Rolls back the transaction.
+
+> [!WARNING]
+>
+> Breaking change in `0.21.0`: the connection now remains open on exit. Call
+> `close()` explicitly when the database instance is no longer needed.
 
 **Example:**
 

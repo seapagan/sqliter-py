@@ -122,7 +122,7 @@ class TestComplexModelPartialSelection:
         fields = ["pk", "name", "age"]
         results = (
             db_mock_complex.select(ComplexModel, fields=fields)
-            .order("age", direction="DESC")
+            .order("age", reverse=True)
             .fetch_all()
         )
         assert len(results) == 2

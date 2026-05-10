@@ -217,7 +217,7 @@ def test_with_count_reverse_fk_respects_custom_db_column() -> None:
     now = int(time.time())
     table = BookCustomColAgg.get_table_name()
     insert_sql = (
-        f'INSERT INTO "{table}" '  # noqa: S608
+        f'INSERT INTO "{table}" '
         '("created_at", "updated_at", "title", "author_ref") '
         "VALUES (?, ?, ?, ?)"
     )

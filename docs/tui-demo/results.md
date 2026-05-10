@@ -361,14 +361,14 @@ db.close()
 
 ## Comparison Table
 
-| Method | Returns | Use When |
-|--------|---------|----------|
-| `fetch_one()` | Single record or `None` | You need exactly one record |
-| `fetch_all()` | List of records (all) | You need all matching records |
-| `fetch_first()` / `fetch_last()` | Single record or `None` | You need boundary records |
-| `count()` | Integer count | Statistics, validation |
-| `exists()` | Boolean | Quick existence check |
-| `fetch_dicts()` | List of dictionaries | Grouped/aggregate projection results |
+| Method                           | Returns                 | Use When                             |
+| -------------------------------- | ----------------------- | ------------------------------------ |
+| `fetch_one()`                    | Single record or `None` | You need exactly one record          |
+| `fetch_all()`                    | List of records (all)   | You need all matching records        |
+| `fetch_first()` / `fetch_last()` | Single record or `None` | You need boundary records            |
+| `count()`                        | Integer count           | Statistics, validation               |
+| `exists()`                       | Boolean                 | Quick existence check                |
+| `fetch_dicts()`                  | List of dictionaries    | Grouped/aggregate projection results |
 
 ## Performance Considerations
 

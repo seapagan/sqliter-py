@@ -94,6 +94,13 @@ def _get_prefetch_target_model(
     return descriptor._from_model  # noqa: SLF001
 
 
+def get_prefetch_target_model(
+    descriptor: Union[ReverseRelationship, ManyToMany[Any], ReverseManyToMany],
+) -> type[BaseDBModel]:
+    """Public wrapper for resolving a prefetch descriptor target model."""
+    return _get_prefetch_target_model(descriptor)
+
+
 @dataclass
 class JoinInfo:
     """Metadata for a JOIN clause.
@@ -127,6 +134,16 @@ class WithCountJoinNode:
 
     alias: str
     model_class: type[BaseDBModel]
+
+
+@dataclass(frozen=True)
+class QueryExecutionPlan:
+    """SQL plus metadata needed to execute and decode a query."""
+
+    sql: str
+    values: list[Any]
+    column_names: list[tuple[str, str, type[BaseDBModel]]]
+    selected_fields: Optional[tuple[str, ...]] = None
 
 
 class QueryBuilder(Generic[T]):
@@ -822,6 +839,15 @@ class QueryBuilder(Generic[T]):
         self._prefetch_related_paths.extend(paths)
         return self
 
+    @property
+    def prefetch_related_paths(self) -> list[str]:
+        """Return configured prefetch paths."""
+        return list(self._prefetch_related_paths)
+
+    def validate_prefetch_path(self, path: str) -> None:
+        """Validate a prefetch path."""
+        self._validate_prefetch_path(path)
+
     def _validate_prefetch_path(self, path: str) -> None:
         """Validate that a prefetch path is a valid chain of descriptors.
 
@@ -889,14 +915,7 @@ class QueryBuilder(Generic[T]):
         )
         from sqliter.orm.query import ReverseRelationship  # noqa: PLC0415
 
-        seen_pks: set[Any] = set()
-        parent_pks: list[Any] = []
-        for inst in parent_instances:
-            pk = getattr(inst, "pk", None)
-            if not pk or pk in seen_pks:
-                continue
-            seen_pks.add(pk)
-            parent_pks.append(pk)
+        parent_pks = self._collect_prefetch_parent_pks(parent_instances)
         if not parent_pks:
             return
 
@@ -944,6 +963,76 @@ class QueryBuilder(Generic[T]):
                 children.append(child)
         return children
 
+    @staticmethod
+    def collect_prefetched_children(
+        parent_instances: list[Any],
+        segment: str,
+    ) -> list[Any]:
+        """Collect unique prefetched children for a path segment."""
+        return QueryBuilder._collect_prefetched_children(
+            parent_instances,
+            segment,
+        )
+
+    @staticmethod
+    def _collect_prefetch_parent_pks(instances: list[Any]) -> list[Any]:
+        """Collect unique, truthy PK values from parent instances."""
+        seen_pks: set[Any] = set()
+        parent_pks: list[Any] = []
+        for inst in instances:
+            pk = getattr(inst, "pk", None)
+            if not pk or pk in seen_pks:
+                continue
+            seen_pks.add(pk)
+            parent_pks.append(pk)
+        return parent_pks
+
+    @staticmethod
+    def collect_prefetch_parent_pks(instances: list[Any]) -> list[Any]:
+        """Collect unique, truthy PK values from parent instances."""
+        return QueryBuilder._collect_prefetch_parent_pks(instances)
+
+    @staticmethod
+    def _build_prefetch_levels(
+        paths: list[str],
+    ) -> dict[int, set[tuple[str, str]]]:
+        """Build a depth-indexed map of prefetch path segments."""
+        levels: dict[int, set[tuple[str, str]]] = {}
+        for path in paths:
+            segments = path.split("__")
+            for depth, segment in enumerate(segments):
+                parent_path = "__".join(segments[:depth]) if depth > 0 else ""
+                levels.setdefault(depth, set()).add((parent_path, segment))
+        return levels
+
+    @staticmethod
+    def build_prefetch_levels(
+        paths: list[str],
+    ) -> dict[int, set[tuple[str, str]]]:
+        """Build a depth-indexed map of prefetch path segments."""
+        return QueryBuilder._build_prefetch_levels(paths)
+
+    @staticmethod
+    def _store_prefetch_cache(
+        instance: object,
+        path: str,
+        related: list[Any],
+    ) -> None:
+        """Store prefetched children on an instance cache."""
+        instance_obj = cast("Any", instance)
+        cache = instance_obj.__dict__.get("_prefetch_cache", {})
+        cache[path] = related
+        object.__setattr__(instance_obj, "_prefetch_cache", cache)
+
+    @staticmethod
+    def store_prefetch_cache(
+        instance: object,
+        path: str,
+        related: list[Any],
+    ) -> None:
+        """Store prefetched children on an instance cache."""
+        QueryBuilder._store_prefetch_cache(instance, path, related)
+
     def _execute_prefetch(self, instances: list[T]) -> None:
         """Run prefetch queries and populate _prefetch_cache on instances.
 
@@ -961,13 +1050,7 @@ class QueryBuilder(Generic[T]):
         if not any(getattr(inst, "pk", None) for inst in instances):
             return
 
-        # ── 1. Build a depth-indexed map of unique segments ──────
-        levels: dict[int, set[tuple[str, str]]] = {}
-        for path in self._prefetch_related_paths:
-            segments = path.split("__")
-            for depth, segment in enumerate(segments):
-                parent_path = "__".join(segments[:depth]) if depth > 0 else ""
-                levels.setdefault(depth, set()).add((parent_path, segment))
+        levels = self._build_prefetch_levels(self._prefetch_related_paths)
 
         # ── 2. Track instances and models at each path prefix ───
         instances_by_path: dict[str, list[Any]] = {"": list(instances)}
@@ -1032,11 +1115,12 @@ class QueryBuilder(Generic[T]):
             if parent_pk and parent_pk in grouped:
                 grouped[parent_pk].append(obj)
 
-        # Populate _prefetch_cache on each instance
         for inst in instances:
-            cache = inst.__dict__.get("_prefetch_cache", {})
-            cache[path] = grouped.get(inst.pk or 0, [])
-            object.__setattr__(inst, "_prefetch_cache", cache)
+            self._store_prefetch_cache(
+                inst,
+                path,
+                grouped.get(inst.pk or 0, []),
+            )
 
     @staticmethod
     def _resolve_m2m_columns(
@@ -1087,6 +1171,14 @@ class QueryBuilder(Generic[T]):
             to_col,
             symmetrical,
         )
+
+    @staticmethod
+    def resolve_m2m_columns(
+        descriptor: Any,  # noqa: ANN401
+        owner_table: str,
+    ) -> Optional[tuple[Any, str, str, str, str, str, bool]]:
+        """Resolve M2M descriptor into junction table metadata."""
+        return QueryBuilder._resolve_m2m_columns(descriptor, owner_table)
 
     def _prefetch_m2m_for_model(
         self,
@@ -1151,7 +1243,6 @@ class QueryBuilder(Generic[T]):
                 if obj.pk is not None:
                     target_objects[obj.pk] = obj
 
-        # Populate _prefetch_cache on each instance
         for inst in instances:
             target_pks = parent_to_target.get(inst.pk or 0, [])
             related = [
@@ -1159,9 +1250,7 @@ class QueryBuilder(Generic[T]):
                 for tpk in target_pks
                 if tpk in target_objects
             ]
-            cache = inst.__dict__.get("_prefetch_cache", {})
-            cache[path] = related
-            object.__setattr__(inst, "_prefetch_cache", cache)
+            self._store_prefetch_cache(inst, path, related)
 
     def _query_junction_table(
         self,
@@ -1182,11 +1271,30 @@ class QueryBuilder(Generic[T]):
         Returns:
             List of (from_pk, to_pk) tuples.
         """
-        col_a, col_b, from_col, to_col = columns
+        sql, values = self.build_m2m_junction_query(
+            junction_table,
+            columns,
+            pks,
+            symmetrical=symmetrical,
+        )
         conn = self.db.connect()
         cursor = conn.cursor()
+        self.db.execute_cursor(cursor, sql, values)
+        return cursor.fetchall()
+
+    @staticmethod
+    def build_m2m_junction_query(
+        junction_table: str,
+        columns: tuple[str, str, str, str],
+        pks: list[int],
+        *,
+        symmetrical: bool,
+    ) -> tuple[str, list[int]]:
+        """Build SQL and values for an M2M junction-table lookup."""
+        col_a, col_b, from_col, to_col = columns
         placeholders = ", ".join("?" for _ in pks)
 
+        # Identifiers come from registered M2M metadata; values stay bound.
         if symmetrical:
             sql = (
                 f'SELECT "{col_a}", "{col_b}" '  # noqa: S608
@@ -1194,16 +1302,14 @@ class QueryBuilder(Generic[T]):
                 f'WHERE "{col_a}" IN ({placeholders}) '
                 f'OR "{col_b}" IN ({placeholders})'
             )
-            self.db._execute(cursor, sql, [*pks, *pks])  # noqa: SLF001
-        else:
-            sql = (
-                f'SELECT "{from_col}", "{to_col}" '  # noqa: S608
-                f'FROM "{junction_table}" '
-                f'WHERE "{from_col}" IN ({placeholders})'
-            )
-            self.db._execute(cursor, sql, pks)  # noqa: SLF001
+            return sql, [*pks, *pks]
 
-        return cursor.fetchall()
+        sql = (
+            f'SELECT "{from_col}", "{to_col}" '  # noqa: S608
+            f'FROM "{junction_table}" '
+            f'WHERE "{from_col}" IN ({placeholders})'
+        )
+        return sql, pks
 
     @staticmethod
     def _build_m2m_mapping(
@@ -1239,6 +1345,20 @@ class QueryBuilder(Generic[T]):
                 all_target_pks.add(row_to)
 
         return parent_to_target, all_target_pks
+
+    @staticmethod
+    def build_m2m_mapping(
+        rows: list[tuple[int, int]],
+        pks: list[int],
+        *,
+        symmetrical: bool,
+    ) -> tuple[dict[int, list[int]], set[int]]:
+        """Build parent->target PK mapping from junction table rows."""
+        return QueryBuilder._build_m2m_mapping(
+            rows,
+            pks,
+            symmetrical=symmetrical,
+        )
 
     def _validate_and_build_join_info(self, path: str) -> None:
         """Validate a relationship path and build JoinInfo entries.
@@ -1722,10 +1842,8 @@ class QueryBuilder(Generic[T]):
             msg = "Projection query has no selected columns."
             raise InvalidProjectionError(msg)
 
-        sql = (
-            f"SELECT {', '.join(select_parts)} FROM "  # noqa: S608
-            f'"{self.table_name}" AS t0'
-        )
+        # SQL identifiers are validated model/query metadata; values are bound.
+        sql = f'SELECT {", ".join(select_parts)} FROM "{self.table_name}" AS t0'  # noqa: S608
 
         if self._projection_join_clauses:
             sql = f"{sql} {' '.join(self._projection_join_clauses)}"
@@ -1758,6 +1876,14 @@ class QueryBuilder(Generic[T]):
 
         return (sql, values, projection_columns)
 
+    def build_projection_query_plan(self) -> tuple[str, list[Any], list[str]]:
+        """Build SQL and bound values for a projection query."""
+        return self._build_projection_sql()
+
+    def set_projection_columns(self, projection_columns: list[str]) -> None:
+        """Store projection column names for row conversion."""
+        self._projection_columns = projection_columns
+
     def _execute_projection_query(self) -> list[tuple[Any, ...]]:
         """Execute a projection query and return raw rows."""
         sql, values, projection_columns = self._build_projection_sql()
@@ -1766,7 +1892,7 @@ class QueryBuilder(Generic[T]):
         try:
             conn = self.db.connect()
             cursor = conn.cursor()
-            self.db._execute(cursor, sql, values)  # noqa: SLF001
+            self.db.execute_cursor(cursor, sql, values)
             rows = cursor.fetchall()
         except sqlite3.Error as exc:
             raise RecordFetchError(self.table_name) from exc
@@ -1785,30 +1911,25 @@ class QueryBuilder(Generic[T]):
             converted[column_name] = value
         return converted
 
+    def convert_projection_row_to_dict(
+        self, row: tuple[Any, ...]
+    ) -> dict[str, Any]:
+        """Convert a projection row tuple to a dictionary."""
+        return self._convert_projection_row_to_dict(row)
+
     def _fetch_projection_result(self) -> list[dict[str, Any]]:
         """Fetch projection rows as dictionaries with query caching."""
         if not self._projection_mode:
             msg = "fetch_dicts() requires projection mode."
             raise InvalidProjectionError(msg)
 
-        cache_key: Optional[str] = None
-        if not self._bypass_cache:
-            cache_key = self._make_cache_key(fetch_one=False)
-            hit, cached = self.db._cache_get(self.table_name, cache_key)  # noqa: SLF001
-            if hit:
-                return cast("list[dict[str, Any]]", cached)
+        hit, cached = self.lookup_cache(fetch_one=False)
+        if hit:
+            return cast("list[dict[str, Any]]", cached)
 
         rows = self._execute_projection_query()
         results = [self._convert_projection_row_to_dict(row) for row in rows]
-
-        if not self._bypass_cache and cache_key is not None:
-            self.db._cache_set(  # noqa: SLF001
-                self.table_name,
-                cache_key,
-                results,
-                ttl=self._query_cache_ttl,
-            )
-
+        self.store_cache(results, fetch_one=False)
         return results
 
     def _build_join_sql(
@@ -1966,7 +2087,223 @@ class QueryBuilder(Generic[T]):
         self._order_by = f'"{order_by_field}" {sort_order}'
         return self
 
-    def _execute_query(  # noqa: C901, PLR0912, PLR0915
+    @property
+    def projection_mode(self) -> bool:
+        """Return whether projection mode is active."""
+        return self._projection_mode
+
+    def lookup_cache(self, *, fetch_one: bool) -> tuple[bool, Any]:
+        """Check the cache; return (hit, value) or (False, None) if bypassed."""
+        if self._bypass_cache:
+            return False, None
+        cache_key = self._make_cache_key(fetch_one=fetch_one)
+        return self.db.cache_get(self.table_name, cache_key)
+
+    def store_cache(self, value: object, *, fetch_one: bool) -> None:
+        """Store value in the cache unless caching is bypassed."""
+        if self._bypass_cache:
+            return
+        cache_key = self._make_cache_key(fetch_one=fetch_one)
+        self.db.cache_set(
+            self.table_name, cache_key, value, ttl=self._query_cache_ttl
+        )
+
+    def ensure_projection_method_allowed(
+        self, method_name: str, *, hint: Optional[str] = None
+    ) -> None:
+        """Raise if a method is called while projection mode is active."""
+        self._ensure_projection_method_allowed(method_name, hint=hint)
+
+    def prepare_fetch_first(self) -> None:
+        """Restrict the query to the first matching row."""
+        self._limit = 1
+
+    def prepare_fetch_last(self) -> None:
+        """Restrict the query to the last matching row."""
+        self._limit = 1
+        self._order_by = "rowid DESC"
+
+    def build_execution_plan(
+        self,
+        *,
+        count_only: bool = False,
+    ) -> QueryExecutionPlan:
+        """Build SQL and metadata for a standard or JOIN query."""
+        needs_join_for_filters = self._needs_join_for_filters(
+            count_only=count_only
+        )
+        if self._join_info and (
+            not (count_only or self._fields) or needs_join_for_filters
+        ):
+            return self._build_join_execution_plan(
+                count_only=count_only,
+                needs_join_for_filters=needs_join_for_filters,
+            )
+        return self._build_simple_execution_plan(count_only=count_only)
+
+    def _selected_fields_for_execution(self) -> Optional[list[str]]:
+        """Return selected fields for SQL execution, adding `pk` if needed."""
+        if self._fields is None:
+            return None
+
+        selected_fields = list(self._fields)
+        if "pk" not in selected_fields:
+            selected_fields.append("pk")
+        return selected_fields
+
+    def _needs_join_for_filters(self, *, count_only: bool) -> bool:
+        """Return whether filters require JOIN-qualified SQL."""
+        if not self._join_info or not (count_only or self._fields):
+            return False
+        _values, where_clause = self._parse_filter()
+        return bool(re.search(r"\bt\d+\.", where_clause))
+
+    def _apply_join_query_suffix(
+        self,
+        sql: str,
+        values: list[Any],
+        where_clause: str,
+    ) -> tuple[str, list[Any]]:
+        """Append WHERE / ORDER / LIMIT / OFFSET for a JOIN query."""
+        if self.filters:
+            sql += f" WHERE {where_clause}"
+
+        if self._order_by:
+            match = re.match(r'"([^"]+)"\s+(.*)', self._order_by)
+            if match:
+                field_name = match.group(1)
+                direction = match.group(2)
+                field_sql = self._column_sql(field_name, table_alias="t0")
+                sql += f" ORDER BY {field_sql} {direction}"
+            elif self._order_by.lower().startswith("rowid"):
+                sql += f" ORDER BY t0.{self._order_by}"
+
+        return self._apply_limit_offset(sql, values)
+
+    def _apply_simple_query_suffix(
+        self,
+        sql: str,
+        values: list[Any],
+        where_clause: str,
+    ) -> tuple[str, list[Any]]:
+        """Append WHERE / ORDER / LIMIT / OFFSET for a simple query."""
+        if self.filters:
+            sql += f" WHERE {where_clause}"
+
+        if self._order_by:
+            match = re.match(r'"([^"]+)"\s+(ASC|DESC)', self._order_by)
+            if match:
+                field_name = match.group(1)
+                direction = match.group(2)
+                field_sql = self._column_sql(field_name)
+                sql += f" ORDER BY {field_sql} {direction}"
+            else:
+                sql += f" ORDER BY {self._order_by}"
+
+        return self._apply_limit_offset(sql, values)
+
+    def _apply_limit_offset(
+        self,
+        sql: str,
+        values: list[Any],
+    ) -> tuple[str, list[Any]]:
+        """Append LIMIT / OFFSET clauses."""
+        if self._limit is not None:
+            sql += " LIMIT ?"
+            values.append(self._limit)
+
+        if self._offset is not None:
+            sql += " OFFSET ?"
+            values.append(self._offset)
+
+        return sql, values
+
+    def _build_join_execution_plan(
+        self,
+        *,
+        count_only: bool,
+        needs_join_for_filters: bool,
+    ) -> QueryExecutionPlan:
+        """Build SQL and metadata for a JOIN-backed query."""
+        join_clause, select_clause, column_names = self._build_join_sql()
+
+        if count_only and needs_join_for_filters:
+            sql = (
+                f'SELECT COUNT(*) FROM "{self.table_name}" AS t0 {join_clause}'  # noqa: S608
+            )
+            selected_fields = None
+        elif self._fields:
+            selected_fields = self._selected_fields_for_execution()
+            if selected_fields is None:
+                msg = "Unexpected state: selected fields missing"
+                raise RuntimeError(msg)
+
+            field_list = ", ".join(
+                self._column_sql(field, table_alias="t0")
+                for field in selected_fields
+            )
+            sql = (
+                f'SELECT {field_list} FROM "{self.table_name}" AS t0 '  # noqa: S608
+                f"{join_clause}"
+            )
+            column_names = [
+                ("t0", field, self.model_class) for field in selected_fields
+            ]
+        else:
+            sql = (
+                f'SELECT {select_clause} FROM "{self.table_name}" AS t0 '  # noqa: S608
+                f"{join_clause}"
+            )
+            selected_fields = None
+
+        values, where_clause = self._parse_filter(qualify_base_fields=True)
+        sql, values = self._apply_join_query_suffix(sql, values, where_clause)
+        return QueryExecutionPlan(
+            sql,
+            values,
+            column_names,
+            tuple(selected_fields) if selected_fields else None,
+        )
+
+    def _build_simple_execution_plan(
+        self,
+        *,
+        count_only: bool,
+    ) -> QueryExecutionPlan:
+        """Build SQL and metadata for a non-JOIN query."""
+        if count_only:
+            fields = "COUNT(*)"
+            selected_fields = None
+        elif self._fields:
+            selected_fields = self._selected_fields_for_execution()
+            if selected_fields is None:
+                msg = "Unexpected state: selected fields missing"
+                raise RuntimeError(msg)
+            fields = ", ".join(
+                self._column_sql(field) for field in selected_fields
+            )
+        else:
+            fields = ", ".join(
+                self._column_sql(field)
+                for field in self.model_class.model_fields
+            )
+            selected_fields = None
+
+        sql = f'SELECT {fields} FROM "{self.table_name}"'  # noqa: S608
+        values, where_clause = self._parse_filter()
+        sql, values = self._apply_simple_query_suffix(
+            sql,
+            values,
+            where_clause,
+        )
+        return QueryExecutionPlan(
+            sql,
+            values,
+            [],
+            tuple(selected_fields) if selected_fields else None,
+        )
+
+    def _execute_query(
         self,
         *,
         fetch_one: bool = False,
@@ -1974,6 +2311,7 @@ class QueryBuilder(Generic[T]):
     ) -> tuple[
         list[tuple[Any, ...]] | tuple[Any, ...],
         list[tuple[str, str, type[BaseDBModel]]],
+        Optional[tuple[str, ...]],
     ]:
         """Execute the constructed SQL query.
 
@@ -1990,142 +2328,16 @@ class QueryBuilder(Generic[T]):
         Raises:
             RecordFetchError: If there's an error executing the query.
         """
-        # Check if we need JOINs for eager loading or relationship filters
-        # Need JOIN if: we have join_info AND (not count/fields OR filters
-        # use joins)
-        needs_join_for_filters = False
-        if self._join_info and (count_only or self._fields):
-            # Parse filter to check if it references joined tables
-            values, where_clause = self._parse_filter()
-            # Check for table aliases like t1., t2., etc.
-            if re.search(r"\bt\d+\.", where_clause):
-                needs_join_for_filters = True
-
-        if self._join_info and (
-            not (count_only or self._fields) or needs_join_for_filters
-        ):
-            # Use JOIN-based query
-            join_clause, select_clause, column_names = self._build_join_sql()
-
-            # For count_only with JOINs, we don't need all the columns
-            if count_only and needs_join_for_filters:
-                # table_name validated - safe from SQL injection
-                sql = (
-                    f'SELECT COUNT(*) FROM "{self.table_name}" AS t0 '  # noqa: S608
-                    f"{join_clause}"
-                )
-            elif self._fields:
-                # Build custom field selection with JOINs
-                field_list = ", ".join(
-                    self._column_sql(field, table_alias="t0")
-                    for field in self._fields
-                )
-                # table_name and fields validated - safe from SQL injection
-                sql = (
-                    f"SELECT {field_list} FROM "  # noqa: S608
-                    f'"{self.table_name}" AS t0 {join_clause}'
-                )
-                # Rebuild column_names to match selected fields only
-                column_names = [
-                    ("t0", field, self.model_class) for field in self._fields
-                ]
-            else:
-                # table_name validated - safe from SQL injection
-                sql = (
-                    f"SELECT {select_clause} FROM "  # noqa: S608
-                    f'"{self.table_name}" AS t0 {join_clause}'
-                )
-
-            # Build WHERE clause with special handling for NULL
-            values, where_clause = self._parse_filter(qualify_base_fields=True)
-
-            if self.filters:
-                sql += f" WHERE {where_clause}"
-
-            if self._order_by:
-                # Qualify ORDER BY column with t0 alias to avoid ambiguity
-                # Extract field name and direction from _order_by
-                # _order_by format: '"field" ASC' or '"field" DESC'
-                match = re.match(r'"([^"]+)"\s+(.*)', self._order_by)
-                if match:
-                    field_name = match.group(1)
-                    direction = match.group(2)
-                    field_sql = self._column_sql(field_name, table_alias="t0")
-                    sql += f" ORDER BY {field_sql} {direction}"
-                elif self._order_by.lower().startswith("rowid"):
-                    # Fallback for non-quoted patterns such as "rowid DESC"
-                    sql += f" ORDER BY t0.{self._order_by}"
-
-            if self._limit is not None:
-                sql += " LIMIT ?"
-                values.append(self._limit)
-
-            if self._offset is not None:
-                sql += " OFFSET ?"
-                values.append(self._offset)
-
-            try:
-                conn = self.db.connect()
-                cursor = conn.cursor()
-                self.db._execute(cursor, sql, values)  # noqa: SLF001
-                results = (
-                    cursor.fetchall() if not fetch_one else cursor.fetchone()
-                )
-            except sqlite3.Error as exc:
-                raise RecordFetchError(self.table_name) from exc
-            else:
-                return (results, column_names)
-
-        # Non-JOIN query path (original behavior)
-        if count_only:
-            fields = "COUNT(*)"
-        elif self._fields:
-            if "pk" not in self._fields:
-                self._fields.append("pk")
-            fields = ", ".join(
-                self._column_sql(field) for field in self._fields
-            )
-        else:
-            fields = ", ".join(
-                self._column_sql(field)
-                for field in self.model_class.model_fields
-            )
-
-        sql = f'SELECT {fields} FROM "{self.table_name}"'  # noqa: S608
-
-        # Build the WHERE clause with special handling for None (NULL in SQL)
-        values, where_clause = self._parse_filter()
-
-        if self.filters:
-            sql += f" WHERE {where_clause}"
-
-        if self._order_by:
-            match = re.match(r'"([^"]+)"\s+(ASC|DESC)', self._order_by)
-            if match:
-                field_name = match.group(1)
-                direction = match.group(2)
-                field_sql = self._column_sql(field_name)
-                sql += f" ORDER BY {field_sql} {direction}"
-            else:
-                sql += f" ORDER BY {self._order_by}"
-
-        if self._limit is not None:
-            sql += " LIMIT ?"
-            values.append(self._limit)
-
-        if self._offset is not None:
-            sql += " OFFSET ?"
-            values.append(self._offset)
-
+        plan = self.build_execution_plan(count_only=count_only)
         try:
             conn = self.db.connect()
             cursor = conn.cursor()
-            self.db._execute(cursor, sql, values)  # noqa: SLF001
+            self.db.execute_cursor(cursor, plan.sql, plan.values)
             results = cursor.fetchall() if not fetch_one else cursor.fetchone()
         except sqlite3.Error as exc:
             raise RecordFetchError(self.table_name) from exc
         else:
-            return (results, [])  # Empty column_names for backward compat
+            return (results, plan.column_names, plan.selected_fields)
 
     def _render_base_field_name(
         self, field_name: str, *, qualify_base_fields: bool
@@ -2236,19 +2448,29 @@ class QueryBuilder(Generic[T]):
         where_clause = " AND ".join(where_clauses)
         return values, where_clause
 
-    def _convert_row_to_model(self, row: tuple[Any, ...]) -> T:
+    def _convert_row_to_model(
+        self,
+        row: tuple[Any, ...],
+        *,
+        selected_fields: Optional[tuple[str, ...]] = None,
+    ) -> T:
         """Convert a database row to a model instance.
 
         Args:
             row: A tuple representing a database row.
+            selected_fields: Optional list of fields selected for this
+                execution.
 
         Returns:
             An instance of the model class populated with the row data.
         """
-        if self._fields:
+        if selected_fields is None and self._fields:
+            selected_fields = tuple(self._fields)
+
+        if selected_fields:
             data = {
                 field: self._deserialize(field, row[idx])
-                for idx, field in enumerate(self._fields)
+                for idx, field in enumerate(selected_fields)
             }
             instance = self.model_class.model_validate_partial(data)
         else:
@@ -2454,7 +2676,7 @@ class QueryBuilder(Generic[T]):
             "limit": self._limit,
             "offset": self._offset,
             "order_by": self._order_by,
-            "fields": tuple(sorted(self._fields)) if self._fields else None,
+            "fields": self._cache_key_fields(),
             "fetch_one": fetch_one,
             "select_related": tuple(sorted(self._select_related_paths)),
             "prefetch_related": tuple(sorted(self._prefetch_related_paths)),
@@ -2484,13 +2706,138 @@ class QueryBuilder(Generic[T]):
         key_json = json.dumps(key_parts, sort_keys=True, default=str)
         return hashlib.sha256(key_json.encode()).hexdigest()
 
+    def _cache_key_fields(self) -> Optional[tuple[str, ...]]:
+        """Return cache key fields in a normalized form."""
+        if self._fields is None:
+            return None
+
+        selected_fields = self._selected_fields_for_execution()
+        if selected_fields is None:
+            return None
+
+        return tuple(sorted(selected_fields))
+
+    def convert_fetched_result(
+        self,
+        result: list[tuple[Any, ...]] | tuple[Any, ...],
+        column_names: list[tuple[str, str, type[BaseDBModel]]],
+        *,
+        fetch_one: bool,
+        execute_prefetch: bool = True,
+        selected_fields: Optional[tuple[str, ...]] = None,
+    ) -> Union[list[T], Optional[T]]:
+        """Convert raw query results into model instances."""
+        if column_names:
+            if fetch_one:
+                single_row: tuple[Any, ...] = (
+                    result if isinstance(result, tuple) else result[0]
+                )
+                single_result = self._convert_joined_row_to_model(
+                    single_row,
+                    column_names,
+                )
+                if execute_prefetch:
+                    self._execute_prefetch([single_result])
+                return single_result
+
+            row_list: list[tuple[Any, ...]] = (
+                result if isinstance(result, list) else [result]
+            )
+            list_results = [
+                self._convert_joined_row_to_model(
+                    row,
+                    column_names,
+                )
+                for row in row_list
+            ]
+            if execute_prefetch:
+                self._execute_prefetch(list_results)
+            return list_results
+
+        if fetch_one:
+            std_single_row: tuple[Any, ...] = (
+                result if isinstance(result, tuple) else result[0]
+            )
+            single_result = self._convert_row_to_model(
+                std_single_row,
+                selected_fields=selected_fields,
+            )
+            if execute_prefetch:
+                self._execute_prefetch([single_result])
+            return single_result
+
+        std_row_list: list[tuple[Any, ...]] = (
+            result if isinstance(result, list) else [result]
+        )
+        list_results = [
+            self._convert_row_to_model(
+                row,
+                selected_fields=selected_fields,
+            )
+            for row in std_row_list
+        ]
+        if execute_prefetch:
+            self._execute_prefetch(list_results)
+        return list_results
+
+    def build_delete_statement(self) -> tuple[str, list[Any]]:
+        """Build SQL and values for a DELETE query."""
+        self._ensure_bulk_dml_filters_supported()
+        # Table and column names are model metadata; filter values are bound.
+        sql = f'DELETE FROM "{self.table_name}"'  # noqa: S608
+        values, where_clause = self._parse_filter()
+        if self.filters:
+            sql += f" WHERE {where_clause}"
+        return sql, values
+
+    def build_update_statement(
+        self,
+        values: dict[str, Any],
+        *,
+        current_timestamp: int,
+    ) -> tuple[str, list[Any]]:
+        """Build SQL and values for a bulk UPDATE query."""
+        if not values:
+            return "", []
+        self._ensure_bulk_dml_filters_supported()
+
+        valid_fields = set(self.model_class.model_fields.keys())
+        set_clauses: list[str] = []
+        set_values: list[Any] = []
+
+        if "updated_at" in valid_fields and "updated_at" not in values:
+            set_clauses.append('"updated_at" = ?')
+            set_values.append(current_timestamp)
+
+        for field_name, value in values.items():
+            serialized = self.model_class.serialize_field(value)
+            db_column = self._model_field_to_db_column(
+                self.model_class,
+                field_name,
+            )
+            set_clauses.append(f'"{db_column}" = ?')
+            set_values.append(serialized)
+
+        sql = f'UPDATE "{self.table_name}" SET {", ".join(set_clauses)}'  # noqa: S608
+        where_values, where_clause = self._parse_filter()
+        if self.filters:
+            sql += f" WHERE {where_clause}"
+
+        return sql, set_values + where_values
+
+    def _ensure_bulk_dml_filters_supported(self) -> None:
+        """Reject relationship filters until bulk DML can render joins."""
+        if self._join_info:
+            msg = "Bulk update/delete does not support relationship filters."
+            raise InvalidFilterError(msg)
+
     @overload
     def _fetch_result(self, *, fetch_one: Literal[True]) -> Optional[T]: ...
 
     @overload
     def _fetch_result(self, *, fetch_one: Literal[False]) -> list[T]: ...
 
-    def _fetch_result(  # noqa: C901, PLR0911
+    def _fetch_result(
         self, *, fetch_one: bool = False
     ) -> Union[list[T], Optional[T]]:
         """Fetch and convert query results to model instances.
@@ -2502,110 +2849,27 @@ class QueryBuilder(Generic[T]):
             A list of model instances, a single model instance, or None if no
             results are found.
         """
-        # Check cache first (unless bypass is enabled)
-        if not self._bypass_cache:
-            cache_key = self._make_cache_key(fetch_one=fetch_one)
-            hit, cached = self.db._cache_get(self.table_name, cache_key)  # noqa: SLF001
-            if hit:
-                # Cache stores correctly typed data, cast from Any
-                return cast("Union[list[T], Optional[T]]", cached)
+        hit, cached = self.lookup_cache(fetch_one=fetch_one)
+        if hit:
+            return cast("Union[list[T], Optional[T]]", cached)
 
-        result, column_names = self._execute_query(fetch_one=fetch_one)
+        result, column_names, selected_fields = self._execute_query(
+            fetch_one=fetch_one
+        )
 
         if not result:
-            if not self._bypass_cache:
-                # Generate cache key for empty result
-                cache_key = self._make_cache_key(fetch_one=fetch_one)
-                if fetch_one:
-                    # Cache empty result
-                    self.db._cache_set(  # noqa: SLF001
-                        self.table_name,
-                        cache_key,
-                        None,
-                        ttl=self._query_cache_ttl,
-                    )
-                    return None
-                # Cache empty list
-                self.db._cache_set(  # noqa: SLF001
-                    self.table_name, cache_key, [], ttl=self._query_cache_ttl
-                )
-                return []
-            return None if fetch_one else []
+            empty: Union[list[T], Optional[T]] = None if fetch_one else []
+            self.store_cache(empty, fetch_one=fetch_one)
+            return empty
 
-        # Convert results based on whether we have JOIN data
-        if column_names:
-            # JOIN-aware converter - needs column_names
-            if fetch_one:
-                # When fetch_one=True, result is a single tuple
-                # Narrow the type from the union
-                single_row: tuple[Any, ...] = (
-                    result if isinstance(result, tuple) else result[0]
-                )
-                single_result = self._convert_joined_row_to_model(
-                    single_row, column_names
-                )
-                self._execute_prefetch([single_result])
-                if not self._bypass_cache:
-                    cache_key = self._make_cache_key(fetch_one=True)
-                    self.db._cache_set(  # noqa: SLF001
-                        self.table_name,
-                        cache_key,
-                        single_result,
-                        ttl=self._query_cache_ttl,
-                    )
-                return single_result
-
-            # When fetch_one=False, result is a list of tuples
-            # Narrow the type from the union
-            row_list: list[tuple[Any, ...]] = (
-                result if isinstance(result, list) else [result]
-            )
-            list_results = [
-                self._convert_joined_row_to_model(row, column_names)
-                for row in row_list
-            ]
-            self._execute_prefetch(list_results)
-            if not self._bypass_cache:
-                cache_key = self._make_cache_key(fetch_one=False)
-                self.db._cache_set(  # noqa: SLF001
-                    self.table_name,
-                    cache_key,
-                    list_results,
-                    ttl=self._query_cache_ttl,
-                )
-            return list_results
-
-        # Standard converter
-        if fetch_one:
-            std_single_row: tuple[Any, ...] = (
-                result if isinstance(result, tuple) else result[0]
-            )
-            single_result = self._convert_row_to_model(std_single_row)
-            self._execute_prefetch([single_result])
-            if not self._bypass_cache:
-                cache_key = self._make_cache_key(fetch_one=True)
-                self.db._cache_set(  # noqa: SLF001
-                    self.table_name,
-                    cache_key,
-                    single_result,
-                    ttl=self._query_cache_ttl,
-                )
-            return single_result
-
-        std_row_list: list[tuple[Any, ...]] = (
-            result if isinstance(result, list) else [result]
+        converted = self.convert_fetched_result(
+            result,
+            column_names,
+            fetch_one=fetch_one,
+            selected_fields=selected_fields,
         )
-        list_results = [self._convert_row_to_model(row) for row in std_row_list]
-        self._execute_prefetch(list_results)
-        if not self._bypass_cache:
-            cache_key = self._make_cache_key(fetch_one=False)
-            self.db._cache_set(  # noqa: SLF001
-                self.table_name,
-                cache_key,
-                list_results,
-                ttl=self._query_cache_ttl,
-            )
-        return list_results
+        self.store_cache(converted, fetch_one=fetch_one)
+        return converted
 
     def fetch_all(self) -> list[T]:
         """Fetch all results of the query.
@@ -2672,7 +2936,9 @@ class QueryBuilder(Generic[T]):
             "count",
             hint="Use len(fetch_dicts()) instead.",
         )
-        result, _column_names = self._execute_query(count_only=True)
+        result, _column_names, _selected_fields = self._execute_query(
+            count_only=True
+        )
 
         return int(result[0][0]) if result else 0
 
@@ -2708,24 +2974,18 @@ class QueryBuilder(Generic[T]):
             RecordDeletionError: If there's an error deleting the records.
         """
         self._ensure_projection_method_allowed("delete")
-        sql = f'DELETE FROM "{self.table_name}"'  # nosec  # noqa: S608
-
-        # Build the WHERE clause with special handling for None (NULL in SQL)
-        values, where_clause = self._parse_filter()
-
-        if self.filters:
-            sql += f" WHERE {where_clause}"
+        sql, values = self.build_delete_statement()
 
         try:
             conn = self.db.connect()
             cursor = conn.cursor()
-            self.db._execute(cursor, sql, values)  # noqa: SLF001
+            self.db.execute_cursor(cursor, sql, values)
             deleted_count = cursor.rowcount
-            self.db._maybe_commit()  # noqa: SLF001
-            self.db._cache_invalidate_table(self.table_name)  # noqa: SLF001
+            self.db.maybe_commit()
+            self.db.invalidate_table_cache(self.table_name)
         except sqlite3.Error as exc:
             # Rollback implicit transaction if not in user-managed transaction
-            if not self.db._in_transaction and self.db.conn:  # noqa: SLF001
+            if not self.db.in_transaction and self.db.conn:
                 self.db.conn.rollback()
             raise RecordDeletionError(self.table_name) from exc
         else:
@@ -2762,49 +3022,21 @@ class QueryBuilder(Generic[T]):
             invalid_names = ", ".join(sorted(invalid_fields))
             raise InvalidUpdateError(invalid_names)
 
-        # Build SET clause
-        set_clauses: list[str] = []
-        set_values: list[Any] = []
-
-        # Auto-set updated_at timestamp if the field exists and wasn't
-        # explicitly provided
-        if "updated_at" in valid_fields and "updated_at" not in values:
-            current_timestamp = int(time.time())
-            set_clauses.append('"updated_at" = ?')
-            set_values.append(current_timestamp)
-
-        for field_name, value in values.items():
-            # Serialize the value if needed
-            serialized = self.model_class.serialize_field(value)
-            db_column = self._model_field_to_db_column(
-                self.model_class, field_name
-            )
-            set_clauses.append(f'"{db_column}" = ?')
-            set_values.append(serialized)
-
-        set_clause = ", ".join(set_clauses)
-
-        # Build the full UPDATE SQL
-        sql = f'UPDATE "{self.table_name}" SET {set_clause}'  # noqa: S608
-
-        # Build the WHERE clause
-        where_values, where_clause = self._parse_filter()
-        if self.filters:
-            sql += f" WHERE {where_clause}"
-
-        # Combine SET values with WHERE values
-        all_values = set_values + where_values
+        sql, all_values = self.build_update_statement(
+            values,
+            current_timestamp=int(time.time()),
+        )
 
         try:
             conn = self.db.connect()
             cursor = conn.cursor()
-            self.db._execute(cursor, sql, all_values)  # noqa: SLF001
+            self.db.execute_cursor(cursor, sql, all_values)
             updated_count = cursor.rowcount
-            self.db._maybe_commit()  # noqa: SLF001
-            self.db._cache_invalidate_table(self.table_name)  # noqa: SLF001
+            self.db.maybe_commit()
+            self.db.invalidate_table_cache(self.table_name)
         except sqlite3.Error as exc:
             # Rollback implicit transaction if not in user-managed transaction
-            if not self.db._in_transaction and self.db.conn:  # noqa: SLF001
+            if not self.db.in_transaction and self.db.conn:
                 self.db.conn.rollback()
             raise RecordUpdateError(self.table_name) from exc
         else:

@@ -4,7 +4,7 @@
 [project]
 name = "sqliter-py"
 version = "0.20.0"
-description = "Interact with SQLite databases using Python and Pydantic"
+description = "Interact with SQLite databases using Python and Pydantic, with optional async support"
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
@@ -29,9 +29,10 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
+async = ["aiosqlite>=0.20.0"]
 demo = ["textual>=7.3.0"]
-extras = ["inflect==7.0.0"]
-full = ["inflect>=7.0.0", "textual>=7.3.0"]
+extras = ["inflect>=7.0.0"]
+full = ["inflect>=7.0.0", "textual>=7.3.0", "aiosqlite>=0.20.0"]
 
 [project.scripts]
 sqliter-demo = "sqliter.tui:run"
@@ -53,6 +54,7 @@ module-root = ""
 
 [dependency-groups]
 dev = [
+  "aiosqlite>=0.20.0",
   "mock>=5.1.0",
   "mypy>=1.11.2",
   "pytest>=8.3.2,<9.0",
@@ -85,6 +87,9 @@ format.cmd = "ruff format ."
 format.help = "Format code with Ruff"
 ruff.cmd = "ruff check --output-format=concise ."
 ruff.help = "Run Ruff checks"
+
+md.cmd = 'npx markdownlint-cli2 "docs/**/*.md" "README.md"'
+md.help = "Run markdown checks on the docs"
 
 test.cmd = "pytest"
 test.help = "Run tests using Pytest"
@@ -140,6 +145,13 @@ convention = "google"
   "ARG00",   # test fixtures often are not directly used
   "PLR2004", # magic numbers are often used in test files
   "SLF001",  # sometimes we need to test private methods
+  "S608",    # tests sometimes construct validated SQL snippets directly
+]
+"sqliter/asyncio/__init__.py" = [
+  "A005", # intended public namespace: sqliter.asyncio
+]
+"sqliter/asyncio/db.py" = [
+  "TRY301", # keep not-found handling aligned with sync implementation shape
 ]
 
 [tool.ruff.lint.isort]

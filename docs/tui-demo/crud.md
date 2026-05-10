@@ -1,6 +1,7 @@
 # CRUD Operations Demos
 
-These demos demonstrate the basic Create, Read, Update, and Delete operations in SQLiter.
+These demos demonstrate the basic Create, Read, Update, and Delete operations in
+SQLiter.
 
 ## Insert Records
 
@@ -33,7 +34,8 @@ db.close()
 
 ### Performance
 
-For bulk inserts, consider using transactions (see [Transactions](transactions.md)) for better performance.
+For bulk inserts, consider using transactions (see
+[Transactions](transactions.md)) for better performance.
 
 ## Get by Primary Key
 
@@ -132,7 +134,8 @@ db.close()
 
 ### Foreign Key Constraints
 
-If other records reference this record (via foreign keys), the delete will fail unless you handle the dependencies first.
+If other records reference this record (via foreign keys), the delete will fail
+unless you handle the dependencies first.
 
 ## Bulk Insert
 
@@ -296,7 +299,8 @@ db.close()
 
 ### Return Value
 
-Both methods return the number of records affected, so you can verify the update worked:
+Both methods return the number of records affected, so you can verify the update
+worked:
 
 ```python
 count = db.update_where(Task, where={"status": "pending"}, values={"status": "done"})
@@ -305,15 +309,15 @@ print(f"Updated {count} tasks")
 
 ## Operation Summary
 
-| Operation | Method | Returns |
-|-----------|--------|---------|
-| **Create** | `db.insert(Model(...))` | The model with `pk` set |
-| **Create (batch)** | `db.bulk_insert([...])` | List of models with `pk` set |
-| **Read** | `db.get(Model, pk)` | The model or `None` |
-| **Update** | `db.update(model)` | Nothing (modifies in-place) |
-| **Update (bulk)** | `db.update_where(...)` | Number of records updated |
-| **Update (query)** | `db.select(...).update(...)` | Number of records updated |
-| **Delete** | `db.delete(Model, pk)` | Nothing |
+| Operation          | Method                       | Returns                      |
+| ------------------ | ---------------------------- | ---------------------------- |
+| **Create**         | `db.insert(Model(...))`      | The model with `pk` set      |
+| **Create (batch)** | `db.bulk_insert([...])`      | List of models with `pk` set |
+| **Read**           | `db.get(Model, pk)`          | The model or `None`          |
+| **Update**         | `db.update(model)`           | Nothing (modifies in-place)  |
+| **Update (bulk)**  | `db.update_where(...)`       | Number of records updated    |
+| **Update (query)** | `db.select(...).update(...)` | Number of records updated    |
+| **Delete**         | `db.delete(Model, pk)`       | Nothing                      |
 
 ## Best Practices
 

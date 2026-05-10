@@ -13,6 +13,7 @@ import sqlite3
 import sys
 import time
 from collections import OrderedDict
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, cast
 
 from typing_extensions import Self
@@ -30,7 +31,7 @@ from sqliter.exceptions import (
     TableCreationError,
     TableDeletionError,
 )
-from sqliter.helpers import infer_sqlite_type
+from sqliter.helpers import infer_sqlite_type, quote_identifier
 from sqliter.model.foreign_key import (
     ForeignKeyInfo,
     get_foreign_key_info,
@@ -46,6 +47,46 @@ if TYPE_CHECKING:  # pragma: no cover
     from pydantic.fields import FieldInfo
 
 T = TypeVar("T", bound=BaseDBModel)
+
+
+@dataclass(frozen=True)
+class InsertPlan:
+    """Prepared SQL plan for inserting a single model instance."""
+
+    model_class: type[BaseDBModel]
+    table_name: str
+    data: dict[str, Any]
+    sql: str
+    values: tuple[Any, ...]
+
+
+@dataclass(frozen=True)
+class GetPlan:
+    """Prepared SQL plan for fetching a single model instance by PK."""
+
+    table_name: str
+    sql: str
+    values: tuple[Any, ...]
+
+
+@dataclass(frozen=True)
+class UpdatePlan:
+    """Prepared SQL plan for updating a single model instance."""
+
+    table_name: str
+    primary_key_value: Any
+    sql: str
+    values: tuple[Any, ...]
+
+
+@dataclass(frozen=True)
+class DeletePlan:
+    """Prepared SQL plan for deleting a single model instance by PK."""
+
+    table_name: str
+    primary_key_value: int | str
+    sql: str
+    values: tuple[int | str, ...]
 
 
 class SqliterDB:
@@ -117,6 +158,8 @@ class SqliterDB:
         self.return_local_time = return_local_time
 
         self._in_transaction = False
+        self._transaction_depth = 0
+        self._rollback_requested = False
 
         # Initialize cache
         self._cache_enabled = cache_enabled
@@ -177,6 +220,11 @@ class SqliterDB:
         return self.conn is not None
 
     @property
+    def in_transaction(self) -> bool:
+        """Return whether the DB is in an explicit transaction."""
+        return self._transaction_depth > 0
+
+    @property
     def table_names(self) -> list[str]:
         """Returns a list of all table names in the database.
 
@@ -220,7 +268,10 @@ class SqliterDB:
 
             # Drop each user-created table
             for table in tables:
-                self._execute(cursor, f"DROP TABLE IF EXISTS {table[0]}")
+                self._execute(
+                    cursor,
+                    f"DROP TABLE IF EXISTS {quote_identifier(table[0])}",
+                )
 
             conn.commit()
 
@@ -236,6 +287,9 @@ class SqliterDB:
         using an existing logger or creating a new one specifically for
         SQLiter.
         """
+        if self.logger is not None:
+            return
+
         # Check if the root logger is already configured
         root_logger = logging.getLogger()
 
@@ -278,6 +332,10 @@ class SqliterDB:
 
             self.logger.debug("Executing SQL: %s", formatted_sql)
 
+    def log_sql(self, sql: str, values: Sequence[Any] = ()) -> None:
+        """Log a SQL statement if debug output is enabled."""
+        self._log_sql(sql, values)
+
     def _execute(
         self,
         cursor: sqlite3.Cursor,
@@ -300,6 +358,15 @@ class SqliterDB:
         self._log_sql(sql, values)
         cursor.execute(sql, values)
         return cursor
+
+    def execute_cursor(
+        self,
+        cursor: sqlite3.Cursor,
+        sql: str,
+        values: Sequence[Any] = (),
+    ) -> sqlite3.Cursor:
+        """Execute SQL on an existing cursor."""
+        return self._execute(cursor, sql, values)
 
     def connect(self) -> sqlite3.Connection:
         """Establish a connection to the SQLite database.
@@ -357,6 +424,14 @@ class SqliterDB:
         self._cache_hits += 1
         return True, result
 
+    def cache_get(
+        self,
+        table_name: str,
+        cache_key: str,
+    ) -> tuple[bool, Any]:
+        """Return a cached value for a table/query key pair."""
+        return self._cache_get(table_name, cache_key)
+
     def _cache_set(
         self,
         table_name: str,
@@ -402,6 +477,16 @@ class SqliterDB:
         if len(self._cache[table_name]) > self._cache_max_size:
             self._cache[table_name].popitem(last=False)
 
+    def cache_set(
+        self,
+        table_name: str,
+        cache_key: str,
+        result: Any,  # noqa: ANN401
+        ttl: Optional[int] = None,
+    ) -> None:
+        """Store a value in the query cache."""
+        self._cache_set(table_name, cache_key, result, ttl=ttl)
+
     def _cache_invalidate_table(self, table_name: str) -> None:
         """Clear all cached queries for a specific table.
 
@@ -411,6 +496,10 @@ class SqliterDB:
         if not self._cache_enabled:
             return
         self._cache.pop(table_name, None)
+
+    def invalidate_table_cache(self, table_name: str) -> None:
+        """Clear all cached queries for a specific table."""
+        self._cache_invalidate_table(table_name)
 
     def _get_table_memory_usage(  # noqa: C901
         self, table_name: str
@@ -522,6 +611,11 @@ class SqliterDB:
         """
         self._cache.clear()
 
+    def reset_cache_stats(self) -> None:
+        """Reset cache hit/miss counters."""
+        self._cache_hits = 0
+        self._cache_misses = 0
+
     def close(self) -> None:
         """Close the database connection.
 
@@ -533,6 +627,7 @@ class SqliterDB:
             self._maybe_commit()
             self.conn.close()
             self.conn = None
+        self.reset_transaction_scope()
         self._cache.clear()
         self._cache_hits = 0
         self._cache_misses = 0
@@ -580,6 +675,14 @@ class SqliterDB:
                 fields.append(self._build_regular_field(field_name, field_info))
 
         return fields, foreign_keys, fk_columns
+
+    def build_field_definitions(
+        self,
+        model_class: type[BaseDBModel],
+        primary_key: str,
+    ) -> tuple[list[str], list[str], list[str]]:
+        """Build SQL field definitions for table creation."""
+        return self._build_field_definitions(model_class, primary_key)
 
     def _build_fk_field(
         self, field_name: str, fk_info: ForeignKeyInfo
@@ -633,6 +736,99 @@ class SqliterDB:
             unique_constraint = "UNIQUE"
         return f'"{field_name}" {sqlite_type} {unique_constraint}'.strip()
 
+    @staticmethod
+    def _build_fk_index_sql(table_name: str, column_name: str) -> str:
+        """Build SQL for an index on a foreign-key column."""
+        return (
+            f'CREATE INDEX IF NOT EXISTS "idx_{table_name}_{column_name}" '
+            f'ON "{table_name}" ("{column_name}")'
+        )
+
+    def _build_create_table_sql(
+        self,
+        model_class: type[BaseDBModel],
+        *,
+        exists_ok: bool,
+    ) -> tuple[str, str, list[str]]:
+        """Build CREATE TABLE SQL and FK-index columns for a model."""
+        table_name = model_class.get_table_name()
+        primary_key = model_class.get_primary_key()
+        fields, foreign_keys, fk_columns = self._build_field_definitions(
+            model_class,
+            primary_key,
+        )
+        all_definitions = fields + foreign_keys
+        create_str = (
+            "CREATE TABLE IF NOT EXISTS" if exists_ok else "CREATE TABLE"
+        )
+        create_table_sql = f"""
+        {create_str} "{table_name}" (
+            {", ".join(all_definitions)}
+        )
+        """
+        return table_name, create_table_sql, fk_columns
+
+    def _build_index_sql(
+        self,
+        model_class: type[BaseDBModel],
+        index: str | tuple[str, ...],
+        *,
+        unique: bool,
+    ) -> str:
+        """Build CREATE INDEX SQL for one configured index entry."""
+        valid_fields = set(model_class.model_fields.keys())
+        fields = list(index) if isinstance(index, tuple) else [index]
+        invalid_fields = [
+            field for field in fields if field not in valid_fields
+        ]
+        if invalid_fields:
+            raise InvalidIndexError(invalid_fields, model_class.__name__)
+
+        index_name = "_".join(fields)
+        index_postfix = "_unique" if unique else ""
+        index_type = " UNIQUE " if unique else " "
+        quoted_fields = ", ".join(f'"{field}"' for field in fields)
+        return (
+            f"CREATE{index_type}INDEX IF NOT EXISTS "
+            f"idx_{model_class.get_table_name()}"
+            f"_{index_name}{index_postfix} "
+            f'ON "{model_class.get_table_name()}" ({quoted_fields})'
+        )
+
+    def build_configured_index_sqls(
+        self,
+        model_class: type[BaseDBModel],
+    ) -> tuple[list[str], list[str]]:
+        """Build configured regular and unique index SQL for a model."""
+        regular_index_sqls = [
+            self._build_index_sql(model_class, index, unique=False)
+            for index in getattr(model_class.Meta, "indexes", [])
+        ]
+        unique_index_sqls = [
+            self._build_index_sql(model_class, index, unique=True)
+            for index in getattr(model_class.Meta, "unique_indexes", [])
+        ]
+        return regular_index_sqls, unique_index_sqls
+
+    @staticmethod
+    def _build_m2m_junction_sql(
+        junction_table: str,
+        table_a: str,
+        table_b: str,
+    ) -> tuple[str, list[str]]:
+        """Build CREATE TABLE and CREATE INDEX SQL for a junction table."""
+        from sqliter.orm.m2m import (  # noqa: PLC0415
+            build_junction_index_sqls,
+            build_junction_table_sql,
+        )
+
+        create_sql, columns = build_junction_table_sql(
+            junction_table,
+            table_a,
+            table_b,
+        )
+        return create_sql, build_junction_index_sqls(junction_table, columns)
+
     def create_table(
         self,
         model_class: type[BaseDBModel],
@@ -653,57 +849,39 @@ class SqliterDB:
             TableCreationError: If there's an error creating the table.
             ValueError: If the primary key field is not found in the model.
         """
-        table_name = model_class.get_table_name()
-        primary_key = model_class.get_primary_key()
+        table_name, create_table_sql, fk_columns = self._build_create_table_sql(
+            model_class,
+            exists_ok=exists_ok,
+        )
+        regular_index_sqls, unique_index_sqls = (
+            self.build_configured_index_sqls(model_class)
+        )
 
         if force:
-            drop_table_sql = f"DROP TABLE IF EXISTS {table_name}"
+            drop_table_sql = (
+                f"DROP TABLE IF EXISTS {quote_identifier(table_name)}"
+            )
             self._execute_sql(drop_table_sql)
 
-        fields, foreign_keys, fk_columns = self._build_field_definitions(
-            model_class, primary_key
-        )
-
-        # Combine field definitions and FK constraints
-        all_definitions = fields + foreign_keys
-
-        create_str = (
-            "CREATE TABLE IF NOT EXISTS" if exists_ok else "CREATE TABLE"
-        )
-
-        create_table_sql = f"""
-        {create_str} "{table_name}" (
-            {", ".join(all_definitions)}
-        )
-        """
-
         try:
-            with self.connect() as conn:
-                cursor = conn.cursor()
-                self._execute(cursor, create_table_sql)
-                conn.commit()
+            conn = self.connect()
+            cursor = conn.cursor()
+            self._execute(cursor, create_table_sql)
+            self._maybe_commit()
         except sqlite3.Error as exc:
             raise TableCreationError(table_name) from exc
 
         # Create indexes for FK columns
         for column_name in fk_columns:
-            index_sql = (
-                f'CREATE INDEX IF NOT EXISTS "idx_{table_name}_{column_name}" '
-                f'ON "{table_name}" ("{column_name}")'
-            )
-            self._execute_sql(index_sql)
+            self._execute_sql(self._build_fk_index_sql(table_name, column_name))
 
         # Create regular indexes
-        if hasattr(model_class.Meta, "indexes"):
-            self._create_indexes(
-                model_class, model_class.Meta.indexes, unique=False
-            )
+        for index_sql in regular_index_sqls:
+            self._execute_sql(index_sql)
 
         # Create unique indexes
-        if hasattr(model_class.Meta, "unique_indexes"):
-            self._create_indexes(
-                model_class, model_class.Meta.unique_indexes, unique=True
-            )
+        for index_sql in unique_index_sqls:
+            self._execute_sql(index_sql)
 
         # Create junction tables for M2M relationships
         self._create_m2m_junction_tables(model_class)
@@ -720,9 +898,6 @@ class SqliterDB:
             model_class: The model class to check for M2M relationships.
         """
         try:
-            from sqliter.orm.m2m import (  # noqa: PLC0415
-                create_junction_table,
-            )
             from sqliter.orm.registry import (  # noqa: PLC0415
                 ModelRegistry,
             )
@@ -739,17 +914,37 @@ class SqliterDB:
 
             # Sort alphabetically for consistent column naming
             sorted_tables = sorted([table_name, to_table])
-            create_junction_table(
-                self,
+            create_sql, index_sqls = self._build_m2m_junction_sql(
                 junction_table,
                 sorted_tables[0],
                 sorted_tables[1],
             )
+            self._execute_sql(create_sql)
+            for index_sql in index_sqls:
+                self._execute_m2m_index_sql(index_sql)
+
+    def _execute_m2m_index_sql(self, index_sql: str) -> None:
+        """Execute M2M index SQL and surface failures with context."""
+        try:
+            self._execute_sql(index_sql)
+        except SqlExecutionError:
+            if self.logger is not None:
+                self.logger.exception(
+                    "Failed to create M2M junction index with SQL: %s",
+                    index_sql,
+                )
+            raise
+
+    def create_m2m_junction_tables(
+        self, model_class: type[BaseDBModel]
+    ) -> None:
+        """Create junction tables for M2M relationships on a model."""
+        self._create_m2m_junction_tables(model_class)
 
     def _create_indexes(
         self,
         model_class: type[BaseDBModel],
-        indexes: list[Union[str, tuple[str]]],
+        indexes: list[Union[str, tuple[str, ...]]],
         *,
         unique: bool = False,
     ) -> None:
@@ -765,36 +960,28 @@ class SqliterDB:
             InvalidIndexError: If any fields specified for indexing do not exist
                 in the model.
         """
-        valid_fields = set(
-            model_class.model_fields.keys()
-        )  # Get valid fields from the model
-
         for index in indexes:
-            # Handle multiple fields in tuple form
-            fields = list(index) if isinstance(index, tuple) else [index]
-
-            # Check if all fields exist in the model
-            invalid_fields = [
-                field for field in fields if field not in valid_fields
-            ]
-            if invalid_fields:
-                raise InvalidIndexError(invalid_fields, model_class.__name__)
-
-            # Build the SQL string
-            index_name = "_".join(fields)
-            index_postfix = "_unique" if unique else ""
-            index_type = " UNIQUE " if unique else " "
-
-            # Quote field names for index creation
-            quoted_fields = ", ".join(f'"{field}"' for field in fields)
-
-            create_index_sql = (
-                f"CREATE{index_type}INDEX IF NOT EXISTS "
-                f"idx_{model_class.get_table_name()}"
-                f"_{index_name}{index_postfix} "
-                f'ON "{model_class.get_table_name()}" ({quoted_fields})'
+            self._execute_sql(
+                self._build_index_sql(
+                    model_class,
+                    index,
+                    unique=unique,
+                )
             )
-            self._execute_sql(create_index_sql)
+
+    def create_indexes(
+        self,
+        model_class: type[BaseDBModel],
+        indexes: list[Union[str, tuple[str, ...]]],
+        *,
+        unique: bool = False,
+    ) -> None:
+        """Create regular or unique indexes for a model."""
+        self._create_indexes(
+            model_class,
+            indexes,
+            unique=unique,
+        )
 
     def _execute_sql(self, sql: str) -> None:
         """Execute an SQL statement.
@@ -806,10 +993,10 @@ class SqliterDB:
             SqlExecutionError: If the SQL execution fails.
         """
         try:
-            with self.connect() as conn:
-                cursor = conn.cursor()
-                self._execute(cursor, sql)
-                conn.commit()
+            conn = self.connect()
+            cursor = conn.cursor()
+            self._execute(cursor, sql)
+            self._maybe_commit()
         except (sqlite3.Error, sqlite3.Warning) as exc:
             raise SqlExecutionError(sql) from exc
 
@@ -823,13 +1010,13 @@ class SqliterDB:
             TableDeletionError: If there's an error dropping the table.
         """
         table_name = model_class.get_table_name()
-        drop_table_sql = f"DROP TABLE IF EXISTS {table_name}"
+        drop_table_sql = f"DROP TABLE IF EXISTS {quote_identifier(table_name)}"
 
         try:
-            with self.connect() as conn:
-                cursor = conn.cursor()
-                self._execute(cursor, drop_table_sql)
-                self.commit()
+            conn = self.connect()
+            cursor = conn.cursor()
+            self._execute(cursor, drop_table_sql)
+            self._maybe_commit()
         except sqlite3.Error as exc:
             raise TableDeletionError(table_name) from exc
 
@@ -839,8 +1026,69 @@ class SqliterDB:
         This method is called after operations that modify the database,
         committing changes only if auto_commit is set to True.
         """
-        if not self._in_transaction and self.auto_commit and self.conn:
+        if not self.in_transaction and self.auto_commit and self.conn:
             self.conn.commit()
+
+    def set_in_transaction(self, *, value: bool) -> None:
+        """Set explicit transaction state as a top-level toggle.
+
+        This helper is intended for callers that need to force transaction
+        state on or off without tracking nested entry/exit semantics. Callers
+        that may re-enter transaction scopes should use
+        ``enter_transaction_scope()`` and ``exit_transaction_scope()``.
+        """
+        if value:
+            if self._transaction_depth == 0:
+                self._transaction_depth = 1
+            self._in_transaction = True
+            return
+
+        self._transaction_depth = 0
+        self._in_transaction = False
+        if not value:
+            self._rollback_requested = False
+
+    def enter_transaction_scope(self) -> bool:
+        """Record entry into a transaction scope.
+
+        Returns:
+            True when the caller is entering the outermost transaction scope
+            and should begin a database transaction.
+        """
+        should_begin = self._transaction_depth == 0
+        self._transaction_depth += 1
+        self._in_transaction = True
+        return should_begin
+
+    def exit_transaction_scope(self, *, had_error: bool) -> tuple[bool, bool]:
+        """Record exit from a transaction scope.
+
+        Args:
+            had_error: Whether the exiting scope raised an exception.
+
+        Returns:
+            A tuple of ``(should_finalize, should_rollback)`` where
+            ``should_finalize`` is True only for the outermost exit and
+            ``should_rollback`` indicates whether the final transaction action
+            should rollback instead of commit.
+        """
+        if had_error:
+            self._rollback_requested = True
+
+        self._transaction_depth = max(0, self._transaction_depth - 1)
+        self._in_transaction = self._transaction_depth > 0
+
+        return self._transaction_depth == 0, self._rollback_requested
+
+    def reset_transaction_scope(self) -> None:
+        """Reset explicit transaction state after finalization."""
+        self._transaction_depth = 0
+        self._rollback_requested = False
+        self._in_transaction = False
+
+    def maybe_commit(self) -> None:
+        """Public wrapper for conditional commit behavior."""
+        self._maybe_commit()
 
     def _set_insert_timestamps(
         self, model_instance: T, *, timestamp_override: bool
@@ -862,11 +1110,22 @@ class SqliterDB:
             if model_instance.updated_at == 0:
                 model_instance.updated_at = current_timestamp
 
+    def set_insert_timestamps(
+        self, model_instance: T, *, timestamp_override: bool
+    ) -> None:
+        """Set created/updated timestamps for a new model instance."""
+        self._set_insert_timestamps(
+            model_instance,
+            timestamp_override=timestamp_override,
+        )
+
     def _create_instance_from_data(
         self,
         model_class: type[T],
         data: dict[str, Any],
         pk: Optional[int] = None,
+        *,
+        db_context: Optional[object] = None,
     ) -> T:
         """Create a model instance from deserialized data.
 
@@ -876,6 +1135,8 @@ class SqliterDB:
             model_class: The model class to instantiate.
             data: Raw data dictionary from the database.
             pk: Optional primary key value to set.
+            db_context: DB instance to bind for ORM lazy loading. Defaults
+                to ``self`` when omitted.
 
         Returns:
             A new model instance with db_context set if applicable.
@@ -897,8 +1158,21 @@ class SqliterDB:
 
         # Set db_context for ORM lazy loading and reverse relationships
         if hasattr(instance, "db_context"):
-            instance.db_context = self
+            instance.db_context = db_context if db_context is not None else self
         return instance
+
+    def create_instance_from_data(
+        self,
+        model_class: type[T],
+        data: dict[str, Any],
+        pk: Optional[int] = None,
+        *,
+        db_context: Optional[object] = None,
+    ) -> T:
+        """Create a model instance from raw database data."""
+        return self._create_instance_from_data(
+            model_class, data, pk=pk, db_context=db_context
+        )
 
     @staticmethod
     def _model_field_to_db_column(
@@ -906,6 +1180,13 @@ class SqliterDB:
     ) -> str:
         """Resolve a model field name to its database column name."""
         return get_model_field_db_column(model_class, field_name)
+
+    @staticmethod
+    def model_field_to_db_column(
+        model_class: type[BaseDBModel], field_name: str
+    ) -> str:
+        """Resolve a model field name to its database column name."""
+        return SqliterDB._model_field_to_db_column(model_class, field_name)
 
     def _map_data_to_db_columns(
         self, model_class: type[BaseDBModel], data: dict[str, Any]
@@ -915,6 +1196,12 @@ class SqliterDB:
             self._model_field_to_db_column(model_class, field_name): value
             for field_name, value in data.items()
         }
+
+    def map_data_to_db_columns(
+        self, model_class: type[BaseDBModel], data: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Map model-field keyed data to database-column keyed data."""
+        return self._map_data_to_db_columns(model_class, data)
 
     def _build_model_select_list(self, model_class: type[BaseDBModel]) -> str:
         """Build a SELECT column list that maps DB columns to model fields."""
@@ -926,6 +1213,128 @@ class SqliterDB:
             else:
                 select_parts.append(f'"{db_column}" AS "{field_name}"')
         return ", ".join(select_parts)
+
+    def build_model_select_list(self, model_class: type[BaseDBModel]) -> str:
+        """Build a SELECT column list that maps DB columns to model fields."""
+        return self._build_model_select_list(model_class)
+
+    def _serialize_model_data(
+        self,
+        model_instance: BaseDBModel,
+    ) -> dict[str, Any]:
+        """Return serialized model data keyed by model field names."""
+        data = model_instance.model_dump()
+        for field_name, value in list(data.items()):
+            data[field_name] = model_instance.serialize_field(value)
+        return data
+
+    def _build_insert_plan(
+        self,
+        model_instance: T,
+        *,
+        timestamp_override: bool,
+    ) -> InsertPlan:
+        """Build the SQL and values needed to insert one model instance."""
+        model_class = type(model_instance)
+        table_name = model_class.get_table_name()
+
+        self._set_insert_timestamps(
+            model_instance,
+            timestamp_override=timestamp_override,
+        )
+
+        data = self._serialize_model_data(model_instance)
+        if data.get("pk", None) == 0:
+            data.pop("pk")
+
+        sql_data = self._map_data_to_db_columns(model_class, data)
+        fields = ", ".join(f'"{field}"' for field in sql_data)
+        placeholders = ", ".join("?" for _ in sql_data)
+        values = tuple(sql_data.values())
+        insert_sql = (
+            f"INSERT INTO {quote_identifier(table_name)} ({fields}) "  # noqa: S608
+            f"VALUES ({placeholders})"
+        )
+
+        return InsertPlan(
+            model_class=model_class,
+            table_name=table_name,
+            data=data,
+            sql=insert_sql,
+            values=values,
+        )
+
+    def _build_get_plan(
+        self,
+        model_class: type[BaseDBModel],
+        primary_key_value: int,
+    ) -> GetPlan:
+        """Build the SQL and values needed to fetch one record by PK."""
+        table_name = model_class.get_table_name()
+        primary_key = model_class.get_primary_key()
+        fields = self._build_model_select_list(model_class)
+        select_sql = (
+            f"SELECT {fields} FROM {quote_identifier(table_name)} "  # noqa: S608
+            f"WHERE {quote_identifier(primary_key)} = ?"
+        )
+        return GetPlan(
+            table_name=table_name,
+            sql=select_sql,
+            values=(primary_key_value,),
+        )
+
+    def _build_update_plan(
+        self,
+        model_instance: BaseDBModel,
+        *,
+        current_timestamp: int,
+    ) -> UpdatePlan:
+        """Build the SQL and values needed to update one model instance."""
+        model_class = type(model_instance)
+        table_name = model_class.get_table_name()
+        primary_key = model_class.get_primary_key()
+
+        model_instance.updated_at = current_timestamp
+        data = self._serialize_model_data(model_instance)
+        primary_key_value = data.pop(primary_key)
+        sql_data = self._map_data_to_db_columns(model_class, data)
+        fields = ", ".join(f'"{field}" = ?' for field in sql_data)
+        values = tuple(sql_data.values())
+        update_sql = (
+            f"UPDATE {quote_identifier(table_name)} "  # noqa: S608
+            f"SET {fields} "
+            f"WHERE {quote_identifier(primary_key)} = ?"
+        )
+        return UpdatePlan(
+            table_name=table_name,
+            primary_key_value=primary_key_value,
+            sql=update_sql,
+            values=(*values, primary_key_value),
+        )
+
+    @staticmethod
+    def _build_delete_plan(
+        model_class: type[BaseDBModel],
+        primary_key_value: int | str,
+    ) -> DeletePlan:
+        """Build the SQL and values needed to delete one record by PK."""
+        table_name = model_class.get_table_name()
+        primary_key = model_class.get_primary_key()
+        delete_sql = (
+            f"DELETE FROM {quote_identifier(table_name)} "  # noqa: S608
+            f"WHERE {quote_identifier(primary_key)} = ?"
+        )
+        return DeletePlan(
+            table_name=table_name,
+            primary_key_value=primary_key_value,
+            sql=delete_sql,
+            values=(primary_key_value,),
+        )
+
+    @staticmethod
+    def _raise_record_not_found(primary_key_value: int | str) -> None:
+        """Raise a consistent not-found error for single-record operations."""
+        raise RecordNotFoundError(primary_key_value)
 
     def insert(
         self, model_instance: T, *, timestamp_override: bool = False
@@ -946,51 +1355,19 @@ class SqliterDB:
         Raises:
             RecordInsertionError: If an error occurs during the insertion.
         """
-        model_class = type(model_instance)
-        table_name = model_class.get_table_name()
-
-        self._set_insert_timestamps(
+        insert_plan = self._build_insert_plan(
             model_instance, timestamp_override=timestamp_override
         )
-
-        # Get the data from the model
-        data = model_instance.model_dump()
-
-        # Serialize the data
-        for field_name, value in list(data.items()):
-            data[field_name] = model_instance.serialize_field(value)
-
-        # remove the primary key field if it exists, otherwise we'll get
-        # TypeErrors as multiple primary keys will exist
-        if data.get("pk", None) == 0:
-            data.pop("pk")
-
-        sql_data = self._map_data_to_db_columns(model_class, data)
-        fields = ", ".join(f'"{field}"' for field in sql_data)
-        placeholders = ", ".join(
-            [
-                "?" if value is not None else "NULL"
-                for value in sql_data.values()
-            ]
-        )
-        values = tuple(
-            value for value in sql_data.values() if value is not None
-        )
-
-        insert_sql = f"""
-        INSERT INTO {table_name} ({fields})
-        VALUES ({placeholders})
-        """  # noqa: S608
 
         try:
             conn = self.connect()
             cursor = conn.cursor()
-            self._execute(cursor, insert_sql, values)
+            self._execute(cursor, insert_plan.sql, insert_plan.values)
             self._maybe_commit()
 
         except sqlite3.IntegrityError as exc:
             # Rollback implicit transaction if not in user-managed transaction
-            if not self._in_transaction and self.conn:
+            if not self.in_transaction and self.conn:
                 self.conn.rollback()
             # Check for foreign key constraint violation
             if "FOREIGN KEY constraint failed" in str(exc):
@@ -999,23 +1376,22 @@ class SqliterDB:
                 raise ForeignKeyConstraintError(
                     fk_operation, fk_reason
                 ) from exc
-            raise RecordInsertionError(table_name) from exc
+            raise RecordInsertionError(insert_plan.table_name) from exc
         except sqlite3.Error as exc:
             # Rollback implicit transaction if not in user-managed transaction
-            if not self._in_transaction and self.conn:
+            if not self.in_transaction and self.conn:
                 self.conn.rollback()
-            raise RecordInsertionError(table_name) from exc
+            raise RecordInsertionError(insert_plan.table_name) from exc
         else:
-            self._cache_invalidate_table(table_name)
-            data.pop("pk", None)
-            return self._create_instance_from_data(
-                model_class, data, pk=cursor.lastrowid
-            )
+            self._cache_invalidate_table(insert_plan.table_name)
+            model_instance.pk = cast("int", cursor.lastrowid)
+            if hasattr(model_instance, "db_context"):
+                model_instance.db_context = self
+            return model_instance
 
     def _insert_single_record(
         self,
         model_instance: T,
-        table_name: str,
         cursor: sqlite3.Cursor,
         *,
         timestamp_override: bool,
@@ -1034,35 +1410,16 @@ class SqliterDB:
         Returns:
             A new model instance with the assigned primary key.
         """
-        model_class = type(model_instance)
-        self._set_insert_timestamps(
-            model_instance, timestamp_override=timestamp_override
+        insert_plan = self._build_insert_plan(
+            model_instance,
+            timestamp_override=timestamp_override,
         )
+        self._execute(cursor, insert_plan.sql, insert_plan.values)
 
-        data = model_instance.model_dump()
-        for field_name, value in list(data.items()):
-            data[field_name] = model_instance.serialize_field(value)
-
-        if data.get("pk") == 0:
-            data.pop("pk")
-
-        sql_data = self._map_data_to_db_columns(model_class, data)
-        fields = ", ".join(f'"{field}"' for field in sql_data)
-        placeholders = ", ".join(
-            "?" if v is not None else "NULL" for v in sql_data.values()
-        )
-        values = tuple(v for v in sql_data.values() if v is not None)
-
-        insert_sql = (
-            f"INSERT INTO {table_name} ({fields}) "  # noqa: S608
-            f"VALUES ({placeholders})"
-        )
-        self._execute(cursor, insert_sql, values)
-
-        data.pop("pk", None)
-        return self._create_instance_from_data(
-            model_class, data, pk=cursor.lastrowid
-        )
+        model_instance.pk = cast("int", cursor.lastrowid)
+        if hasattr(model_instance, "db_context"):
+            model_instance.db_context = self
+        return model_instance
 
     def bulk_insert(
         self,
@@ -1090,20 +1447,11 @@ class SqliterDB:
             RecordInsertionError: If an error occurs during insertion.
             ForeignKeyConstraintError: If a foreign key constraint is violated.
         """
-        if not instances:
+        prepared = self._prepare_bulk_insert(instances)
+        if prepared is None:
             return []
 
-        model_class = type(instances[0])
-        for inst in instances[1:]:
-            if type(inst) is not model_class:
-                msg = (
-                    "All instances must be the same model type. "
-                    f"Expected {model_class.__name__}, "
-                    f"got {type(inst).__name__}."
-                )
-                raise ValueError(msg)
-
-        table_name = model_class.get_table_name()
+        _, table_name = prepared
 
         try:
             conn = self.connect()
@@ -1111,7 +1459,6 @@ class SqliterDB:
             results = [
                 self._insert_single_record(
                     inst,
-                    table_name,
                     cursor,
                     timestamp_override=timestamp_override,
                 )
@@ -1120,7 +1467,7 @@ class SqliterDB:
             self._maybe_commit()
 
         except sqlite3.IntegrityError as exc:
-            if not self._in_transaction and self.conn:
+            if not self.in_transaction and self.conn:
                 self.conn.rollback()
             if "FOREIGN KEY constraint failed" in str(exc):
                 fk_operation = "insert"
@@ -1130,12 +1477,39 @@ class SqliterDB:
                 ) from exc
             raise RecordInsertionError(table_name) from exc
         except sqlite3.Error as exc:
-            if not self._in_transaction and self.conn:
+            if not self.in_transaction and self.conn:
                 self.conn.rollback()
             raise RecordInsertionError(table_name) from exc
         else:
             self._cache_invalidate_table(table_name)
             return results
+
+    @staticmethod
+    def _prepare_bulk_insert(
+        instances: Sequence[T],
+    ) -> tuple[type[T], str] | None:
+        """Validate bulk-insert instances and return shared metadata."""
+        if not instances:
+            return None
+
+        model_class = type(instances[0])
+        for inst in instances[1:]:
+            if type(inst) is not model_class:
+                msg = (
+                    "All instances must be the same model type. "
+                    f"Expected {model_class.__name__}, "
+                    f"got {type(inst).__name__}."
+                )
+                raise TypeError(msg)
+
+        return model_class, model_class.get_table_name()
+
+    @staticmethod
+    def prepare_bulk_insert(
+        instances: Sequence[T],
+    ) -> tuple[type[T], str] | None:
+        """Validate bulk-insert instances and return shared metadata."""
+        return SqliterDB._prepare_bulk_insert(instances)
 
     def get(
         self,
@@ -1163,25 +1537,18 @@ class SqliterDB:
             msg = "cache_ttl must be non-negative"
             raise ValueError(msg)
 
-        table_name = model_class.get_table_name()
-        primary_key = model_class.get_primary_key()
         cache_key = f"pk:{primary_key_value}"
+        get_plan = self._build_get_plan(model_class, primary_key_value)
 
         if not bypass_cache:
-            hit, cached = self._cache_get(table_name, cache_key)
+            hit, cached = self._cache_get(get_plan.table_name, cache_key)
             if hit:
                 return cast("Optional[T]", cached)
-
-        fields = self._build_model_select_list(model_class)
-
-        select_sql = f"""
-            SELECT {fields} FROM {table_name} WHERE {primary_key} = ?
-        """  # noqa: S608
 
         try:
             conn = self.connect()
             cursor = conn.cursor()
-            self._execute(cursor, select_sql, (primary_key_value,))
+            self._execute(cursor, get_plan.sql, get_plan.values)
             result = cursor.fetchone()
 
             if result:
@@ -1194,14 +1561,25 @@ class SqliterDB:
                 )
                 if not bypass_cache:
                     self._cache_set(
-                        table_name, cache_key, instance, ttl=cache_ttl
+                        get_plan.table_name,
+                        cache_key,
+                        instance,
+                        ttl=cache_ttl,
                     )
                 return instance
         except sqlite3.Error as exc:
-            raise RecordFetchError(table_name) from exc
+            raise RecordFetchError(get_plan.table_name) from exc
         else:
-            if not bypass_cache:
-                self._cache_set(table_name, cache_key, None, ttl=cache_ttl)
+            if not bypass_cache and cache_ttl is not None:
+                # Negative cache entries are opt-in because invalidation is
+                # local to this instance and cannot observe cross-process
+                # inserts.
+                self._cache_set(
+                    get_plan.table_name,
+                    cache_key,
+                    None,
+                    ttl=cache_ttl,
+                )
             return None
 
     def update(self, model_instance: BaseDBModel) -> None:
@@ -1214,56 +1592,33 @@ class SqliterDB:
             RecordUpdateError: If there's an error updating the record or if it
                 is not found.
         """
-        model_class = type(model_instance)
-        table_name = model_class.get_table_name()
-        primary_key = model_class.get_primary_key()
-
-        # Set updated_at timestamp
-        current_timestamp = int(time.time())
-        model_instance.updated_at = current_timestamp
-
-        # Get the data and serialize any datetime/date fields
-        data = model_instance.model_dump()
-
-        for field_name, value in list(data.items()):
-            data[field_name] = model_instance.serialize_field(value)
-
-        # Remove the primary key from the update data
-        primary_key_value = data.pop(primary_key)
-
-        # Create the SQL using the processed data
-        sql_data = self._map_data_to_db_columns(model_class, data)
-        fields = ", ".join(f'"{field}" = ?' for field in sql_data)
-        values = tuple(sql_data.values())
-
-        update_sql = f"""
-            UPDATE {table_name}
-            SET {fields}
-            WHERE {primary_key} = ?
-        """  # noqa: S608
+        update_plan = self._build_update_plan(
+            model_instance,
+            current_timestamp=int(time.time()),
+        )
 
         try:
             conn = self.connect()
             cursor = conn.cursor()
-            self._execute(cursor, update_sql, (*values, primary_key_value))
+            self._execute(cursor, update_plan.sql, update_plan.values)
 
             # Check if any rows were updated
             if cursor.rowcount == 0:
-                raise RecordNotFoundError(primary_key_value)  # noqa: TRY301
+                self._raise_record_not_found(update_plan.primary_key_value)
 
             self._maybe_commit()
-            self._cache_invalidate_table(table_name)
+            self._cache_invalidate_table(update_plan.table_name)
 
         except RecordNotFoundError:
             # Rollback implicit transaction if not in user-managed transaction
-            if not self._in_transaction and self.conn:
+            if not self.in_transaction and self.conn:
                 self.conn.rollback()
             raise
         except sqlite3.Error as exc:
             # Rollback implicit transaction if not in user-managed transaction
-            if not self._in_transaction and self.conn:
+            if not self.in_transaction and self.conn:
                 self.conn.rollback()
-            raise RecordUpdateError(table_name) from exc
+            raise RecordUpdateError(update_plan.table_name) from exc
 
     def delete(
         self, model_class: type[BaseDBModel], primary_key_value: Union[int, str]
@@ -1279,30 +1634,25 @@ class SqliterDB:
             RecordDeletionError: If there's an error deleting the record.
             RecordNotFoundError: If the record to delete is not found.
         """
-        table_name = model_class.get_table_name()
-        primary_key = model_class.get_primary_key()
-
-        delete_sql = f"""
-            DELETE FROM {table_name} WHERE {primary_key} = ?
-        """  # noqa: S608
+        delete_plan = self._build_delete_plan(model_class, primary_key_value)
 
         try:
             conn = self.connect()
             cursor = conn.cursor()
-            self._execute(cursor, delete_sql, (primary_key_value,))
+            self._execute(cursor, delete_plan.sql, delete_plan.values)
 
             if cursor.rowcount == 0:
-                raise RecordNotFoundError(primary_key_value)  # noqa: TRY301
+                self._raise_record_not_found(delete_plan.primary_key_value)
             self._maybe_commit()
-            self._cache_invalidate_table(table_name)
+            self._cache_invalidate_table(delete_plan.table_name)
         except RecordNotFoundError:
             # Rollback implicit transaction if not in user-managed transaction
-            if not self._in_transaction and self.conn:
+            if not self.in_transaction and self.conn:
                 self.conn.rollback()
             raise
         except sqlite3.IntegrityError as exc:
             # Rollback implicit transaction if not in user-managed transaction
-            if not self._in_transaction and self.conn:
+            if not self.in_transaction and self.conn:
                 self.conn.rollback()
             # Check for foreign key constraint violation (RESTRICT)
             if "FOREIGN KEY constraint failed" in str(exc):
@@ -1311,12 +1661,12 @@ class SqliterDB:
                 raise ForeignKeyConstraintError(
                     fk_operation, fk_reason
                 ) from exc
-            raise RecordDeletionError(table_name) from exc
+            raise RecordDeletionError(delete_plan.table_name) from exc
         except sqlite3.Error as exc:
             # Rollback implicit transaction if not in user-managed transaction
-            if not self._in_transaction and self.conn:
+            if not self.in_transaction and self.conn:
                 self.conn.rollback()
-            raise RecordDeletionError(table_name) from exc
+            raise RecordDeletionError(delete_plan.table_name) from exc
 
     def update_where(
         self,
@@ -1396,8 +1746,9 @@ class SqliterDB:
             The SqliterDB instance.
 
         """
-        self.connect()
-        self._in_transaction = True
+        conn = self.connect()
+        if self.enter_transaction_scope() and not conn.in_transaction:
+            conn.execute("BEGIN")
         return self
 
     def __exit__(
@@ -1410,7 +1761,7 @@ class SqliterDB:
 
         This method is called when exiting a 'with' statement. It handles
         committing or rolling back transactions based on whether an exception
-        occurred, and closes the database connection.
+        occurred.
 
         Args:
             exc_type: The type of the exception that caused the context to be
@@ -1424,19 +1775,16 @@ class SqliterDB:
         called by the 'with' statement when exiting the context.
 
         """
-        if self.conn:
+        should_finalize, should_rollback = self.exit_transaction_scope(
+            had_error=exc_type is not None
+        )
+
+        if self.conn and should_finalize:
             try:
-                if exc_type:
+                if should_rollback:
                     # Roll back the transaction if there was an exception
                     self.conn.rollback()
                 else:
                     self.conn.commit()
             finally:
-                # Close the connection and reset the instance variable
-                self.conn.close()
-                self.conn = None
-                self._in_transaction = False
-        # Clear cache when exiting context
-        self._cache.clear()
-        self._cache_hits = 0
-        self._cache_misses = 0
+                self.reset_transaction_scope()

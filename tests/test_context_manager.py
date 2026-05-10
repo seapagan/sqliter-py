@@ -28,10 +28,10 @@ class TestContextManager:
         # Ensure commit was called
         mock_commit.commit.assert_called_once()
 
-    def test_transaction_closes_connection(
+    def test_transaction_keeps_connection_open(
         self, db_mock: SqliterDB, mocker: MockerFixture
     ) -> None:
-        """Test the connection is closed after the transaction completes."""
+        """Test the connection stays open after the transaction completes."""
         # Mock the connection object itself
         mock_conn = mocker.patch.object(db_mock, "conn", autospec=True)
 
@@ -39,8 +39,8 @@ class TestContextManager:
         with db_mock:
             """Dummy transaction."""
 
-        # Ensure the connection is closed
-        mock_conn.close.assert_called_once()
+        # Ensure the connection is not closed
+        mock_conn.close.assert_not_called()
 
     def test_transaction_rollback_on_exception(
         self, db_mock: SqliterDB, mocker: MockerFixture
@@ -101,6 +101,8 @@ class TestContextManager:
             db_mock._maybe_commit()
             mock_conn.commit.assert_not_called()
 
+        mock_conn.commit.assert_called_once()
+        mock_conn.commit.reset_mock()
         db_mock._maybe_commit()
         mock_conn.commit.assert_called_once()
 
@@ -135,3 +137,57 @@ class TestContextManager:
 
         # Close the new connection
         new_conn.close()
+
+    def test_context_manager_keeps_memory_database_available(self) -> None:
+        """In-memory DB data survives after leaving the transaction context."""
+        db = SqliterDB(memory=True)
+
+        with db:
+            db.create_table(ExampleModel)
+            inserted = db.insert(
+                ExampleModel(slug="persist", name="Persist", content="context")
+            )
+
+        fetched = db.get(ExampleModel, inserted.pk)
+
+        assert fetched is not None
+        assert fetched.slug == "persist"
+        assert db.conn is not None
+        db.close()
+
+    def test_set_in_transaction_updates_state(self, db_mock: SqliterDB) -> None:
+        """set_in_transaction should preserve nested depth and reset state."""
+        db_mock.set_in_transaction(value=True)
+
+        assert db_mock._transaction_depth == 1
+        assert db_mock._in_transaction is True
+        assert db_mock.in_transaction is True
+
+        db_mock._transaction_depth = 2
+        db_mock.set_in_transaction(value=True)
+
+        assert db_mock._transaction_depth == 2
+        assert db_mock._in_transaction is True
+        assert db_mock.in_transaction is True
+
+        db_mock._rollback_requested = True
+        db_mock.set_in_transaction(value=False)
+
+        assert db_mock._transaction_depth == 0
+        assert db_mock._in_transaction is False
+        assert db_mock.in_transaction is False
+        assert db_mock._rollback_requested is False
+
+    def test_close_resets_transaction_scope(self, db_mock: SqliterDB) -> None:
+        """Close should clear stale transaction bookkeeping."""
+        db_mock.set_in_transaction(value=True)
+        db_mock._transaction_depth = 2
+        db_mock._rollback_requested = True
+
+        db_mock.close()
+
+        assert db_mock.conn is None
+        assert db_mock._transaction_depth == 0
+        assert db_mock._in_transaction is False
+        assert db_mock.in_transaction is False
+        assert db_mock._rollback_requested is False

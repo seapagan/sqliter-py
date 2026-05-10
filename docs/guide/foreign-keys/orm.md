@@ -523,12 +523,12 @@ assert db.select(Book).count() == 0
 
 ORM foreign keys support the same actions as explicit foreign keys:
 
-| Action | Behavior |
-|--------|----------|
-| `CASCADE` | Delete/update related records |
-| `SET NULL` | Set foreign key to NULL (requires nullable FK) |
-| `RESTRICT` | Prevent deletion/update if referenced (default) |
-| `NO ACTION` | Same as RESTRICT in SQLite |
+| Action      | Behavior                                        |
+| ----------- | ----------------------------------------------- |
+| `CASCADE`   | Delete/update related records                   |
+| `SET NULL`  | Set foreign key to NULL (requires nullable FK)  |
+| `RESTRICT`  | Prevent deletion/update if referenced (default) |
+| `NO ACTION` | Same as RESTRICT in SQLite                      |
 
 ```python
 # CASCADE - delete books when author is deleted
@@ -568,16 +568,16 @@ print(book.author.name)  # Works automatically
 
 **When `db_context` is set automatically:**
 
-+ `db.insert()` - Returns instance with `db_context` set
-+ `db.get()` - Returns instance with `db_context` set
-+ `db.select().fetch_all()` - All instances have `db_context` set
-+ `db.select().fetch_one()` - Instance has `db_context` set
+- `db.insert()` - Returns instance with `db_context` set
+- `db.get()` - Returns instance with `db_context` set
+- `db.select().fetch_all()` - All instances have `db_context` set
+- `db.select().fetch_one()` - Instance has `db_context` set
 
 **When you need to set it manually:**
 
-+ Creating instances with `Model(...)` constructor
-+ Deserializing objects from JSON or other sources
-+ Using objects in contexts where they weren't retrieved from the database
+- Creating instances with `Model(...)` constructor
+- Deserializing objects from JSON or other sources
+- Using objects in contexts where they weren't retrieved from the database
 
 ### LazyLoader Not Hashable
 

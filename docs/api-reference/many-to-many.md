@@ -78,7 +78,7 @@ from sqliter.orm.m2m import M2MSQLMetadata
 | `to_column`      | `str`  | Junction FK column used for target rows      |
 | `source_table`   | `str`  | Source model table name for this accessor    |
 | `target_table`   | `str`  | Target model table name for this accessor    |
-| `symmetrical`    | `bool` | Effective self-reference symmetry flag        |
+| `symmetrical`    | `bool` | Effective self-reference symmetry flag       |
 
 ---
 

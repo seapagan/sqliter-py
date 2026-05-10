@@ -12,26 +12,33 @@ types, and usage examples.
 
 ## Module Overview
 
-| Module               | Import                                    | Description                        |
-| -------------------- | ----------------------------------------- | ---------------------------------- |
-| `sqliter`            | `from sqliter import SqliterDB`           | Main database class                |
-| `sqliter.model`      | `from sqliter.model import BaseDBModel`   | Base model (legacy mode)           |
-| `sqliter.model`      | `from sqliter.model import unique`        | Unique constraint helper           |
-| `sqliter.model`      | `from sqliter.model import ForeignKey`    | Foreign key factory (legacy mode)  |
-| `sqliter.orm`        | `from sqliter.orm import BaseDBModel`     | Base model (ORM mode)              |
-| `sqliter.orm`        | `from sqliter.orm import ForeignKey`      | Foreign key descriptor (ORM mode)  |
-| `sqliter.orm`        | `from sqliter.orm import ManyToMany`      | Many-to-many descriptor (ORM mode) |
-| `sqliter.orm`        | `from sqliter.orm import ModelRegistry`   | Model registry                     |
-| `sqliter.query`      | `from sqliter.query import func`          | QueryBuilder aggregate helpers     |
-| `sqliter.query`      | `from sqliter.query import AggregateSpec` | Aggregate specification type       |
-| `sqliter.exceptions` | `from sqliter.exceptions import ...`      | Exception hierarchy                |
-| `sqliter.helpers`    | *(internal)*                              | Utility functions                  |
-| `sqliter.constants`  | *(internal)*                              | Constant mappings                  |
+| Module                | Import                                             | Description                        |
+| --------------------- | -------------------------------------------------- | ---------------------------------- |
+| `sqliter`             | `from sqliter import SqliterDB`                    | Main database class                |
+| `sqliter.model`       | `from sqliter.model import BaseDBModel`            | Base model (legacy mode)           |
+| `sqliter.model`       | `from sqliter.model import unique`                 | Unique constraint helper           |
+| `sqliter.model`       | `from sqliter.model import ForeignKey`             | Foreign key factory (legacy mode)  |
+| `sqliter.orm`         | `from sqliter.orm import BaseDBModel`              | Base model (ORM mode)              |
+| `sqliter.orm`         | `from sqliter.orm import ForeignKey`               | Foreign key descriptor (ORM mode)  |
+| `sqliter.orm`         | `from sqliter.orm import ManyToMany`               | Many-to-many descriptor (ORM mode) |
+| `sqliter.orm`         | `from sqliter.orm import ModelRegistry`            | Model registry                     |
+| `sqliter.asyncio`     | `from sqliter.asyncio import AsyncSqliterDB`       | Async database and query API       |
+| `sqliter.asyncio.orm` | `from sqliter.asyncio.orm import AsyncBaseDBModel` | Async ORM mode                     |
+| `sqliter.query`       | `from sqliter.query import func`                   | QueryBuilder aggregate helpers     |
+| `sqliter.query`       | `from sqliter.query import AggregateSpec`          | Aggregate specification type       |
+| `sqliter.exceptions`  | `from sqliter.exceptions import ...`               | Exception hierarchy                |
+| `sqliter.helpers`     | *(internal)*                                       | Utility functions                  |
+| `sqliter.constants`   | *(internal)*                                       | Constant mappings                  |
 
 > [!NOTE]
 > The **ORM module** (`sqliter.orm`) is an alternative import mode that
 > extends the legacy `sqliter.model` with lazy loading and reverse
 > relationships. See [ORM Mode](orm.md) for details.
+
+> [!NOTE]
+> The async API lives under `sqliter.asyncio` and `sqliter.asyncio.orm`.
+> Forward FK lazy loading is explicit in async ORM:
+> `author = await book.author.fetch()`.
 
 ## Pages
 
@@ -55,6 +62,15 @@ types, and usage examples.
 
 - **[Many-to-Many](many-to-many.md)** -- `ManyToMany` descriptor,
   `ManyToManyManager` API, reverse accessors, and junction tables.
+
+- **[AsyncSqliterDB](async-sqliterdb.md)** -- Async database entry point,
+  async CRUD, and async table operations.
+
+- **[AsyncQueryBuilder](async-query-builder.md)** -- Async query execution,
+  eager loading, aggregates, and bulk query operations.
+
+- **[Async ORM](async-orm.md)** -- `AsyncBaseDBModel`, `AsyncForeignKey`,
+  async reverse relationships, and async many-to-many managers.
 
 - **[Exceptions](exceptions.md)** -- Full hierarchy of 17 exception
   classes with message templates and usage context.

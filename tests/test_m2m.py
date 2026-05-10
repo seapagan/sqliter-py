@@ -10,11 +10,16 @@ from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 
-from sqliter.exceptions import ManyToManyIntegrityError, TableCreationError
+from sqliter.exceptions import (
+    ManyToManyIntegrityError,
+    SqlExecutionError,
+    TableCreationError,
+)
 from sqliter.orm import BaseDBModel, ManyToMany
 from sqliter.orm.m2m import (
     M2MSQLMetadata,
     ManyToManyManager,
+    PrefetchedM2MResult,
     ReverseManyToMany,
     create_junction_table,
 )
@@ -23,6 +28,7 @@ from sqliter.sqliter import SqliterDB
 
 if TYPE_CHECKING:
     from pydantic import GetCoreSchemaHandler
+    from pytest_mock import MockerFixture
 
 # ── Test models ──────────────────────────────────────────────────────
 
@@ -435,8 +441,8 @@ class TestJunctionTableCreation:
         with pytest.raises(TableCreationError, match="bad_table"):
             create_junction_table(DummyDB(), "bad_table", "a", "b")
 
-    def test_junction_table_index_error_ignored(self) -> None:
-        """Index creation errors are ignored."""
+    def test_junction_table_index_error_raises(self) -> None:
+        """Index creation errors raise TableCreationError."""
         msg = "index fail"
 
         class DummyCursor:
@@ -469,7 +475,16 @@ class TestJunctionTableCreation:
             def connect(self) -> sqlite3.Connection:
                 return cast("sqlite3.Connection", DummyConn())
 
-        create_junction_table(DummyDB(), "articles_tags", "articles", "tags")
+        with pytest.raises(
+            TableCreationError,
+            match="articles_tags",
+        ):
+            create_junction_table(
+                DummyDB(),
+                "articles_tags",
+                "articles",
+                "tags",
+            )
 
 
 # ── TestManyToManyAdd ────────────────────────────────────────────────
@@ -650,6 +665,172 @@ class TestManyToManySet:
         article.tags.set()
 
         assert article.tags.count() == 0
+
+    def test_prefetched_wrapper_refreshes_after_writes(
+        self, db: SqliterDB
+    ) -> None:
+        """Prefetched wrapper reflects delegated write operations."""
+        article = db.insert(Article(title="Guide"))
+        tag1 = db.insert(Tag(name="python"))
+        tag2 = db.insert(Tag(name="tutorial"))
+
+        manager = cast("ManyToManyManager[Tag]", article.tags)
+        manager.add(tag1)
+        prefetched = PrefetchedM2MResult(manager.fetch_all(), manager)
+
+        assert prefetched.count() == 1
+        prefetched.add(tag2)
+        assert prefetched.count() == 2
+        assert {tag.name for tag in prefetched.fetch_all()} == {
+            "python",
+            "tutorial",
+        }
+        prefetched.set(tag2)
+        fetched = prefetched.fetch_one()
+        assert fetched is not None
+        assert fetched.name == "tutorial"
+        prefetched.clear()
+        assert prefetched.fetch_all() == []
+
+    def test_write_invalidates_cached_prefetch_queries(self) -> None:
+        """M2M writes invalidate cached prefetched root queries."""
+        db = SqliterDB(memory=True, cache_enabled=True)
+        db.create_table(Tag)
+        db.create_table(Article)
+
+        article = db.insert(Article(title="Guide"))
+        tag = db.insert(Tag(name="python"))
+        manager = cast("ManyToManyManager[Tag]", article.tags)
+
+        initial_article = (
+            db.select(Article).prefetch_related("tags").fetch_one()
+        )
+        assert initial_article is not None
+        initial_article_tags = cast(
+            "PrefetchedM2MResult[Tag]",
+            initial_article.tags,
+        )
+        assert initial_article_tags.fetch_all() == []
+
+        initial_tag = db.select(Tag).prefetch_related("articles").fetch_one()
+        assert initial_tag is not None
+        initial_tag_articles = cast(
+            "PrefetchedM2MResult[Article]",
+            initial_tag.articles,
+        )
+        assert initial_tag_articles.fetch_all() == []
+
+        manager.add(tag)
+
+        refreshed_article = (
+            db.select(Article).prefetch_related("tags").fetch_one()
+        )
+        assert refreshed_article is not None
+        refreshed_article_tags = cast(
+            "PrefetchedM2MResult[Tag]",
+            refreshed_article.tags,
+        )
+        refreshed_tags = refreshed_article_tags.fetch_all()
+        assert [item.name for item in refreshed_tags] == ["python"]
+
+        refreshed_tag = db.select(Tag).prefetch_related("articles").fetch_one()
+        assert refreshed_tag is not None
+        refreshed_tag_articles = cast(
+            "PrefetchedM2MResult[Article]",
+            refreshed_tag.articles,
+        )
+        refreshed_articles = refreshed_tag_articles.fetch_all()
+        assert [item.title for item in refreshed_articles] == ["Guide"]
+
+        manager.clear()
+
+        cleared_article = (
+            db.select(Article).prefetch_related("tags").fetch_one()
+        )
+        assert cleared_article is not None
+        cleared_article_tags = cast(
+            "PrefetchedM2MResult[Tag]",
+            cleared_article.tags,
+        )
+        assert cleared_article_tags.fetch_all() == []
+
+        cleared_tag = db.select(Tag).prefetch_related("articles").fetch_one()
+        assert cleared_tag is not None
+        cleared_tag_articles = cast(
+            "PrefetchedM2MResult[Article]",
+            cleared_tag.articles,
+        )
+        assert cleared_tag_articles.fetch_all() == []
+
+    def test_write_invalidates_instance_prefetch_caches(
+        self, db: SqliterDB
+    ) -> None:
+        """M2M writes clear stale in-memory prefetched relationship data."""
+        db.insert(Article(title="Guide"))
+        db.insert(Tag(name="python"))
+
+        prefetched_article = (
+            db.select(Article).prefetch_related("tags").fetch_one()
+        )
+        assert prefetched_article is not None
+        prefetched_tags = cast(
+            "PrefetchedM2MResult[Tag]",
+            prefetched_article.tags,
+        )
+        assert prefetched_tags.fetch_all() == []
+
+        prefetched_tag = db.select(Tag).prefetch_related("articles").fetch_one()
+        assert prefetched_tag is not None
+        prefetched_tag_articles = cast(
+            "PrefetchedM2MResult[Article]",
+            prefetched_tag.articles,
+        )
+        assert prefetched_tag_articles.fetch_all() == []
+
+        manager = prefetched_tags._manager
+        manager.add(prefetched_tag)
+
+        refreshed_article_rel = prefetched_article.tags
+        refreshed_tags = refreshed_article_rel.fetch_all()
+        assert [item.name for item in refreshed_tags] == ["python"]
+
+        refreshed_tag_rel = cast(
+            "ManyToManyManager[Article] | PrefetchedM2MResult[Article]",
+            prefetched_tag.articles,
+        )
+        refreshed_articles = refreshed_tag_rel.fetch_all()
+        assert [item.title for item in refreshed_articles] == ["Guide"]
+
+        manager.clear()
+        cleared_article_rel = prefetched_article.tags
+        assert cleared_article_rel.fetch_all() == []
+        cleared_tag_rel = cast(
+            "ManyToManyManager[Article] | PrefetchedM2MResult[Article]",
+            prefetched_tag.articles,
+        )
+        assert cleared_tag_rel.fetch_all() == []
+
+    def test_prefetched_wrapper_updates_cached_list_in_place(
+        self, db: SqliterDB
+    ) -> None:
+        """Wrapper writes should mutate the cached prefetch list in place."""
+        article = db.insert(Article(title="Guide"))
+        tag1 = db.insert(Tag(name="python"))
+        tag2 = db.insert(Tag(name="tutorial"))
+
+        manager = cast("ManyToManyManager[Tag]", article.tags)
+        cached_items = [tag1]
+        article.__dict__["_prefetch_cache"] = {"tags": cached_items}
+        prefetched = PrefetchedM2MResult(cached_items, manager)
+        original_items = prefetched._items
+
+        prefetched.set(tag2)
+
+        assert prefetched._items is original_items
+        assert prefetched._items is cached_items
+        assert prefetched.fetch_all() == [tag2]
+        refreshed = cast("PrefetchedM2MResult[Tag]", article.tags)
+        assert refreshed.fetch_all() == [tag2]
 
 
 # ── TestManyToManyQuery ──────────────────────────────────────────────
@@ -1221,6 +1402,61 @@ class TestManyToManyEdgeCases:
 
         db = SqliterDB(memory=True)
         db._create_m2m_junction_tables(Article)
+
+    def test_create_m2m_junction_tables_raises_index_creation_errors(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Sync M2M setup raises if junction index creation fails."""
+        state = ModelRegistry.snapshot()
+        try:
+
+            class SyncTagEdge(BaseDBModel):
+                name: str
+
+            class SyncArticleEdge(BaseDBModel):
+                title: str
+                tags: ManyToMany[SyncTagEdge] = ManyToMany(SyncTagEdge)
+
+            db = SqliterDB(memory=True)
+            seen_sql: list[str] = []
+            original_execute_sql = db._execute_sql
+
+            def tracking_execute(sql: str) -> None:
+                seen_sql.append(sql)
+                if 'CREATE INDEX IF NOT EXISTS "idx_' in sql:
+                    raise SqlExecutionError(sql)
+                original_execute_sql(sql)
+
+            monkeypatch.setattr(db, "_execute_sql", tracking_execute)
+            db.create_table(SyncTagEdge)
+            with pytest.raises(SqlExecutionError):
+                db.create_table(SyncArticleEdge)
+
+            junction_table = SyncArticleEdge.tags.junction_table or ""
+            assert any(junction_table in sql for sql in seen_sql)
+        finally:
+            ModelRegistry.restore(state)
+
+    def test_execute_m2m_index_sql_logs_failures(
+        self, monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
+    ) -> None:
+        """Sync helper logs and re-raises failed junction index SQL."""
+        logger = mocker.Mock()
+        db = SqliterDB(memory=True, logger=logger)
+
+        def fail_execute(sql: str) -> None:
+            raise SqlExecutionError(sql)
+
+        monkeypatch.setattr(db, "_execute_sql", fail_execute)
+        index_sql = 'CREATE INDEX IF NOT EXISTS "idx_articles_tags_article_id"'
+
+        with pytest.raises(SqlExecutionError):
+            db._execute_m2m_index_sql(index_sql)
+
+        logger.exception.assert_called_once_with(
+            "Failed to create M2M junction index with SQL: %s",
+            index_sql,
+        )
 
     def test_self_ref_symmetrical_relationship(self) -> None:
         """Self-referential symmetrical M2M works both directions."""

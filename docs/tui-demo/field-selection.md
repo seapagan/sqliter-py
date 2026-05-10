@@ -194,7 +194,9 @@ user.name = "New Name"
 ```
 
 !!! warning
-    Don't update partially fetched objects unless you're certain about the impact. Either fetch all fields first, or only update the fields you selected.
+    Don't update partially fetched objects unless you're certain about the
+    impact. Either fetch all fields first, or only update the fields you
+    selected.
 
 ## Best Practices
 

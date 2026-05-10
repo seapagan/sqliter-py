@@ -114,6 +114,16 @@ class TestLazyLoading:
         # Should return None for null FK
         assert magazine.publisher is None
 
+    def test_lazy_load_zero_fk(self, db: SqliterDB) -> None:
+        """Test unsaved/missing FK (pk=0) is treated as null relation."""
+        db.create_table(Publisher)
+        db.create_table(Magazine)
+        magazine = Magazine(title="Orphan", publisher_id=0)
+
+        # PK 0 should be treated as missing, not a lazy loader target
+        assert magazine.publisher is None
+        assert magazine.__dict__.get("_fk_cache", {}) == {}
+
     def test_lazy_load_with_id(self, db: SqliterDB) -> None:
         """Test creating object with ID instead of model instance."""
         db.create_table(Author)

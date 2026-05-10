@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from dataclasses import dataclass, field
 from typing import (
@@ -22,9 +23,12 @@ from pydantic_core import core_schema
 from sqliter.exceptions import ManyToManyIntegrityError, TableCreationError
 from sqliter.helpers import validate_table_name
 
+logger = logging.getLogger(__name__)
+
 if TYPE_CHECKING:  # pragma: no cover
     from pydantic import GetCoreSchemaHandler
 
+    from sqliter.asyncio.db import AsyncSqliterDB
     from sqliter.model.model import BaseDBModel
     from sqliter.query.query import QueryBuilder
     from sqliter.sqliter import SqliterDB
@@ -38,6 +42,72 @@ class HasPKAndContext(Protocol):
 
     pk: Optional[int]
     db_context: Optional[Any]
+
+
+class _M2MCacheInvalidationMixin:
+    """Shared cache invalidation helpers for sync and async M2M managers."""
+
+    _instance: HasPKAndContext
+    _from_model: type[Any]
+    _to_model: type[Any]
+    _current_cache_key: Optional[str]
+    _reverse_cache_key: Optional[str]
+
+    def _invalidate_related_query_caches(
+        self,
+        db: SqliterDB | AsyncSqliterDB,
+    ) -> None:
+        """Invalidate cached queries for both sides of the relationship."""
+        for model in (self._from_model, self._to_model):
+            table_name = cast("type[BaseDBModel]", model).get_table_name()
+            db.invalidate_table_cache(table_name)
+
+    @staticmethod
+    def _clear_prefetch_cache_entry(
+        instance: object,
+        cache_key: Optional[str],
+    ) -> object:
+        """Remove one prefetched relationship entry from an instance."""
+        if cache_key is None:
+            return []
+        cache = getattr(instance, "__dict__", {}).get("_prefetch_cache")
+        if not isinstance(cache, dict):
+            return []
+        return cache.pop(cache_key, [])
+
+    def _invalidate_prefetch_caches(
+        self,
+        *,
+        related_instances: tuple[Any, ...] = (),
+        clear_current_related: bool = False,
+    ) -> None:
+        """Drop affected in-memory prefetched relationship caches."""
+        cached_related: list[object] = []
+        if clear_current_related:
+            cached = self._clear_prefetch_cache_entry(
+                self._instance,
+                self._current_cache_key,
+            )
+            if isinstance(cached, list):
+                cached_related = list(cast("list[object]", cached))
+        else:
+            self._clear_prefetch_cache_entry(
+                self._instance,
+                self._current_cache_key,
+            )
+
+        for inst in [*cached_related, *related_instances]:
+            self._clear_prefetch_cache_entry(inst, self._reverse_cache_key)
+
+    def configure_cache_keys(
+        self,
+        *,
+        current_cache_key: Optional[str],
+        reverse_cache_key: Optional[str],
+    ) -> None:
+        """Attach the forward and reverse prefetch-cache keys."""
+        self._current_cache_key = current_cache_key
+        self._reverse_cache_key = reverse_cache_key
 
 
 @dataclass
@@ -122,7 +192,43 @@ def _build_m2m_sql_metadata(
     )
 
 
-class ManyToManyManager(Generic[T]):
+def build_junction_table_sql(
+    junction_table: str,
+    table_a: str,
+    table_b: str,
+) -> tuple[str, tuple[str, str]]:
+    """Build the CREATE TABLE SQL for a M2M junction table."""
+    col_a, col_b = _m2m_column_names(table_a, table_b)
+    create_sql = (
+        f'CREATE TABLE IF NOT EXISTS "{junction_table}" ('
+        f'"id" INTEGER PRIMARY KEY AUTOINCREMENT, '
+        f'"{col_a}" INTEGER NOT NULL, '
+        f'"{col_b}" INTEGER NOT NULL, '
+        f'FOREIGN KEY ("{col_a}") REFERENCES "{table_a}"("pk") '
+        f"ON DELETE CASCADE ON UPDATE CASCADE, "
+        f'FOREIGN KEY ("{col_b}") REFERENCES "{table_b}"("pk") '
+        f"ON DELETE CASCADE ON UPDATE CASCADE, "
+        f'UNIQUE ("{col_a}", "{col_b}")'
+        f")"
+    )
+    return create_sql, (col_a, col_b)
+
+
+def build_junction_index_sqls(
+    junction_table: str,
+    columns: tuple[str, str],
+) -> list[str]:
+    """Build CREATE INDEX SQL statements for a M2M junction table."""
+    return [
+        (
+            f'CREATE INDEX IF NOT EXISTS "idx_{junction_table}_{column}" '
+            f'ON "{junction_table}" ("{column}")'
+        )
+        for column in columns
+    ]
+
+
+class ManyToManyManager(_M2MCacheInvalidationMixin, Generic[T]):
     """Manager for M2M relationships on a model instance.
 
     Provides methods to add, remove, clear, set, and query related
@@ -154,6 +260,8 @@ class ManyToManyManager(Generic[T]):
         self._from_model = from_model
         self._junction_table = junction_table
         self._db = db_context
+        self._current_cache_key: Optional[str] = None
+        self._reverse_cache_key: Optional[str] = None
 
         # Column/metadata names derived from from_model/to_model table names
         # (with optional column swapping)
@@ -303,6 +411,8 @@ class ManyToManyManager(Generic[T]):
             raise
 
         db._maybe_commit()  # noqa: SLF001
+        self._invalidate_related_query_caches(db)
+        self._invalidate_prefetch_caches(related_instances=instances)
 
     def remove(self, *instances: T) -> None:
         """Remove one or more related objects.
@@ -340,6 +450,8 @@ class ManyToManyManager(Generic[T]):
             raise
 
         db._maybe_commit()  # noqa: SLF001
+        self._invalidate_related_query_caches(db)
+        self._invalidate_prefetch_caches(related_instances=instances)
 
     def clear(self) -> None:
         """Remove all relationships for this instance.
@@ -374,6 +486,8 @@ class ManyToManyManager(Generic[T]):
         finally:
             cursor.close()
         db._maybe_commit()  # noqa: SLF001
+        self._invalidate_related_query_caches(db)
+        self._invalidate_prefetch_caches(clear_current_related=True)
 
     def set(self, *instances: T) -> None:
         """Replace all relationships with the given instances.
@@ -564,6 +678,10 @@ class PrefetchedM2MResult(Generic[T]):
         """
         return self._manager.filter(**kwargs)
 
+    def _refresh_items(self) -> None:
+        """Refresh cached items while preserving the prefetch-cache list."""
+        self._items[:] = self._manager.fetch_all()
+
     def add(self, *instances: T) -> None:
         """Delegate add to the real manager.
 
@@ -571,6 +689,7 @@ class PrefetchedM2MResult(Generic[T]):
             *instances: Model instances to relate.
         """
         self._manager.add(*instances)
+        self._refresh_items()
 
     def remove(self, *instances: T) -> None:
         """Delegate remove to the real manager.
@@ -579,10 +698,12 @@ class PrefetchedM2MResult(Generic[T]):
             *instances: Model instances to unrelate.
         """
         self._manager.remove(*instances)
+        self._refresh_items()
 
     def clear(self) -> None:
         """Delegate clear to the real manager."""
         self._manager.clear()
+        self._refresh_items()
 
     def set(self, *instances: T) -> None:
         """Delegate set to the real manager.
@@ -591,6 +712,7 @@ class PrefetchedM2MResult(Generic[T]):
             *instances: Model instances to set as the new related set.
         """
         self._manager.set(*instances)
+        self._refresh_items()
 
 
 class ManyToMany(Generic[T]):
@@ -811,6 +933,10 @@ class ManyToMany(Generic[T]):
             db_context=getattr(instance, "db_context", None),
             options=ManyToManyOptions(symmetrical=self.m2m_info.symmetrical),
         )
+        manager.configure_cache_keys(
+            current_cache_key=self.name,
+            reverse_cache_key=self.related_name,
+        )
 
         # Check prefetch cache
         cache = getattr(instance, "__dict__", {}).get("_prefetch_cache", {})
@@ -854,6 +980,7 @@ class ReverseManyToMany:
         related_name: str,
         *,
         symmetrical: bool = False,
+        forward_name: Optional[str] = None,
     ) -> None:
         """Initialize reverse M2M descriptor.
 
@@ -863,12 +990,14 @@ class ReverseManyToMany:
             junction_table: Name of the junction table.
             related_name: Name of this reverse accessor.
             symmetrical: Whether self-referential relationships are symmetric.
+            forward_name: Name of the forward accessor on the source model.
         """
         self._from_model = from_model
         self._to_model = to_model
         self._junction_table = junction_table
         self._related_name = related_name
         self._symmetrical = symmetrical
+        self._forward_name = forward_name
         self._sql_metadata: Optional[M2MSQLMetadata] = None
 
     @property
@@ -941,6 +1070,10 @@ class ReverseManyToMany:
                 swap_columns=self._swap_columns,
             ),
         )
+        manager.configure_cache_keys(
+            current_cache_key=self._related_name,
+            reverse_cache_key=self._forward_name,
+        )
 
         # Check prefetch cache
         cache = getattr(instance, "__dict__", {}).get("_prefetch_cache", {})
@@ -987,19 +1120,10 @@ def create_junction_table(
         table_a: First table name (alphabetically first).
         table_b: Second table name (alphabetically second).
     """
-    col_a, col_b = _m2m_column_names(table_a, table_b)
-
-    create_sql = (
-        f'CREATE TABLE IF NOT EXISTS "{junction_table}" ('
-        f'"id" INTEGER PRIMARY KEY AUTOINCREMENT, '
-        f'"{col_a}" INTEGER NOT NULL, '
-        f'"{col_b}" INTEGER NOT NULL, '
-        f'FOREIGN KEY ("{col_a}") REFERENCES "{table_a}"("pk") '
-        f"ON DELETE CASCADE ON UPDATE CASCADE, "
-        f'FOREIGN KEY ("{col_b}") REFERENCES "{table_b}"("pk") '
-        f"ON DELETE CASCADE ON UPDATE CASCADE, "
-        f'UNIQUE ("{col_a}", "{col_b}")'
-        f")"
+    create_sql, columns = build_junction_table_sql(
+        junction_table,
+        table_a,
+        table_b,
     )
 
     try:
@@ -1011,16 +1135,17 @@ def create_junction_table(
         raise TableCreationError(junction_table) from exc
 
     # Create indexes on both FK columns
-    for col in (col_a, col_b):
-        index_sql = (
-            f"CREATE INDEX IF NOT EXISTS "
-            f'"idx_{junction_table}_{col}" '
-            f'ON "{junction_table}" ("{col}")'
-        )
+    conn = db.connect()
+    cursor = conn.cursor()
+
+    for index_sql in build_junction_index_sqls(junction_table, columns):
         try:
-            conn = db.connect()
-            cursor = conn.cursor()
             db._execute(cursor, index_sql)  # noqa: SLF001
             conn.commit()
-        except sqlite3.Error:
-            pass  # Non-critical: index creation failure
+        except sqlite3.Error as exc:  # noqa: PERF203
+            logger.exception(
+                "Failed to create junction index for %s with SQL: %s",
+                junction_table,
+                index_sql,
+            )
+            raise TableCreationError(junction_table) from exc

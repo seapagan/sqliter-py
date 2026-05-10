@@ -96,12 +96,12 @@ db.close()
 
 ### Available Operators
 
-| Operator | Description |
-|----------|-------------|
-| `__gt` | Greater than |
-| `__lt` | Less than |
-| `__gte` | Greater than or equal |
-| `__lte` | Less than or equal |
+| Operator | Description           |
+| -------- | --------------------- |
+| `__gt`   | Greater than          |
+| `__lt`   | Less than             |
+| `__gte`  | Greater than or equal |
+| `__lte`  | Less than or equal    |
 
 ## In List
 
@@ -219,7 +219,8 @@ db.close()
 
 ### How It Works
 
-All filter conditions are combined with **AND** logic - only records matching ALL conditions are returned.
+All filter conditions are combined with **AND** logic - only records matching
+ALL conditions are returned.
 
 ### Alternative One-Line Syntax
 

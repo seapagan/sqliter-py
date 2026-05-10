@@ -77,6 +77,10 @@ class OtherModel(BaseDBModel):
     color: str
 
 
+class SubSimpleModel(SimpleModel):
+    """Subclass of SimpleModel for exact-type bulk insert validation tests."""
+
+
 # ── Fixtures ─────────────────────────────────────────────────────────
 
 
@@ -127,6 +131,43 @@ class TestBulkInsertBasic:
         assert results[0].pk == 1
         assert results[0].name == "only"
         assert results[0].value == 42
+
+    def test_bulk_insert_updates_supplied_instances(
+        self,
+        db: SqliterDB,
+    ) -> None:
+        """bulk_insert should mark supplied instances as saved."""
+        instances = [
+            SimpleModel(name="first", value=1),
+            SimpleModel(name="second", value=2),
+        ]
+
+        results = db.bulk_insert(instances)
+
+        assert results == instances
+        assert all(
+            result is instance for result, instance in zip(results, instances)
+        )
+        assert [instance.pk for instance in instances] == [1, 2]
+
+    def test_bulk_insert_updates_orm_instance_context(
+        self,
+        db: SqliterDB,
+    ) -> None:
+        """Bulk insert should attach db_context to supplied ORM instances."""
+        instances = [
+            ParentModel(name="first"),
+            ParentModel(name="second"),
+        ]
+
+        results = db.bulk_insert(instances)
+
+        assert results == instances
+        assert all(
+            result is instance for result, instance in zip(results, instances)
+        )
+        assert [instance.pk for instance in instances] == [1, 2]
+        assert all(instance.db_context is db for instance in instances)
 
     def test_bulk_insert_large_batch(self, db: SqliterDB) -> None:
         """Bulk insert with a large batch assigns unique PKs."""
@@ -250,13 +291,28 @@ class TestBulkInsertErrorHandling:
                 ]
             )
 
-    def test_mixed_model_types_raises_value_error(self, db: SqliterDB) -> None:
-        """Passing mixed model types raises ValueError."""
-        with pytest.raises(ValueError, match="All instances must be"):
+    def test_mixed_model_types_raises_type_error(self, db: SqliterDB) -> None:
+        """Passing mixed model types raises TypeError."""
+        with pytest.raises(TypeError, match="All instances must be"):
             db.bulk_insert(
                 [
                     SimpleModel(name="a"),
                     OtherModel(color="red"),
+                ]
+            )
+
+    def test_subclass_model_types_raises_type_error(
+        self, db: SqliterDB
+    ) -> None:
+        """Passing subclass instances in bulk inserts raises TypeError."""
+        db.create_table(SubSimpleModel)
+        with pytest.raises(
+            TypeError, match="Expected SimpleModel, got SubSimpleModel"
+        ):
+            db.bulk_insert(
+                [
+                    SimpleModel(name="a"),
+                    SubSimpleModel(name="b"),
                 ]
             )
 

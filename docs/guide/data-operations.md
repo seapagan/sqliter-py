@@ -38,8 +38,8 @@ However, by default **this is disabled**. Any model passed to `insert()` will
 have the `created_at` and `updated_at` fields set automatically and ignore any
 values passed in these 2 fields.
 
-If you want to enable this feature, you can set the `timestamp_override` flag to `True`
-when inserting the record:
+If you want to enable this feature, you can set the `timestamp_override` flag to
+`True` when inserting the record:
 
 ```python
 result = db.insert(user, timestamp_override=True)
@@ -234,13 +234,21 @@ count = (
 )
 ```
 
+> [!WARNING]
+>
+> Bulk updates do not support relationship traversal filters. For example,
+> `db.select(Book).filter(author__name="Ada").update(...)` is not supported.
+> Filter on fields from the model being updated instead:
+> `db.select(Book).filter(author_id=author.pk).update(...)`.
+
 ## Deleting Records
 
 SQLiter provides two ways to delete records:
 
 ### Single Record Deletion
 
-To delete a single record from the database by its primary key, use the `delete()` method directly on the database instance:
+To delete a single record from the database by its primary key, use the
+`delete()` method directly on the database instance:
 
 ```python
 db.delete(User, user.pk)
@@ -255,7 +263,9 @@ db.delete(User, user.pk)
 
 ### Query-Based Deletion
 
-You can also use a query to delete records that match specific criteria. The `delete()` method will delete all records returned by the query and return an integer with the count of records deleted:
+You can also use a query to delete records that match specific criteria. The
+`delete()` method will delete all records returned by the query and return an
+integer with the count of records deleted:
 
 ```python
 # Delete all users over 30
@@ -271,6 +281,13 @@ deleted_count = db.select(User).filter(
 # Delete all records from a table
 deleted_count = db.select(User).delete()
 ```
+
+> [!WARNING]
+>
+> Bulk deletes do not support relationship traversal filters. For example,
+> `db.select(Book).filter(author__name="Ada").delete()` is not supported.
+> Filter on fields from the model being deleted instead:
+> `db.select(Book).filter(author_id=author.pk).delete()`.
 
 > [!NOTE]
 >
@@ -297,9 +314,9 @@ db.commit()
 > [!NOTE]
 >
 > If you are using the database connection as a context manager (see
-> [tansactions](transactions.md)), you do not need to call `commit()`
-> explicitly. The connection will be closed automatically when the context
-> manager exits, and any changes **will be committed**.
+> [transactions](transactions.md)), you do not need to call `commit()`
+> explicitly. From `0.21.0` onward, the context manager still commits
+> successful transactions, but it does not close the connection automatically.
 
 ## Close the Connection
 
@@ -315,7 +332,5 @@ Note that closing the connection will also commit any pending changes, unless
 
 > [!NOTE]
 >
-> If you are using the database connection as a context manager (see
-> [tansactions](transactions.md)), you do not need to call `close()` explicitly.
-> The connection will be closed automatically when the context manager exits,
-> and any changes **will be committed**.
+> From `0.21.0` onward, the context manager does not close the connection.
+> Call `close()` explicitly when the database instance is no longer needed.

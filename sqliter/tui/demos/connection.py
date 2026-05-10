@@ -82,9 +82,9 @@ def _run_debug_mode() -> str:
 
 
 def _run_context_manager() -> str:
-    """Use context manager for automatic connection management.
+    """Use context manager for automatic transaction management.
 
-    The `with db:` block handles connection, transactions, and cleanup.
+    The `with db:` block handles transaction scope; close remains explicit.
     """
     output = io.StringIO()
 
@@ -103,6 +103,7 @@ def _run_context_manager() -> str:
         output.write("Transaction auto-commits on exit\n")
 
     output.write(f"\nAfter context: connected={db.is_connected}\n")
+    db.close()
     return output.getvalue()
 
 

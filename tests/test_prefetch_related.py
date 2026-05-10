@@ -232,6 +232,21 @@ class TestReverseFKPrefetch:
         assert cast("Any", jane.books).count() == 2
         assert cast("Any", jane.reviews).count() == 2
 
+    def test_prefetch_related_paths_returns_copy(self, db: SqliterDB) -> None:
+        """prefetch_related_paths returns a copy, not internal state."""
+        query = db.select(Author).prefetch_related("books")
+
+        paths = query.prefetch_related_paths
+        paths.append("reviews")
+
+        assert query.prefetch_related_paths == ["books"]
+
+    def test_validate_prefetch_path_public_wrapper(self, db: SqliterDB) -> None:
+        """validate_prefetch_path delegates through the public wrapper."""
+        query = db.select(Author)
+
+        query.validate_prefetch_path("books")
+
     def test_no_related_objects_get_empty_list(self, db: SqliterDB) -> None:
         """Instances with no related objects get [] in cache."""
         authors = db.select(Author).prefetch_related("books").fetch_all()

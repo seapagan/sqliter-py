@@ -1,5 +1,7 @@
 """Test suite for the 'sqliter' library."""
 
+from pathlib import Path
+
 import pytest
 from pytest_mock import MockerFixture
 
@@ -10,6 +12,8 @@ from sqliter.exceptions import (
     TableCreationError,
 )
 from sqliter.model import BaseDBModel
+from sqliter.orm import BaseDBModel as ORMBaseDBModel
+from sqliter.orm.registry import ModelRegistry
 from tests.conftest import ComplexModel, DetailedPersonModel, ExampleModel
 
 
@@ -192,6 +196,111 @@ class TestSqliterDB:
             assert result[3] == "mit"
             assert result[4] == "MIT License"
             assert result[5] == "MIT License Content"
+
+    def test_insert_updates_supplied_instance(self, db_mock: SqliterDB) -> None:
+        """Insert should mark the supplied instance as saved."""
+        test_model = ExampleModel(
+            slug="apache",
+            name="Apache License",
+            content="Apache License Content",
+        )
+
+        inserted = db_mock.insert(test_model)
+
+        assert inserted is test_model
+        assert test_model.pk == inserted.pk
+        assert test_model.pk > 0
+
+    def test_insert_updates_orm_instance_context(self) -> None:
+        """Insert should attach db_context to supplied ORM instances."""
+        state = ModelRegistry.snapshot()
+        try:
+
+            class SavedORMModel(ORMBaseDBModel):
+                """ORM model for insert context tests."""
+
+                name: str
+
+            db = SqliterDB(memory=True)
+            db.create_table(SavedORMModel)
+            model = SavedORMModel(name="saved")
+
+            inserted = db.insert(model)
+
+            assert inserted is model
+            assert model.pk > 0
+            assert model.db_context is db
+
+            db.close()
+        finally:
+            ModelRegistry.restore(state)
+
+    def test_create_instance_from_data_applies_pk(
+        self,
+        db_mock: SqliterDB,
+    ) -> None:
+        """create_instance_from_data should apply the supplied primary key."""
+        instance = db_mock.create_instance_from_data(
+            ExampleModel,
+            {
+                "slug": "bsd",
+                "name": "BSD License",
+                "content": "BSD License Content",
+            },
+            pk=42,
+        )
+
+        assert instance.pk == 42
+        assert instance.slug == "bsd"
+
+    def test_build_insert_plan_binds_none_values(self) -> None:
+        """Insert plans keep placeholders stable when values are None."""
+        db = SqliterDB(":memory:")
+        model = ComplexModel(
+            name="Alice",
+            age=30.5,
+            is_active=True,
+            score=85,
+            nullable_field=None,
+        )
+
+        plan = db._build_insert_plan(model, timestamp_override=False)
+
+        assert '"nullable_field"' in plan.sql
+        assert "NULL" not in plan.sql
+        assert plan.sql.count("?") == len(plan.values)
+        assert plan.values[-1] is None
+
+    def test_crud_quotes_reserved_table_name(self) -> None:
+        """Core CRUD methods handle reserved table names."""
+        state = ModelRegistry.snapshot()
+        try:
+
+            class ReservedCrudModel(BaseDBModel):
+                name: str
+
+                class Meta:
+                    table_name = "order"
+
+            db = SqliterDB(":memory:")
+            db.create_table(ReservedCrudModel)
+
+            inserted = db.insert(ReservedCrudModel(name="Initial"))
+            fetched = db.get(ReservedCrudModel, inserted.pk)
+            assert fetched is not None
+            assert fetched.name == "Initial"
+
+            fetched.name = "Updated"
+            db.update(fetched)
+            updated = db.get(ReservedCrudModel, inserted.pk, bypass_cache=True)
+            assert updated is not None
+            assert updated.name == "Updated"
+
+            db.delete(ReservedCrudModel, inserted.pk)
+            assert db.get(ReservedCrudModel, inserted.pk) is None
+            db.close()
+        finally:
+            ModelRegistry.restore(state)
 
     def test_fetch_license(self, db_mock: SqliterDB) -> None:
         """Test fetching a license by primary key."""
@@ -409,6 +518,47 @@ class TestSqliterDB:
         """Test fetching a non-existent record returns None."""
         result = db_mock.get(ExampleModel, -1)
         assert result is None
+
+    def test_get_does_not_cache_default_negative_result(
+        self, tmp_path: Path
+    ) -> None:
+        """Default negative cache entries do not mask inserts from other DBs."""
+        db_path = tmp_path / "negative-cache.db"
+        db_reader = SqliterDB(str(db_path), cache_enabled=True)
+        db_writer = SqliterDB(str(db_path), cache_enabled=True)
+        db_reader.create_table(ExampleModel)
+
+        assert db_reader.get(ExampleModel, 1) is None
+
+        db_writer.insert(
+            ExampleModel(pk=1, slug="later", name="Later", content="Inserted")
+        )
+
+        fetched = db_reader.get(ExampleModel, 1)
+
+        assert fetched is not None
+        assert fetched.slug == "later"
+        db_reader.close()
+        db_writer.close()
+
+    def test_get_caches_negative_result_with_explicit_ttl(
+        self, tmp_path: Path
+    ) -> None:
+        """Explicit cache_ttl keeps negative cache entries for later lookups."""
+        db_path = tmp_path / "negative-cache-ttl.db"
+        db_reader = SqliterDB(str(db_path), cache_enabled=True)
+        db_writer = SqliterDB(str(db_path), cache_enabled=True)
+        db_reader.create_table(ExampleModel)
+
+        assert db_reader.get(ExampleModel, 1, cache_ttl=60) is None
+
+        db_writer.insert(
+            ExampleModel(pk=1, slug="later", name="Later", content="Inserted")
+        )
+
+        assert db_reader.get(ExampleModel, 1, cache_ttl=60) is None
+        db_reader.close()
+        db_writer.close()
 
     def test_delete_non_existent_record(self, db_mock: SqliterDB) -> None:
         """Test that trying to delete a non-existent record raises exception."""
@@ -691,6 +841,30 @@ class TestSqliterDB:
         with pytest.raises(RecordFetchError):
             db_reset.select(TestModel2).fetch_all()
 
+    def test_reset_database_quotes_reserved_table_name(
+        self, temp_db_path: str
+    ) -> None:
+        """reset=True handles reserved table names."""
+        state = ModelRegistry.snapshot()
+        try:
+
+            class ReservedResetModel(BaseDBModel):
+                name: str
+
+                class Meta:
+                    table_name = "order"
+
+            db = SqliterDB(temp_db_path)
+            db.create_table(ReservedResetModel)
+            db.close()
+
+            db_reset = SqliterDB(temp_db_path, reset=True)
+
+            assert "order" not in db_reset.table_names
+            db_reset.close()
+        finally:
+            ModelRegistry.restore(state)
+
     def test_create_table_exists_ok_true(self, db_mock: SqliterDB) -> None:
         """Test creating a table with exists_ok=True (default behavior)."""
         # First creation should succeed
@@ -740,7 +914,7 @@ class TestSqliterDB:
         mock_cursor = mocker.MagicMock()
         mocker.patch.object(
             db_mock, "connect"
-        ).return_value.__enter__.return_value.cursor.return_value = mock_cursor
+        ).return_value.cursor.return_value = mock_cursor
 
         # Test with exists_ok=True
         db_mock.create_table(ExistOkModel, exists_ok=True)
@@ -816,6 +990,38 @@ class TestSqliterDB:
         # Clean up
         db.close()
 
+    def test_create_table_force_quotes_reserved_table_name(self) -> None:
+        """create_table(force=True) handles reserved table names."""
+        state = ModelRegistry.snapshot()
+        try:
+
+            class ReservedInitialModel(BaseDBModel):
+                name: str
+
+                class Meta:
+                    table_name = "order"
+
+            class ReservedReplacementModel(BaseDBModel):
+                name: str
+                email: str
+
+                class Meta:
+                    table_name = "order"
+
+            db = SqliterDB(":memory:")
+            db.create_table(ReservedInitialModel)
+            db.create_table(ReservedReplacementModel, force=True)
+
+            with db.connect() as conn:
+                cursor = conn.cursor()
+                cursor.execute('PRAGMA table_info("order")')
+                columns = [column[1] for column in cursor.fetchall()]
+
+            assert "email" in columns
+            db.close()
+        finally:
+            ModelRegistry.restore(state)
+
     def test_create_table_force_and_exists_ok(self, db_mock: SqliterDB) -> None:
         """Test interaction between force and exists_ok parameters."""
         # force=True should take precedence over exists_ok=False
@@ -830,7 +1036,7 @@ class TestSqliterDB:
         mock_cursor = mocker.MagicMock()
         mocker.patch.object(
             db_mock, "connect"
-        ).return_value.__enter__.return_value.cursor.return_value = mock_cursor
+        ).return_value.cursor.return_value = mock_cursor
 
         db_mock.create_table(ExistOkModel, force=True)
 
@@ -841,3 +1047,23 @@ class TestSqliterDB:
         # Check for CREATE TABLE
         create_call = mock_cursor.execute.call_args_list[1]
         assert "CREATE TABLE" in create_call[0][0]
+
+    def test_helper_wrappers_delegate_consistently(self) -> None:
+        """Public helper wrappers should expose shared sync helper behavior."""
+        db = SqliterDB(":memory:")
+        instance = ExampleModel(slug="a", name="A", content="one")
+
+        db.set_insert_timestamps(instance, timestamp_override=False)
+        mapped = db.map_data_to_db_columns(
+            ExampleModel,
+            {"slug": "a", "name": "A", "content": "one"},
+        )
+        select_list = db.build_model_select_list(ExampleModel)
+
+        assert instance.created_at > 0
+        assert instance.updated_at > 0
+        assert mapped == {"slug": "a", "name": "A", "content": "one"}
+        assert (
+            select_list
+            == '"pk", "created_at", "updated_at", "slug", "name", "content"'
+        )

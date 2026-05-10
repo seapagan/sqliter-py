@@ -158,7 +158,7 @@ class TestOptionalFields:
         """Test selecting specific fields with ordering."""
         results = (
             db_mock_detailed.select(DetailedPersonModel, fields=["name", "age"])
-            .order("age", direction="DESC")
+            .order("age", reverse=True)
             .fetch_all()
         )
         assert len(results) == 3

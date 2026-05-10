@@ -82,13 +82,17 @@ class TestUnique:
         mock_cursor = mocker.MagicMock()
         mocker.patch.object(
             SqliterDB, "connect"
-        ).return_value.__enter__.return_value.cursor.return_value = mock_cursor
+        ).return_value.cursor.return_value = mock_cursor
 
         db = SqliterDB(":memory:")
         db.create_table(User)
 
         # Capture the generated SQL statement for table creation
-        sql = mock_cursor.execute.call_args[0][0]
+        sql = next(
+            call.args[0]
+            for call in mock_cursor.execute.call_args_list
+            if "CREATE TABLE" in call.args[0]
+        )
 
         # Remove the primary key part from the SQL for easier assertion
         sql_without_pk = sql.replace(

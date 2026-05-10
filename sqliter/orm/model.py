@@ -78,8 +78,8 @@ class BaseDBModel(_BaseDBModel):
             # Get FK ID
             fk_id = object.__getattribute__(self, f"{name}_id")
 
-            # Null FK returns None directly (standard ORM behavior)
-            if fk_id is None:
+            # Null or missing FK returns None directly (standard ORM behavior)
+            if not fk_id:
                 return None
 
             # Check instance cache for identity (same object on repeated access)

@@ -72,21 +72,21 @@ class BaseDBModel(BaseModel):
             table_name (Optional[str]): The name of the database table. If not
                 specified, the table name will be inferred from the model class
                 name and converted to snake_case.
-            indexes (ClassVar[list[Union[str, tuple[str]]]]): A list of fields
-                or tuples of fields for which regular (non-unique) indexes
-                should be created. Indexes improve query performance on these
-                fields.
-            unique_indexes (ClassVar[list[Union[str, tuple[str]]]]): A list of
-                fields or tuples of fields for which unique indexes should be
-                created. Unique indexes enforce that all values in these fields
-                are distinct across the table.
+            indexes (ClassVar[list[Union[str, tuple[str, ...]]]]): A list of
+                fields or tuples of fields for which regular (non-unique)
+                indexes should be created. Indexes improve query performance
+                on these fields.
+            unique_indexes (ClassVar[list[Union[str, tuple[str, ...]]]]): A
+                list of fields or tuples of fields for which unique indexes
+                should be created. Unique indexes enforce that all values in
+                these fields are distinct across the table.
         """
 
         table_name: Optional[str] = (
             None  # Table name, defaults to class name if not set
         )
-        indexes: ClassVar[list[Union[str, tuple[str]]]] = []
-        unique_indexes: ClassVar[list[Union[str, tuple[str]]]] = []
+        indexes: ClassVar[list[Union[str, tuple[str, ...]]]] = []
+        unique_indexes: ClassVar[list[Union[str, tuple[str, ...]]]] = []
 
     @classmethod
     def model_validate_partial(cls, obj: dict[str, Any]) -> Self:
