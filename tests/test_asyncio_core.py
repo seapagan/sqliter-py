@@ -1686,6 +1686,7 @@ async def test_async_drop_table_rolls_back_on_error(
     with pytest.raises(RuntimeError, match=msg):
         await fail_transaction()
 
+    await db.close()
     db = AsyncSqliterDB(temp_db_path)
     fetched = await db.get(ExampleModel, 1)
 
