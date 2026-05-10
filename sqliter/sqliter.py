@@ -287,6 +287,9 @@ class SqliterDB:
         using an existing logger or creating a new one specifically for
         SQLiter.
         """
+        if self.logger is not None:
+            return
+
         # Check if the root logger is already configured
         root_logger = logging.getLogger()
 

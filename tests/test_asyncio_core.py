@@ -525,8 +525,7 @@ async def test_async_db_properties_expose_sync_configuration(
         logger=logger,
     )
     assert db.debug is True
-    assert db.logger is not None
-    assert db.logger.name == "sqliter"
+    assert db.logger is logger
     assert db.is_memory is True
     assert db.filename is None
     assert db.auto_commit is False

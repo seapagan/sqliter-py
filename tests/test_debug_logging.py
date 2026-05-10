@@ -204,6 +204,7 @@ class TestDebugLogging:
         custom_logger = logging.getLogger("CustomLogger")
         custom_logger.setLevel(logging.DEBUG)
         db = SqliterDB(":memory:", debug=True, logger=custom_logger)
+        assert db.logger is custom_logger
         db.create_table(ComplexModel)
 
         with caplog.at_level(logging.DEBUG):
