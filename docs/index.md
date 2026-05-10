@@ -27,7 +27,10 @@ database-like format without needing to learn SQL or use a full ORM.
 > a stable release is made. I'll try to keep this to an absolute minimum and the
 > releases and documentation will be very clear about any breaking changes.
 >
-> See the [TODO](todo/index.md) for planned features and improvements.
+> The `async` feature is new. It is covered by tests and expected to work, but
+> treat it with some caution until it has seen a few releases of real-world use.
+>
+> See the [TODO](TODO.md) for planned features and improvements.
 
 ## Features
 
@@ -57,6 +60,13 @@ database-like format without needing to learn SQL or use a full ORM.
 - Interactive TUI demo for exploring features
 - No required external dependencies other than Pydantic for core sync usage
 - Full test coverage
+
+> [!CAUTION]
+>
+> **Supported Python Versions**
+>
+> Release **0.20.0** was the last release to support **Python 3.9**. Release
+> **0.21.0** and onwards require **Python 3.10**
 
 ## API Reference
 
