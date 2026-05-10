@@ -271,6 +271,37 @@ class TestSqliterDB:
         assert plan.sql.count("?") == len(plan.values)
         assert plan.values[-1] is None
 
+    def test_crud_quotes_reserved_table_name(self) -> None:
+        """Core CRUD methods handle reserved table names."""
+        state = ModelRegistry.snapshot()
+        try:
+
+            class ReservedCrudModel(BaseDBModel):
+                name: str
+
+                class Meta:
+                    table_name = "order"
+
+            db = SqliterDB(":memory:")
+            db.create_table(ReservedCrudModel)
+
+            inserted = db.insert(ReservedCrudModel(name="Initial"))
+            fetched = db.get(ReservedCrudModel, inserted.pk)
+            assert fetched is not None
+            assert fetched.name == "Initial"
+
+            fetched.name = "Updated"
+            db.update(fetched)
+            updated = db.get(ReservedCrudModel, inserted.pk, bypass_cache=True)
+            assert updated is not None
+            assert updated.name == "Updated"
+
+            db.delete(ReservedCrudModel, inserted.pk)
+            assert db.get(ReservedCrudModel, inserted.pk) is None
+            db.close()
+        finally:
+            ModelRegistry.restore(state)
+
     def test_fetch_license(self, db_mock: SqliterDB) -> None:
         """Test fetching a license by primary key."""
         test_model = ExampleModel(

@@ -1249,7 +1249,7 @@ class SqliterDB:
         placeholders = ", ".join("?" for _ in sql_data)
         values = tuple(sql_data.values())
         insert_sql = (
-            f"INSERT INTO {table_name} ({fields}) "  # noqa: S608
+            f"INSERT INTO {quote_identifier(table_name)} ({fields}) "  # noqa: S608
             f"VALUES ({placeholders})"
         )
 
@@ -1271,8 +1271,8 @@ class SqliterDB:
         primary_key = model_class.get_primary_key()
         fields = self._build_model_select_list(model_class)
         select_sql = (
-            f"SELECT {fields} FROM {table_name} "  # noqa: S608
-            f"WHERE {primary_key} = ?"
+            f"SELECT {fields} FROM {quote_identifier(table_name)} "  # noqa: S608
+            f"WHERE {quote_identifier(primary_key)} = ?"
         )
         return GetPlan(
             table_name=table_name,
@@ -1298,9 +1298,9 @@ class SqliterDB:
         fields = ", ".join(f'"{field}" = ?' for field in sql_data)
         values = tuple(sql_data.values())
         update_sql = (
-            f"UPDATE {table_name} "  # noqa: S608
+            f"UPDATE {quote_identifier(table_name)} "  # noqa: S608
             f"SET {fields} "
-            f"WHERE {primary_key} = ?"
+            f"WHERE {quote_identifier(primary_key)} = ?"
         )
         return UpdatePlan(
             table_name=table_name,
@@ -1318,8 +1318,8 @@ class SqliterDB:
         table_name = model_class.get_table_name()
         primary_key = model_class.get_primary_key()
         delete_sql = (
-            f"DELETE FROM {table_name} "  # noqa: S608
-            f"WHERE {primary_key} = ?"
+            f"DELETE FROM {quote_identifier(table_name)} "  # noqa: S608
+            f"WHERE {quote_identifier(primary_key)} = ?"
         )
         return DeletePlan(
             table_name=table_name,

@@ -299,7 +299,7 @@ class TestDebugLogging:
             )
 
         assert "Executing SQL:" in caplog.text
-        assert "INSERT INTO complex_model" in caplog.text
+        assert 'INSERT INTO "complex_model"' in caplog.text
 
     def test_debug_output_get(
         self, db_mock_complex_debug: SqliterDB, caplog: pytest.LogCaptureFixture
@@ -324,7 +324,7 @@ class TestDebugLogging:
             db_mock_complex_debug.update(record)
 
         assert "Executing SQL:" in caplog.text
-        assert "UPDATE complex_model" in caplog.text
+        assert 'UPDATE "complex_model"' in caplog.text
 
     def test_debug_output_delete(
         self, db_mock_complex_debug: SqliterDB, caplog: pytest.LogCaptureFixture
@@ -334,7 +334,7 @@ class TestDebugLogging:
             db_mock_complex_debug.delete(ComplexModel, 1)
 
         assert "Executing SQL:" in caplog.text
-        assert "DELETE FROM complex_model" in caplog.text
+        assert 'DELETE FROM "complex_model"' in caplog.text
 
     def test_debug_output_table_names(
         self, caplog: pytest.LogCaptureFixture

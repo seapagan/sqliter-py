@@ -214,6 +214,41 @@ async def test_async_build_insert_plan_binds_none_values() -> None:
 
 
 @pytest.mark.asyncio
+async def test_async_crud_quotes_reserved_table_name() -> None:
+    """Async core CRUD methods handle reserved table names."""
+    state = ModelRegistry.snapshot()
+    try:
+
+        class AsyncReservedCrudModel(BaseDBModel):
+            name: str
+
+            class Meta:
+                table_name = "order"
+
+        db = AsyncSqliterDB(memory=True)
+        await db.create_table(AsyncReservedCrudModel)
+
+        inserted = await db.insert(AsyncReservedCrudModel(name="Initial"))
+        fetched = await db.get(AsyncReservedCrudModel, inserted.pk)
+        assert fetched is not None
+        assert fetched.name == "Initial"
+
+        fetched.name = "Updated"
+        await db.update(fetched)
+        updated = await db.get(
+            AsyncReservedCrudModel, inserted.pk, bypass_cache=True
+        )
+        assert updated is not None
+        assert updated.name == "Updated"
+
+        await db.delete(AsyncReservedCrudModel, inserted.pk)
+        assert await db.get(AsyncReservedCrudModel, inserted.pk) is None
+        await db.close()
+    finally:
+        ModelRegistry.restore(state)
+
+
+@pytest.mark.asyncio
 async def test_async_insert_get_update_delete() -> None:
     """Async CRUD works for the core DB API."""
     db = AsyncSqliterDB(memory=True)
