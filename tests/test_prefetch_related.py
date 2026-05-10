@@ -7,7 +7,10 @@ coexistence with select_related, error cases, and cache key differentiation.
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 import pytest
 
@@ -77,7 +80,7 @@ class Person(BaseDBModel):
 
 
 @pytest.fixture
-def db() -> SqliterDB:
+def db() -> Generator[SqliterDB, None, None]:
     """Create a test database with sample data."""
     database = SqliterDB(":memory:")
     database.create_table(Author)
@@ -156,7 +159,10 @@ def db() -> SqliterDB:
     # Suppress unused variable warnings — data is in the DB
     _ = (a3, t4, art3, pe4)
 
-    return database
+    try:
+        yield database
+    finally:
+        database.close()
 
 
 # ── Reverse FK prefetch tests ────────────────────────────────────────
@@ -613,7 +619,7 @@ class Reply(BaseDBModel):
 
 
 @pytest.fixture
-def nested_db() -> SqliterDB:
+def nested_db() -> Generator[SqliterDB, None, None]:
     """Create a test database with nested relationship data."""
     database = SqliterDB(":memory:")
     database.create_table(Author)
@@ -684,7 +690,10 @@ def nested_db() -> SqliterDB:
     # Suppress unused variable warnings
     _ = (a3, c3, b3, t2, com2)
 
-    return database
+    try:
+        yield database
+    finally:
+        database.close()
 
 
 # ── Nested prefetch tests ───────────────────────────────────────────

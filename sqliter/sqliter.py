@@ -13,6 +13,7 @@ import sqlite3
 import sys
 import time
 from collections import OrderedDict
+from contextlib import suppress
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, cast
 
@@ -631,6 +632,15 @@ class SqliterDB:
         self._cache.clear()
         self._cache_hits = 0
         self._cache_misses = 0
+
+    def __del__(self) -> None:
+        """Release an owned SQLite connection during finalization."""
+        conn = getattr(self, "conn", None)
+        if conn is None:
+            return
+
+        with suppress(sqlite3.Error, AttributeError, TypeError, RuntimeError):
+            conn.close()
 
     def commit(self) -> None:
         """Commit the current transaction.

@@ -6,6 +6,7 @@ import time
 from typing import TYPE_CHECKING, ClassVar
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
     from pathlib import Path
 
 import pytest
@@ -85,7 +86,7 @@ class SubSimpleModel(SimpleModel):
 
 
 @pytest.fixture
-def db() -> SqliterDB:
+def db() -> Generator[SqliterDB, None, None]:
     """Create an in-memory database with test tables."""
     database = SqliterDB(memory=True)
     database.create_table(SimpleModel)
@@ -95,7 +96,10 @@ def db() -> SqliterDB:
     database.create_table(ParentModel)
     database.create_table(ChildModel)
     database.create_table(OtherModel)
-    return database
+    try:
+        yield database
+    finally:
+        database.close()
 
 
 # ── Tests ────────────────────────────────────────────────────────────

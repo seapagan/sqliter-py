@@ -125,9 +125,12 @@ class TestContextManager:
 
         # After the transaction, open a new connection to query the database
         new_conn = sqlite3.connect(str(db_file))
-        result = new_conn.execute(
-            "SELECT * FROM test_table WHERE slug = 'test'"
-        ).fetchone()
+        try:
+            result = new_conn.execute(
+                "SELECT * FROM test_table WHERE slug = 'test'"
+            ).fetchone()
+        finally:
+            new_conn.close()
 
         # Assert that the data was committed
         assert result is not None, "Data was not committed."
@@ -135,8 +138,7 @@ class TestContextManager:
             f"Expected slug to be 'test', but got {result[3]}"
         )
 
-        # Close the new connection
-        new_conn.close()
+        db_mock.close()
 
     def test_context_manager_keeps_memory_database_available(self) -> None:
         """In-memory DB data survives after leaving the transaction context."""
