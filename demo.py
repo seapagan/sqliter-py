@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Annotated, Optional
+from typing import Annotated
 
 from sqliter import SqliterDB
 from sqliter.exceptions import ForeignKeyConstraintError, RecordInsertionError
@@ -24,7 +24,7 @@ class UserModel(BaseDBModel):
 
     slug: str
     name: str
-    content: Optional[str]
+    content: str | None
     admin: bool = False
     list_of_str: list[str]
     a_set: set[str]

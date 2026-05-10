@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar, Optional
+from typing import Any, ClassVar
 
 from pydantic import Field
 
@@ -32,7 +32,7 @@ class BaseDBModel(_BaseDBModel):
 
     # Database context for lazy loading and reverse queries
     # Using Any since SqliterDB would cause circular import issues with Pydantic
-    db_context: Optional[Any] = Field(default=None, exclude=True)
+    db_context: Any | None = Field(default=None, exclude=True)
 
     def __init__(self, **kwargs: Any) -> None:  # noqa: ANN401
         """Initialize model, converting FK fields to _id fields."""
@@ -206,7 +206,7 @@ class BaseDBModel(_BaseDBModel):
                 id_field_name = f"{name}_id"
                 if id_field_name not in cls.__annotations__:
                     if value.fk_info.null:
-                        cls.__annotations__[id_field_name] = Optional[int]
+                        cls.__annotations__[id_field_name] = int | None
                         # Nullable FKs default to None so they can be omitted
                         setattr(cls, id_field_name, None)
                     else:

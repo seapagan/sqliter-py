@@ -1,6 +1,6 @@
 """Tests for selecting specific fields from a model."""
 
-from typing import Union, cast
+from typing import cast
 
 import pytest
 
@@ -226,7 +226,7 @@ class TestOptionalFields:
         """Test where the for/else block is hit in model_validate_partial."""
 
         class TestModel(BaseDBModel):
-            field_a: Union[int, float]
+            field_a: int | float
 
         invalid_value = "string"
 

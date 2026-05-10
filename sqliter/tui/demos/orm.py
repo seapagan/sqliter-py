@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import io
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from sqliter import SqliterDB
 from sqliter.orm import BaseDBModel, ForeignKey, ManyToMany
@@ -151,7 +151,7 @@ def _run_nullable_foreign_key() -> str:
 
     class Book(BaseDBModel):
         title: str
-        author: ForeignKey[Optional[Author]] = ForeignKey(
+        author: ForeignKey[Author | None] = ForeignKey(
             Author, on_delete="SET NULL", null=True
         )
 

@@ -6,7 +6,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Generic,
-    Optional,
     Protocol,
     TypeVar,
     cast,
@@ -40,8 +39,8 @@ T = TypeVar("T")
 class HasPKAndContext(Protocol):
     """Protocol for instances with pk and async db_context."""
 
-    pk: Optional[int]
-    db_context: Optional[Any]
+    pk: int | None
+    db_context: Any | None
 
 
 class AsyncManyToManyManager(_M2MCacheInvalidationMixin, Generic[T]):
@@ -53,8 +52,8 @@ class AsyncManyToManyManager(_M2MCacheInvalidationMixin, Generic[T]):
         to_model: type[T],
         from_model: type[Any],
         junction_table: str,
-        db_context: Optional[AsyncSqliterDB],
-        options: Optional[ManyToManyOptions] = None,
+        db_context: AsyncSqliterDB | None,
+        options: ManyToManyOptions | None = None,
     ) -> None:
         """Store manager state and resolved SQL metadata."""
         manager_options = options or ManyToManyOptions()
@@ -63,8 +62,8 @@ class AsyncManyToManyManager(_M2MCacheInvalidationMixin, Generic[T]):
         self._from_model = from_model
         self._junction_table = junction_table
         self._db = db_context
-        self._current_cache_key: Optional[str] = None
-        self._reverse_cache_key: Optional[str] = None
+        self._current_cache_key: str | None = None
+        self._reverse_cache_key: str | None = None
 
         from_table = cast("type[BaseDBModel]", from_model).get_table_name()
         to_table = cast("type[BaseDBModel]", to_model).get_table_name()
@@ -330,7 +329,7 @@ class AsyncManyToManyManager(_M2MCacheInvalidationMixin, Generic[T]):
             await self._db.select(model).filter(pk__in=list(pks)).fetch_all(),
         )
 
-    async def fetch_one(self) -> Optional[T]:
+    async def fetch_one(self) -> T | None:
         """Fetch one related object."""
         pks = await self._fetch_related_pks()
         if not pks or self._db is None:
@@ -340,7 +339,7 @@ class AsyncManyToManyManager(_M2MCacheInvalidationMixin, Generic[T]):
         results = await (
             self._db.select(model).filter(pk__in=list(pks)).limit(1).fetch_all()
         )
-        return cast("Optional[T]", results[0]) if results else None
+        return cast("T | None", results[0]) if results else None
 
     async def count(self) -> int:
         """Count related objects via the junction table."""
@@ -393,7 +392,7 @@ class AsyncPrefetchedM2MResult(Generic[T]):
         """Return all prefetched related objects."""
         return list(self._items)
 
-    async def fetch_one(self) -> Optional[T]:
+    async def fetch_one(self) -> T | None:
         """Return one prefetched related object."""
         return self._items[0] if self._items else None
 
@@ -507,7 +506,7 @@ class AsyncReverseManyToMany(SyncReverseManyToMany):
         related_name: str,
         *,
         symmetrical: bool = False,
-        forward_name: Optional[str] = None,
+        forward_name: str | None = None,
     ) -> None:
         """Store reverse descriptor metadata and cache keys."""
         super().__init__(

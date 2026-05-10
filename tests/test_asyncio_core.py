@@ -426,7 +426,8 @@ async def test_async_bulk_insert_updates_supplied_instances() -> None:
 
     assert inserted == instances
     assert all(
-        result is instance for result, instance in zip(inserted, instances)
+        result is instance
+        for result, instance in zip(inserted, instances, strict=True)
     )
     assert [instance.pk for instance in instances] == [1, 2]
 
@@ -455,7 +456,8 @@ async def test_async_bulk_insert_updates_orm_instance_context() -> None:
 
         assert inserted == instances
         assert all(
-            result is instance for result, instance in zip(inserted, instances)
+            result is instance
+            for result, instance in zip(inserted, instances, strict=True)
         )
         assert [instance.pk for instance in instances] == [1, 2]
         assert all(instance.db_context is db for instance in instances)

@@ -2,7 +2,7 @@
 # ruff: noqa: C405  # Allow set([...]) syntax in tests to verify we both handle both forms
 
 import pickle
-from typing import Any, ClassVar, Union
+from typing import Any, ClassVar
 
 import pytest
 from pydantic_core import ValidationError
@@ -193,9 +193,7 @@ class TestComplexTypes:
         self,
         model_instance: ComplexTypesModel,
         field_name: str,
-        invalid_value: Union[
-            list[Any], dict[Any, Any], set[Any], tuple[Any, ...]
-        ],
+        invalid_value: list[Any] | dict[Any, Any] | set[Any] | tuple[Any, ...],
     ) -> None:
         """Test validation of incorrect types."""
         with pytest.raises(ValidationError):

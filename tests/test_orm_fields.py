@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sys
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import pytest
 from pydantic.fields import FieldInfo
@@ -40,13 +40,13 @@ class OwnerWithNonOptionalFK(BaseDBModel):
 class OwnerWithOptionalFK(BaseDBModel):
     """Model with optional FK."""
 
-    rel: ForeignKey[Optional[RelatedModel2]] = ForeignKey(RelatedModel2)
+    rel: ForeignKey[RelatedModel2 | None] = ForeignKey(RelatedModel2)
 
 
 class OwnerWithFK(BaseDBModel):
     """Model with optional FK for testing assignment."""
 
-    related: ForeignKey[Optional[RelatedModel3]] = ForeignKey(RelatedModel3)
+    related: ForeignKey[RelatedModel3 | None] = ForeignKey(RelatedModel3)
 
 
 def test_fk_non_optional_annotation() -> None:
@@ -167,12 +167,12 @@ def test_fk_removed_from_model_fields_during_setup() -> None:
 
         # This will normally be removed before model_fields is built,
         # but we'll manually add it back to test the deletion path (line 247)
-        rel: ForeignKey[Optional[RelatedModel]] = ForeignKey(RelatedModel)
+        rel: ForeignKey[RelatedModel | None] = ForeignKey(RelatedModel)
 
     # Manually add the FK to model_fields to simulate it being there
     # (this could happen with unusual metaclass usage or direct manipulation)
     OwnerModel.model_fields["rel"] = FieldInfo.from_annotation(
-        ForeignKey[Optional[RelatedModel]]
+        ForeignKey[RelatedModel | None]
     )
     assert "rel" in OwnerModel.model_fields
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Generic, Optional, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Generic, TypeVar, cast, overload
 
 from sqliter.asyncio.orm.query import AsyncReverseRelationship
 from sqliter.orm.fields import ForeignKey as SyncForeignKey
@@ -24,15 +24,15 @@ class AsyncLazyLoader(Generic[T]):
         self,
         instance: object,
         to_model: type[T],
-        fk_id: Optional[int],
-        db_context: Optional[AsyncSqliterDB],
+        fk_id: int | None,
+        db_context: AsyncSqliterDB | None,
     ) -> None:
         """Store loader state for explicit async fetching."""
         self._instance = instance
         self._to_model = to_model
         self._fk_id = fk_id
         self._db = db_context
-        self._cached: Optional[T] = None
+        self._cached: T | None = None
         self._loaded = False
 
     @property
@@ -40,7 +40,7 @@ class AsyncLazyLoader(Generic[T]):
         """Return the database context."""
         return self._db
 
-    async def fetch(self) -> Optional[T]:
+    async def fetch(self) -> T | None:
         """Load and return the related object, if present."""
         if not self._fk_id:
             self._cached = None
@@ -52,7 +52,7 @@ class AsyncLazyLoader(Generic[T]):
                 cast("type[BaseDBModel]", self._to_model),
                 self._fk_id,
             )
-            self._cached = cast("Optional[T]", result)
+            self._cached = cast("T | None", result)
             self._loaded = True
         return self._cached
 

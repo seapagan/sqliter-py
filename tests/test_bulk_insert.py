@@ -150,7 +150,8 @@ class TestBulkInsertBasic:
 
         assert results == instances
         assert all(
-            result is instance for result, instance in zip(results, instances)
+            result is instance
+            for result, instance in zip(results, instances, strict=True)
         )
         assert [instance.pk for instance in instances] == [1, 2]
 
@@ -168,7 +169,8 @@ class TestBulkInsertBasic:
 
         assert results == instances
         assert all(
-            result is instance for result, instance in zip(results, instances)
+            result is instance
+            for result, instance in zip(results, instances, strict=True)
         )
         assert [instance.pk for instance in instances] == [1, 2]
         assert all(instance.db_context is db for instance in instances)

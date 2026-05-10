@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import Literal
 
 AggregateFunction = Literal["COUNT", "SUM", "AVG", "MIN", "MAX"]
 
@@ -13,7 +13,7 @@ class AggregateSpec:
     """Represents a SQL aggregate function projection."""
 
     func: AggregateFunction
-    field: Optional[str] = None
+    field: str | None = None
     distinct: bool = False
 
     def __post_init__(self) -> None:
@@ -28,7 +28,7 @@ class _FunctionNamespace:
     """Namespace for SQL aggregate helper functions."""
 
     def count(
-        self, field: Optional[str] = None, *, distinct: bool = False
+        self, field: str | None = None, *, distinct: bool = False
     ) -> AggregateSpec:
         """Build a COUNT aggregate specification."""
         return AggregateSpec(func="COUNT", field=field, distinct=distinct)

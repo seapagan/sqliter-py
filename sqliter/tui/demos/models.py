@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import io
 from datetime import datetime, timezone
-from typing import Optional, Union
 
 from sqliter import SqliterDB
 from sqliter.model import BaseDBModel
@@ -111,8 +110,8 @@ def _run_optional_fields() -> str:
 
     class Article(BaseDBModel):
         title: str
-        content: Optional[str]
-        author: Optional[str] = "Anonymous"
+        content: str | None
+        author: str | None = "Anonymous"
 
     db = SqliterDB(memory=True)
     db.create_table(Article)
@@ -169,7 +168,7 @@ def _run_complex_types() -> str:
     class Document(BaseDBModel):
         title: str
         tags: list[str]
-        metadata: dict[str, Union[str, int]]
+        metadata: dict[str, str | int]
 
     db = SqliterDB(memory=True)
     db.create_table(Document)

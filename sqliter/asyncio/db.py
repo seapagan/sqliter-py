@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 import time
-from typing import TYPE_CHECKING, Any, Optional, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 import aiosqlite
 from typing_extensions import Self
@@ -45,18 +45,18 @@ class AsyncSqliterDB:
 
     def __init__(  # noqa: PLR0913
         self,
-        db_filename: Optional[str] = None,
+        db_filename: str | None = None,
         *,
         memory: bool = False,
         auto_commit: bool = True,
         debug: bool = False,
-        logger: Optional[logging.Logger] = None,
+        logger: logging.Logger | None = None,
         reset: bool = False,
         return_local_time: bool = True,
         cache_enabled: bool = False,
         cache_max_size: int = 1000,
-        cache_ttl: Optional[int] = None,
-        cache_max_memory_mb: Optional[int] = None,
+        cache_ttl: int | None = None,
+        cache_max_memory_mb: int | None = None,
     ) -> None:
         """Initialize a new async database instance."""
         if reset:
@@ -138,18 +138,18 @@ class AsyncSqliterDB:
     @classmethod
     async def create(  # noqa: PLR0913
         cls,
-        db_filename: Optional[str] = None,
+        db_filename: str | None = None,
         *,
         memory: bool = False,
         auto_commit: bool = True,
         debug: bool = False,
-        logger: Optional[logging.Logger] = None,
+        logger: logging.Logger | None = None,
         reset: bool = False,
         return_local_time: bool = True,
         cache_enabled: bool = False,
         cache_max_size: int = 1000,
-        cache_ttl: Optional[int] = None,
-        cache_max_memory_mb: Optional[int] = None,
+        cache_ttl: int | None = None,
+        cache_max_memory_mb: int | None = None,
     ) -> AsyncSqliterDB:
         """Create an async DB instance and optionally reset the database."""
         db = cls(
@@ -189,7 +189,7 @@ class AsyncSqliterDB:
         table_name: str,
         cache_key: str,
         result: Any,  # noqa: ANN401
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
     ) -> None:
         """Delegate cache writes to the sync helper instance."""
         self._sync.cache_set(table_name, cache_key, result, ttl=ttl)
@@ -199,7 +199,7 @@ class AsyncSqliterDB:
         table_name: str,
         cache_key: str,
         result: Any,  # noqa: ANN401
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
     ) -> None:
         """Store a value in the query cache."""
         self._cache_set(table_name, cache_key, result, ttl=ttl)
@@ -228,7 +228,7 @@ class AsyncSqliterDB:
         self,
         model_class: type[T],
         data: dict[str, Any],
-        pk: Optional[int] = None,
+        pk: int | None = None,
     ) -> T:
         """Create a model instance using the sync helper logic."""
         return self._sync.create_instance_from_data(
@@ -670,7 +670,7 @@ class AsyncSqliterDB:
         primary_key_value: int,
         *,
         bypass_cache: bool = False,
-        cache_ttl: Optional[int] = None,
+        cache_ttl: int | None = None,
     ) -> T | None:
         """Fetch a single model instance by primary key."""
         if cache_ttl is not None and cache_ttl < 0:
@@ -683,7 +683,7 @@ class AsyncSqliterDB:
         if not bypass_cache:
             hit, cached = self._cache_get(get_plan.table_name, cache_key)
             if hit:
-                return cast("Optional[T]", cached)
+                return cast("T | None", cached)
 
         try:
             conn = await self.connect()
@@ -794,8 +794,8 @@ class AsyncSqliterDB:
     def select(
         self,
         model_class: type[T],
-        fields: Optional[list[str]] = None,
-        exclude: Optional[list[str]] = None,
+        fields: list[str] | None = None,
+        exclude: list[str] | None = None,
     ) -> AsyncQueryBuilder[T]:
         """Create an async query builder for the given model class."""
         query_builder = AsyncQueryBuilder(self, model_class, fields)
@@ -814,9 +814,9 @@ class AsyncSqliterDB:
 
     async def __aexit__(
         self,
-        exc_type: Optional[type[BaseException]],
-        exc_value: Optional[BaseException],
-        traceback: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
     ) -> None:
         """Exit the async transaction context."""
         should_finalize, should_rollback = self._sync.exit_transaction_scope(

@@ -1,7 +1,7 @@
 """Test the Unique constraint."""
 
 import warnings
-from typing import Annotated, Union
+from typing import Annotated
 
 import pytest
 from pytest_mock import MockerFixture
@@ -135,7 +135,7 @@ class TestUnique:
 
         class User(BaseDBModel):
             name: str
-            email: Annotated[Union[str, None], unique()]
+            email: Annotated[str | None, unique()]
 
         db = SqliterDB(":memory:")
         db.create_table(User)
@@ -229,7 +229,7 @@ class TestUnique:
         """Test SQLite diffs between empty strings & null for unique."""
 
         class User(BaseDBModel):
-            email: Annotated[Union[str, None], unique()]
+            email: Annotated[str | None, unique()]
 
         db = SqliterDB(":memory:")
         db.create_table(User)

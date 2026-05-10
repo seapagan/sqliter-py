@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
-from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
 
 from sqliter.exceptions import (
     InvalidProjectionError,
@@ -28,7 +28,7 @@ class AsyncQueryBuilder(Generic[T]):
         self,
         db: AsyncSqliterDB,
         model_class: type[T],
-        fields: Optional[list[str]] = None,
+        fields: list[str] | None = None,
     ) -> None:
         """Initialize the async query builder."""
         self.db = db
@@ -61,8 +61,8 @@ class AsyncQueryBuilder(Generic[T]):
 
     def order(
         self,
-        order_by_field: Optional[str] = None,
-        direction: Optional[str] = None,
+        order_by_field: str | None = None,
+        direction: str | None = None,
         *,
         reverse: bool = False,
     ) -> AsyncQueryBuilder[T]:
@@ -81,7 +81,7 @@ class AsyncQueryBuilder(Generic[T]):
 
     def fields(
         self,
-        fields: Optional[list[str]] = None,
+        fields: list[str] | None = None,
     ) -> AsyncQueryBuilder[T]:
         """Specify which fields to select in the query."""
         self._query.fields(fields)
@@ -180,7 +180,7 @@ class AsyncQueryBuilder(Generic[T]):
     ) -> tuple[
         list[tuple[Any, ...]] | tuple[Any, ...] | None,
         list[tuple[str, str, type[BaseDBModel]]],
-        Optional[tuple[str, ...]],
+        tuple[str, ...] | None,
     ]:
         """Execute the constructed SQL query."""
         plan = self._query.build_execution_plan(count_only=count_only)
@@ -207,18 +207,18 @@ class AsyncQueryBuilder(Generic[T]):
         self,
         *,
         fetch_one: bool = False,
-    ) -> list[T] | Optional[T]:
+    ) -> list[T] | T | None:
         """Fetch and convert query results to model instances."""
         hit, cached = self._query.lookup_cache(fetch_one=fetch_one)
         if hit:
-            return cast("list[T] | Optional[T]", cached)
+            return cast("list[T] | T | None", cached)
 
         result, column_names, selected_fields = await self._execute_query(
             fetch_one=fetch_one
         )
 
         if not result:
-            empty: list[T] | Optional[T] = None if fetch_one else []
+            empty: list[T] | T | None = None if fetch_one else []
             self._query.store_cache(empty, fetch_one=fetch_one)
             return empty
 
@@ -382,7 +382,7 @@ class AsyncQueryBuilder(Generic[T]):
 
     async def _execute_prefetch(
         self,
-        instances: list[T] | Optional[T],
+        instances: list[T] | T | None,
     ) -> None:
         """Run prefetch queries and populate caches on instances."""
         if instances is None or not self._query.prefetch_related_paths:
@@ -439,31 +439,31 @@ class AsyncQueryBuilder(Generic[T]):
         )
         return cast("list[T]", await self._fetch_result(fetch_one=False))
 
-    async def fetch_one(self) -> Optional[T]:
+    async def fetch_one(self) -> T | None:
         """Fetch a single query result."""
         self._query.ensure_projection_method_allowed(
             "fetch_one",
             hint="Use fetch_dicts() instead.",
         )
-        return cast("Optional[T]", await self._fetch_result(fetch_one=True))
+        return cast("T | None", await self._fetch_result(fetch_one=True))
 
-    async def fetch_first(self) -> Optional[T]:
+    async def fetch_first(self) -> T | None:
         """Fetch the first query result."""
         self._query.ensure_projection_method_allowed(
             "fetch_first",
             hint="Use fetch_dicts() instead.",
         )
         self._query.prepare_fetch_first()
-        return cast("Optional[T]", await self._fetch_result(fetch_one=True))
+        return cast("T | None", await self._fetch_result(fetch_one=True))
 
-    async def fetch_last(self) -> Optional[T]:
+    async def fetch_last(self) -> T | None:
         """Fetch the last query result."""
         self._query.ensure_projection_method_allowed(
             "fetch_last",
             hint="Use fetch_dicts() instead.",
         )
         self._query.prepare_fetch_last()
-        return cast("Optional[T]", await self._fetch_result(fetch_one=True))
+        return cast("T | None", await self._fetch_result(fetch_one=True))
 
     async def fetch_dicts(self) -> list[dict[str, Any]]:
         """Fetch projection rows as dictionaries."""

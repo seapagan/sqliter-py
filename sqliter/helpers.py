@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import datetime
 import re
-from typing import Union
 
 from sqliter.constants import SQLITE_TYPE_MAPPING
 
@@ -46,7 +45,7 @@ def quote_identifier(identifier: str) -> str:
     return '"' + identifier.replace('"', '""') + '"'
 
 
-def infer_sqlite_type(field_type: Union[type, None]) -> str:
+def infer_sqlite_type(field_type: type | None) -> str:
     """Infer the SQLite column type based on the Python type.
 
     This function maps Python types to their corresponding SQLite column
