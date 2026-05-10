@@ -234,6 +234,13 @@ count = (
 )
 ```
 
+> [!WARNING]
+>
+> Bulk updates do not support relationship traversal filters. For example,
+> `db.select(Book).filter(author__name="Ada").update(...)` is not supported.
+> Filter on fields from the model being updated instead:
+> `db.select(Book).filter(author_id=author.pk).update(...)`.
+
 ## Deleting Records
 
 SQLiter provides two ways to delete records:
@@ -274,6 +281,13 @@ deleted_count = db.select(User).filter(
 # Delete all records from a table
 deleted_count = db.select(User).delete()
 ```
+
+> [!WARNING]
+>
+> Bulk deletes do not support relationship traversal filters. For example,
+> `db.select(Book).filter(author__name="Ada").delete()` is not supported.
+> Filter on fields from the model being deleted instead:
+> `db.select(Book).filter(author_id=author.pk).delete()`.
 
 > [!NOTE]
 >

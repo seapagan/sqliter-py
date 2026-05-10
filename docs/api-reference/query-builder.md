@@ -826,6 +826,8 @@ def update(self, values: dict[str, Any]) -> int:
 
 - [`InvalidUpdateError`](exceptions.md#invalidupdateerror) -- If an
   invalid field name is provided in `values`.
+- [`InvalidFilterError`](exceptions.md#invalidfiltererror) -- If the
+  query uses relationship traversal filters such as `author__name`.
 - [`RecordUpdateError`](exceptions.md#recordupdateerror) -- If there
   is an error executing the update.
 
@@ -851,6 +853,8 @@ def delete(self) -> int:
 
 **Raises:**
 
+- [`InvalidFilterError`](exceptions.md#invalidfiltererror) -- If the
+  query uses relationship traversal filters such as `author__name`.
 - [`RecordDeletionError`](exceptions.md#recorddeletionerror) -- If
   there is an error deleting the records.
 

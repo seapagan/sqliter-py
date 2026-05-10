@@ -101,8 +101,11 @@ async def exists(self) -> bool:
 Bulk update matching rows:
 
 ```python
-async def update(self, **updates: object) -> int:
+async def update(self, values: dict[str, Any]) -> int:
 ```
+
+Relationship traversal filters, such as `author__name="Ada"`, are not
+supported for bulk updates. Filter on fields from the model being updated.
 
 ### `delete()`
 
@@ -111,6 +114,9 @@ Bulk delete matching rows:
 ```python
 async def delete(self) -> int:
 ```
+
+Relationship traversal filters, such as `author__name="Ada"`, are not
+supported for bulk deletes. Filter on fields from the model being deleted.
 
 ---
 
