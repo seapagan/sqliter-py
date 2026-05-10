@@ -467,18 +467,21 @@ class TestJunctionTableCreation:
                 return self._cursor.execute(sql, params)
 
         class DummyConn:
+            def __init__(self, conn: sqlite3.Connection) -> None:
+                self._conn = conn
+
             def cursor(self) -> DummyCursor:
-                return DummyCursor(raw_conn.cursor())
+                return DummyCursor(self._conn.cursor())
 
             def commit(self) -> None:
-                raw_conn.commit()
+                self._conn.commit()
 
         class DummyDB(SqliterDB):
             def connect(self) -> sqlite3.Connection:
                 return cast("sqlite3.Connection", dummy_conn)
 
         raw_conn = sqlite3.connect(":memory:")
-        dummy_conn = DummyConn()
+        dummy_conn = DummyConn(raw_conn)
         dummy_db = DummyDB(memory=True)
         try:
             with pytest.raises(TableCreationError, match="articles_tags"):
