@@ -19,7 +19,7 @@ cffi==2.0.0 ; platform_python_implementation != 'PyPy'
     #   pynacl
 charset-normalizer==3.4.2
     # via requests
-click==8.2.1
+click==8.3.3
     # via
     #   mkdocs
     #   typer
@@ -31,7 +31,7 @@ colorama==0.4.6
     #   pytest
 coverage==7.13.5
     # via pytest-cov
-cryptography==46.0.5
+cryptography==48.0.0
     # via pyjwt
 csscompressor==0.9.5
     # via mkdocs-minify-plugin
@@ -126,7 +126,7 @@ pygments==2.20.0
     #   rich
 pyjwt==2.12.1
     # via pygithub
-pymdown-extensions==10.20
+pymdown-extensions==10.21.2
     # via mkdocs-material
 pynacl==1.6.2
     # via pygithub
@@ -158,7 +158,7 @@ pyyaml==6.0.3
     #   pyyaml-env-tag
 pyyaml-env-tag==1.1
     # via mkdocs
-requests==2.32.5
+requests==2.33.1
     # via
     #   mkdocs-material
     #   pygithub
@@ -203,7 +203,7 @@ typing-extensions==4.15.0
     #   typing-inspection
 typing-inspection==0.4.2
     # via pydantic
-urllib3==2.6.3
+urllib3==2.7.0
     # via
     #   pygithub
     #   requests
