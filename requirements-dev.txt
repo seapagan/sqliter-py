@@ -31,7 +31,7 @@ colorama==0.4.6
     #   pytest
 coverage==7.13.5
     # via pytest-cov
-cryptography==46.0.5
+cryptography==48.0.0
     # via pyjwt
 csscompressor==0.9.5
     # via mkdocs-minify-plugin
@@ -158,7 +158,7 @@ pyyaml==6.0.3
     #   pyyaml-env-tag
 pyyaml-env-tag==1.1
     # via mkdocs
-requests==2.32.5
+requests==2.33.1
     # via
     #   mkdocs-material
     #   pygithub
@@ -203,7 +203,7 @@ typing-extensions==4.15.0
     #   typing-inspection
 typing-inspection==0.4.2
     # via pydantic
-urllib3==2.6.3
+urllib3==2.7.0
     # via
     #   pygithub
     #   requests
