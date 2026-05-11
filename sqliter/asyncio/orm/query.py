@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from typing import (
     TYPE_CHECKING,
-    Optional,
     Protocol,
-    Union,
     cast,
     overload,
     runtime_checkable,
@@ -27,8 +25,8 @@ if TYPE_CHECKING:  # pragma: no cover
 class HasPKAndContext(Protocol):
     """Protocol for model instances with pk and async db_context."""
 
-    pk: Optional[int]
-    db_context: Optional[AsyncSqliterDB]
+    pk: int | None
+    db_context: AsyncSqliterDB | None
 
 
 class AsyncPrefetchedResult:
@@ -40,7 +38,7 @@ class AsyncPrefetchedResult:
         instance: HasPKAndContext,
         to_model: type[BaseDBModel],
         fk_field: str,
-        db_context: Optional[AsyncSqliterDB],
+        db_context: AsyncSqliterDB | None,
     ) -> None:
         """Store prefetched instances and async fallback context."""
         self._items = cached_items
@@ -53,7 +51,7 @@ class AsyncPrefetchedResult:
         """Return all prefetched related instances."""
         return list(self._items)
 
-    async def fetch_one(self) -> Optional[BaseDBModel]:
+    async def fetch_one(self) -> BaseDBModel | None:
         """Return the first prefetched related instance."""
         return self._items[0] if self._items else None
 
@@ -83,7 +81,7 @@ class AsyncReverseQuery:
         instance: HasPKAndContext,
         to_model: type[BaseDBModel],
         fk_field: str,
-        db_context: Optional[AsyncSqliterDB],
+        db_context: AsyncSqliterDB | None,
     ) -> None:
         """Store reverse-query state for later async execution."""
         self.instance = instance
@@ -91,11 +89,11 @@ class AsyncReverseQuery:
         self.fk_field = fk_field
         self._db = db_context
         self._filters: dict[str, FilterValue] = {}
-        self._limit: Optional[int] = None
-        self._offset: Optional[int] = None
+        self._limit: int | None = None
+        self._offset: int | None = None
 
     @property
-    def fk_value(self) -> Optional[int]:
+    def fk_value(self) -> int | None:
         """Return the parent primary key value."""
         return self.instance.pk
 
@@ -137,7 +135,7 @@ class AsyncReverseQuery:
             return []
         return await query.fetch_all()
 
-    async def fetch_one(self) -> Optional[BaseDBModel]:
+    async def fetch_one(self) -> BaseDBModel | None:
         """Fetch one related model instance."""
         results = await self.limit(1).fetch_all()
         return results[0] if results else None
@@ -178,17 +176,13 @@ class AsyncReverseRelationship(SyncReverseRelationship):
         self,
         instance: SyncHasPKAndContext,
         owner: type[object],
-    ) -> Union[ReverseQuery, PrefetchedResult]: ...
+    ) -> ReverseQuery | PrefetchedResult: ...
 
     def __get__(
         self,
-        instance: Optional[SyncHasPKAndContext],
+        instance: SyncHasPKAndContext | None,
         owner: type[object],
-    ) -> Union[
-        SyncReverseRelationship,
-        ReverseQuery,
-        PrefetchedResult,
-    ]:
+    ) -> SyncReverseRelationship | ReverseQuery | PrefetchedResult:
         """Return async prefetched or lazy reverse wrappers."""
         if instance is None:
             return self
@@ -203,7 +197,7 @@ class AsyncReverseRelationship(SyncReverseRelationship):
                     to_model=self.from_model,
                     fk_field=self.fk_field,
                     db_context=cast(
-                        "Optional[AsyncSqliterDB]",
+                        "AsyncSqliterDB | None",
                         instance.db_context,
                     ),
                 ),
@@ -216,7 +210,7 @@ class AsyncReverseRelationship(SyncReverseRelationship):
                 to_model=self.from_model,
                 fk_field=self.fk_field,
                 db_context=cast(
-                    "Optional[AsyncSqliterDB]",
+                    "AsyncSqliterDB | None",
                     instance.db_context,
                 ),
             ),

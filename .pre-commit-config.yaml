@@ -11,21 +11,20 @@ repos:
       - id: check-added-large-files
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.11
+    rev: v0.15.12
     hooks:
       - id: ruff
-        args: [ "--output-format=concise" ]
+        args: ["--output-format=concise"]
         name: "lint with ruff"
       - id: ruff-format
         name: "format with ruff"
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.19.1 # Use the sha / tag you want to point at
+    rev: v2.0.0 # Use the sha / tag you want to point at
     hooks:
       - id: mypy
         name: "run mypy"
-        # we need to force python 3.10 or it chokes on pytest v9+
-        args: [ "--strict", "--python-version", "3.10", "." ]
+        args: ["--strict", "."]
         pass_filenames: false
         additional_dependencies:
           - aiosqlite
@@ -38,7 +37,7 @@ repos:
 
   - repo: https://github.com/astral-sh/uv-pre-commit
     # uv version.
-    rev: 0.9.24
+    rev: 0.11.12
     hooks:
       # Update the uv lockfile
       - id: uv-lock
@@ -53,4 +52,9 @@ repos:
           ]
       - id: uv-export
         name: "Export dev dependencies to 'requirements-dev.txt'"
-        args: [ "--no-hashes", "--no-emit-project", "--output-file=requirements-dev.txt" ]
+        args:
+          [
+            "--no-hashes",
+            "--no-emit-project",
+            "--output-file=requirements-dev.txt",
+          ]

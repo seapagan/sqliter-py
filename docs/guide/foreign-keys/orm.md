@@ -375,17 +375,17 @@ print(book.author)  # None
 ### Auto-Detecting Nullable FKs (Preferred)
 
 The recommended way to declare a nullable FK is via the type annotation.
-SQLiter detects `Optional[T]` and `T | None` (Python 3.10+) and sets
-`null=True` automatically:
+SQLiter detects both `Optional[T]` and `T | None` and sets `null=True`
+automatically:
 
 ```python
 from typing import Optional
 
-# Preferred — nullability declared in the type annotation:
+# Both forms are supported:
 author: ForeignKey[Optional[Author]] = ForeignKey(Author, on_delete="SET NULL")
-author: ForeignKey[Author | None] = ForeignKey(Author, on_delete="SET NULL")  # 3.10+
+author: ForeignKey[Author | None] = ForeignKey(Author, on_delete="SET NULL")
 
-# Legacy — explicit null=True (prefer annotation-driven nullability):
+# Explicit null=True also works, but annotation-driven nullability is preferred:
 author: ForeignKey[Author] = ForeignKey(Author, on_delete="SET NULL", null=True)
 ```
 

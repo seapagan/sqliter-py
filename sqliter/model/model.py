@@ -12,10 +12,10 @@ from __future__ import annotations
 import datetime
 import pickle
 import re
+import types
 from typing import (
     Any,
     ClassVar,
-    Optional,
     Protocol,
     Union,
     cast,
@@ -82,11 +82,11 @@ class BaseDBModel(BaseModel):
                 these fields are distinct across the table.
         """
 
-        table_name: Optional[str] = (
+        table_name: str | None = (
             None  # Table name, defaults to class name if not set
         )
-        indexes: ClassVar[list[Union[str, tuple[str, ...]]]] = []
-        unique_indexes: ClassVar[list[Union[str, tuple[str, ...]]]] = []
+        indexes: ClassVar[list[str | tuple[str, ...]]] = []
+        unique_indexes: ClassVar[list[str | tuple[str, ...]]] = []
 
     @classmethod
     def model_validate_partial(cls, obj: dict[str, Any]) -> Self:
@@ -104,14 +104,14 @@ class BaseDBModel(BaseModel):
         converted_obj: dict[str, Any] = {}
         for field_name, value in obj.items():
             field = cls.model_fields[field_name]
-            field_type: Optional[type] = field.annotation
+            field_type: type | None = field.annotation
             if (
                 field_type is None or value is None
             ):  # Direct check for None values here
                 converted_obj[field_name] = None
             else:
                 origin = get_origin(field_type)
-                if origin is Union:
+                if origin in (Union, types.UnionType):
                     args = get_args(field_type)
                     for arg in args:
                         try:

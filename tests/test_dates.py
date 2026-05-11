@@ -1,7 +1,6 @@
 """Test cases for date and time conversion functions."""
 
 from datetime import date, datetime, timedelta, timezone
-from typing import Optional
 
 import pytest
 
@@ -225,7 +224,7 @@ class TestDates:
             inserted_pks.append(inserted.pk)
 
         # Verify all dates were stored and retrieved correctly
-        for pk, original_dt in zip(inserted_pks, edge_dates):
+        for pk, original_dt in zip(inserted_pks, edge_dates, strict=True):
             fetched = db_mock.get(EdgeDateModel, pk)
             assert fetched is not None
             assert fetched.dt_field.timestamp() == original_dt.timestamp()
@@ -235,8 +234,8 @@ class TestDates:
 
         class OptionalDateModel(BaseDBModel):
             name: str
-            date_field: Optional[date] = None
-            dt_field: Optional[datetime] = None
+            date_field: date | None = None
+            dt_field: datetime | None = None
 
             class Meta:
                 table_name = "optional_dates_test"

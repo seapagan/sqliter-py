@@ -10,14 +10,14 @@ Central registry for:
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Any, ClassVar, Optional, Protocol, TypedDict
+from typing import Any, ClassVar, Protocol, TypedDict
 
 
 class _M2MForwardRef(Protocol):
     def resolve_forward_ref(self, model_class: type[Any]) -> None: ...
 
     @property
-    def junction_table(self) -> Optional[str]: ...
+    def junction_table(self) -> str | None: ...
 
 
 class _RegistryState(TypedDict):
@@ -144,7 +144,7 @@ class ModelRegistry:
         to_model: type[Any],
         fk_field: str,
         on_delete: str,
-        related_name: Optional[str] = None,
+        related_name: str | None = None,
     ) -> None:
         """Register a FK relationship.
 
@@ -170,7 +170,7 @@ class ModelRegistry:
         )
 
     @classmethod
-    def get_model(cls, table_name: str) -> Optional[type[Any]]:
+    def get_model(cls, table_name: str) -> type[Any] | None:
         """Get model by table name.
 
         Args:
@@ -182,7 +182,7 @@ class ModelRegistry:
         return cls._models.get(table_name)
 
     @classmethod
-    def get_model_by_name(cls, class_name: str) -> Optional[type[Any]]:
+    def get_model_by_name(cls, class_name: str) -> type[Any] | None:
         """Get model by class name."""
         return cls._models_by_name.get(class_name)
 
@@ -279,7 +279,7 @@ class ModelRegistry:
         to_model: type[Any],
         m2m_field: str,
         junction_table: str,
-        related_name: Optional[str],
+        related_name: str | None,
         *,
         symmetrical: bool = False,
     ) -> None:
@@ -349,7 +349,7 @@ class ModelRegistry:
         from_model: type[Any],
         to_model_name: str,
         m2m_field: str,
-        related_name: Optional[str],
+        related_name: str | None,
         symmetrical: bool,
         descriptor: _M2MForwardRef,
     ) -> None:

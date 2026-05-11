@@ -5,7 +5,10 @@ from __future__ import annotations
 import sqlite3
 import time
 from re import escape
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 import pytest
 
@@ -95,19 +98,27 @@ def _build_sales_db(*, cache_enabled: bool = False) -> SqliterDB:
 
 
 @pytest.fixture
-def sales_db() -> SqliterDB:
+def sales_db() -> Generator[SqliterDB, None, None]:
     """Create aggregate test data for grouped reports."""
-    return _build_sales_db()
+    db = _build_sales_db()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 @pytest.fixture
-def sales_db_cached() -> SqliterDB:
+def sales_db_cached() -> Generator[SqliterDB, None, None]:
     """Create aggregate test data with query cache enabled."""
-    return _build_sales_db(cache_enabled=True)
+    db = _build_sales_db(cache_enabled=True)
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 @pytest.fixture
-def relation_db() -> SqliterDB:
+def relation_db() -> Generator[SqliterDB, None, None]:
     """Create ORM relation fixtures for with_count tests."""
     db = SqliterDB(":memory:")
     db.create_table(AuthorAgg)
@@ -136,7 +147,10 @@ def relation_db() -> SqliterDB:
 
     guide.tags.add(python, sqlite)
     tips.tags.add(python)
-    return db
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 def test_group_by_aggregate_helpers_and_having(sales_db: SqliterDB) -> None:

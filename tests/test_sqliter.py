@@ -1,5 +1,7 @@
 """Test suite for the 'sqliter' library."""
 
+import gc
+import warnings
 from pathlib import Path
 
 import pytest
@@ -85,6 +87,23 @@ class TestSqliterDB:
         """Test closing the connection."""
         db_mock.close()
         assert db_mock.conn is None
+
+    def test_finalizer_closes_unclosed_connection(self) -> None:
+        """Finalization should release abandoned SQLite connections."""
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", ResourceWarning)
+            db = SqliterDB(":memory:")
+            db.create_table(ExampleModel)
+            del db
+            gc.collect()
+
+        resource_warnings = [
+            warning
+            for warning in caught
+            if issubclass(warning.category, ResourceWarning)
+            and "unclosed database" in str(warning.message)
+        ]
+        assert resource_warnings == []
 
     def test_commit_changes(self, mocker: MockerFixture) -> None:
         """Test committing changes to the database."""
@@ -424,7 +443,10 @@ class TestSqliterDB:
         # Mock the commit method on the connection
         mock_conn = mocker.MagicMock()
 
-        # Manually reset the connection to ensure our mock is used
+        # Close the fixture-owned real connection before replacing it.
+        db_mock.close()
+
+        # Manually reset the connection to ensure our mock is used.
         db_mock.conn = mock_conn
 
         # Patch connect method to return the mock connection

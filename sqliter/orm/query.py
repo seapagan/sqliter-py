@@ -5,9 +5,7 @@ from __future__ import annotations
 from typing import (
     TYPE_CHECKING,
     Any,
-    Optional,
     Protocol,
-    Union,
     overload,
     runtime_checkable,
 )
@@ -21,8 +19,8 @@ if TYPE_CHECKING:  # pragma: no cover
 class HasPKAndContext(Protocol):
     """Protocol for model instances with pk and db_context."""
 
-    pk: Optional[int]
-    db_context: Optional[SqliterDB]
+    pk: int | None
+    db_context: SqliterDB | None
 
 
 class PrefetchedResult:
@@ -40,7 +38,7 @@ class PrefetchedResult:
         instance: HasPKAndContext,
         to_model: type[BaseDBModel],
         fk_field: str,
-        db_context: Optional[SqliterDB],
+        db_context: SqliterDB | None,
     ) -> None:
         """Initialize a prefetched result wrapper.
 
@@ -65,7 +63,7 @@ class PrefetchedResult:
         """
         return list(self._items)
 
-    def fetch_one(self) -> Optional[BaseDBModel]:
+    def fetch_one(self) -> BaseDBModel | None:
         """Return the first prefetched instance, or None.
 
         Returns:
@@ -117,7 +115,7 @@ class ReverseQuery:
         instance: HasPKAndContext,
         to_model: type[BaseDBModel],
         fk_field: str,
-        db_context: Optional[SqliterDB],
+        db_context: SqliterDB | None,
     ) -> None:
         """Initialize reverse query.
 
@@ -132,11 +130,11 @@ class ReverseQuery:
         self.fk_field = fk_field
         self._db = db_context
         self._filters: dict[str, Any] = {}
-        self._limit: Optional[int] = None
-        self._offset: Optional[int] = None
+        self._limit: int | None = None
+        self._offset: int | None = None
 
     @property
-    def fk_value(self) -> Optional[int]:
+    def fk_value(self) -> int | None:
         """Get the FK ID value from the instance."""
         return self.instance.pk
 
@@ -203,7 +201,7 @@ class ReverseQuery:
 
         return query.fetch_all()
 
-    def fetch_one(self) -> Optional[BaseDBModel]:
+    def fetch_one(self) -> BaseDBModel | None:
         """Execute query and return single result.
 
         Returns:
@@ -270,11 +268,11 @@ class ReverseRelationship:
     @overload
     def __get__(
         self, instance: HasPKAndContext, owner: type[object]
-    ) -> Union[ReverseQuery, PrefetchedResult]: ...
+    ) -> ReverseQuery | PrefetchedResult: ...
 
     def __get__(
-        self, instance: Optional[HasPKAndContext], owner: type[object]
-    ) -> Union[ReverseRelationship, ReverseQuery, PrefetchedResult]:
+        self, instance: HasPKAndContext | None, owner: type[object]
+    ) -> ReverseRelationship | ReverseQuery | PrefetchedResult:
         """Return ReverseQuery or PrefetchedResult when accessed on instance.
 
         If the instance has a ``_prefetch_cache`` entry for this

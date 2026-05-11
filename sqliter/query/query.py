@@ -19,12 +19,9 @@ from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     Generic,
     Literal,
-    Optional,
     TypeVar,
-    Union,
     cast,
     overload,
 )
@@ -48,6 +45,8 @@ from sqliter.model.foreign_key import get_model_field_db_column
 from sqliter.query.aggregates import AggregateSpec
 
 if TYPE_CHECKING:  # pragma: no cover
+    from collections.abc import Callable
+
     from pydantic.fields import FieldInfo
 
     from sqliter import SqliterDB
@@ -59,16 +58,14 @@ if TYPE_CHECKING:  # pragma: no cover
 T = TypeVar("T", bound="BaseDBModel")
 
 # Define a type alias for the possible value types
-FilterValue = Union[
-    str, int, float, bool, None, list[Union[str, int, float, bool]]
-]
+FilterValue = str | int | float | bool | None | list[str | int | float | bool]
 
 _RE_ALIAS_PREFIX = re.compile(r't\d+\."')
 _RE_LEADING_IDENT = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)\b")
 
 
 def _get_prefetch_target_model(
-    descriptor: Union[ReverseRelationship, ManyToMany[Any], ReverseManyToMany],
+    descriptor: ReverseRelationship | ManyToMany[Any] | ReverseManyToMany,
 ) -> type[BaseDBModel]:
     """Extract the target model from a prefetch descriptor.
 
@@ -95,7 +92,7 @@ def _get_prefetch_target_model(
 
 
 def get_prefetch_target_model(
-    descriptor: Union[ReverseRelationship, ManyToMany[Any], ReverseManyToMany],
+    descriptor: ReverseRelationship | ManyToMany[Any] | ReverseManyToMany,
 ) -> type[BaseDBModel]:
     """Public wrapper for resolving a prefetch descriptor target model."""
     return _get_prefetch_target_model(descriptor)
@@ -143,7 +140,7 @@ class QueryExecutionPlan:
     sql: str
     values: list[Any]
     column_names: list[tuple[str, str, type[BaseDBModel]]]
-    selected_fields: Optional[tuple[str, ...]] = None
+    selected_fields: tuple[str, ...] | None = None
 
 
 class QueryBuilder(Generic[T]):
@@ -167,7 +164,7 @@ class QueryBuilder(Generic[T]):
         self,
         db: SqliterDB,
         model_class: type[T],
-        fields: Optional[list[str]] = None,
+        fields: list[str] | None = None,
     ) -> None:
         """Initialize a new QueryBuilder instance.
 
@@ -181,12 +178,12 @@ class QueryBuilder(Generic[T]):
         self.model_class: type[T] = model_class
         self.table_name = model_class.get_table_name()  # Use model_class method
         self.filters: list[tuple[str, Any, str]] = []
-        self._limit: Optional[int] = None
-        self._offset: Optional[int] = None
-        self._order_by: Optional[str] = None
-        self._fields: Optional[list[str]] = fields
+        self._limit: int | None = None
+        self._offset: int | None = None
+        self._order_by: str | None = None
+        self._fields: list[str] | None = fields
         self._bypass_cache: bool = False
-        self._query_cache_ttl: Optional[int] = None
+        self._query_cache_ttl: int | None = None
         # Eager loading support
         self._select_related_paths: list[str] = []
         self._join_info: list[JoinInfo] = []
@@ -234,8 +231,8 @@ class QueryBuilder(Generic[T]):
         self,
         field_name: str,
         *,
-        model_class: Optional[type[BaseDBModel]] = None,
-        table_alias: Optional[str] = None,
+        model_class: type[BaseDBModel] | None = None,
+        table_alias: str | None = None,
     ) -> str:
         """Build a quoted SQL column reference for a model field."""
         resolved_model = model_class or self.model_class
@@ -345,7 +342,7 @@ class QueryBuilder(Generic[T]):
         handler = self._get_operator_handler(operator)
         handler(qualified_field, value, operator)
 
-    def fields(self, fields: Optional[list[str]] = None) -> Self:
+    def fields(self, fields: list[str] | None = None) -> Self:
         """Specify which fields to select in the query.
 
         Args:
@@ -362,7 +359,7 @@ class QueryBuilder(Generic[T]):
             self._validate_fields()
         return self
 
-    def exclude(self, fields: Optional[list[str]] = None) -> Self:
+    def exclude(self, fields: list[str] | None = None) -> Self:
         """Specify which fields to exclude from the query results.
 
         Args:
@@ -1126,7 +1123,7 @@ class QueryBuilder(Generic[T]):
     def _resolve_m2m_columns(
         descriptor: Any,  # noqa: ANN401
         owner_table: str,
-    ) -> Optional[tuple[Any, str, str, str, str, str, bool]]:
+    ) -> tuple[Any, str, str, str, str, str, bool] | None:
         """Resolve M2M descriptor into junction table metadata.
 
         Args:
@@ -1176,7 +1173,7 @@ class QueryBuilder(Generic[T]):
     def resolve_m2m_columns(
         descriptor: Any,  # noqa: ANN401
         owner_table: str,
-    ) -> Optional[tuple[Any, str, str, str, str, str, bool]]:
+    ) -> tuple[Any, str, str, str, str, str, bool] | None:
         """Resolve M2M descriptor into junction table metadata."""
         return QueryBuilder._resolve_m2m_columns(descriptor, owner_table)
 
@@ -2020,8 +2017,8 @@ class QueryBuilder(Generic[T]):
 
     def order(
         self,
-        order_by_field: Optional[str] = None,
-        direction: Optional[str] = None,
+        order_by_field: str | None = None,
+        direction: str | None = None,
         *,
         reverse: bool = False,
     ) -> Self:
@@ -2109,7 +2106,7 @@ class QueryBuilder(Generic[T]):
         )
 
     def ensure_projection_method_allowed(
-        self, method_name: str, *, hint: Optional[str] = None
+        self, method_name: str, *, hint: str | None = None
     ) -> None:
         """Raise if a method is called while projection mode is active."""
         self._ensure_projection_method_allowed(method_name, hint=hint)
@@ -2141,7 +2138,7 @@ class QueryBuilder(Generic[T]):
             )
         return self._build_simple_execution_plan(count_only=count_only)
 
-    def _selected_fields_for_execution(self) -> Optional[list[str]]:
+    def _selected_fields_for_execution(self) -> list[str] | None:
         """Return selected fields for SQL execution, adding `pk` if needed."""
         if self._fields is None:
             return None
@@ -2311,7 +2308,7 @@ class QueryBuilder(Generic[T]):
     ) -> tuple[
         list[tuple[Any, ...]] | tuple[Any, ...],
         list[tuple[str, str, type[BaseDBModel]]],
-        Optional[tuple[str, ...]],
+        tuple[str, ...] | None,
     ]:
         """Execute the constructed SQL query.
 
@@ -2452,7 +2449,7 @@ class QueryBuilder(Generic[T]):
         self,
         row: tuple[Any, ...],
         *,
-        selected_fields: Optional[tuple[str, ...]] = None,
+        selected_fields: tuple[str, ...] | None = None,
     ) -> T:
         """Convert a database row to a model instance.
 
@@ -2706,7 +2703,7 @@ class QueryBuilder(Generic[T]):
         key_json = json.dumps(key_parts, sort_keys=True, default=str)
         return hashlib.sha256(key_json.encode()).hexdigest()
 
-    def _cache_key_fields(self) -> Optional[tuple[str, ...]]:
+    def _cache_key_fields(self) -> tuple[str, ...] | None:
         """Return cache key fields in a normalized form."""
         if self._fields is None:
             return None
@@ -2724,8 +2721,8 @@ class QueryBuilder(Generic[T]):
         *,
         fetch_one: bool,
         execute_prefetch: bool = True,
-        selected_fields: Optional[tuple[str, ...]] = None,
-    ) -> Union[list[T], Optional[T]]:
+        selected_fields: tuple[str, ...] | None = None,
+    ) -> list[T] | T | None:
         """Convert raw query results into model instances."""
         if column_names:
             if fetch_one:
@@ -2832,14 +2829,12 @@ class QueryBuilder(Generic[T]):
             raise InvalidFilterError(msg)
 
     @overload
-    def _fetch_result(self, *, fetch_one: Literal[True]) -> Optional[T]: ...
+    def _fetch_result(self, *, fetch_one: Literal[True]) -> T | None: ...
 
     @overload
     def _fetch_result(self, *, fetch_one: Literal[False]) -> list[T]: ...
 
-    def _fetch_result(
-        self, *, fetch_one: bool = False
-    ) -> Union[list[T], Optional[T]]:
+    def _fetch_result(self, *, fetch_one: bool = False) -> list[T] | T | None:
         """Fetch and convert query results to model instances.
 
         Args:
@@ -2851,14 +2846,14 @@ class QueryBuilder(Generic[T]):
         """
         hit, cached = self.lookup_cache(fetch_one=fetch_one)
         if hit:
-            return cast("Union[list[T], Optional[T]]", cached)
+            return cast("list[T] | T | None", cached)
 
         result, column_names, selected_fields = self._execute_query(
             fetch_one=fetch_one
         )
 
         if not result:
-            empty: Union[list[T], Optional[T]] = None if fetch_one else []
+            empty: list[T] | T | None = None if fetch_one else []
             self.store_cache(empty, fetch_one=fetch_one)
             return empty
 
@@ -2883,7 +2878,7 @@ class QueryBuilder(Generic[T]):
         )
         return self._fetch_result(fetch_one=False)
 
-    def fetch_one(self) -> Optional[T]:
+    def fetch_one(self) -> T | None:
         """Fetch a single result of the query.
 
         Returns:
@@ -2895,7 +2890,7 @@ class QueryBuilder(Generic[T]):
         )
         return self._fetch_result(fetch_one=True)
 
-    def fetch_first(self) -> Optional[T]:
+    def fetch_first(self) -> T | None:
         """Fetch the first result of the query.
 
         Returns:
@@ -2908,7 +2903,7 @@ class QueryBuilder(Generic[T]):
         self._limit = 1
         return self._fetch_result(fetch_one=True)
 
-    def fetch_last(self) -> Optional[T]:
+    def fetch_last(self) -> T | None:
         """Fetch the last result of the query.
 
         Returns:
@@ -2955,7 +2950,7 @@ class QueryBuilder(Generic[T]):
         return self.count() > 0
 
     def _ensure_projection_method_allowed(
-        self, method_name: str, *, hint: Optional[str] = None
+        self, method_name: str, *, hint: str | None = None
     ) -> None:
         """Raise if a method is called while projection mode is active."""
         if self._projection_mode:

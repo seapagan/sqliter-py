@@ -1,6 +1,5 @@
 """Tests for the query module."""
 
-from typing import Optional
 from unittest.mock import patch
 
 import pytest
@@ -470,7 +469,7 @@ class TestQuery:
         # Define a model for the test
         class FilterTestModel(BaseDBModel):
             name: str
-            age: Optional[int] = None
+            age: int | None = None
 
             class Meta:
                 table_name: str = "filter_test_table"
@@ -993,7 +992,7 @@ class TestQuery:
         # Define a model for the test
         class NullDeleteModel(BaseDBModel):
             name: str
-            optional_field: Optional[str] = None
+            optional_field: str | None = None
 
             class Meta:
                 table_name: str = "null_delete_table"

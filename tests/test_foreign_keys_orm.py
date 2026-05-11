@@ -21,9 +21,13 @@ from sqliter.orm.query import ReverseRelationship
 
 
 @pytest.fixture
-def db() -> SqliterDB:
+def db() -> Generator[SqliterDB, None, None]:
     """Create a clean in-memory database for testing."""
-    return SqliterDB(":memory:")
+    database = SqliterDB(":memory:")
+    try:
+        yield database
+    finally:
+        database.close()
 
 
 class Author(BaseDBModel):

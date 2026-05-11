@@ -9,10 +9,8 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Generic,
-    Optional,
     Protocol,
     TypeVar,
-    Union,
     cast,
     overload,
     runtime_checkable,
@@ -40,8 +38,8 @@ T = TypeVar("T")
 class HasPKAndContext(Protocol):
     """Protocol for model instances with pk and db_context."""
 
-    pk: Optional[int]
-    db_context: Optional[Any]
+    pk: int | None
+    db_context: Any | None
 
 
 class _M2MCacheInvalidationMixin:
@@ -50,8 +48,8 @@ class _M2MCacheInvalidationMixin:
     _instance: HasPKAndContext
     _from_model: type[Any]
     _to_model: type[Any]
-    _current_cache_key: Optional[str]
-    _reverse_cache_key: Optional[str]
+    _current_cache_key: str | None
+    _reverse_cache_key: str | None
 
     def _invalidate_related_query_caches(
         self,
@@ -65,7 +63,7 @@ class _M2MCacheInvalidationMixin:
     @staticmethod
     def _clear_prefetch_cache_entry(
         instance: object,
-        cache_key: Optional[str],
+        cache_key: str | None,
     ) -> object:
         """Remove one prefetched relationship entry from an instance."""
         if cache_key is None:
@@ -102,8 +100,8 @@ class _M2MCacheInvalidationMixin:
     def configure_cache_keys(
         self,
         *,
-        current_cache_key: Optional[str],
-        reverse_cache_key: Optional[str],
+        current_cache_key: str | None,
+        reverse_cache_key: str | None,
     ) -> None:
         """Attach the forward and reverse prefetch-cache keys."""
         self._current_cache_key = current_cache_key
@@ -122,8 +120,8 @@ class ManyToManyInfo:
     """
 
     to_model: type[Any] | str
-    through: Optional[str] = None
-    related_name: Optional[str] = field(default=None)
+    through: str | None = None
+    related_name: str | None = field(default=None)
     symmetrical: bool = False
 
 
@@ -241,8 +239,8 @@ class ManyToManyManager(_M2MCacheInvalidationMixin, Generic[T]):
         to_model: type[T],
         from_model: type[Any],
         junction_table: str,
-        db_context: Optional[SqliterDB],
-        options: Optional[ManyToManyOptions] = None,
+        db_context: SqliterDB | None,
+        options: ManyToManyOptions | None = None,
     ) -> None:
         """Initialize M2M manager.
 
@@ -260,8 +258,8 @@ class ManyToManyManager(_M2MCacheInvalidationMixin, Generic[T]):
         self._from_model = from_model
         self._junction_table = junction_table
         self._db = db_context
-        self._current_cache_key: Optional[str] = None
-        self._reverse_cache_key: Optional[str] = None
+        self._current_cache_key: str | None = None
+        self._reverse_cache_key: str | None = None
 
         # Column/metadata names derived from from_model/to_model table names
         # (with optional column swapping)
@@ -332,7 +330,7 @@ class ManyToManyManager(_M2MCacheInvalidationMixin, Generic[T]):
     @staticmethod
     def _as_filter_list(
         pks: list[int],
-    ) -> list[Union[str, int, float, bool]]:
+    ) -> list[str | int | float | bool]:
         """Cast pk list for QueryBuilder.filter() compatibility.
 
         Args:
@@ -341,7 +339,7 @@ class ManyToManyManager(_M2MCacheInvalidationMixin, Generic[T]):
         Returns:
             The same list cast to the FilterValue list type.
         """
-        return cast("list[Union[str, int, float, bool]]", pks)
+        return cast("list[str | int | float | bool]", pks)
 
     def _fetch_related_pks(self) -> list[int]:
         """Fetch PKs of related objects from the junction table.
@@ -522,7 +520,7 @@ class ManyToManyManager(_M2MCacheInvalidationMixin, Generic[T]):
             .fetch_all(),
         )
 
-    def fetch_one(self) -> Optional[T]:
+    def fetch_one(self) -> T | None:
         """Fetch a single related object.
 
         Returns:
@@ -537,7 +535,7 @@ class ManyToManyManager(_M2MCacheInvalidationMixin, Generic[T]):
         results = (
             self._db.select(model).filter(pk__in=pk_filter).limit(1).fetch_all()
         )
-        return cast("Optional[T]", results[0]) if results else None
+        return cast("T | None", results[0]) if results else None
 
     def count(self) -> int:
         """Count related objects via the junction table.
@@ -640,7 +638,7 @@ class PrefetchedM2MResult(Generic[T]):
         """
         return list(self._items)
 
-    def fetch_one(self) -> Optional[T]:
+    def fetch_one(self) -> T | None:
         """Return the first prefetched instance, or None.
 
         Returns:
@@ -728,8 +726,8 @@ class ManyToMany(Generic[T]):
         self,
         to_model: type[T] | str,
         *,
-        through: Optional[str] = None,
-        related_name: Optional[str] = None,
+        through: str | None = None,
+        related_name: str | None = None,
         symmetrical: bool = False,
     ) -> None:
         """Initialize M2M descriptor.
@@ -750,10 +748,10 @@ class ManyToMany(Generic[T]):
             symmetrical=symmetrical,
         )
         self.related_name = related_name
-        self.name: Optional[str] = None
-        self.owner: Optional[type] = None
-        self._junction_table: Optional[str] = None
-        self._sql_metadata: Optional[M2MSQLMetadata] = None
+        self.name: str | None = None
+        self.owner: type | None = None
+        self._junction_table: str | None = None
+        self._sql_metadata: M2MSQLMetadata | None = None
 
     @classmethod
     def __get_pydantic_core_schema__(
@@ -796,12 +794,12 @@ class ManyToMany(Generic[T]):
             self._junction_table = self._get_junction_table_name(self.owner)
 
     @property
-    def junction_table(self) -> Optional[str]:
+    def junction_table(self) -> str | None:
         """Return the resolved junction table name, if available."""
         return self._junction_table
 
     @property
-    def sql_metadata(self) -> Optional[M2MSQLMetadata]:
+    def sql_metadata(self) -> M2MSQLMetadata | None:
         """Return read-only SQL metadata for this descriptor.
 
         Returns:
@@ -896,11 +894,11 @@ class ManyToMany(Generic[T]):
     @overload
     def __get__(
         self, instance: object, owner: type[object]
-    ) -> Union[ManyToManyManager[T], PrefetchedM2MResult[T]]: ...
+    ) -> ManyToManyManager[T] | PrefetchedM2MResult[T]: ...
 
     def __get__(
-        self, instance: Optional[object], owner: type[object]
-    ) -> Union[ManyToMany[T], ManyToManyManager[T], PrefetchedM2MResult[T]]:
+        self, instance: object | None, owner: type[object]
+    ) -> ManyToMany[T] | ManyToManyManager[T] | PrefetchedM2MResult[T]:
         """Return ManyToManyManager or PrefetchedM2MResult on instance.
 
         If the instance has a ``_prefetch_cache`` entry for this field,
@@ -980,7 +978,7 @@ class ReverseManyToMany:
         related_name: str,
         *,
         symmetrical: bool = False,
-        forward_name: Optional[str] = None,
+        forward_name: str | None = None,
     ) -> None:
         """Initialize reverse M2M descriptor.
 
@@ -998,7 +996,7 @@ class ReverseManyToMany:
         self._related_name = related_name
         self._symmetrical = symmetrical
         self._forward_name = forward_name
-        self._sql_metadata: Optional[M2MSQLMetadata] = None
+        self._sql_metadata: M2MSQLMetadata | None = None
 
     @property
     def _swap_columns(self) -> bool:
@@ -1033,15 +1031,11 @@ class ReverseManyToMany:
     @overload
     def __get__(
         self, instance: object, owner: type[object]
-    ) -> Union[ManyToManyManager[Any], PrefetchedM2MResult[Any]]: ...
+    ) -> ManyToManyManager[Any] | PrefetchedM2MResult[Any]: ...
 
     def __get__(
-        self, instance: Optional[object], owner: type[object]
-    ) -> Union[
-        ReverseManyToMany,
-        ManyToManyManager[Any],
-        PrefetchedM2MResult[Any],
-    ]:
+        self, instance: object | None, owner: type[object]
+    ) -> ReverseManyToMany | ManyToManyManager[Any] | PrefetchedM2MResult[Any]:
         """Return ManyToManyManager or PrefetchedM2MResult (reversed).
 
         If the instance has a ``_prefetch_cache`` entry for this

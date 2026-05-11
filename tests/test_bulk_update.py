@@ -6,6 +6,7 @@ import sqlite3
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
     from pathlib import Path
 
     from pytest_mock import MockerFixture
@@ -42,13 +43,16 @@ class TimestampModel(BaseDBModel):
 
 # ── Fixtures ─────────────────────────────────────────────────────────
 @pytest.fixture
-def db() -> SqliterDB:
+def db() -> Generator[SqliterDB, None, None]:
     """Create an in-memory database with test tables."""
     database = SqliterDB(memory=True)
     database.create_table(SimpleModel)
     database.create_table(GroupModel)
     database.create_table(TimestampModel)
-    return database
+    try:
+        yield database
+    finally:
+        database.close()
 
 
 # ── Tests: QueryBuilder.update() ─────────────────────────────────────
@@ -221,6 +225,7 @@ class TestQueryBuilderUpdateErrors:
         mock_conn.cursor.return_value = mock_cursor
         mocker.patch.object(db, "connect", return_value=mock_conn)
         mocker.patch.object(db, "_execute", side_effect=sqlite3.Error("boom"))
+        db.close()
         db.conn = mock_conn
 
         with pytest.raises(RecordUpdateError):

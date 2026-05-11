@@ -1,7 +1,6 @@
 """Test suite for foreign key support."""
 
 import sqlite3
-from typing import Optional
 
 import pytest
 from pydantic import Field
@@ -58,7 +57,7 @@ class TestForeignKeyInfo:
 
         class TestBook(BaseDBModel):
             title: str
-            author_id: Optional[int] = ForeignKey(
+            author_id: int | None = ForeignKey(
                 Author, on_delete="SET NULL", null=True
             )
 
@@ -288,7 +287,7 @@ class TestForeignKeyConstraintEnforcement:
 
         class BookWithNullableAuthor(BaseDBModel):
             title: str
-            author_id: Optional[int] = ForeignKey(
+            author_id: int | None = ForeignKey(
                 Author, on_delete="SET NULL", null=True
             )
 
@@ -334,7 +333,7 @@ class TestForeignKeyConstraintEnforcement:
 
         class BookWithNullableAuthor(BaseDBModel):
             title: str
-            author_id: Optional[int] = ForeignKey(
+            author_id: int | None = ForeignKey(
                 Author, on_delete="SET NULL", null=True
             )
 
@@ -531,7 +530,7 @@ class TestForeignKeyOnUpdateActions:
 
         class BookSetNullUpdate(BaseDBModel):
             title: str
-            author_id: Optional[int] = ForeignKey(
+            author_id: int | None = ForeignKey(
                 Author, on_delete="SET NULL", on_update="SET NULL", null=True
             )
 

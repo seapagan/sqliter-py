@@ -108,9 +108,7 @@ def db() -> Generator[SqliterDB, None, None]:
 
     yield db
 
-    # Close the database connection
-    conn = db.connect()
-    conn.close()
+    db.close()
 
 
 class TestSelectRelated:

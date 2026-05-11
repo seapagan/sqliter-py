@@ -1,7 +1,5 @@
 """Specific tests for the Model and it's methods."""
 
-from typing import Optional
-
 import pytest
 
 from sqliter.model.model import BaseDBModel
@@ -81,7 +79,7 @@ class TestBaseDBModel:
 
         class TestModel(BaseDBModel):
             name: str
-            age: Optional[int]
+            age: int | None
 
         data = {"name": "John"}
         model_instance = TestModel.model_validate_partial(data)

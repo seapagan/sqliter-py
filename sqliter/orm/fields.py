@@ -8,7 +8,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Generic,
-    Optional,
     Protocol,
     TypeVar,
     Union,
@@ -84,7 +83,7 @@ def _annotation_is_nullable(raw: str) -> bool:
 class HasPK(Protocol):
     """Protocol for objects that have a pk attribute."""
 
-    pk: Optional[int]
+    pk: int | None
 
 
 class LazyLoader(Generic[T]):
@@ -104,8 +103,8 @@ class LazyLoader(Generic[T]):
         self,
         instance: object,
         to_model: type[T],
-        fk_id: Optional[int],
-        db_context: Optional[SqliterDB],
+        fk_id: int | None,
+        db_context: SqliterDB | None,
     ) -> None:
         """Initialize lazy loader.
 
@@ -119,7 +118,7 @@ class LazyLoader(Generic[T]):
         self._to_model = to_model
         self._fk_id = fk_id
         self._db = db_context
-        self._cached: Optional[T] = None
+        self._cached: T | None = None
 
     @property
     def db_context(self) -> object:
@@ -156,7 +155,7 @@ class LazyLoader(Generic[T]):
                 result = self._db.get(
                     cast("type[BaseDBModel]", self._to_model), self._fk_id
                 )
-                self._cached = cast("Optional[T]", result)
+                self._cached = cast("T | None", result)
             except SqliterError as e:
                 # DB errors (missing table, fetch errors) → treat as not found
                 logger.debug(
@@ -211,8 +210,8 @@ class ForeignKey(Generic[T]):
         on_update: FKAction = "RESTRICT",
         null: bool = False,
         unique: bool = False,
-        related_name: Optional[str] = None,
-        db_column: Optional[str] = None,
+        related_name: str | None = None,
+        db_column: str | None = None,
     ) -> None:
         """Initialize FK descriptor.
 
@@ -237,8 +236,8 @@ class ForeignKey(Generic[T]):
             db_column=db_column,
         )
         self.related_name = related_name
-        self.name: Optional[str] = None  # Set by __set_name__
-        self.owner: Optional[type] = None  # Set by __set_name__
+        self.name: str | None = None  # Set by __set_name__
+        self.owner: type | None = None  # Set by __set_name__
 
     @classmethod
     def __get_pydantic_core_schema__(
@@ -356,8 +355,8 @@ class ForeignKey(Generic[T]):
     def __get__(self, instance: object, owner: type[object]) -> T: ...
 
     def __get__(
-        self, instance: Optional[object], owner: type[object]
-    ) -> Union[ForeignKey[T], T]:
+        self, instance: object | None, owner: type[object]
+    ) -> ForeignKey[T] | T:
         """Return LazyLoader that loads related object on attribute access.
 
         If accessed on class (not instance), return the descriptor itself.

@@ -13,8 +13,9 @@ import sqlite3
 import sys
 import time
 from collections import OrderedDict
+from contextlib import suppress
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from typing_extensions import Self
 
@@ -106,18 +107,18 @@ class SqliterDB:
 
     def __init__(  # noqa: PLR0913
         self,
-        db_filename: Optional[str] = None,
+        db_filename: str | None = None,
         *,
         memory: bool = False,
         auto_commit: bool = True,
         debug: bool = False,
-        logger: Optional[logging.Logger] = None,
+        logger: logging.Logger | None = None,
         reset: bool = False,
         return_local_time: bool = True,
         cache_enabled: bool = False,
         cache_max_size: int = 1000,
-        cache_ttl: Optional[int] = None,
-        cache_max_memory_mb: Optional[int] = None,
+        cache_ttl: int | None = None,
+        cache_max_memory_mb: int | None = None,
     ) -> None:
         """Initialize a new SqliterDB instance.
 
@@ -153,7 +154,7 @@ class SqliterDB:
         self.auto_commit = auto_commit
         self.debug = debug
         self.logger = logger
-        self.conn: Optional[sqlite3.Connection] = None
+        self.conn: sqlite3.Connection | None = None
         self.reset = reset
         self.return_local_time = return_local_time
 
@@ -185,8 +186,8 @@ class SqliterDB:
             OrderedDict[
                 str,
                 tuple[
-                    Union[BaseDBModel, list[BaseDBModel], None],
-                    Optional[float],
+                    BaseDBModel | list[BaseDBModel] | None,
+                    float | None,
                 ],
             ],
         ] = OrderedDict()  # {table: {cache_key: (result, expiration)}}
@@ -200,7 +201,7 @@ class SqliterDB:
             self._reset_database()
 
     @property
-    def filename(self) -> Optional[str]:
+    def filename(self) -> str | None:
         """Returns the filename of the current database or None if in-memory."""
         return None if self.db_filename == self.MEMORY_DB else self.db_filename
 
@@ -437,7 +438,7 @@ class SqliterDB:
         table_name: str,
         cache_key: str,
         result: Any,  # noqa: ANN401
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
     ) -> None:
         """Store result in cache with optional expiration.
 
@@ -482,7 +483,7 @@ class SqliterDB:
         table_name: str,
         cache_key: str,
         result: Any,  # noqa: ANN401
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
     ) -> None:
         """Store a value in the query cache."""
         self._cache_set(table_name, cache_key, result, ttl=ttl)
@@ -631,6 +632,15 @@ class SqliterDB:
         self._cache.clear()
         self._cache_hits = 0
         self._cache_misses = 0
+
+    def __del__(self) -> None:
+        """Release an owned SQLite connection during finalization."""
+        conn = getattr(self, "conn", None)
+        if conn is None:
+            return
+
+        with suppress(sqlite3.Error, AttributeError, TypeError, RuntimeError):
+            conn.close()
 
     def commit(self) -> None:
         """Commit the current transaction.
@@ -944,7 +954,7 @@ class SqliterDB:
     def _create_indexes(
         self,
         model_class: type[BaseDBModel],
-        indexes: list[Union[str, tuple[str, ...]]],
+        indexes: list[str | tuple[str, ...]],
         *,
         unique: bool = False,
     ) -> None:
@@ -972,7 +982,7 @@ class SqliterDB:
     def create_indexes(
         self,
         model_class: type[BaseDBModel],
-        indexes: list[Union[str, tuple[str, ...]]],
+        indexes: list[str | tuple[str, ...]],
         *,
         unique: bool = False,
     ) -> None:
@@ -1123,9 +1133,9 @@ class SqliterDB:
         self,
         model_class: type[T],
         data: dict[str, Any],
-        pk: Optional[int] = None,
+        pk: int | None = None,
         *,
-        db_context: Optional[object] = None,
+        db_context: object | None = None,
     ) -> T:
         """Create a model instance from deserialized data.
 
@@ -1165,9 +1175,9 @@ class SqliterDB:
         self,
         model_class: type[T],
         data: dict[str, Any],
-        pk: Optional[int] = None,
+        pk: int | None = None,
         *,
-        db_context: Optional[object] = None,
+        db_context: object | None = None,
     ) -> T:
         """Create a model instance from raw database data."""
         return self._create_instance_from_data(
@@ -1517,7 +1527,7 @@ class SqliterDB:
         primary_key_value: int,
         *,
         bypass_cache: bool = False,
-        cache_ttl: Optional[int] = None,
+        cache_ttl: int | None = None,
     ) -> T | None:
         """Retrieve a single record from the database by its primary key.
 
@@ -1543,7 +1553,7 @@ class SqliterDB:
         if not bypass_cache:
             hit, cached = self._cache_get(get_plan.table_name, cache_key)
             if hit:
-                return cast("Optional[T]", cached)
+                return cast("T | None", cached)
 
         try:
             conn = self.connect()
@@ -1621,7 +1631,7 @@ class SqliterDB:
             raise RecordUpdateError(update_plan.table_name) from exc
 
     def delete(
-        self, model_class: type[BaseDBModel], primary_key_value: Union[int, str]
+        self, model_class: type[BaseDBModel], primary_key_value: int | str
     ) -> None:
         """Delete a record from the database by its primary key.
 
@@ -1711,8 +1721,8 @@ class SqliterDB:
     def select(
         self,
         model_class: type[T],
-        fields: Optional[list[str]] = None,
-        exclude: Optional[list[str]] = None,
+        fields: list[str] | None = None,
+        exclude: list[str] | None = None,
     ) -> QueryBuilder[T]:
         """Create a QueryBuilder instance for selecting records.
 
@@ -1753,9 +1763,9 @@ class SqliterDB:
 
     def __exit__(
         self,
-        exc_type: Optional[type[BaseException]],
-        exc_value: Optional[BaseException],
-        traceback: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
     ) -> None:
         """Exit the runtime context for the SqliterDB instance.
 

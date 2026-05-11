@@ -27,6 +27,8 @@ from sqliter.orm.registry import ModelRegistry
 from sqliter.sqliter import SqliterDB
 
 if TYPE_CHECKING:
+    from collections.abc import Generator
+
     from pydantic import GetCoreSchemaHandler
     from pytest_mock import MockerFixture
 
@@ -67,21 +69,27 @@ class Post(BaseDBModel):
 
 
 @pytest.fixture
-def db() -> SqliterDB:
+def db() -> Generator[SqliterDB, None, None]:
     """Create an in-memory database with Article and Tag tables."""
     database = SqliterDB(memory=True)
     database.create_table(Tag)
     database.create_table(Article)
-    return database
+    try:
+        yield database
+    finally:
+        database.close()
 
 
 @pytest.fixture
-def db_custom() -> SqliterDB:
+def db_custom() -> Generator[SqliterDB, None, None]:
     """Create an in-memory database with Post and Category tables."""
     database = SqliterDB(memory=True)
     database.create_table(Category)
     database.create_table(Post)
-    return database
+    try:
+        yield database
+    finally:
+        database.close()
 
 
 # ── TestManyToManyDescriptor ─────────────────────────────────────────
@@ -459,8 +467,8 @@ class TestJunctionTableCreation:
                 return self._cursor.execute(sql, params)
 
         class DummyConn:
-            def __init__(self) -> None:
-                self._conn = sqlite3.connect(":memory:")
+            def __init__(self, conn: sqlite3.Connection) -> None:
+                self._conn = conn
 
             def cursor(self) -> DummyCursor:
                 return DummyCursor(self._conn.cursor())
@@ -469,22 +477,20 @@ class TestJunctionTableCreation:
                 self._conn.commit()
 
         class DummyDB(SqliterDB):
-            def __init__(self) -> None:
-                super().__init__(memory=True)
-
             def connect(self) -> sqlite3.Connection:
-                return cast("sqlite3.Connection", DummyConn())
+                return cast("sqlite3.Connection", dummy_conn)
 
-        with pytest.raises(
-            TableCreationError,
-            match="articles_tags",
-        ):
-            create_junction_table(
-                DummyDB(),
-                "articles_tags",
-                "articles",
-                "tags",
-            )
+        raw_conn = sqlite3.connect(":memory:")
+        dummy_conn = DummyConn(raw_conn)
+        dummy_db = DummyDB(memory=True)
+        try:
+            with pytest.raises(TableCreationError, match="articles_tags"):
+                create_junction_table(
+                    dummy_db, "articles_tags", "articles", "tags"
+                )
+        finally:
+            raw_conn.close()
+            dummy_db.close()
 
 
 # ── TestManyToManyAdd ────────────────────────────────────────────────

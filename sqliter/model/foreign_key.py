@@ -7,7 +7,7 @@ dataclass for defining foreign key relationships between models.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import Field
 
@@ -41,8 +41,8 @@ class ForeignKeyInfo:
     on_update: FKAction
     null: bool
     unique: bool
-    related_name: Optional[str]
-    db_column: Optional[str]
+    related_name: str | None
+    db_column: str | None
 
 
 def ForeignKey(  # noqa: N802, PLR0913
@@ -52,8 +52,8 @@ def ForeignKey(  # noqa: N802, PLR0913
     on_update: FKAction = "RESTRICT",
     null: bool = False,
     unique: bool = False,
-    related_name: Optional[str] = None,
-    db_column: Optional[str] = None,
+    related_name: str | None = None,
+    db_column: str | None = None,
     default: Any = ...,  # noqa: ANN401
     **kwargs: Any,  # noqa: ANN401
 ) -> Any:  # noqa: ANN401
@@ -133,7 +133,7 @@ def ForeignKey(  # noqa: N802, PLR0913
     return Field(default=default, json_schema_extra=existing_extra, **kwargs)
 
 
-def get_foreign_key_info(field_info: FieldInfo) -> Optional[ForeignKeyInfo]:
+def get_foreign_key_info(field_info: FieldInfo) -> ForeignKeyInfo | None:
     """Extract ForeignKeyInfo from a field if it's a foreign key.
 
     Args:

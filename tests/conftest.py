@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
@@ -56,8 +56,8 @@ class ExampleModel(BaseDBModel):
 class PersonModel(BaseDBModel):
     """Model to test advanced filters."""
 
-    name: Optional[str]
-    age: Optional[int]
+    name: str | None
+    age: int | None
 
     class Meta:
         """Configuration for the model."""
@@ -87,8 +87,8 @@ class ComplexModel(BaseDBModel):
     name: str
     age: float
     is_active: bool
-    score: Union[int, float]
-    nullable_field: Optional[str]
+    score: int | float
+    nullable_field: str | None
 
     class Meta:
         """Configuration for the model."""
@@ -97,15 +97,18 @@ class ComplexModel(BaseDBModel):
 
 
 @pytest.fixture
-def db_mock() -> SqliterDB:
+def db_mock() -> Generator[SqliterDB, None, None]:
     """Fixture to create a SqliterDB class with an in-memory SQLite database."""
     db = SqliterDB(memory_db)
     db.create_table(ExampleModel)
-    return db
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 @pytest.fixture
-def db_mock_adv() -> SqliterDB:
+def db_mock_adv() -> Generator[SqliterDB, None, None]:
     """Fixture to create a SqliterDB class with an in-memory SQLite database."""
     db = SqliterDB(memory_db)
     db.create_table(PersonModel)
@@ -114,11 +117,14 @@ def db_mock_adv() -> SqliterDB:
     db.insert(PersonModel(name="Bob", age=30))
     db.insert(PersonModel(name="Charlie", age=35))
 
-    return db
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 @pytest.fixture
-def db_mock_detailed() -> SqliterDB:
+def db_mock_detailed() -> Generator[SqliterDB, None, None]:
     """Fixture to create a SqliterDB class with detailed person data.
 
     This will be used to test advanced field selection.
@@ -157,11 +163,14 @@ def db_mock_detailed() -> SqliterDB:
         )
     )
 
-    return db
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 @pytest.fixture
-def db_mock_complex_debug() -> SqliterDB:
+def db_mock_complex_debug() -> Generator[SqliterDB, None, None]:
     """Return a memory-based db with debug=True using ComplexModel."""
     db = SqliterDB(":memory:", debug=True)
     db.create_table(ComplexModel)
@@ -195,7 +204,10 @@ def db_mock_complex_debug() -> SqliterDB:
             nullable_field=None,
         )
     )
-    return db
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 @pytest.fixture
