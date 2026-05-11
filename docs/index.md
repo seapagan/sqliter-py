@@ -30,7 +30,7 @@ database-like format without needing to learn SQL or use a full ORM.
 > The `async` feature is new. It is covered by tests and expected to work, but
 > treat it with some caution until it has seen a few releases of real-world use.
 >
-> See the [TODO](TODO.md) for planned features and improvements.
+> See the [TODO](todo/index.md) for planned features and improvements.
 
 ## Features
 
