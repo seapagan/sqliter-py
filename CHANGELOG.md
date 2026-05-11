@@ -5,6 +5,33 @@ project since the first release, with the latest changes at the top.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.0](https://github.com/seapagan/sqliter-py/releases/tag/0.21.0) (May 11, 2026)
+
+**Breaking Changes**
+
+- Drop Python 3.9 support ([#150](https://github.com/seapagan/sqliter-py/pull/150)) by [seapagan](https://github.com/seapagan)
+
+**New Features**
+
+- Add asyncio support ([#149](https://github.com/seapagan/sqliter-py/pull/149)) by [seapagan](https://github.com/seapagan)
+
+**Security**
+
+- Update several deps to fix security alerts ([#152](https://github.com/seapagan/sqliter-py/pull/152)) by [seapagan](https://github.com/seapagan)
+
+**Documentation**
+
+- Migrate license metadata to latest standards ([#151](https://github.com/seapagan/sqliter-py/pull/151)) by [seapagan](https://github.com/seapagan)
+
+**Dependency Updates**
+
+- Chore(deps): update astral-sh/setup-uv action to v8 ([#148](https://github.com/seapagan/sqliter-py/pull/148)) by [renovate[bot]](https://github.com/apps/renovate)
+- Chore(deps): update dependency pygments to v2.20.0 [security] ([#146](https://github.com/seapagan/sqliter-py/pull/146)) by [renovate[bot]](https://github.com/apps/renovate)
+- Chore(deps): update dependency uv_build to >=0.11.12,<0.12.0 ([#144](https://github.com/seapagan/sqliter-py/pull/144)) by [renovate[bot]](https://github.com/apps/renovate)
+- Update 2 dev-only packages packages to clear securtity alerts ([#143](https://github.com/seapagan/sqliter-py/pull/143)) by [seapagan](https://github.com/seapagan)
+
+[`Full Changelog`](https://github.com/seapagan/sqliter-py/compare/0.20.0...0.21.0) | [`Diff`](https://github.com/seapagan/sqliter-py/compare/0.20.0...0.21.0.diff) | [`Patch`](https://github.com/seapagan/sqliter-py/compare/0.20.0...0.21.0.patch)
+
 ## [0.20.0](https://github.com/seapagan/sqliter-py/releases/tag/0.20.0) (March 11, 2026)
 
 **Closed Issues**
