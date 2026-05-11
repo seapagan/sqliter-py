@@ -19,7 +19,7 @@ cffi==2.0.0 ; platform_python_implementation != 'PyPy'
     #   pynacl
 charset-normalizer==3.4.2
     # via requests
-click==8.2.1
+click==8.3.3
     # via
     #   mkdocs
     #   typer
@@ -126,7 +126,7 @@ pygments==2.20.0
     #   rich
 pyjwt==2.12.1
     # via pygithub
-pymdown-extensions==10.20
+pymdown-extensions==10.21.2
     # via mkdocs-material
 pynacl==1.6.2
     # via pygithub
